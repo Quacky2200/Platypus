@@ -10,6 +10,7 @@ pub use glam;
 /// (0 is the screen, smaller ids are world panels).
 pub const WINDOW_TARGET: u32 = 0x4000_0000;
 
+mod alpha;
 mod assets;
 pub mod glob;
 pub mod icon;
@@ -21,6 +22,7 @@ pub mod project;
 pub mod project_edit;
 mod value;
 
+pub use alpha::bleed_transparent;
 pub use assets::{
     AssetFs, RangeRead, asset_fs, decode_data_url, plan_warning, read_asset, read_asset_string,
     resolve_asset, resolve_asset_quiet, set_asset_fs, set_pack_plan, with_asset_fs,
