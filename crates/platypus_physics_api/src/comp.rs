@@ -197,10 +197,19 @@ impl Jt {
             anchor: V3::ZERO,
             connected_anchor: V3::ZERO,
             auto_anchor: true,
-            axis: V3 {
-                x: 1.0,
-                y: 0.0,
-                z: 0.0,
+            // A 2D hinge turns about z.
+            axis: if kind == "hinge2d" {
+                V3 {
+                    x: 0.0,
+                    y: 0.0,
+                    z: 1.0,
+                }
+            } else {
+                V3 {
+                    x: 1.0,
+                    y: 0.0,
+                    z: 0.0,
+                }
             },
             use_limits: false,
             min: -90.0,
@@ -1076,7 +1085,7 @@ pub(crate) fn joint_build(h: u32) {
         with_joint(h, |jj| jj.connected_anchor = connected_anchor);
     }
     let params: Vec<f64> = match j.kind {
-        "hinge" => vec![
+        "hinge" | "hinge2d" => vec![
             j.axis.x,
             j.axis.y,
             j.axis.z,
@@ -1113,7 +1122,15 @@ pub(crate) fn joint_build(h: u32) {
         "rope" => vec![j.max_distance],
         _ => Vec::new(),
     };
-    let id = create_joint_raw(j.kind, body, other_body, anchor, connected_anchor, &params);
+    let world_kind = if j.kind == "hinge2d" { "hinge" } else { j.kind };
+    let id = create_joint_raw(
+        world_kind,
+        body,
+        other_body,
+        anchor,
+        connected_anchor,
+        &params,
+    );
     with_joint(h, |j| j.joint = id);
 }
 

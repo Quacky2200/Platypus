@@ -15,6 +15,7 @@
 use crate::comp::{self, Data, Jt, RopeD, with_joint, with_rope};
 use crate::*;
 use platypus_api::platypus_api;
+use platypus_math::V2;
 
 fn jg<R: Default>(h: u32, f: impl FnOnce(&Jt) -> R) -> R {
     with_joint(h, |j| f(j)).unwrap_or_default()
@@ -60,11 +61,13 @@ pub(crate) fn count_joints() -> u32 {
         FixedJoint = FixedJointRef,
         CharacterJoint = CharacterJointRef,
         HingeJoint = HingeJointRef,
+        HingeJoint2D = HingeJoint2DRef,
+        Rigidbody2D = Rigidbody2DRef,
         SpringJoint = SpringJointRef,
         RopeJoint = RopeJointRef,
         Rope = RopeRef
     ),
-    values(Vector3 = V3 [x: f64, y: f64, z: f64])
+    values(Vector2 = V2 [x: f64, y: f64], Vector3 = V3 [x: f64, y: f64, z: f64])
 )]
 pub mod joints_api {
     use super::*;
@@ -317,6 +320,145 @@ pub mod joints_api {
 
         pub fn set_motor_force(self, f: f64) {
             jset(self.0, |j| j.force = f);
+        }
+    }
+
+    /// A hinge in the XY plane (Unity's `HingeJoint2D`): this object's `Rigidbody2D` turns about z
+    /// around `anchor`, a point in this object's space. `connectedBody` is another `Rigidbody2D`,
+    /// or the world when none. `useLimits` keeps the angle between `limitsMin` and `limitsMax`
+    /// degrees.
+    impl HingeJoint2DRef {
+        /// Adds a HingeJoint2D to a GameObject.
+        pub fn attach(object: ObjectId) -> HingeJoint2DRef {
+            HingeJoint2DRef(joint_attach(object, "hinge2d"))
+        }
+
+        /// The HingeJoint2D on an object, or none.
+        pub fn find_on(object: ObjectId) -> HingeJoint2DRef {
+            HingeJoint2DRef(find_joint(object, "hinge2d"))
+        }
+
+        #[property]
+        pub fn game_object(self) -> ObjectId {
+            comp::comp_object(self.0)
+        }
+
+        /// The Rigidbody2D this joins to (none: the world).
+        #[property]
+        pub fn connected_body(self) -> Rigidbody2DRef {
+            Rigidbody2DRef(jg(self.0, |j| j.connected))
+        }
+
+        pub fn set_connected_body(self, rb: Rigidbody2DRef) {
+            jset(self.0, |j| j.connected = rb.0);
+        }
+
+        /// In this object's space (scaled by its scale).
+        #[property]
+        pub fn anchor(self) -> V2 {
+            jg(self.0, |j| V2 {
+                x: j.anchor.x,
+                y: j.anchor.y,
+            })
+        }
+
+        pub fn set_anchor(self, a: V2) {
+            jset(self.0, |j| {
+                j.anchor = V3 {
+                    x: a.x,
+                    y: a.y,
+                    z: 0.0,
+                }
+            });
+        }
+
+        /// In the connected body's space (or the world's).
+        #[property]
+        pub fn connected_anchor(self) -> V2 {
+            jg(self.0, |j| V2 {
+                x: j.connected_anchor.x,
+                y: j.connected_anchor.y,
+            })
+        }
+
+        pub fn set_connected_anchor(self, a: V2) {
+            jset(self.0, |j| {
+                j.connected_anchor = V3 {
+                    x: a.x,
+                    y: a.y,
+                    z: 0.0,
+                }
+            });
+        }
+
+        #[property]
+        pub fn auto_configure_connected_anchor(self) -> bool {
+            with_joint(self.0, |j| j.auto_anchor).unwrap_or(true)
+        }
+
+        pub fn set_auto_configure_connected_anchor(self, on: bool) {
+            jset(self.0, |j| j.auto_anchor = on);
+        }
+
+        #[property]
+        pub fn use_limits(self) -> bool {
+            jg(self.0, |j| j.use_limits)
+        }
+
+        pub fn set_use_limits(self, on: bool) {
+            jset(self.0, |j| j.use_limits = on);
+        }
+
+        /// The hinge's range in degrees.
+        #[property]
+        pub fn limits_min(self) -> f64 {
+            jg(self.0, |j| j.min)
+        }
+
+        pub fn set_limits_min(self, d: f64) {
+            jset(self.0, |j| j.min = d);
+        }
+
+        #[property]
+        pub fn limits_max(self) -> f64 {
+            jg(self.0, |j| j.max)
+        }
+
+        pub fn set_limits_max(self, d: f64) {
+            jset(self.0, |j| j.max = d);
+        }
+
+        #[property]
+        pub fn use_motor(self) -> bool {
+            jg(self.0, |j| j.use_motor)
+        }
+
+        pub fn set_use_motor(self, on: bool) {
+            jset(self.0, |j| j.use_motor = on);
+        }
+
+        /// Degrees per second.
+        #[property]
+        pub fn motor_target_velocity(self) -> f64 {
+            jg(self.0, |j| j.target_velocity)
+        }
+
+        pub fn set_motor_target_velocity(self, v: f64) {
+            jset(self.0, |j| j.target_velocity = v);
+        }
+
+        /// How hard the motor pushes towards that speed.
+        #[property]
+        pub fn motor_force(self) -> f64 {
+            jg(self.0, |j| j.force)
+        }
+
+        pub fn set_motor_force(self, f: f64) {
+            jset(self.0, |j| j.force = f);
+        }
+
+        pub fn destroy(self) {
+            comp::joint_destroy(self.0);
         }
     }
 

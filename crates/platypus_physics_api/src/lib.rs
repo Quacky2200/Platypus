@@ -61,6 +61,7 @@ number_handle!(
     FixedJointRef,
     CharacterJointRef,
     HingeJointRef,
+    HingeJoint2DRef,
     SpringJointRef,
     RopeJointRef,
     RopeRef,
