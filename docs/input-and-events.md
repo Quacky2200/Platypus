@@ -417,7 +417,9 @@ into pending sums that roll over once per tick with the key press sets, so `mous
 `mouseScrollDelta` are this tick's totals. `mouseDelta` has y **up** positive (raw device y is down).
 `getMouseButton(n)`, `getMouseButtonDown(n)` and `getMouseButtonUp(n)` use Unity's numbers (0 left,
 1 right, 2 middle). `getAxis("Mouse X")` and `"Mouse Y"` are the delta times `0.1` (Unity's default
-sensitivity), and `"Mouse ScrollWheel"` is the wheel's y times `0.1`. Lock the cursor with
+sensitivity), and `"Mouse ScrollWheel"` is the wheel's y times `0.1`. `getAxis("Horizontal")` and `"Vertical"` ease
+their keys like Unity's default axes (3 per second up and down; reversing restarts from 0; the stick is not eased);
+`getAxisRaw` snaps to -1 / 0 / 1 (`RDY-INP-01`). Lock the cursor with
 `Cursor.lockState` for mouse look ([above](#script-cursor-m5a2)).
 
 ### UI navigation

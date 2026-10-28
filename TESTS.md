@@ -2298,3 +2298,26 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M3-INS-20 | Unit | `inspect_rule_matches` names the elements a rule styles (a pseudo-element rule: its owners); unknown sheet or rule: none. |
 | M3-INS-21 | Unit | Highlights (node or rule) and the box focus reach the host and the highlighted boxes come back. |
 | M3-INS-22 | Unit | Text copied from the inspector (`UiInspector.copy`) waits for the host; dropped when the inspector is off. |
+
+## Readiness port (text effects, 2D physics, colour space)
+
+| ID | Kind | Checks |
+|---|---|---|
+| RDY-EVT-01 | Unit | `EventList` (no type arguments): listeners run in order; `addListener` returns a token and `removeListener(token)` removes that one; a throwing listener doesn't stop the rest; a listener may remove itself. |
+| RDY-PHY-01 | Unit + integration | `Physics2D.ignoreCollision`: two ignored colliders pass through each other (rapier pair filter in `platypus_physics`; `set_ignored` in `platypus_physics_api`), also after one collider is rebuilt; `false` lifts it and the contact returns. |
+| RDY-PHY-02 | Unit | `HingeJoint2D` (kind `hinge2d`) hinges about +z and connects `Rigidbody2D`s; a hung body swings when pushed. |
+| RDY-PHY-04 | Unit | `Rigidbody2D.addForce(..., Impulse)` changes `velocity` at once (native reads rapier live), not after the next step. |
+| RDY-PHY-05 | Unit + integration | A body without colliders gets rotational inertia from the box its object's scale stands for (`set_mass(id, mass, size)`), so a hinged chain pushed before the first step swings (also with limits of -45..225 degrees). |
+| RDY-RND-01 | Unit | `colorSpace: "srgb"` in `project.json`: world colours (sprites, materials, lights, text meshes, lines, particles, the camera background) are converted from sRGB to linear on the way to the renderer; alpha is never converted. |
+| RDY-RND-02 | Unit | `bleed_transparent`: fully transparent pixels take the average colour of their nearest visible neighbours (within the radius), alpha never changes, bad sizes are ignored; textures are bled on load and when cooked. |
+| RDY-RND-03 | Headless render | `WorldQuad.flat` quads (2D sprites) write no depth, so sprites at one depth aren't cut by the rounding error in a tilt. |
+| RDY-TEX-01 | Unit | `SpriteRenderer.drawMode`: `tiled` repeats the tile across `size` and cuts it off at the edge; `sliced` keeps the corners (from `Sprite.border`) and stretches the rest (`sprite_quads`). |
+| RDY-TEX-02 | Integration | `Texture.load` returns the same texture for the same file and settings (a scene loaded again shares it). |
+| RDY-INP-01 | Integration | `input.getAxis("Horizontal" / "Vertical")` eases keys like Unity's default axes (3 per second); `getAxisRaw` snaps; sticks aren't eased. |
+| RDY-TXT-01 | Unit | `textEffect` names combine (`wavy rainbow`), `none` clears, an unknown name is refused, and only the always-on ones are ambient. |
+| RDY-TXT-02 | Unit | Glyphs not yet reached by `textReveal` are invisible, a fresh one is part way through its entrance, and an old one has no effect left (a blink may be out for a moment). |
+| RDY-TXT-03 | Unit | Always-on effects follow the clock and the glyph's index (wavy offsets differ over time and along the line; rainbow overrides the hue). |
+| RDY-TXT-04 | Headless render | `textReveal: 4` draws only the first four glyphs, at the positions they have in the full text; `0` draws nothing. |
+| RDY-TXT-05 | Unit | `UiTree::is_animating` is true only while text with an always-on effect is drawn (not for entrances like `drop`, nor plain text). |
+| RDY-TXT-06 | Unit | Entrances keep their shapes: fade only fades; zoom-in grows from nothing, zoom-out shrinks from double; drop overshoots; pixar bounce arrives from the right and hops; blink is fully on or off, random per glyph while arriving, then lit with rare dips. |
+| RDY-TXT-07 | Headless render | Glyphs age by real time (`UiRenderer::set_effect_time`) from when they were first drawn shown: settled glyphs match plain text when a fourth appears (still arriving), and after a pause with the reveal unchanged it has finished arriving. |

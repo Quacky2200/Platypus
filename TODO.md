@@ -2350,6 +2350,21 @@ Left:
   wider TypeScript (T2, S1-S9, A1-A2). Also T14 (an engine subclass handle to its base).
 - [x] **Replace `scripts/screenshots.ts` and `scripts/progress-shots.ts` with Rust tools under `tests/tools/`** (2026-10-28: `tests/tools/shots`, `screenshots` and `progress-shots`; `scripts/` and the root `package.json` bun script are gone).
 
+## Readiness port (from `readiness-iron-backup`)
+
+Ported by hand onto Platypus (tests `RDY-*` in TESTS.md):
+- [x] Per-glyph text effects (`textEffect`, `textReveal`, glyph clock in the renderer, `UiTree::is_animating`)
+- [x] `PLATYPUS_PROFILE=1` frame profiler
+- [x] Flat sprites (`WorldQuad.flat`); `SpriteRenderer.drawMode` / `size`, `Sprite.border`
+- [x] `Physics2D.ignoreCollision`, `ForceMode2D`, 2D collider `bounds` / `closestPoint`, `HingeJoint2D`, box inertia for collider-less bodies, live 2D impulse velocity
+- [x] `Camera.allCameras`, `EventList` (no type arguments), eased input axes
+- [x] `colorSpace` in `project.json`, alpha bleeding on load and cook (cook VERSION 2), shared `Texture.load`
+
+Not ported:
+- [ ] Animating properties of script (compiled) components by base class and nested paths: the native host passes no `PropertySink` to `animation::update_culled`. Repro: an Animator clip with property `colors.normalColor.a` on a game-defined class does nothing natively.
+- [ ] `EventList<T>` with arguments
+- [ ] `GraphicsSettings.colorSpace` getter
+
 ## Code review (after the platypus_ts branch is merged into `main`)
 
 Most of this branch (about 300 commits) was written by agents and checked by tests, ratchets and snapshots, which catch regressions but not design drift. Once `claude/recursing-wright-856ffa` is merged into `main` (the user decides squash or merge as-is), do a human-readable review pass:

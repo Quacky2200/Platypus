@@ -247,7 +247,7 @@ stack, other objects as JSON (cycles marked). `Log.trace` is `console.debug`.
 **Input**. On top of the keyboard and gamepad state
 ([input-and-events.md](input-and-events.md#gamepads-and-game-input-m3c-step-6)): `getKey`,
 `getKeyDown` and `getKeyUp` (true for one tick; key repeats are not presses), `getAxis("Horizontal" |
-"Vertical")` (keys and left stick, the larger wins), `getButton` and `getButtonDown` (`Jump`, `Fire1`,
+"Vertical")` (keys and left stick, the larger wins; keys ease at 3 per second like Unity, `getAxisRaw` snaps, sticks are not eased; `RDY-INP-01`), `getButton` and `getButtonDown` (`Jump`, `Fire1`,
 `Fire2`, `Submit`, `Cancel`; `getButtonDown` is keys only for now). The mouse: `mousePosition`
 (UI pixels), `mouseDelta`, `mouseScrollDelta`, `getMouseButton`/`Down`/`Up` and the axes `"Mouse X"`,
 `"Mouse Y"` and `"Mouse ScrollWheel"` ([details](input-and-events.md#the-mouse-for-gameplay-m5a2)).

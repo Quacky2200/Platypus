@@ -44,6 +44,13 @@ physics). What is left out or differs:
 | Contact points | Halfway between the two surfaces; points within rapier's prediction distance count (`separation` may be a little above 0); none in Exit or trigger hooks | PhysX: on the surface, within `contactOffset` | rapier's manifolds |
 | Trigger hooks | Get the other `Collider` / `Collider2D`; one whose parameter is typed `Collision` gets a `Collision` (no contact points) | Always the `Collider` | Older Platypus games typed it that way |
 
+## Events and input (readiness port)
+
+| Area | Platypus | Unity | Why |
+|---|---|---|---|
+| `EventList` | No type arguments (`EventList<T>` is not ported); `addListener` returns a token and `removeListener(token)` takes it | Unity's `UnityEvent<T>`, `RemoveListener(callback)` | No generics across the native boundary |
+| `input.getAxis("Horizontal" / "Vertical")` | Keys ease at 3 per second; `getAxisRaw` snaps; sticks are not eased | Same for keys | Matches Unity's default axes |
+
 ## Native Shapes, Spline and SplineAnimate (2026-10-22)
 
 They were TypeScript (`js/engine`, and a compiled copy in `facade.ts`); they are native Rust now, called by compiled code.
@@ -391,3 +398,4 @@ The ahead-of-time compiler gives JavaScript's answer, with these exceptions (see
 | `text-overflow: ellipsis` | Cuts whole glyphs; uses the block's style for the `…` | Same, but uses the style at the cut | Close enough for UI text |
 | `background-clip: text` | Fills the element's own text only, with the topmost gradient layer | Descendants' text too, all layers | |
 | `text-decoration` | Inherited (it propagates visually anyway) | Not inherited, but propagates | Same result in practice |
+| `textEffect`, `textReveal` | Per-glyph entrances and always-on effects (`docs/ui-tree.md`); not drawn by the CPU renderer | Not CSS | A game feature (s&box-style) |
