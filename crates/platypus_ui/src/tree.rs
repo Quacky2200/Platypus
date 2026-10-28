@@ -387,6 +387,8 @@ pub struct UiTree<L: LayoutEngine = TaffyLayout> {
     layout: L,
     size: (f32, f32),
     needs_layout: bool,
+    /// Whether the last draw list had text whose effect follows the clock.
+    effects_live: std::cell::Cell<bool>,
     /// Absolute rects from the last layout, for drawing and hit testing. Content of a
     /// scroll container is shifted by its scroll offset.
     rects: HashMap<NodeId, Rect>,
@@ -529,6 +531,7 @@ impl<L: LayoutEngine> UiTree<L> {
             layout,
             size: (width, height),
             needs_layout: true,
+            effects_live: std::cell::Cell::new(false),
             rects: HashMap::default(),
             scroll: HashMap::default(),
             smooth_scrolls: HashMap::default(),
@@ -2111,7 +2114,8 @@ impl<L: LayoutEngine> UiTree<L> {
     /// Whether any transition or smooth scroll is running (the app keeps drawing frames
     /// while so).
     pub fn is_animating(&self) -> bool {
-        !self.smooth_scrolls.is_empty()
+        self.effects_live.get()
+            || !self.smooth_scrolls.is_empty()
             || self.motion.values().any(crate::motion::Motion::is_moving)
     }
 
@@ -4191,6 +4195,7 @@ impl<L: LayoutEngine> UiTree<L> {
     /// are skipped. A node with opacity but nothing to group just scales its alpha.
     pub fn draw_list(&mut self) -> Vec<DrawCmd> {
         self.layout_if_needed();
+        self.effects_live.set(false);
         let mut out = DrawOut::default();
         self.collect(
             ROOT,
@@ -4472,6 +4477,12 @@ impl<L: LayoutEngine> UiTree<L> {
                 None => text::draw(layout, origin),
             };
             cmd.fill = text_fill.map(|image| (image, rect));
+            cmd.effect = text.effect;
+            cmd.reveal = text.reveal;
+            cmd.node = id.raw();
+            if text.effect.is_ambient() {
+                self.effects_live.set(true);
+            }
             if !cmd.runs.is_empty() || !cmd.decorations.is_empty() {
                 // Text shadows: tinted copies under the text, last shadow lowest.
                 for s in text.text_shadow.iter().rev() {

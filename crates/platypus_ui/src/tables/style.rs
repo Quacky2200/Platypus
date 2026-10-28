@@ -1075,6 +1075,18 @@ same-shaped transforms, filters and shadows animate; other properties change at 
     ),
     sp(
         "",
+        "textEffect",
+        STR,
+        r#"Per-glyph effects drawn by the renderer (the typewriter look): names separated by spaces, or `none`; they combine. Entrances: `fade default drop zoom-in zoom-out slide-left slide-right slide-up slide-down blink`. One-shots after a glyph appears: `bounce pixar-bounce hop rope pulse haunted`. Always on: `wavy rainbow insanity faulty shake-x shake-y swing`, and `cursor` (a block at the first unrevealed glyph). They run from the moment `textReveal` first shows a glyph. Inherited."#,
+    ),
+    sp(
+        "",
+        "textReveal",
+        &[Num, Lit("all")],
+        r#"How many glyphs are shown (a fraction eases the last in); `all` (default) shows everything. Inherited."#,
+    ),
+    sp(
+        "",
         "fontSmooth",
         &[Lit("auto"), Lit("never"), Lit("always")],
         r#"`never` draws glyphs without anti-aliasing (pixel fonts). s&box keywords: `auto`, `never`, `always`."#,

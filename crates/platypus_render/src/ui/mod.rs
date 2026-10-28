@@ -14,6 +14,7 @@
 
 mod atlas;
 pub mod backend;
+pub mod glyph_clocks;
 pub mod glyphs;
 mod gradient;
 pub mod image_cache;
@@ -133,6 +134,8 @@ pub struct UiRenderer {
     images: ImageCache,
     image_textures: images::ImageTextures,
     atlas: GlyphAtlas,
+    /// When each glyph of animated text was first shown, and the clock for `text-effect`s.
+    glyph_clocks: glyph_clocks::GlyphClocks,
     blit_pipeline_layout: wgpu::PipelineLayout,
     /// By target format, whether the canvas blends over the target (overlay), and the
     /// conversion on the way.
@@ -148,6 +151,12 @@ pub struct UiRenderer {
 }
 
 impl UiRenderer {
+    /// Pins the clock `text-effect`s read (seconds), for repeatable renders; `None` goes back
+    /// to real time.
+    pub fn set_effect_time(&mut self, time: Option<f32>) {
+        self.glyph_clocks.set_time(time);
+    }
+
     pub fn new(gpu: &Gpu) -> Self {
         let device = &gpu.device;
         let quad_module = device.create_shader_module(wgpu::include_wgsl!("quad.wgsl"));
@@ -308,6 +317,7 @@ impl UiRenderer {
             images: ImageCache::default(),
             image_textures: images::ImageTextures::default(),
             atlas: GlyphAtlas::new(gpu),
+            glyph_clocks: glyph_clocks::GlyphClocks::default(),
             blit_pipeline_layout,
             blit_pipelines: HashMap::new(),
             sampler,
@@ -461,6 +471,7 @@ impl UiRenderer {
         self.images.begin_frame();
 
         self.atlas.begin_frame();
+        self.glyph_clocks.begin_frame();
 
         // --- Plan: the backend-neutral half (plan.rs). ---
         let plan = plan::plan(
@@ -475,6 +486,7 @@ impl UiRenderer {
             &mut WgpuResources {
                 atlas: &mut self.atlas,
                 images: &mut self.images,
+                clocks: &mut self.glyph_clocks,
             },
         );
         let plan::FramePlan {
@@ -1018,9 +1030,14 @@ impl UiRenderer {
 struct WgpuResources<'a> {
     atlas: &'a mut GlyphAtlas,
     images: &'a mut ImageCache,
+    clocks: &'a mut glyph_clocks::GlyphClocks,
 }
 
 impl plan::PlanResources for WgpuResources<'_> {
+    fn glyph_clocks(&mut self) -> &mut glyph_clocks::GlyphClocks {
+        self.clocks
+    }
+
     fn glyph(
         &mut self,
         run: &platypus_ui::GlyphRun,

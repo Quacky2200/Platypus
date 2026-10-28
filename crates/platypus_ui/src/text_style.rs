@@ -8,6 +8,7 @@
 //! strictly inherited in CSS, but it visually propagates to descendants, which is
 //! the same thing for us).
 
+use crate::text_effect::{REVEAL_ALL, TextEffect};
 use platypus_core::Value;
 
 use crate::Rgba;
@@ -474,6 +475,9 @@ pub struct TextProps {
     pub stroke_color: Option<Option<Rgba>>,
     /// `caretColor`: `Some(None)` is `auto` (the text colour).
     pub caret_color: Option<Option<Rgba>>,
+    /// `text-effect` and `text-reveal` (see `text_effect.rs`).
+    pub effect: Option<TextEffect>,
+    pub reveal: Option<f32>,
     /// `font-smooth` / `-webkit-font-smoothing`: `Some(false)` draws glyphs without
     /// anti-aliasing (crisp pixel fonts).
     pub smooth: Option<bool>,
@@ -532,6 +536,9 @@ pub struct ComputedText {
     pub stroke_color: Option<Rgba>,
     /// `None`: the text colour.
     pub caret_color: Option<Rgba>,
+    pub effect: TextEffect,
+    /// Glyphs shown (`REVEAL_ALL` when not set).
+    pub reveal: f32,
     pub smooth: bool,
     /// Images scale with nearest-neighbour sampling.
     pub pixelated: bool,
@@ -575,6 +582,8 @@ impl Default for ComputedText {
             stroke_width: 0.0,
             stroke_color: None,
             caret_color: None,
+            effect: TextEffect::NONE,
+            reveal: REVEAL_ALL,
             smooth: true,
             pixelated: false,
             visible: true,
@@ -645,6 +654,8 @@ impl ComputedText {
                 .map_or(self.stroke_width, |l| l.resolve(font_size).max(0.0)),
             stroke_color: props.stroke_color.unwrap_or(self.stroke_color),
             caret_color: props.caret_color.unwrap_or(self.caret_color),
+            effect: props.effect.unwrap_or(self.effect),
+            reveal: props.reveal.unwrap_or(self.reveal),
             smooth: props.smooth.unwrap_or(self.smooth),
             pixelated: props.pixelated.unwrap_or(self.pixelated),
             visible: props.visible.unwrap_or(self.visible),
@@ -730,6 +741,8 @@ pub const TEXT_PROPS: &[&str] = &[
     "textStrokeWidth",
     "textStrokeColor",
     "caretColor",
+    "textEffect",
+    "textReveal",
     "fontSmooth",
     "WebkitFontSmoothing",
     "imageRendering",
@@ -794,6 +807,8 @@ pub fn apply(props: &mut TextProps, prop: &str, value: &Value) -> Option<Result<
             "WebkitTextStrokeWidth" | "textStrokeWidth" => props.stroke_width = None,
             "WebkitTextStrokeColor" | "textStrokeColor" => props.stroke_color = None,
             "caretColor" => props.caret_color = None,
+            "textEffect" => props.effect = None,
+            "textReveal" => props.reveal = None,
             "fontSmooth" | "WebkitFontSmoothing" => props.smooth = None,
             "imageRendering" => props.pixelated = None,
             "visibility" => props.visible = None,
@@ -1004,6 +1019,15 @@ pub fn apply(props: &mut TextProps, prop: &str, value: &Value) -> Option<Result<
                 Some(c) if c.eq_ignore_ascii_case("currentcolor") => Some(None),
                 Some(c) => Rgba::parse(c).map(Some),
                 None => None,
+            }));
+        }
+        "textEffect" => props.effect = Some(parse!(s.and_then(TextEffect::parse))),
+        "textReveal" => {
+            props.reveal = Some(parse!(match (value.as_f64(), s) {
+                (Some(n), _) => Some(n as f32),
+                (None, Some("all" | "none")) => Some(REVEAL_ALL),
+                (None, Some(t)) => t.parse::<f32>().ok(),
+                _ => None,
             }));
         }
         "caretColor" => {
