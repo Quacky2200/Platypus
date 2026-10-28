@@ -585,3 +585,38 @@ fn an_impulse_changes_the_velocity_at_once() {
     h.add_force(V2 { x: 0.0, y: 5.0 }, 1.0);
     assert!(h.velocity().y > 1.0, "{:?}", h.velocity());
 }
+
+// RDY-PHY-02, RDY-PHY-05
+//
+// A collider-less Rigidbody2D hung from a HingeJoint2D (limits -45..225 degrees) swings out when
+// pushed: it has the inertia of the box its scale stands for.
+#[test]
+fn a_hinge_joint_2d_lets_a_collider_less_body_swing() {
+    let mut scene = setup();
+    let _scope = platypus_scene::api::enter(&mut scene);
+    let frame = make("frame");
+    place(frame, 0.0, 0.0, 0.0);
+    let frame_rb = comp::rb_attach(frame, true);
+    comp::rb_set_kind(frame_rb, "fixed");
+    let seat = make("seat");
+    place(seat, 0.0, -1.5, 0.0);
+    platypus_scene::api::with_scene(|s| {
+        let mut t = s.local(seat).unwrap();
+        t.scale = Vec3::new(0.05, 3.0, 1.0);
+        s.set_local(seat, t);
+    });
+    let rb = comp::rb_attach(seat, true);
+    let joint = crate::HingeJoint2DRef::attach(seat);
+    joint.set_connected_body(crate::Rigidbody2DRef(frame_rb));
+    joint.set_anchor(V2 { x: 0.0, y: 0.5 });
+    joint.set_use_limits(true);
+    joint.set_limits_min(-45.0);
+    joint.set_limits_max(225.0);
+    crate::Rigidbody2DRef(rb).add_force(V2 { x: 8.0, y: 0.0 }, 1.0);
+    let mut far = 0.0f32;
+    for _ in 0..90 {
+        step();
+        far = far.max(pos(seat).x);
+    }
+    assert!(far > 0.8, "the seat swung out {far} m");
+}
