@@ -17,7 +17,7 @@ export function mouse(): string {
 }
 
 export function axes(): string {
-  return `${f(input.getAxis("Horizontal"))},${f(input.getAxis("Vertical"))},${f(input.getAxis("Mouse X"))},${f(input.getAxis("Mouse Y"))},${f(input.getAxis("Mouse ScrollWheel"))},${f(input.getAxis("Nope"))}`;
+  return `${f(input.getAxisRaw("Horizontal"))},${f(input.getAxisRaw("Vertical"))},${f(input.getAxisRaw("Mouse X"))},${f(input.getAxisRaw("Mouse Y"))},${f(input.getAxisRaw("Mouse ScrollWheel"))},${f(input.getAxisRaw("Nope"))}`;
 }
 
 export function buttons(): string {
