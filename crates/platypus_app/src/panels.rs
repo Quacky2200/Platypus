@@ -360,6 +360,7 @@ impl Panels {
                 texture: Some(platypus_render::WorldTexture::Frame(views.len())),
                 uv: [0.0, 0.0, 1.0, 1.0],
                 additive: false,
+                flat: false,
                 order: 0,
                 layer: 0,
             };

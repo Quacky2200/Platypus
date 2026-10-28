@@ -108,6 +108,9 @@ struct State {
     objects: HashMap<ObjectId, comp::ObjPhys>,
     /// The collider component of each rapier collider it made.
     col_owner: HashMap<u32, u32>,
+    /// Collider components whose pairs don't collide (`Physics2D.ignoreCollision`), smaller
+    /// handle first; sent to the world again when either collider is rebuilt.
+    ignored: HashSet<(u32, u32)>,
     next_joint: u32,
     /// How deep 2D colliders are along z (`Physics2D.depth`).
     depth_2d: f64,
@@ -132,6 +135,7 @@ impl State {
             comps: Vec::new(),
             objects: HashMap::new(),
             col_owner: HashMap::new(),
+            ignored: HashSet::new(),
             next_joint: 0,
             depth_2d: 10.0,
             gravity_2d: [0.0, -9.81],
@@ -1049,6 +1053,7 @@ pub fn manifests() -> Vec<String> {
         physics_api::MANIFEST.to_json(),
         components::components_api::MANIFEST.to_json(),
         components::force_mode_api::MANIFEST.to_json(),
+        components::force_mode_2d_api::MANIFEST.to_json(),
         components::constraints_api::MANIFEST.to_json(),
         joints::joints_api::MANIFEST.to_json(),
         physics2d::physics2d_api::MANIFEST.to_json(),
