@@ -145,6 +145,7 @@ pub fn configure_engine(manifest: &info::Manifest, info: &info::Info) {
             .collect(),
     });
     platypus_render_api::set_physical_light_units(manifest.physical_units);
+    crate::color_space::set_srgb(manifest.srgb_colors);
     seed_asset_index(info);
     let sys = info.0.get("system").cloned().unwrap_or_default();
     let text = |k: &str| sys[k].as_str().unwrap_or_default().to_owned();
