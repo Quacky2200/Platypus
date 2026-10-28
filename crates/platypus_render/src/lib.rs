@@ -18,8 +18,8 @@ pub use offscreen::OffscreenTarget;
 pub use surface::WindowSurface;
 pub use ui::backend::UiBackend;
 pub use ui::{
-    Blending, CANVAS_FORMAT, RenderStats, RenderTarget, UiRenderer, canvas_format, glyphs,
-    image_cache, needs_backdrop, plan,
+    Blending, CANVAS_FORMAT, RenderStats, RenderTarget, UiRenderer, canvas_format, glyph_clocks,
+    glyphs, image_cache, needs_backdrop, plan,
 };
 pub use wgpu;
 pub use world::{

@@ -28,6 +28,7 @@ use std::path::PathBuf;
 
 use glow::HasContext;
 pub use platypus_render::Blending;
+use platypus_render::glyph_clocks::GlyphClocks;
 use platypus_render::glyphs::{COLOR_SIZE, GlyphCache, GlyphEntry, MASK_SIZE};
 use platypus_render::image_cache::{ImageCache, ImageUpload};
 use platypus_render::plan::{
@@ -159,6 +160,7 @@ pub struct GlesRenderer {
     /// Blurs average in linear light on sRGB canvases too (`set_linear_blur`).
     linear_blur: bool,
     glyphs: GlyphCache,
+    glyph_clocks: GlyphClocks,
     images: ImageCache,
     /// Image textures by the cache's key.
     image_textures: HashMap<String, glow::Texture>,
@@ -183,10 +185,15 @@ enum Finish {
 /// reach the textures in `execute`).
 struct Resources<'a> {
     glyphs: &'a mut GlyphCache,
+    clocks: &'a mut GlyphClocks,
     images: &'a mut ImageCache,
 }
 
 impl PlanResources for Resources<'_> {
+    fn glyph_clocks(&mut self) -> &mut GlyphClocks {
+        self.clocks
+    }
+
     fn glyph(
         &mut self,
         run: &platypus_ui::GlyphRun,
@@ -310,6 +317,7 @@ impl GlesRenderer {
                 blending: Blending::default(),
                 linear_blur: false,
                 glyphs: GlyphCache::new(),
+                glyph_clocks: GlyphClocks::default(),
                 images: ImageCache::default(),
                 image_textures: HashMap::new(),
                 seed: None,
@@ -375,9 +383,11 @@ impl GlesRenderer {
             return RenderStats::default();
         }
         self.glyphs.begin_frame();
+        self.glyph_clocks.begin_frame();
         self.images.begin_frame();
         let mut resources = Resources {
             glyphs: &mut self.glyphs,
+            clocks: &mut self.glyph_clocks,
             images: &mut self.images,
         };
         let frame = plan::plan(

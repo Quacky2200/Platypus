@@ -544,6 +544,9 @@ fn draw_lines(
         runs,
         decorations,
         fill: None,
+        effect: crate::text_effect::TextEffect::NONE,
+        reveal: crate::text_effect::REVEAL_ALL,
+        node: 0,
     }
 }
 

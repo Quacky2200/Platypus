@@ -9,6 +9,7 @@ use std::collections::HashMap;
 
 use platypus_core::{Commit, Value};
 use platypus_render::Color;
+use platypus_render::glyph_clocks::GlyphClocks;
 use platypus_render::glyphs::{GlyphCache, GlyphEntry};
 use platypus_render::plan::{
     Blending, FramePlan, ImageInfo, KIND_GLYPH, PlanParams, PlanResources, Step, needs_backdrop,
@@ -22,11 +23,16 @@ use platypus_ui::{DrawCmd, UiTree};
 #[derive(Default)]
 struct Fake {
     glyphs: GlyphCache,
+    clocks: GlyphClocks,
     images: HashMap<String, (u32, u32)>,
     glyph_calls: u32,
 }
 
 impl PlanResources for Fake {
+    fn glyph_clocks(&mut self) -> &mut GlyphClocks {
+        &mut self.clocks
+    }
+
     fn glyph(
         &mut self,
         run: &platypus_ui::GlyphRun,

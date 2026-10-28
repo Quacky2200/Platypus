@@ -26,6 +26,7 @@ pub mod svg;
 mod svg_path;
 pub mod tables;
 pub mod text;
+pub mod text_effect;
 pub mod text_style;
 pub mod transform;
 mod tree;
@@ -55,6 +56,7 @@ pub use style::{
     CURSORS, CursorImage, ScrollbarWidth, StyleError, Visual, WideKeyword, apply_style,
     apply_wide_keyword, is_inherited,
 };
+pub use text_effect::{GlyphFx, REVEAL_ALL, TextEffect};
 pub use tree::{
     AddedStylesheet, Inspected, InspectedDeclaration, InspectedInline, InspectedRule, ROOT,
     Scrollbar, TEXT_NODE, UiError, UiTree,

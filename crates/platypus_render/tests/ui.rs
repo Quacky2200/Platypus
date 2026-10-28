@@ -3082,3 +3082,118 @@ fn text_fields() {
     let pixels = target.read_pixels(&gpu).unwrap();
     assert_golden("M3-INP-01-fields", 320, 116, &pixels, TOLERANCE);
 }
+
+fn lit_pixels(f: &Frame, x0: u32, x1: u32) -> usize {
+    let height = (f.pixels.len() / 4) as u32 / f.width;
+    (0..height)
+        .flat_map(|y| (x0..x1).map(move |x| (x, y)))
+        .filter(|&(x, y)| f.luma(x, y) > 60.0)
+        .count()
+}
+
+fn reveal_scene(reveal: &'static str, effect: &'static str) -> Scene {
+    let mut s = Scene::new();
+    s.label(
+        0,
+        "MMMMMMMM",
+        &at(
+            4.0,
+            4.0,
+            150.0,
+            24.0,
+            &[
+                ("color", "white".into()),
+                ("fontSize", 16.0.into()),
+                ("whiteSpace", "nowrap".into()),
+                ("textReveal", reveal.into()),
+                ("textEffect", effect.into()),
+            ],
+        ),
+    );
+    s
+}
+
+// RDY-TXT-04
+#[test]
+fn text_reveal_shows_only_the_first_glyphs() {
+    let all = render(reveal_scene("all", "none"), (160, 32), 1.0, BLACK);
+    let half = render(reveal_scene("4", "none"), (160, 32), 1.0, BLACK);
+    let none = render(reveal_scene("0", "none"), (160, 32), 1.0, BLACK);
+    assert_eq!(lit_pixels(&none, 0, 160), 0, "nothing revealed");
+    let (a, h) = (lit_pixels(&all, 0, 160), lit_pixels(&half, 0, 160));
+    assert!(h > a / 3 && h < a * 2 / 3, "about half: {h} of {a}");
+    // The shown glyphs are where they are in the full text.
+    assert_eq!(lit_pixels(&half, 0, 40), lit_pixels(&all, 0, 40));
+}
+
+// RDY-TXT-05
+#[test]
+fn text_effects_keep_the_frame_drawing_only_when_they_move() {
+    for (effect, moving) in [("drop", false), ("wavy", true), ("none", false)] {
+        let s = reveal_scene("all", effect);
+        let mut tree = UiTree::new(160.0, 32.0);
+        tree.apply_commit(&Commit { ops: s.ops });
+        let _ = tree.draw_list();
+        assert_eq!(tree.is_animating(), moving, "{effect}");
+    }
+}
+
+/// Renders `reveal_scene`-style text with one renderer, so it remembers when glyphs appeared.
+fn render_at(ui: &mut UiRenderer, time: f32, reveal: &'static str, effect: &'static str) -> Frame {
+    let gpu = shared_gpu();
+    let mut tree = UiTree::new(160.0, 32.0);
+    let errors = tree.apply_commit(&Commit {
+        ops: reveal_scene(reveal, effect).ops,
+    });
+    assert!(errors.is_empty(), "{errors:?}");
+    tree.layout_if_needed();
+    ui.set_effect_time(Some(time));
+    let cmds = tree.draw_list();
+    let target = OffscreenTarget::with_format(&gpu, 160, 32, wgpu::TextureFormat::Rgba8UnormSrgb);
+    let view = target.view().unwrap();
+    ui.render(
+        &gpu,
+        &RenderTarget {
+            view: &view,
+            format: target.format(),
+            size: (160, 32),
+            scale: 1.0,
+        },
+        BLACK,
+        &cmds,
+    );
+    Frame {
+        pixels: target.read_pixels(&gpu).unwrap(),
+        width: 160,
+        stats: RenderStats::default(),
+    }
+}
+
+// RDY-TXT-07
+#[test]
+fn glyph_effects_age_by_time_from_when_a_glyph_first_appears() {
+    // (Each renderer is made on its own line: the shared GPU's guard must be dropped before
+    // `render_at` takes it again.)
+    let mut ui = UiRenderer::new(&shared_gpu());
+    let mut ui_plain = UiRenderer::new(&shared_gpu());
+    let plain4 = render_at(&mut ui_plain, 0.0, "4", "none");
+    let mut ui_plain3 = UiRenderer::new(&shared_gpu());
+    let plain3 = render_at(&mut ui_plain3, 0.0, "3", "none");
+    assert_ne!(lit_pixels(&plain3, 0, 160), lit_pixels(&plain4, 0, 160));
+
+    // Three glyphs appear at t = 0 and are long settled when the fourth appears at t = 3.
+    render_at(&mut ui, 0.0, "3", "slide-up");
+    let arriving = render_at(&mut ui, 3.0, "4", "slide-up");
+    assert_eq!(
+        lit_pixels(&arriving, 0, 40),
+        lit_pixels(&plain4, 0, 40),
+        "first glyphs settled"
+    );
+    assert_ne!(
+        arriving.pixels, plain4.pixels,
+        "the fourth is still arriving"
+    );
+    // The typing pauses (the reveal stays at 4); the fourth glyph finishes arriving on the clock.
+    let later = render_at(&mut ui, 4.0, "4", "slide-up");
+    assert_eq!(later.pixels, plain4.pixels, "settled after the pause");
+}

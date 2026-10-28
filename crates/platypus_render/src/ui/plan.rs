@@ -21,6 +21,7 @@ use platypus_ui::{
     ClipShape, DrawCmd, Rect, Rgba, border_image_axis, is_svg, repeat_tiles, tile_rect,
 };
 
+use super::glyph_clocks::{GlyphClocks, hue_color};
 use super::glyphs::{GlyphEntry, SUBPIXEL_BINS};
 use super::gradient;
 pub use super::gradient::GpuGradient;
@@ -295,6 +296,9 @@ pub trait PlanResources {
         subpixel: u8,
         stroke_px: f32,
     ) -> Option<GlyphEntry>;
+
+    /// When the glyphs of animated text were first shown (`text-effect`, `text-reveal`).
+    fn glyph_clocks(&mut self) -> &mut GlyphClocks;
 
     /// The image at `url`, loading it if needed (`None` if it can't be loaded).
     fn image(&mut self, url: &str) -> Option<ImageInfo>;
@@ -598,20 +602,83 @@ pub fn plan(cmds: &[DrawCmd], params: &PlanParams, res: &mut dyn PlanResources) 
                     gradients.push(g);
                     Some(((gradients.len() - 1) as f32, rect4(rect)))
                 });
+                let mut glyph_index = 0usize;
+                // Where the next glyph will appear: the `cursor` effect's block goes there.
+                let mut cursor: Option<(f32, f32, f32, Rgba)> = None;
+                // Glyphs of an animated element age from when this renderer first drew them
+                // shown, so a pause in the typing doesn't hold their animation.
+                let now = res.glyph_clocks().time();
+                let animated = !text.effect.is_none() || !text.reveal.is_infinite();
+                let mut shown_at = if animated {
+                    res.glyph_clocks().take(text.node, now)
+                } else {
+                    Vec::new()
+                };
                 for run in &text.runs {
-                    let color = pm(run.color);
-                    let size_px = run.font_size * gs * scale;
+                    let run_color = pm(run.color);
                     for g in &run.glyphs {
+                        // `text-effect` / `text-reveal`: this glyph's offset, scale, fade
+                        // and hue (in ems of the run's font size).
+                        let fx = if animated {
+                            if shown_at.len() <= glyph_index {
+                                shown_at.resize(glyph_index + 1, f32::NAN);
+                            }
+                            if text.reveal > glyph_index as f32 {
+                                if shown_at[glyph_index].is_nan() {
+                                    shown_at[glyph_index] = if text.reveal.is_infinite() {
+                                        f32::NEG_INFINITY
+                                    } else {
+                                        now
+                                    };
+                                }
+                                text.effect
+                                    .eval(glyph_index, now - shown_at[glyph_index], now)
+                            } else {
+                                shown_at[glyph_index] = f32::NAN;
+                                platypus_ui::GlyphFx {
+                                    alpha: 0.0,
+                                    ..Default::default()
+                                }
+                            }
+                        } else {
+                            platypus_ui::GlyphFx::default()
+                        };
+                        glyph_index += 1;
+                        if animated
+                            && text.effect.has_cursor()
+                            && cursor.is_none()
+                            && text.reveal <= (glyph_index - 1) as f32
+                        {
+                            cursor = Some((g.x, g.y, run.font_size, run.color));
+                        }
+                        if fx.alpha <= 0.0 || fx.scale < 0.05 {
+                            continue;
+                        }
+                        let mut color = match fx.hue {
+                            Some(h) => pm(hue_color(h, run.color.a)),
+                            None => run_color,
+                        };
+                        if fx.alpha < 1.0 {
+                            color = color.map(|c| c * fx.alpha);
+                        }
+                        let size_px = run.font_size * gs * scale * fx.scale;
                         // Snap to whole pixels vertically and to quarter pixels
                         // horizontally (the subpixel offset is baked into the glyph).
-                        let px = (g.x * gs + gx) * scale;
+                        let px = (g.x * gs
+                            + gx
+                            + (fx.dx * run.font_size - (fx.scale - 1.0) * g.advance / 2.0) * gs)
+                            * scale;
                         let mut x = px.floor();
                         let mut bin = ((px - x) * f32::from(SUBPIXEL_BINS)).round() as u8;
                         if bin == SUBPIXEL_BINS {
                             x += 1.0;
                             bin = 0;
                         }
-                        let y = ((g.y * gs + gy) * scale).round();
+                        let y = ((g.y * gs
+                            + gy
+                            + (fx.dy - (fx.scale - 1.0) * 0.3) * run.font_size * gs)
+                            * scale)
+                            .round();
                         let Some(e) = res.glyph(run, g.id, size_px, bin, 0.0) else {
                             continue;
                         };
@@ -674,6 +741,29 @@ pub fn plan(cmds: &[DrawCmd], params: &PlanParams, res: &mut dyn PlanResources) 
                             });
                         }
                     }
+                }
+                if animated {
+                    res.glyph_clocks().put(text.node, shown_at);
+                }
+                if let Some((x, baseline, size, color)) = cursor {
+                    // A block `.66em` wide and an em tall, as the original's cursor bar.
+                    let rect = Rect::new(
+                        x * gs + gx,
+                        (baseline - 0.82 * size) * gs + gy,
+                        0.66 * size * gs,
+                        size * gs,
+                    );
+                    instances.push(Instance {
+                        rect: rect4(rect),
+                        radii: [0.0; 4],
+                        radii_y: [0.0; 4],
+                        xf: [xf_mark, 0.0, 0.0, 0.0],
+                        p0: [0.0; 4],
+                        p1: [0.0; 4],
+                        color0: pm(Rgba { a: 0.85, ..color }),
+                        color1: [0.0; 4],
+                        params: [KIND_QUAD, 0.0, -1.0, 0.0],
+                    });
                 }
             }
             DrawCmd::BoxShadow(s) => {

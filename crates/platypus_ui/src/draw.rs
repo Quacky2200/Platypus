@@ -432,6 +432,11 @@ pub struct TextCmd {
     /// `background-clip: text`: a gradient painted inside the glyphs, laid out over
     /// the element's box (the rect), under the text colour.
     pub fill: Option<(Arc<BackgroundImage>, Rect)>,
+    /// `text-effect` and the glyphs shown (`text-reveal`).
+    pub effect: crate::text_effect::TextEffect,
+    pub reveal: f32,
+    /// The UI node (the renderer remembers when each glyph of it was first shown).
+    pub node: u32,
 }
 
 impl TextCmd {
@@ -468,6 +473,9 @@ impl TextCmd {
                 })
                 .collect(),
             fill: None,
+            effect: self.effect,
+            reveal: self.reveal,
+            node: self.node,
         }
     }
 }
