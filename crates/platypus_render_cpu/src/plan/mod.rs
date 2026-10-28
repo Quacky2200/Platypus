@@ -26,6 +26,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 pub use platypus_render::Blending;
+use platypus_render::glyph_clocks::GlyphClocks;
 use platypus_render::glyphs::{COLOR_SIZE, GlyphCache, GlyphEntry, MASK_SIZE};
 use platypus_render::image_cache::{ImageCache, ImageUpload};
 use platypus_render::plan::{self, FramePlan, ImageInfo, PlanParams, PlanResources, PxRect, Step};
@@ -44,6 +45,7 @@ const MAX_BLUR_RADIUS: f32 = 128.0;
 
 pub struct PlanRenderer {
     glyphs: GlyphCache,
+    glyph_clocks: GlyphClocks,
     images: ImageCache,
     textures: Textures,
     canvases: Vec<Canvas>,
@@ -58,10 +60,15 @@ pub struct PlanRenderer {
 /// What planning asks of this renderer: glyphs and images from the shared caches.
 struct Resources<'a> {
     glyphs: &'a mut GlyphCache,
+    clocks: &'a mut GlyphClocks,
     images: &'a mut ImageCache,
 }
 
 impl PlanResources for Resources<'_> {
+    fn glyph_clocks(&mut self) -> &mut GlyphClocks {
+        self.clocks
+    }
+
     fn glyph(
         &mut self,
         run: &platypus_ui::GlyphRun,
@@ -94,6 +101,7 @@ impl PlanRenderer {
     pub fn new() -> PlanRenderer {
         PlanRenderer {
             glyphs: GlyphCache::new(),
+            glyph_clocks: GlyphClocks::default(),
             images: ImageCache::default(),
             textures: Textures {
                 // Zeroed by the allocator: only the parts glyphs are written to become memory.
@@ -153,9 +161,11 @@ impl PlanRenderer {
             return RenderStats::default();
         }
         self.glyphs.begin_frame();
+        self.glyph_clocks.begin_frame();
         self.images.begin_frame();
         let mut resources = Resources {
             glyphs: &mut self.glyphs,
+            clocks: &mut self.glyph_clocks,
             images: &mut self.images,
         };
         let frame = plan::plan(
