@@ -230,6 +230,17 @@ through `physics.raycast` and resolves one tick later with a `RaycastHit2D` (the
 normal, distance). Callbacks are `onCollisionEnter2D`/`Exit2D` (`Collision2D`) and
 `onTriggerEnter2D`/`Exit2D`.
 
+Additions (readiness port, compiled games, `platypus_physics_api`):
+
+- `Physics2D.ignoreCollision(a, b, ignore)` stops two colliders touching (rapier pair filter in `platypus_physics`;
+  `set_ignored` in `comp.rs`); it survives a collider rebuild and `false` lifts it (`RDY-PHY-01`).
+- `ForceMode2D` (`Force`, `Impulse`) is a namespace. An `Impulse` changes `velocity` at once, since the native side reads
+  rapier live (`RDY-PHY-04`). A `gravityScale` change wakes the body.
+- 2D collider classes have `bounds` and `closestPoint`.
+- `HingeJoint2D` (kind `hinge2d`, `joints.rs`) hinges about +z and connects `Rigidbody2D`s (`RDY-PHY-02`).
+- A body without colliders gets box inertia from its object's scale (`set_mass(id, mass, size)`), so a hinged chain
+  swings when pushed (`RDY-PHY-05`).
+
 ### Audio components
 
 (declared in `platypus_engine_api`):

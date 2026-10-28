@@ -14,6 +14,9 @@ A `Texture` is an image the world draws with (not the UI's `image` element, whic
 `platypus_ui`). Scripts make one two ways:
 
 - `Texture.load(src, { filterMode, wrapMode, mipmaps, anisoLevel, linear })` reads a PNG or JPEG from the game folder.
+  The same file with the same settings gives the same texture (a scene loaded again shares it; `RDY-TEX-02`). Fully
+  transparent pixels are bled on load: they take the average colour of their nearest visible neighbours
+  (`platypus_core::bleed_transparent`, alpha untouched), so filtering leaves no pale halo round a sprite (`RDY-RND-02`).
 - `Texture.create(width, height, colors, options)` takes linear `Color`s, bottom row first like Unity's
   `SetPixels`. They are converted to sRGB bytes, top row first, before they cross.
 
@@ -118,7 +121,10 @@ columns, rows)` cuts a sheet left to right, top to bottom.
 In `WorldViews::views`, a sprite becomes a `WorldQuad` once its texture's size is known
 (`texture_sizes`). `sprite_quad` scales the unit quad to `rect / pixelsPerUnit`, shifts it so the pivot
 is at the object's origin, and works out the UV rectangle in top-down space (a flip makes the UV
-size negative). The quad faces the object's +z, is unlit, and sorts with the other see-through things
+size negative). `drawMode` (`simple`, `sliced`, `tiled`) and `size` (metres) change how the quad(s) fill an area
+(`sprite_quads` in `world_view.rs`): `sliced` keeps the corners cut by `Sprite.border` (`setBorder`; pixels, shrinking
+together in a small area) and stretches the rest into nine parts; `tiled` repeats the tile across `size`, cutting the last
+one off (capped in number). Both are saved in scene files (`RDY-TEX-01`). The quad faces the object's +z, is unlit, and sorts with the other see-through things
 by `order`, then distance (see [world-rendering.md](world-rendering.md#the-world-pass)): in an
 orthographic 2D game `sortingOrder` decides what is on top.
 
@@ -263,6 +269,7 @@ a build. It logs how many files it cooked, lists the ones that failed, then exit
   BC3 (16 bytes) for smooth alpha. Other sizes stay RGBA8. `encode` and `decode` do the blocks: endpoints
   come from the best diagonal of the block's colour bounding box, texels take the nearest palette entry,
   and BC1 uses its 3-colour mode for cut-outs.
+  Transparent pixels are bled before the mips are made. This is cook `VERSION` 2, so older cooked files are redone.
 - **Models** (glb, gltf, fbx) are loaded as usual with recorded engine ids, then saved with their meshes,
   cooked textures and description (ids are renumbered on load).
 - Files go to `.platypus/cooked/<game path>.tex` and `.model` (`cooked_path`). It is a hidden folder, so the

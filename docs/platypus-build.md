@@ -53,6 +53,9 @@ A leading `//` comment line is allowed; otherwise plain JSON.
   one warning per empty metadata field (`title`, `company`, `identifier`, `version`, `description`, `copyright`, `license`), e.g.
   `warning: C:\Games\fox\project.json: "company" is empty (the exe's version info will have no company)`. `platypus-build check` never does.
   `package` also warns (it never blocks) when `company`, `copyright` or `license` were left out and so still hold their defaults.
+- **`colorSpace`: `"linear"` (the default) or `"srgb"`.** With `srgb`, `platypus_app` (`color_space.rs`, read in `info.rs`) converts
+  world colours (sprites, materials, lights, text meshes, lines, particles, the camera background) from sRGB to linear on the way
+  to the renderer, so colours look as authored; alpha is never converted (`RDY-RND-01`). UI colours are not touched.
 - **`renderer`: left out (the default), `"vulkan"`, `"gles"` or `"cpu"`.** Which renderer `platypus-app`, the one host of
   every game, draws with (`platypus_core::project::Renderer`). Left out, it follows what the program uses, found at build
   time (the bundle's `renderer` tier, below): a program that is only UI starts on GLES (ANGLE linked into the Windows host,

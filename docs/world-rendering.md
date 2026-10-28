@@ -30,7 +30,8 @@ the app builds a flat `WorldView` per camera.
   projection, near, far, size, clear)` builds it from the camera's world matrix and a viewport `size`
   in pixels (for the aspect). `Projection` is `Perspective { fov_y_degrees }` or `Orthographic {
   half_height }`.
-- `WorldQuad { model, color, texture, uv, additive, order, layer }`. The unit quad (-0.5..0.5 in x and y,
+- `WorldQuad { model, color, texture, uv, additive, order, layer, flat }`. `flat` quads (sprites) write no depth, so
+  sprites at one depth are not cut by the rounding error in a tilt (`RDY-RND-03`). The unit quad (-0.5..0.5 in x and y,
   facing +z) is placed by `model`. `color` is linear straight-alpha RGBA that multiplies the texture.
   `uv` is the part of the texture shown. `additive` adds light instead of covering (glows). `order` is
   the sorting order (see below). `layer` (0 to 31) is the object's layer, used by culling masks.

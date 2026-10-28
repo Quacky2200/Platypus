@@ -367,6 +367,15 @@ unit tests in `text_style.rs`, goldens `M3-TXT-10..15`.
   (colour defaults to the text colour); the renderer draws the outline over the fill.
 - **`fontSmooth` / `WebkitFontSmoothing`:** `never`/`none` sets `GlyphRun.smooth = false` (crisp glyphs).
 - **`caretColor`:** used for the text field caret quad in `tree.rs` (`auto` is the text colour).
+- **`textEffect` / `textReveal`** (per-glyph effects; [text_effect.rs](../crates/platypus_ui/src/text_effect.rs),
+  tests `RDY-TXT-01..03`, `06`): `textEffect` is a list of names (`fade default drop zoom-in zoom-out slide-left/right/up/down
+  blink bounce pixar-bounce hop rope pulse haunted wavy rainbow insanity faulty shake-x shake-y swing cursor`; `none`
+  clears, an unknown name is refused). Entrances play once per glyph when it first appears; the always-on ones
+  (wavy, rainbow, ...) follow a clock and the glyph's index. `textReveal` (a number of glyphs or `all`) hides the rest
+  without moving the shown ones. The draw list keeps plain glyph runs; the renderer's glyph clock
+  (`ui/glyph_clocks.rs`, glyph loop in `ui/plan.rs`) ages each glyph from when it was first drawn shown, using
+  `UiRenderer::set_effect_time`, and is shared by the wgpu and GLES executors (the CPU renderer draws plain text).
+  `UiTree::is_animating` is true while an always-on effect is drawn, so the app keeps drawing frames.
 - `dirty_text` is the set of roots to reshape; `text_build_count()` lets tests assert how often
   shaping ran (used in [text.rs tests](../crates/platypus_ui/tests/text.rs) to check that unrelated
   changes do not reshape text).
