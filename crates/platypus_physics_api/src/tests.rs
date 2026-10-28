@@ -543,3 +543,45 @@ fn raycast_all_and_overlap_sphere_list_every_collider() {
     assert_eq!(touched(at(0.0, 0.0), 10.0, 1 << 3), vec![Some(near)]);
     assert!(touched(at(0.0, 0.0), 2.0, u32::MAX).is_empty());
 }
+
+// RDY-PHY-01
+//
+// Two ignored colliders pass through each other, also after one is rebuilt; lifting it restores
+// the contact.
+#[test]
+fn ignored_collider_components_fall_through_each_other() {
+    let mut scene = setup();
+    let _scope = platypus_scene::api::enter(&mut scene);
+    let ground = make("ground");
+    place(ground, 0.0, 0.0, 0.0);
+    let gc = comp::col_attach(ground, unit_box());
+    let o = make("box");
+    place(o, 0.0, 3.0, 0.0);
+    comp::rb_attach(o, false);
+    let bc = comp::col_attach(o, unit_box());
+    comp::set_ignored(gc, bc, true);
+    // A rebuilt collider keeps being ignored.
+    comp::col_edit(bc, |s| *s = unit_box());
+    run(120);
+    assert!(pos(o).y < -2.0, "fell to {}", pos(o).y);
+    comp::set_ignored(gc, bc, false);
+    place(o, 0.0, 3.0, 0.0);
+    run(240);
+    assert!((pos(o).y - 1.0).abs() < 0.05, "rests at {}", pos(o).y);
+}
+
+// RDY-PHY-04
+//
+// A 2D impulse changes the velocity a script reads at once, not after the next step.
+#[test]
+fn an_impulse_changes_the_velocity_at_once() {
+    let mut scene = setup();
+    let _scope = platypus_scene::api::enter(&mut scene);
+    let o = make("ball");
+    let rb = comp::rb_attach(o, true);
+    comp::col_attach(o, ColShape::Circle2D { radius: 0.5 });
+    let h = crate::Rigidbody2DRef(rb);
+    run(2);
+    h.add_force(V2 { x: 0.0, y: 5.0 }, 1.0);
+    assert!(h.velocity().y > 1.0, "{:?}", h.velocity());
+}

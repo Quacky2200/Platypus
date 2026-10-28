@@ -399,27 +399,28 @@ pub(crate) fn release_physics(object: ObjectId) {
     }
 }
 
-/// Sends the body's mass again (the colliders changed, which share it out).
+/// Sends the body's mass again (the colliders changed, which share it out). A body without
+/// colliders has no shape to turn, so it also gets the size of the box it stands for (its
+/// object's scale) to work out a rotational inertia from; otherwise a hinged chain or door
+/// would stay put when pushed.
 pub(crate) fn send_mass(object: ObjectId) {
     let info = st(|s| {
         let p = s.objects.get(&object)?;
-        if p.colliders.is_empty() {
-            return None;
-        }
         let rb = p.rigidbody?;
-        Some((p.body, rb))
+        Some((p.body, rb, p.colliders.is_empty()))
     });
-    if let Some((body, rb)) = info
+    if let Some((body, rb, bare)) = info
         && let Some(mass) = with_rb(rb, |r| r.mass)
     {
-        op(
-            "set",
-            vec![
-                num(f64::from(body)),
-                Value::String("mass".into()),
-                num(mass),
-            ],
-        );
+        let mut args = vec![
+            num(f64::from(body)),
+            Value::String("mass".into()),
+            num(mass),
+        ];
+        if bare {
+            args.push(v3(world_scale(object)));
+        }
+        op("set", args);
     }
 }
 
@@ -859,7 +860,56 @@ pub(crate) fn col_make(h: u32) {
             p.colliders.push(h);
         }
     });
+    send_ignored(h);
     send_mass(object);
+}
+
+/// The rapier collider of a collider component (0: it has none).
+fn collider_id(h: u32) -> u32 {
+    with_col(h, |k| k.cid).unwrap_or(0)
+}
+
+/// Tells the world whether the colliders of components `a` and `b` collide, once both have one.
+fn send_ignore(a: u32, b: u32, ignore: bool) {
+    let (ca, cb) = (collider_id(a), collider_id(b));
+    if ca != 0 && cb != 0 {
+        let mut args = vec![num(f64::from(ca)), num(f64::from(cb))];
+        if !ignore {
+            args.push(Value::Bool(false));
+        }
+        op("ignore", args);
+    }
+}
+
+/// `Physics2D.ignoreCollision` / `Physics.IgnoreCollision`: the pair does not collide (or does
+/// again). It holds across rebuilds of either collider (a scale change, a new size).
+pub(crate) fn set_ignored(a: u32, b: u32, ignore: bool) {
+    if a == 0 || b == 0 || a == b {
+        return;
+    }
+    let pair = (a.min(b), a.max(b));
+    st(|s| {
+        if ignore {
+            s.ignored.insert(pair)
+        } else {
+            s.ignored.remove(&pair)
+        }
+    });
+    send_ignore(a, b, ignore);
+}
+
+/// Sends the ignored pairs `h` is in again: its collider was rebuilt (a new rapier collider).
+fn send_ignored(h: u32) {
+    let pairs: Vec<(u32, u32)> = st(|s| {
+        s.ignored
+            .iter()
+            .filter(|&&(a, b)| a == h || b == h)
+            .copied()
+            .collect()
+    });
+    for (a, b) in pairs {
+        send_ignore(a, b, true);
+    }
 }
 
 pub(crate) fn col_attach(object: ObjectId, shape: ColShape) -> u32 {
@@ -889,6 +939,7 @@ pub(crate) fn col_destroy(h: u32) {
     };
     remove_collider_id(cid);
     st(|s| {
+        s.ignored.retain(|&(a, b)| a != h && b != h);
         if let Some(p) = s.objects.get_mut(&object) {
             p.colliders.retain(|c| *c != h);
         }

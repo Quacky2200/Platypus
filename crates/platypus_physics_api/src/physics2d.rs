@@ -12,9 +12,10 @@
 //! `colliderObject` (the GameObject) rather than a collider component.
 
 use crate::comp::{self, ColShape, Data, ShapeTag, with_col, with_rb};
+use crate::contacts::Collider2DRef;
 use crate::*;
 use platypus_api::platypus_api;
-use platypus_math::V2;
+use platypus_math::{Bounds, V2};
 
 fn colg<R: Default>(h: u32, f: impl FnOnce(&comp::Col) -> R) -> R {
     with_col(h, |c| f(c)).unwrap_or_default()
@@ -110,12 +111,24 @@ pub(crate) fn count_rigidbodies_2d() -> u32 {
         CapsuleCollider2D = CapsuleCollider2DRef,
         PolygonCollider2D = PolygonCollider2DRef,
         EdgeCollider2D = EdgeCollider2DRef,
+        Collider2D = Collider2DRef,
         RaycastHit2D = Hit2DRef
     ),
-    values(Vector2 = V2 [x: f64, y: f64], Vector3 = V3 [x: f64, y: f64, z: f64])
+    values(
+        Vector2 = V2 [x: f64, y: f64],
+        Vector3 = V3 [x: f64, y: f64, z: f64],
+        Bounds = Bounds [cx: f64, cy: f64, cz: f64, sx: f64, sy: f64, sz: f64]
+    )
 )]
 pub mod physics2d_api {
     use super::*;
+
+    /// Stops two colliders colliding with each other (or lets them again with `ignore` false),
+    /// whatever their shapes; it holds when either is rebuilt. Triggers between them stop too.
+    #[optional(ignore = true)]
+    pub fn ignore_collision(a: Collider2DRef, b: Collider2DRef, ignore: bool) {
+        comp::set_ignored(a.0, b.0, ignore);
+    }
 
     /// How many Rigidbody2D components exist.
     pub fn rigidbody_2d_count() -> u32 {
@@ -528,6 +541,17 @@ pub mod physics2d_api {
             Rigidbody2DRef(comp::attached_rigidbody(self.0, true))
         }
 
+        /// The world-space box around the shape (its slab `Physics2D.depth` deep along z).
+        #[property]
+        pub fn bounds(self) -> Bounds {
+            crate::contacts::collider_bounds(self.0)
+        }
+
+        /// The point of the shape closest to `position` (`position` itself when it is inside).
+        pub fn closest_point(self, position: V2) -> V2 {
+            crate::contacts::collider_closest_2d(self.0, position)
+        }
+
         pub fn destroy(self) {
             comp::col_destroy(self.0);
         }
@@ -609,6 +633,17 @@ pub mod physics2d_api {
         #[property]
         pub fn attached_rigidbody(self) -> Rigidbody2DRef {
             Rigidbody2DRef(comp::attached_rigidbody(self.0, true))
+        }
+
+        /// The world-space box around the shape (its slab `Physics2D.depth` deep along z).
+        #[property]
+        pub fn bounds(self) -> Bounds {
+            crate::contacts::collider_bounds(self.0)
+        }
+
+        /// The point of the shape closest to `position` (`position` itself when it is inside).
+        pub fn closest_point(self, position: V2) -> V2 {
+            crate::contacts::collider_closest_2d(self.0, position)
         }
 
         pub fn destroy(self) {
@@ -698,6 +733,17 @@ pub mod physics2d_api {
         #[property]
         pub fn attached_rigidbody(self) -> Rigidbody2DRef {
             Rigidbody2DRef(comp::attached_rigidbody(self.0, true))
+        }
+
+        /// The world-space box around the shape (its slab `Physics2D.depth` deep along z).
+        #[property]
+        pub fn bounds(self) -> Bounds {
+            crate::contacts::collider_bounds(self.0)
+        }
+
+        /// The point of the shape closest to `position` (`position` itself when it is inside).
+        pub fn closest_point(self, position: V2) -> V2 {
+            crate::contacts::collider_closest_2d(self.0, position)
         }
 
         pub fn destroy(self) {
@@ -815,6 +861,17 @@ pub mod physics2d_api {
             Rigidbody2DRef(comp::attached_rigidbody(self.0, true))
         }
 
+        /// The world-space box around the shape (its slab `Physics2D.depth` deep along z).
+        #[property]
+        pub fn bounds(self) -> Bounds {
+            crate::contacts::collider_bounds(self.0)
+        }
+
+        /// The point of the shape closest to `position` (`position` itself when it is inside).
+        pub fn closest_point(self, position: V2) -> V2 {
+            crate::contacts::collider_closest_2d(self.0, position)
+        }
+
         pub fn destroy(self) {
             comp::col_destroy(self.0);
         }
@@ -911,6 +968,17 @@ pub mod physics2d_api {
         #[property]
         pub fn attached_rigidbody(self) -> Rigidbody2DRef {
             Rigidbody2DRef(comp::attached_rigidbody(self.0, true))
+        }
+
+        /// The world-space box around the shape (its slab `Physics2D.depth` deep along z).
+        #[property]
+        pub fn bounds(self) -> Bounds {
+            crate::contacts::collider_bounds(self.0)
+        }
+
+        /// The point of the shape closest to `position` (`position` itself when it is inside).
+        pub fn closest_point(self, position: V2) -> V2 {
+            crate::contacts::collider_closest_2d(self.0, position)
         }
 
         pub fn destroy(self) {

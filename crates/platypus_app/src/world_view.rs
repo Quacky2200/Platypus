@@ -1687,6 +1687,7 @@ impl WorldViews {
                             texture: Some(WorldTexture::Asset(s.texture)),
                             uv,
                             additive: false,
+                            flat: true,
                             order: s.order,
                             layer: 0,
                         };
@@ -1958,6 +1959,7 @@ impl WorldViews {
                         texture: Some(WorldTexture::Asset(particles::DEFAULT_TEXTURE)),
                         uv: [0.0, 0.0, 1.0, 1.0],
                         additive: true,
+                        flat: false,
                         order: 0,
                         layer: halo.layer,
                     });
