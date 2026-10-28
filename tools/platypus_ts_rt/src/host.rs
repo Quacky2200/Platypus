@@ -948,6 +948,9 @@ fn set_property(id: u32, name: &str, v: PropValue) -> Result<(), String> {
         }
         ("handle:GameObject", PropValue::Object(o)) => *o,
         ("handle:GameObject", PropValue::Null) => 0,
+        // An engine component (`AudioSource`, `Rigidbody2D`, `Collider2D`, ...): the scene loader
+        // already turned the file's reference into that component's handle.
+        (b, PropValue::Component(c)) if b.starts_with("handle:") => u64::from(*c),
         (b, PropValue::Component(c)) if b.starts_with("object:") => {
             let want = &b["object:".len()..];
             let (other, oi) = locate(*c)?;
