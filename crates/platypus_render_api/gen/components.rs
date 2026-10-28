@@ -534,9 +534,23 @@ pub const COMPONENTS: &[Component] = &[
                 default: Dv::Int(0),
                 doc: r#"Draw order: higher draws over lower, whatever the distance (Unity's `sortingOrder`)."#,
             },
+            Field {
+                ts: r#"drawMode"#,
+                rs: r#"draw_mode"#,
+                ty: r#"enum:simple|sliced|tiled"#,
+                default: Dv::Str(r#"simple"#),
+                doc: r#"How the sprite fills its area (Unity's `SpriteDrawMode`): `simple` is one quad at its own size, `sliced` keeps the sprite's `border` corners and stretches the rest, `tiled` repeats it across `size`, cut off at the top and right."#,
+            },
+            Field {
+                ts: r#"size"#,
+                rs: r#"size"#,
+                ty: r#"v2"#,
+                default: Dv::Tuple(&[0.0, 0.0]),
+                doc: r#"The area a sliced or tiled sprite fills, in metres; (0, 0) is the sprite's own size."#,
+            },
         ],
         skip_save: &[],
-        save_if_changed: &[],
+        save_if_changed: &[r#"drawMode"#, r#"size"#],
         set_hook: &[],
         extra_fields: &[],
         extra_defaults: &[],
@@ -2480,13 +2494,19 @@ pub struct ClothBox {
         skip_save: &[r#"hasRect"#],
         save_if_changed: &[],
         set_hook: &[],
-        extra_fields: &[r#"pub rect: [f64; 4],"#],
-        extra_defaults: &[r#"rect: [0.0; 4],"#],
+        extra_fields: &[
+            r#"pub rect: [f64; 4],"#,
+            r#"/// Left, bottom, right and top borders in pixels (the corners a sliced sprite keeps)."#,
+            r#"pub border: [f64; 4],"#,
+        ],
+        extra_defaults: &[r#"rect: [0.0; 4],"#, r#"border: [0.0; 4],"#],
         extra_save: Some(
-            r#"m.insert("rect".into(), if d.has_rect { json!({ "$type": "Rect", "value": d.rect }) } else { Value::Null });"#,
+            r#"m.insert("rect".into(), if d.has_rect { json!({ "$type": "Rect", "value": d.rect }) } else { Value::Null });
+        if d.border != [0.0; 4] { m.insert("border".into(), json!({ "$type": "Vector4", "value": d.border })); }"#,
         ),
         extra_load: Some(
-            r#""rect" => { if v.is_null() { d.has_rect = false; Some(()) } else { rect_of(v).map(|r| { d.has_rect = true; d.rect = r; }) } }"#,
+            r#""rect" => { if v.is_null() { d.has_rect = false; Some(()) } else { rect_of(v).map(|r| { d.has_rect = true; d.rect = r; }) } }
+            "border" => { if v.is_null() { d.border = [0.0; 4]; Some(()) } else { rect_of(v).map(|r| d.border = r) } }"#,
         ),
         extra_handles: &[],
         extra_records: &[],
@@ -2501,6 +2521,11 @@ pub struct ClothBox {
                 d.has_rect = true;
                 d.rect = [x, y, width, height];
             });
+        }
+
+        /// The borders in pixels (left, bottom, right, top) a `sliced` sprite keeps at its size.
+        pub fn set_border(self, left: f64, bottom: f64, right: f64, top: f64) {
+            with_sprite(self, |d| d.border = [left, bottom, right, top]);
         }
 
         /// A sprite of a texture: all of it, centred, `pixelsPerUnit` (default 100) texels to a metre.
