@@ -391,7 +391,7 @@ impl Reader<'_> {
 
 const TEXTURE_MAGIC: &[u8; 4] = b"IRTX";
 const MODEL_MAGIC: &[u8; 4] = b"IRMD";
-const VERSION: u32 = 1;
+const VERSION: u32 = 2; // 2: transparent pixels carry their neighbours' colour
 
 fn write_texture(w: &mut Writer, t: &CookedTexture) {
     w.0.extend(TEXTURE_MAGIC);
@@ -688,10 +688,11 @@ fn write(path: &Path, bytes: &[u8]) -> Result<(), String> {
 fn cook_texture_file(root: &Path, src: &str, importer: &Value) -> Result<(), String> {
     let path = platypus_core::resolve_asset(root, src).ok_or("outside the game folder")?;
     let bytes = std::fs::read(&path).map_err(|e| e.to_string())?;
-    let image = image::load_from_memory(&bytes)
+    let mut image = image::load_from_memory(&bytes)
         .map_err(|e| e.to_string())?
         .to_rgba8();
     let (width, height) = image.dimensions();
+    platypus_core::bleed_transparent(&mut image, width as usize, height as usize, 8);
     let s = |k: &str| importer.get(k).and_then(Value::as_str);
     let data = TextureData {
         width,
