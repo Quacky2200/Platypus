@@ -72,7 +72,7 @@ class Fox extends Component {
   }
 
   override onUpdate(dt: number) {
-    let move = input.getAxis("Horizontal");
+    let move = input.getAxisRaw("Horizontal");
     let jump = input.getButtonDown("Jump");
     this.idle = move !== 0 || jump ? 0 : this.idle + dt;
     if (this.idle > 3 || Time.time < 6) {
