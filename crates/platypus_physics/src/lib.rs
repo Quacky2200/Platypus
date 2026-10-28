@@ -863,12 +863,19 @@ impl Physics {
             body.recompute_mass_properties_from_colliders(&self.world.colliders);
             return Ok(());
         }
+        // The mass a body had before it got colliders (the box its scale stood for) is theirs now.
+        self.world.bodies[handle].set_additional_mass_properties(
+            MassProperties::new(Vector::ZERO, 0.0, Vector::ZERO),
+            false,
+        );
         let share = mass / colliders.len() as f32;
         for c in colliders {
             if let Some(collider) = self.world.colliders.get_mut(c) {
                 collider.set_mass(share);
             }
         }
+        // Worked out now, so an impulse right after (a script's `Awake`) sees the new mass.
+        self.world.bodies[handle].recompute_mass_properties_from_colliders(&self.world.colliders);
         self.world.bodies[handle].wake_up(true);
         Ok(())
     }
