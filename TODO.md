@@ -2365,6 +2365,11 @@ Not ported:
 - [ ] `EventList<T>` with arguments
 - [ ] `GraphicsSettings.colorSpace` getter
 
+Engine bugs found converting the readiness games (repros):
+- [ ] **A game module's class named like an engine global cannot be registered.** `src/ugui.tsx` of keep-it-alive-ld46 declares `export class Image extends Graphic` and `register({ Image, Text, .. })`: `platypus-build build` fails with ``register(Image): `Image` is not a class of this program`` (the module renames the class to `Image_2`; `register` looks the key up by its old name, and scene files name the class `Image`). Game-side workaround: rename the class and the scene type.
+- [ ] **`@property` on a getter/setter pair fails to compile** ("class RectTransform: decorators are not supported yet"; keep-it-alive's `ugui.tsx` uses it on `RectTransform`, `Graphic`, `UguiImage`, `Text`, `TextMeshProUGUI`). Only `@property` fields work. keep-it-alive-ld46 still does not build natively because of this and of the animation gap above.
+- [ ] **A first render whose text children are all empty strings paints nothing** (streamer-clock's TODO.md): not reproduced by a minimal `<box style={{ backgroundColor: "lime" }}><span>{""}</span><span>{""}</span></box>` (it paints the lime box), so it needs the clock's CSS or its `useEffect` timer; still open.
+
 ## Code review (after the platypus_ts branch is merged into `main`)
 
 Most of this branch (about 300 commits) was written by agents and checked by tests, ratchets and snapshots, which catch regressions but not design drift. Once `claude/recursing-wright-856ffa` is merged into `main` (the user decides squash or merge as-is), do a human-readable review pass:
