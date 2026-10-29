@@ -19,9 +19,26 @@ use platypus_render_gles::{GlesRenderer, Target};
 
 use super::App;
 
-/// Frames the loop runs at most per second when the swap interval doesn't pace it (a frame that
-/// changed nothing is not swapped, so nothing waits for the display).
+/// The frame time when the monitor's refresh rate isn't known: 60 Hz.
 pub(crate) const FRAME_CAP: Duration = Duration::from_micros(16_667);
+
+/// The shortest frame time that lets the loop run at the window's monitor's refresh rate (a
+/// frame that changed nothing is not swapped, so nothing waits for the display). A 120 Hz
+/// monitor gets 120 frames a second; an unknown rate gets [`FRAME_CAP`].
+pub(crate) fn frame_cap(window: &Window) -> Duration {
+    frame_cap_for_millihertz(
+        window
+            .current_monitor()
+            .and_then(|m| m.refresh_rate_millihertz()),
+    )
+}
+
+fn frame_cap_for_millihertz(millihertz: Option<u32>) -> Duration {
+    match millihertz.filter(|&mhz| mhz > 0) {
+        Some(mhz) => Duration::from_secs_f64(1000.0 / f64::from(mhz)),
+        None => FRAME_CAP,
+    }
+}
 
 pub(crate) struct GlesGfx {
     pub(crate) window: Arc<Window>,
@@ -340,5 +357,16 @@ mod tests {
         assert!(!trim_due(true, s(5000), None));
         assert!(!trim_due(false, s(5000), Some("0")));
         assert!(trim_due(false, s(5000), Some("1")));
+    }
+
+    // Frame caps follow the monitor's refresh rate; 60 Hz when it doesn't say.
+    #[test]
+    fn the_cap_follows_the_refresh_rate() {
+        let at_60 = frame_cap_for_millihertz(Some(60_000));
+        assert!((at_60.as_secs_f64() - FRAME_CAP.as_secs_f64()).abs() < 1e-6);
+        let at_120 = frame_cap_for_millihertz(Some(120_000));
+        assert!((at_120.as_secs_f64() - 1.0 / 120.0).abs() < 1e-6);
+        assert_eq!(frame_cap_for_millihertz(None), FRAME_CAP);
+        assert_eq!(frame_cap_for_millihertz(Some(0)), FRAME_CAP);
     }
 }

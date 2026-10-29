@@ -2433,10 +2433,16 @@ impl PlatformApp for App {
             self.offline,
             self.lifecycle.paused() && !self.paused(),
         );
-        // A frame that changed nothing isn't swapped, so nothing waits for the display: 60 Hz
-        // unless the game sets a rate.
+        // A frame that changed nothing isn't swapped, so nothing waits for the display: the
+        // monitor's refresh rate unless the game sets a rate.
         if (self.gles.is_some() || self.cpu.is_some()) && !self.offline {
-            return Some(cap.unwrap_or(gles_gfx::FRAME_CAP));
+            let window = self
+                .gles
+                .as_ref()
+                .map(|g| &g.window)
+                .or_else(|| self.cpu.as_ref().map(|c| &c.window));
+            let refresh = window.map_or(gles_gfx::FRAME_CAP, |w| gles_gfx::frame_cap(w));
+            return Some(cap.unwrap_or(refresh));
         }
         cap
     }

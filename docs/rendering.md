@@ -173,7 +173,7 @@ dropped when unused), shadows, text, clips, layers, blur and backdrop blur (only
 perspective subtree is drawn flat, cached and warped). **`renderer: "cpu"`** (or `--renderer cpu`; never chosen
 automatically) makes it `platypus-app`'s third UI-only path (`cpu_gfx.rs`): the window through softbuffer (resized with
 each present), the UI and the FPS counter as two layers of one render, an unchanged frame neither drawn nor presented,
-the loop capped at 60 Hz (softbuffer has no vsync), "3D Not Supported" when the game asks for the world, wgpu's light
+the loop capped at the monitor's refresh rate, 60 Hz when unknown (softbuffer has no vsync; `gles_gfx::frame_cap`), "3D Not Supported" when the game asks for the world, wgpu's light
 path when softbuffer can't make a surface. `--screenshot` writes the pixels the CPU drew (no GPU involved). What it
 does not draw (each logged once): `border-image`, `mask`s (the layer is drawn unmasked), drop shadows and colour
 matrices on layers (`filter: drop-shadow()`, `grayscale()`, `sepia()`, ...), border styles other than solid (drawn
