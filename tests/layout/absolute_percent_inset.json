@@ -1,0 +1,13 @@
+{
+  "description": "Absolutely positioned children with percentage and negative insets (Fluid gap, M2-LAY-02)",
+  "root": [200, 200],
+  "tree": {
+    "id": "box", "style": { "width": 200, "height": 200 },
+    "children": [
+      { "id": "a", "style": { "position": "absolute", "left": "100%", "top": 0, "width": 10, "height": 10 } },
+      { "id": "b", "style": { "position": "absolute", "right": -8, "bottom": "0%", "width": 12, "height": 12 } },
+      { "id": "c", "style": { "position": "absolute", "left": "50%", "top": "50%", "width": 20, "height": 20 } }
+    ]
+  },
+  "expect": { "a": [200, 0, 10, 10], "b": [196, 188, 12, 12], "c": [100, 100, 20, 20] }
+}
