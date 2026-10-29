@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! The JIT's line table (`Game::line_table`): compiled code maps back to the lines of the source
-//! it came from, which a crash report prints. IDs are in TESTS.md (M9-TS-3388).
+//! it came from, which a crash report prints. IDs are in TESTS.md (M9-TS-3389).
 use platypus_ts::jit::{JitOptions, compile_and_load};
 
-// M9-TS-3388
+// M9-TS-3389
 #[test]
 fn compiled_code_maps_to_source_lines() {
     let _serial = platypus_ts_tests::serial();
