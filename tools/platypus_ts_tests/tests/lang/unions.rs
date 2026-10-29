@@ -66,3 +66,24 @@ export function f(): string { const m: M = \"c\"; return m; }",
     );
     assert!(e.contains("line 2"), "{e}");
 }
+
+// M9-TS-3013: a conditional of two object shapes that can't unify names both shapes by their
+// fields, not by their internal ids.
+#[test]
+fn a_conditional_of_different_shapes_names_both_fields() {
+    let _serial = platypus_ts_tests::serial();
+    let e = platypus_ts::jit::compile_and_load(
+        "export function f(v: boolean): number { let s = v ? { bottom: 1 } : { top: 2 }; s = 3; return 0; }",
+        &platypus_ts::jit::JitOptions {
+            prefix: "un13_",
+            struct_base: 313_000,
+            ..Default::default()
+        },
+    )
+    .err()
+    .expect("should not compile");
+    assert!(
+        e.contains("cannot unify { bottom: f64 } and { top: f64 }"),
+        "{e}"
+    );
+}

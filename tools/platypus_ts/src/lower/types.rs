@@ -1193,8 +1193,31 @@ impl<'a> Lowerer<'a> {
                     t
                 }
             }
-            _ => bail!("cannot unify {a} and {b}"),
+            _ => bail!("cannot unify {} and {}", self.describe(a), self.describe(b)),
         })
+    }
+
+    /// A type for an error message: an object shape is written out with its fields (its id
+    /// means nothing to the reader), anything else as it prints.
+    fn describe(&self, t: &Ty) -> String {
+        match t.strip() {
+            Ty::Obj(sid) if self.m.structs.get(*sid).is_some() => {
+                let s = &self.m.structs[*sid];
+                if s.fields.is_empty() {
+                    return "{}".into();
+                }
+                let fields: Vec<String> = s
+                    .fields
+                    .iter()
+                    .map(|f| {
+                        let opt = if f.optional { "?" } else { "" };
+                        format!("{}{opt}: {}", f.name, f.ty)
+                    })
+                    .collect();
+                format!("{{ {} }}", fields.join(", "))
+            }
+            _ => t.to_string(),
+        }
     }
 
     /// `e` as a `ReactNode` (compiled as `UiElement[]`) when `to` is one and `e` is a single node:
