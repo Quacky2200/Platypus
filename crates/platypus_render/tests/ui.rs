@@ -2263,6 +2263,37 @@ fn backdrop_blur_reads_only_inside_the_box() {
     }
 }
 
+// M2-DRW-12: at the box's edge the blur reflects the backdrop (as Chrome does) rather than
+// repeating the edge pixel. A white column 3 px inside the left edge is read twice by the
+// edge pixel's taps (directly, and from the tap that reflects onto it), so the edge is
+// brighter than clamping would make it.
+#[test]
+fn backdrop_blur_mirrors_the_backdrop_at_the_box_edge() {
+    let mut s = Scene::new();
+    s.add(
+        0,
+        &at(33.0, 0.0, 1.0, 80.0, &[("backgroundColor", "white".into())]),
+    );
+    s.add(
+        0,
+        &at(
+            30.0,
+            0.0,
+            60.0,
+            80.0,
+            &[
+                ("backdropFilter", "blur(2px)".into()),
+                ("backgroundColor", "rgba(0,0,0,0)".into()),
+            ],
+        ),
+    );
+    let f = render(s, (120, 80), 1.0, BLACK);
+    // Taps with weights w(3) + w(4) of 5.0: 0.092 of white in linear light, about 86 once
+    // encoded (clamping gives 0.065, about 73).
+    let edge = f.luma(30, 40);
+    assert!(edge > 80.0 && edge < 92.0, "edge pixel {edge}");
+}
+
 // M2-VIS-08 on the GPU: group opacity composites the group once.
 #[test]
 fn group_opacity_blends_the_group_as_a_whole() {

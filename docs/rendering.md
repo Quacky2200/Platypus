@@ -376,10 +376,12 @@ alpha for `Alpha`, or its sRGB luminance times alpha for `Luminance`, and `fs_co
 `fs_composite_blend` multiply the colour by it.
 
 **Backdrop filter.** `Copy` the current target, blur the copy over the element's `rect` only, as a
-`contained` `Blur` (reads clamp to the box, so a neighbouring glass box does not bleed in; skipped
+`contained` `Blur` (reads stay in the box, so a neighbouring glass box does not bleed in; skipped
 when `blur` is 0, a colour-only filter), then composite it back using a **rounded-rect clip** of the
 box, with `BackdropBlur.matrix` as the composite's `matrix`. The result is frosted glass of
-whatever was already drawn.
+whatever was already drawn. A `contained` blur reflects taps that fall past the box's edge back
+in, as Chrome does (`effects.wgsl` `blur_tap`, the GLES `BLUR_FRAGMENT`; `M2-DRW-12`). Layer
+blurs and drop shadows clamp to the canvas instead.
 
 **Clip table.** `PushClip` appends a `GpuClip { rect, rx, ry, bounds, parent }` to a per-frame
 table and pushes its index on `clip_stack`; `bounds` is the intersection of the whole chain.

@@ -30,9 +30,24 @@ struct BlurParams {
     dir: vec2<f32>, // (1, 0) or (0, 1)
     sigma: f32,     // physical pixels
     radius: f32,    // taps either side
-    bounds: vec4<f32>, // reads clamp to these pixels (first x, first y, last x, last y)
+    bounds: vec4<f32>, // reads stay in these pixels (first x, first y, last x, last y)
+    mirror: f32,       // 1: reads past the bounds reflect back in (else they clamp)
+    pad0: f32,
+    pad1: f32,
+    pad2: f32,
 };
 @group(0) @binding(2) var<uniform> blur: BlurParams;
+
+// A tap position kept inside [low, high]: reflected across the edge when `blur.mirror` is
+// on (as Chrome does for backdrop-filter), then clamped for boxes narrower than the reach.
+fn blur_tap(q: vec2<i32>, low: vec2<i32>, high: vec2<i32>) -> vec2<i32> {
+    var c = q;
+    if blur.mirror > 0.5 {
+        c = select(c, 2 * low - 1 - c, c < low);
+        c = select(c, 2 * high + 1 - c, c > high);
+    }
+    return clamp(c, low, high);
+}
 
 @fragment
 fn fs_blur(in: VsOut) -> @location(0) vec4<f32> {
@@ -46,7 +61,7 @@ fn fs_blur(in: VsOut) -> @location(0) vec4<f32> {
     for (var i = -r; i <= r; i++) {
         let x = f32(i);
         let w = exp(-(x * x) / (2.0 * blur.sigma * blur.sigma));
-        sum += textureLoad(src, clamp(at + dir * i, low, high), 0) * w;
+        sum += textureLoad(src, blur_tap(at + dir * i, low, high), 0) * w;
         weights += w;
     }
     return sum / weights;

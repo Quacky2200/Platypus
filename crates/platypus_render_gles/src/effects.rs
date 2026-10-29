@@ -12,8 +12,9 @@
 use crate::shaders::{GEOMETRY, QUAD_COMMON};
 
 /// One pass of the separable Gaussian: `u_blur` is (dir.x, dir.y, sigma in px, taps either
-/// side). Reads clamp to `u_bounds` (first x, first y, last x, last y, in the canvas's own
-/// orientation): the whole canvas, or a `backdrop-filter`'s box.
+/// side). Reads stay inside `u_bounds` (first x, first y, last x, last y, in the canvas's own
+/// orientation): the whole canvas, or a `backdrop-filter`'s box. With `u_mirror` on, reads
+/// past the bounds reflect back in (as Chrome does for backdrop-filter); otherwise they clamp.
 pub const BLUR_FRAGMENT: &str = r#"#version 300 es
 precision highp float;
 precision highp int;
@@ -21,6 +22,7 @@ precision highp sampler2D;
 uniform sampler2D u_src;
 uniform vec4 u_blur;
 uniform vec4 u_bounds;
+uniform float u_mirror;
 layout(location = 0) out vec4 o_color;
 
 void main() {
@@ -33,7 +35,14 @@ void main() {
     for (int i = -r; i <= r; i++) {
         float x = float(i);
         float w = exp(-(x * x) / (2.0 * u_blur.z * u_blur.z));
-        ivec2 q = clamp(at + ivec2(u_blur.xy * x), low, high);
+        ivec2 q = at + ivec2(u_blur.xy * x);
+        if (u_mirror > 0.5) {
+            if (q.x < low.x) q.x = 2 * low.x - 1 - q.x;
+            if (q.x > high.x) q.x = 2 * high.x + 1 - q.x;
+            if (q.y < low.y) q.y = 2 * low.y - 1 - q.y;
+            if (q.y > high.y) q.y = 2 * high.y + 1 - q.y;
+        }
+        q = clamp(q, low, high);
         sum += texelFetch(u_src, q, 0) * w;
         weights += w;
     }

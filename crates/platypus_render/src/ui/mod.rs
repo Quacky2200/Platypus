@@ -80,8 +80,11 @@ struct BlurParams {
     dir: [f32; 2],
     sigma: f32,
     radius: f32,
-    /// Reads clamp to these pixels: first x, first y, last x, last y.
+    /// Reads stay in these pixels: first x, first y, last x, last y.
     bounds: [f32; 4],
+    /// 1 to reflect reads past the bounds back in (`backdrop-filter`); 0 to clamp them.
+    mirror: f32,
+    _pad: [f32; 3],
 }
 
 #[repr(C)]
@@ -721,6 +724,8 @@ impl UiRenderer {
                                 sigma: sigma.max(0.01),
                                 radius,
                                 bounds,
+                                mirror: f32::from(*contained),
+                                _pad: [0.0; 3],
                             }),
                             usage: wgpu::BufferUsages::UNIFORM,
                         });

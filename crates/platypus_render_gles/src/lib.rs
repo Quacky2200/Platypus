@@ -855,6 +855,10 @@ impl GlesRenderer {
                             gl.get_uniform_location(program, "u_bounds").as_ref(),
                             &bounds,
                         );
+                        gl.uniform_1_f32(
+                            gl.get_uniform_location(program, "u_mirror").as_ref(),
+                            f32::from(*contained),
+                        );
                         gl.draw_arrays(glow::TRIANGLES, 0, 3);
                         stats.passes += 1;
                     }
