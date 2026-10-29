@@ -72,30 +72,39 @@ pub fn gradient(image: &BackgroundImage, tile: Rect) -> Option<(Gradient, Affine
         }
         BackgroundImage::Radial {
             shape,
+            at,
             stops,
             repeating,
         } => {
+            // Centred on `at`, sized to the farthest corner from it (as the GPU path does).
+            let c = Point::new(
+                f64::from(tile.x + at.x.resolve(w)),
+                f64::from(tile.y + at.y.resolve(h)),
+            );
+            let (dx, dy) = (
+                at.x.resolve(w).max(w - at.x.resolve(w)),
+                at.y.resolve(h).max(h - at.y.resolve(h)),
+            );
             let (rx, ry) = match shape {
                 RadialShape::Circle => {
-                    let r = ((w / 2.0).powi(2) + (h / 2.0).powi(2)).sqrt();
+                    let r = (dx * dx + dy * dy).sqrt();
                     (r, r)
                 }
-                RadialShape::Ellipse => (
-                    w / 2.0 * std::f32::consts::SQRT_2,
-                    h / 2.0 * std::f32::consts::SQRT_2,
-                ),
+                RadialShape::Ellipse => {
+                    (dx * std::f32::consts::SQRT_2, dy * std::f32::consts::SQRT_2)
+                }
             };
             let rx = rx.max(f32::EPSILON);
             let (list, first, last) = rebase(stops, rx);
             // Stops are a fraction of the horizontal radius; the ellipse stretches y. The
             // rebased span starts at the first stop's radius, not at the centre.
-            let g = Gradient::new_two_point_radial(center, rx * first, center, rx * last)
+            let g = Gradient::new_two_point_radial(c, rx * first, c, rx * last)
                 .with_stops(list.as_slice())
                 .with_extend(extend(*repeating));
             let k = f64::from(ry.max(f32::EPSILON) / rx);
-            let stretch = Affine::translate(center.to_vec2())
+            let stretch = Affine::translate(c.to_vec2())
                 * Affine::scale_non_uniform(1.0, k)
-                * Affine::translate(-center.to_vec2());
+                * Affine::translate(-c.to_vec2());
             Some((g, stretch))
         }
         BackgroundImage::Conic {

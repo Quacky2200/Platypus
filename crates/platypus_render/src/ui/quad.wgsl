@@ -248,7 +248,8 @@ fn gradient_color(index: u32, p: vec2<f32>, rect: vec4<f32>) -> vec4<f32> {
     if g.info.x < 0.5 {
         t = dot(p - center, g.info.zw) / g.info2.x + 0.5;
     } else if g.info.x < 1.5 {
-        t = length((p - center) / g.info.zw);
+        // Radial: about its own centre (`info2.yz`, relative to the box).
+        t = length((p - (rect.xy + g.info2.yz)) / g.info.zw);
     } else {
         // Clockwise from up, starting at the `from` angle, as a fraction of a turn.
         let d = p - (rect.xy + g.info2.yz);

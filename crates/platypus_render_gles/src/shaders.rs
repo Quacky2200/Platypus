@@ -364,7 +364,8 @@ vec4 gradient_color(uint index, vec2 p, vec4 rect) {
     if (info.x < 0.5) {
         t = dot(p - center, info.zw) / info2.x + 0.5;
     } else if (info.x < 1.5) {
-        t = length((p - center) / info.zw);
+        // Radial: about its own centre (`info2.yz`, relative to the box), as the wgpu shader.
+        t = length((p - (rect.xy + info2.yz)) / info.zw);
     } else {
         // Clockwise from up, starting at the `from` angle, as a fraction of a turn.
         vec2 d = p - (rect.xy + info2.yz);

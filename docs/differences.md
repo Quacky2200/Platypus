@@ -337,7 +337,7 @@ The ahead-of-time compiler gives JavaScript's answer, with these exceptions (see
 | Area | Platypus | Browsers / spec | Why |
 |---|---|---|---|
 | `background-origin` | Images and gradients position against the **border box** | Default `padding-box` | Not implemented; `background-clip` is |
-| `radial-gradient()` shape and position | Only `circle` or `ellipse`, always centred (`circle at 30% 20%` and sizes like `closest-side` don't parse) | Any size keyword, length and `at` position | The parser reads just the shape (`paint.rs`) |
+| `radial-gradient()` shape and position | `circle` or `ellipse`, with `at` a position (`circle at 30% 20%`); always sized to the farthest corner from the centre (`closest-side` and other size keywords don't parse) | Any size keyword, length and `at` position | Shape and `at` parsed in `paint.rs`; the centre drawn in `gradient.rs` and the CPU renderer |
 | Gradient stops | The first 8 stops are drawn (a two-position stop like `red 0 45deg` counts as two); the rest are dropped with a warning | Unlimited | The shader's stop table is fixed (`MAX_STOPS`) |
 | `background-repeat: space` for gradients | The gaps aren't kept (tiles repeat edge to edge) | Gaps as for images | Gradient tiles repeat in the shader without the gap logic images have |
 | `border-style` default | `solid`: a width alone draws a border (as in s&box) | `none`: no border without a style | Matches s&box authoring; the `border` shorthand still follows CSS (no style, no border) |

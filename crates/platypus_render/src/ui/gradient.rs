@@ -64,19 +64,22 @@ pub fn build(image: &BackgroundImage, rect: Rect) -> Option<GpuGradient> {
         }
         BackgroundImage::Radial {
             shape,
+            at,
             stops,
             repeating,
         } => {
-            // Centred, sized to the farthest corner (the CSS default).
+            // Sized to the farthest corner from the centre (the CSS default).
+            let c = (at.x.resolve(w), at.y.resolve(h));
+            center = c;
+            let (dx, dy) = ((c.0.max(w - c.0)), (c.1.max(h - c.1)));
             let (rx, ry) = match shape {
                 RadialShape::Circle => {
-                    let r = ((w / 2.0).powi(2) + (h / 2.0).powi(2)).sqrt();
+                    let r = (dx * dx + dy * dy).sqrt();
                     (r, r)
                 }
-                RadialShape::Ellipse => (
-                    w / 2.0 * std::f32::consts::SQRT_2,
-                    h / 2.0 * std::f32::consts::SQRT_2,
-                ),
+                RadialShape::Ellipse => {
+                    (dx * std::f32::consts::SQRT_2, dy * std::f32::consts::SQRT_2)
+                }
             };
             (
                 KIND_RADIAL,
@@ -207,14 +210,41 @@ mod tests {
     #[test]
     fn radial_sizes_reach_the_farthest_corner() {
         let rect = Rect::new(0.0, 0.0, 60.0, 80.0);
+        let centre = platypus_ui::BackgroundPosition {
+            x: Len::Percent(0.5),
+            y: Len::Percent(0.5),
+        };
         let circle = BackgroundImage::Radial {
             shape: RadialShape::Circle,
+            at: centre,
             stops: vec![stop(None), stop(None)],
             repeating: true,
         };
         let g = build(&circle, rect).unwrap();
         assert!((g.info[2] - 50.0).abs() < 1e-4 && (g.info[3] - 50.0).abs() < 1e-4);
         assert_eq!(g.info2[3], 1.0, "repeating flag");
+    }
+
+    // `circle at 100% 0` (M3d): centred on the top-right corner, sized to the bottom-left one.
+    #[test]
+    fn radial_centre_moves_and_the_size_follows_the_far_corner() {
+        let rect = Rect::new(0.0, 0.0, 60.0, 80.0);
+        let corner = BackgroundImage::Radial {
+            shape: RadialShape::Circle,
+            at: platypus_ui::BackgroundPosition {
+                x: Len::Percent(1.0),
+                y: Len::Px(0.0),
+            },
+            stops: vec![stop(None), stop(None)],
+            repeating: false,
+        };
+        let g = build(&corner, rect).unwrap();
+        assert_eq!((g.info2[1], g.info2[2]), (60.0, 0.0), "centre");
+        assert!(
+            (g.info[2] - 100.0).abs() < 1e-4,
+            "radius to (0, 80): {}",
+            g.info[2]
+        );
     }
 
     #[test]

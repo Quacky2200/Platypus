@@ -481,9 +481,11 @@ pub enum BackgroundImage {
         /// `repeating-linear-gradient`: the stops repeat beyond the first and last.
         repeating: bool,
     },
-    /// Centred, sized to the farthest corner (the CSS default).
+    /// Sized to the farthest corner (the CSS default), centred unless `at` places it.
     Radial {
         shape: RadialShape,
+        /// The centre (`at X Y`), as fractions or lengths of the box.
+        at: BackgroundPosition,
         stops: Vec<ColorStop>,
         repeating: bool,
     },
@@ -552,16 +554,36 @@ pub fn parse_background_image(s: &str) -> Option<Option<BackgroundImage>> {
     }
     if let Some(args) = call("radial-gradient(") {
         let mut parts = split_top_level(args, ',');
-        let shape = match *parts.first()? {
+        // The first part is `[shape] [at <position>]`; anything else is a colour stop.
+        let first = parts.first()?.trim();
+        let (shape_word, at_word) = match first.split_once(" at ") {
+            Some((shape, at)) => (shape.trim(), Some(at.trim())),
+            None => match first.strip_prefix("at ") {
+                Some(at) => ("", Some(at.trim())),
+                None => (first, None),
+            },
+        };
+        let shape = match shape_word {
             "circle" => Some(RadialShape::Circle),
             "ellipse" => Some(RadialShape::Ellipse),
             _ => None,
         };
-        if shape.is_some() {
+        if shape.is_none() && at_word.is_some() && !shape_word.is_empty() {
+            return None;
+        }
+        let at = match at_word {
+            Some(position) => parse_background_position(position)?,
+            None => BackgroundPosition {
+                x: Len::Percent(0.5),
+                y: Len::Percent(0.5),
+            },
+        };
+        if shape.is_some() || at_word.is_some() {
             parts.remove(0);
         }
         return Some(Some(BackgroundImage::Radial {
             shape: shape.unwrap_or(RadialShape::Ellipse),
+            at,
             stops: parse_stops(&parts, Len::parse)?,
             repeating,
         }));
@@ -2140,6 +2162,26 @@ mod tests {
         };
         assert_eq!(shape, RadialShape::Circle);
         assert_eq!(stops.len(), 2);
+        // `circle at 100% 0` places the centre; a bare `at` keeps the default shape.
+        let Some(BackgroundImage::Radial {
+            shape, at, stops, ..
+        }) = parse_background_image("radial-gradient(circle at 100% 0, red 0px, blue 6.5px)")
+            .unwrap()
+        else {
+            panic!()
+        };
+        assert_eq!(shape, RadialShape::Circle);
+        assert_eq!(at.x, Len::Percent(1.0));
+        assert_eq!(at.y, Len::Px(0.0));
+        assert_eq!(stops.len(), 2, "the pixel stops are stops, not the header");
+        assert!(matches!(
+            parse_background_image("radial-gradient(at 5px 5px, red, blue)"),
+            Some(Some(BackgroundImage::Radial { .. }))
+        ));
+        assert_eq!(
+            parse_background_image("radial-gradient(red at 5px 5px, blue)"),
+            None
+        );
 
         assert_eq!(parse_background_image("none"), Some(None));
         for bad in [

@@ -2294,6 +2294,60 @@ fn backdrop_blur_mirrors_the_backdrop_at_the_box_edge() {
     assert!(edge > 80.0 && edge < 92.0, "edge pixel {edge}");
 }
 
+// M3d (Fluid gaps): `radial-gradient(circle at 100% 0, ...)` is centred on the top-right
+// corner, and a pixel-stop ring inside an overflow-hidden parent paints.
+#[test]
+fn radial_gradients_place_their_centre_and_paint_pixel_stops() {
+    let mut s = Scene::new();
+    s.add(
+        0,
+        &at(
+            0.0,
+            0.0,
+            60.0,
+            40.0,
+            &[(
+                "backgroundImage",
+                "radial-gradient(circle at 100% 0, white 0px, black 40px)".into(),
+            )],
+        ),
+    );
+    // A 12px ring (clear inside 5.5px, white beyond 6.5px) in a 6px clip: its corner is white.
+    let ring = s.add(
+        0,
+        &at(0.0, 80.0, 6.0, 6.0, &[("overflow", "hidden".into())]),
+    );
+    s.add(
+        ring,
+        &at(
+            0.0,
+            0.0,
+            12.0,
+            12.0,
+            &[(
+                "backgroundImage",
+                "radial-gradient(circle, transparent 5.5px, white 6.5px)".into(),
+            )],
+        ),
+    );
+    let f = render(s, (80, 100), 1.0, BLACK);
+    assert!(
+        f.luma(58, 2) > 200.0,
+        "the centre is at the top-right corner: {} {} {}",
+        f.luma(58, 2),
+        f.luma(38, 2),
+        f.luma(2, 2)
+    );
+    let mid = f.luma(38, 2);
+    assert!(mid > 100.0 && mid < 160.0, "mid-gradient grey: {mid}");
+    assert!(
+        f.luma(0, 80) > 200.0,
+        "the ring's outer part paints: {}",
+        f.luma(0, 80)
+    );
+    assert!(f.luma(5, 85) < 20.0, "the ring is clear inside 5.5px");
+}
+
 // M2-VIS-08 on the GPU: group opacity composites the group once.
 #[test]
 fn group_opacity_blends_the_group_as_a_whole() {
