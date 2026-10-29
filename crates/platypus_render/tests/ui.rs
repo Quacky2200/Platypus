@@ -2348,6 +2348,58 @@ fn radial_gradients_place_their_centre_and_paint_pixel_stops() {
     assert!(f.luma(5, 85) < 20.0, "the ring is clear inside 5.5px");
 }
 
+// Fluid gap: absolute children placed by percentage and negative insets are painted where
+// their insets put them, outside their parent when the parent doesn't clip.
+#[test]
+fn absolute_children_with_percentage_and_negative_insets_paint_in_place() {
+    let mut s = Scene::new();
+    let parent = s.add(
+        0,
+        &at(0.0, 0.0, 40.0, 40.0, &[("backgroundColor", "black".into())]),
+    );
+    // left: 100% puts it just right of the parent.
+    s.add(
+        parent,
+        &at(
+            0.0,
+            0.0,
+            10.0,
+            10.0,
+            &[("left", "100%".into()), ("backgroundColor", "red".into())],
+        ),
+    );
+    // right: -8px and bottom: 0% put it 8px past the right edge, flush with the bottom.
+    s.add(
+        parent,
+        &at(
+            0.0,
+            0.0,
+            12.0,
+            12.0,
+            &[
+                ("left", "auto".into()),
+                ("top", "auto".into()),
+                ("right", (-8.0).into()),
+                ("bottom", "0%".into()),
+                ("backgroundColor", "blue".into()),
+            ],
+        ),
+    );
+    let f = render(s, (60, 60), 1.0, BLACK);
+    let red = |p: [u8; 4]| p[0] > 200 && p[1] < 50 && p[2] < 50;
+    let blue = |p: [u8; 4]| p[2] > 200 && p[0] < 50 && p[1] < 50;
+    assert!(
+        red(f.px(45, 5)),
+        "left: 100% paints right of the parent: {:?}",
+        f.px(45, 5)
+    );
+    assert!(
+        blue(f.px(42, 34)),
+        "right: -8px, bottom: 0% paints in place: {:?}",
+        f.px(42, 34)
+    );
+}
+
 // Fluid gap: box shadows inside an `overflow: hidden` parent. A spread shadow and a shadow
 // with a negative offset as large as half its box both paint in the visible part of the clip.
 #[test]

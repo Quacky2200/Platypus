@@ -128,6 +128,7 @@ See [DESIGN.md](DESIGN.md) for the architecture these tests check.
 | M2-DRW-10 | Integration | `backdropFilter: blur` reads only the backdrop inside the element's box: of two stacked glass boxes over a blue/orange split, each stays one even colour up to the shared edge (no colour bleeds in from the neighbour's side). |
 | M2-DRW-11 | Integration | `radial-gradient(circle, transparent 44px, red 52px)` over white: clear inside 44px, a fade from transparent that never darkens (premultiplied interpolation), red outside 52px. |
 | M2-DRW-12 | Pixel | A backdrop blur reflects the backdrop at the box edge instead of repeating the edge pixel: a white column 3 px inside the left edge reaches the edge pixel through two taps (about 0.092 of white, clamping gives 0.065). |
+| M2-DRW-13 | Pixel | Absolute children placed by `left: 100%` and by `right: -8px` with `bottom: 0%` paint where their insets put them, outside a non-clipping parent. |
 | M2-CPU-01 | Integration | The CPU renderer draws the same radial gradient: stops start at the first stop's radius, not the centre, and the fade from `transparent` is premultiplied. |
 | M2-PLN-01 | Unit | The frame plan of two boxes: two instances in one `Draw` step after a `Clear` of the canvas, one texture, no layers or clips (no GPU). |
 | M2-PLN-02 | Unit | A plan for a canvas seeded with the world has no `Clear` step. |
