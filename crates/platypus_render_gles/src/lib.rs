@@ -75,16 +75,19 @@ pub enum ProgramKind {
     Composite,
     CompositeBlend,
     Blit,
+    /// Copies the target into the canvas before a seeded overlay (`render_over`).
+    Seed,
 }
 
 impl ProgramKind {
-    pub const ALL: [ProgramKind; 6] = [
+    pub const ALL: [ProgramKind; 7] = [
         ProgramKind::Quad,
         ProgramKind::Image,
         ProgramKind::Blur,
         ProgramKind::Composite,
         ProgramKind::CompositeBlend,
         ProgramKind::Blit,
+        ProgramKind::Seed,
     ];
 
     /// The shaders' sources: (vertex, fragment).
@@ -99,6 +102,7 @@ impl ProgramKind {
                 effects::composite_blend_fragment(),
             ),
             ProgramKind::Blit => (shaders::BLIT_VERTEX.into(), shaders::BLIT_FRAGMENT.into()),
+            ProgramKind::Seed => (shaders::BLIT_VERTEX.into(), shaders::SEED_FRAGMENT.into()),
         }
     }
 }
@@ -156,6 +160,21 @@ pub struct GlesRenderer {
     images: ImageCache,
     /// Image textures by the cache's key.
     image_textures: HashMap<String, glow::Texture>,
+    /// A plain RGBA8 copy of the target for a seeded overlay, made on first use.
+    seed: Option<Canvas>,
+    seed_size: (u32, u32),
+}
+
+/// How the finished canvas reaches the target.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Finish {
+    /// Replaces it (`render`, `execute`).
+    Replace,
+    /// Is blended over it (`render_overlay`).
+    Blend,
+    /// The canvas started as a copy of the target and replaces it (`render_over`), so backdrop
+    /// filters see what the target held.
+    Seeded,
 }
 
 /// What planning asks of this renderer: glyphs and images from the shared caches (their pixels
@@ -290,6 +309,8 @@ impl GlesRenderer {
                 glyphs: GlyphCache::new(),
                 images: ImageCache::default(),
                 image_textures: HashMap::new(),
+                seed: None,
+                seed_size: (0, 0),
             })
         }
     }
@@ -316,13 +337,20 @@ impl GlesRenderer {
 
     /// Draws `cmds` over `clear` into `target`.
     pub fn render(&mut self, target: &Target, clear: Color, cmds: &[DrawCmd]) -> RenderStats {
-        self.draw(target, clear, cmds, false)
+        self.draw(target, clear, cmds, Finish::Replace)
     }
 
     /// Draws `cmds` over what `target` already holds (the canvas starts transparent and is
     /// blended on, premultiplied).
     pub fn render_overlay(&mut self, target: &Target, cmds: &[DrawCmd]) -> RenderStats {
-        self.draw(target, Color::TRANSPARENT, cmds, true)
+        self.draw(target, Color::TRANSPARENT, cmds, Finish::Blend)
+    }
+
+    /// Draws `cmds` over what `target` already holds, like [`render_overlay`](Self::render_overlay),
+    /// but the canvas starts as a copy of the target: `backdrop-filter` blurs what is behind the
+    /// UI (a compositor's windows), not only the UI under it. Costs a copy of the target each frame.
+    pub fn render_over(&mut self, target: &Target, cmds: &[DrawCmd]) -> RenderStats {
+        self.draw(target, Color::TRANSPARENT, cmds, Finish::Seeded)
     }
 
     fn draw(
@@ -330,7 +358,7 @@ impl GlesRenderer {
         target: &Target,
         clear: Color,
         cmds: &[DrawCmd],
-        overlay: bool,
+        finish: Finish,
     ) -> RenderStats {
         if target.size.0 == 0 || target.size.1 == 0 {
             return RenderStats::default();
@@ -347,12 +375,12 @@ impl GlesRenderer {
                 size: target.size,
                 scale: target.scale,
                 clear,
-                seeded: false,
+                seeded: finish == Finish::Seeded,
                 blending: self.blending,
             },
             &mut resources,
         );
-        self.run(target, &frame, overlay)
+        self.run(target, &frame, finish)
     }
 
     /// The pixels of `framebuffer` (`None`: the window's back buffer), RGBA, top row first.
@@ -379,6 +407,94 @@ impl GlesRenderer {
             .flatten()
             .copied()
             .collect()
+    }
+
+    /// Copies the target into canvas 0, pixel for pixel: a framebuffer blit into a plain RGBA8
+    /// texture (no colour conversion), then a draw into the canvas: as is into one holding sRGB
+    /// values (sRGB blending); decoded to linear light into one that encodes on write (linear
+    /// blending), the final blit encoding it back.
+    fn seed_canvas(&mut self, target: &Target) -> Result<(), String> {
+        let size = target.size;
+        let gl = &self.gl;
+        unsafe {
+            if self.seed_size != size
+                && let Some(old) = self.seed.take()
+            {
+                gl.delete_framebuffer(old.framebuffer);
+                gl.delete_texture(old.texture);
+            }
+            if self.seed.is_none() {
+                let texture = gl.create_texture()?;
+                gl.bind_texture(glow::TEXTURE_2D, Some(texture));
+                gl.tex_storage_2d(
+                    glow::TEXTURE_2D,
+                    1,
+                    glow::RGBA8,
+                    size.0 as i32,
+                    size.1 as i32,
+                );
+                for (p, v) in [
+                    (glow::TEXTURE_MIN_FILTER, glow::NEAREST),
+                    (glow::TEXTURE_MAG_FILTER, glow::NEAREST),
+                ] {
+                    gl.tex_parameter_i32(glow::TEXTURE_2D, p, v as i32);
+                }
+                let framebuffer = gl.create_framebuffer()?;
+                gl.bind_framebuffer(glow::FRAMEBUFFER, Some(framebuffer));
+                gl.framebuffer_texture_2d(
+                    glow::FRAMEBUFFER,
+                    glow::COLOR_ATTACHMENT0,
+                    glow::TEXTURE_2D,
+                    Some(texture),
+                    0,
+                );
+                self.seed = Some(Canvas {
+                    texture,
+                    framebuffer,
+                });
+                self.seed_size = size;
+            }
+            let seed = self.seed.as_ref().expect("made above");
+            let (w, h) = (size.0 as i32, size.1 as i32);
+            gl.disable(glow::SCISSOR_TEST);
+            gl.bind_framebuffer(glow::READ_FRAMEBUFFER, target.framebuffer);
+            gl.bind_framebuffer(glow::DRAW_FRAMEBUFFER, Some(seed.framebuffer));
+            gl.blit_framebuffer(
+                0,
+                0,
+                w,
+                h,
+                0,
+                0,
+                w,
+                h,
+                glow::COLOR_BUFFER_BIT,
+                glow::NEAREST,
+            );
+            let seed_texture = seed.texture;
+            let Some(program) = self.programs.get(&self.gl, ProgramKind::Seed) else {
+                return Err("the seed program did not compile".into());
+            };
+            let gl = &self.gl;
+            gl.bind_framebuffer(glow::FRAMEBUFFER, Some(self.canvases[0].framebuffer));
+            gl.viewport(0, 0, w, h);
+            gl.disable(glow::BLEND);
+            gl.use_program(Some(program));
+            gl.bind_vertex_array(Some(self.vao));
+            gl.active_texture(glow::TEXTURE0);
+            gl.bind_texture(glow::TEXTURE_2D, Some(seed_texture));
+            gl.uniform_1_i32(gl.get_uniform_location(program, "u_src").as_ref(), 0);
+            gl.uniform_1_f32(
+                gl.get_uniform_location(program, "u_decode").as_ref(),
+                if self.canvas_blending == Blending::Linear && !target.srgb {
+                    1.0
+                } else {
+                    0.0
+                },
+            );
+            gl.draw_arrays(glow::TRIANGLES, 0, 3);
+        }
+        Ok(())
     }
 
     /// (Re)creates `count` canvases of `size` holding `blending`'s values, keeping the ones that fit.
@@ -628,10 +744,10 @@ impl GlesRenderer {
     /// Runs a plan: uploads its tables, draws its steps into the canvases and copies canvas 0
     /// to the target.
     pub fn execute(&mut self, target: &Target, frame: &FramePlan) -> RenderStats {
-        self.run(target, frame, false)
+        self.run(target, frame, Finish::Replace)
     }
 
-    fn run(&mut self, target: &Target, frame: &FramePlan, overlay: bool) -> RenderStats {
+    fn run(&mut self, target: &Target, frame: &FramePlan, finish: Finish) -> RenderStats {
         let mut stats = RenderStats {
             layers: frame.layers,
             instances: frame.instances.len() as u32,
@@ -644,6 +760,13 @@ impl GlesRenderer {
         }
         self.upload_glyphs();
         self.upload_images();
+        if finish == Finish::Seeded {
+            if let Err(e) = self.seed_canvas(target) {
+                tracing::error!("GLES renderer: seeding the canvas: {e}");
+            } else {
+                stats.passes += 1;
+            }
+        }
         let size = target.size;
         let gl = &self.gl;
         unsafe {
@@ -942,7 +1065,7 @@ impl GlesRenderer {
             // The canvas, pixel for pixel, onto the target.
             gl.bind_framebuffer(glow::FRAMEBUFFER, target.framebuffer);
             gl.viewport(0, 0, size.0 as i32, size.1 as i32);
-            if overlay {
+            if finish == Finish::Blend {
                 gl.enable(glow::BLEND);
                 gl.blend_func(glow::ONE, glow::ONE_MINUS_SRC_ALPHA);
             } else {

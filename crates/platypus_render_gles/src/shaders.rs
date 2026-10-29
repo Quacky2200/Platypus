@@ -713,6 +713,27 @@ void main() {
 }
 "#;
 
+/// Copies a target into the canvas pixel for pixel, opaque (a seeded overlay's backdrop);
+/// `u_decode` undoes the sRGB transfer, for a canvas that encodes on write (linear blending) from
+/// a target that doesn't decode on read.
+pub const SEED_FRAGMENT: &str = r#"#version 300 es
+precision highp float;
+uniform sampler2D u_src;
+uniform float u_decode;
+layout(location = 0) out vec4 o_color;
+
+vec3 srgb_decode(vec3 c) {
+    vec3 low = c / 12.92;
+    vec3 high = pow((c + 0.055) / 1.055, vec3(2.4));
+    return mix(high, low, vec3(lessThanEqual(c, vec3(0.04045))));
+}
+
+void main() {
+    vec4 c = texelFetch(u_src, ivec2(gl_FragCoord.xy), 0);
+    o_color = vec4(u_decode > 0.5 ? srgb_decode(c.rgb) : c.rgb, 1.0);
+}
+"#;
+
 /// Copies the canvas to the target pixel for pixel. `u_mode` 1 applies the sRGB transfer (a
 /// linear canvas onto a target that doesn't encode on write, a window's default framebuffer),
 /// 2 undoes it (an sRGB canvas onto a target that does); 0 copies as is.

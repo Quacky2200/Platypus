@@ -129,6 +129,9 @@ copy of its parent), so opacity groups, `filter`, drop shadows, masks, `mix-blen
 work. Scissor rectangles are flipped to GL's bottom-left origin; a clear wipes the whole canvas as a wgpu load op
 does; canvases filter linearly (a shifted drop shadow samples between texels). `render_overlay` clears
 the canvas transparent and blends it onto what the target holds (premultiplied, `ONE`/`ONE_MINUS_SRC_ALPHA`).
+`render_over` (the GLES side of wgpu's seeded canvas) instead starts the canvas as a copy of the target (a blit into a
+plain `RGBA8` texture, then a draw that decodes it into the sRGB canvas) and replaces the target with the result, so a
+`backdrop-filter` blurs what someone else drew there: a compositor drawing its shell over its windows (M2-GLES-14).
 `EglContext::window` makes a context on a winit window (Win32 HWND, Xlib; anything else is an error). Its
 surface is plain, not ANGLE's sRGB one (reading that back returned unencoded bytes, so colours were off), so
 `Target::srgb` is false: in `srgb` the blit copies the canvas, in `linear` it encodes itself. `platypus-app`'s light path (`gles_gfx.rs`) draws its one window this way
