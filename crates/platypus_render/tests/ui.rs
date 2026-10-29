@@ -2348,6 +2348,67 @@ fn radial_gradients_place_their_centre_and_paint_pixel_stops() {
     assert!(f.luma(5, 85) < 20.0, "the ring is clear inside 5.5px");
 }
 
+// Fluid gap: box shadows inside an `overflow: hidden` parent. A spread shadow and a shadow
+// with a negative offset as large as half its box both paint in the visible part of the clip.
+#[test]
+fn box_shadows_paint_inside_an_overflow_clip() {
+    let mut s = Scene::new();
+    let parent = s.add(
+        0,
+        &at(
+            0.0,
+            0.0,
+            40.0,
+            40.0,
+            &[
+                ("overflow", "hidden".into()),
+                ("backgroundColor", "black".into()),
+            ],
+        ),
+    );
+    // A spread shadow: 6px of red around the 12px child, reaching 2px inside the parent's edge.
+    s.add(
+        parent,
+        &at(
+            4.0,
+            4.0,
+            12.0,
+            12.0,
+            &[
+                ("backgroundColor", "white".into()),
+                ("boxShadow", "0 0 0 6px red".into()),
+            ],
+        ),
+    );
+    // A shadow offset 6px left (half the box) of a 12px child: blue, 2px inside the left edge.
+    s.add(
+        parent,
+        &at(
+            4.0,
+            24.0,
+            12.0,
+            12.0,
+            &[
+                ("backgroundColor", "white".into()),
+                ("boxShadow", "-6px 0 0 blue".into()),
+            ],
+        ),
+    );
+    let f = render(s, (40, 40), 1.0, BLACK);
+    let red = |p: [u8; 4]| p[0] > 200 && p[1] < 50 && p[2] < 50;
+    let blue = |p: [u8; 4]| p[2] > 200 && p[0] < 50 && p[1] < 50;
+    assert!(
+        red(f.px(2, 10)),
+        "spread shadow in the clip: {:?}",
+        f.px(2, 10)
+    );
+    assert!(
+        blue(f.px(1, 30)),
+        "negative-offset shadow in the clip: {:?}",
+        f.px(1, 30)
+    );
+}
+
 // M2-VIS-08 on the GPU: group opacity composites the group once.
 #[test]
 fn group_opacity_blends_the_group_as_a_whole() {
