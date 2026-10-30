@@ -15,6 +15,8 @@ use crate::shaders::{GEOMETRY, QUAD_COMMON};
 /// side). Reads stay inside `u_bounds` (first x, first y, last x, last y, in the canvas's own
 /// orientation): the whole canvas, or a `backdrop-filter`'s box. With `u_mirror` on, reads
 /// past the bounds reflect back in (as Chrome does for backdrop-filter); otherwise they clamp.
+/// `u_linear` set: the canvas holds sRGB values but the blur averages in linear light
+/// (`GlesRenderer::set_linear_blur`).
 pub const BLUR_FRAGMENT: &str = r#"#version 300 es
 precision highp float;
 precision highp int;
@@ -23,7 +25,27 @@ uniform sampler2D u_src;
 uniform vec4 u_blur;
 uniform vec4 u_bounds;
 uniform float u_mirror;
+uniform float u_linear;
 layout(location = 0) out vec4 o_color;
+
+// A premultiplied sRGB texel in linear light (still premultiplied), and back.
+vec4 decode(vec4 c) {
+    if (u_linear < 0.5 || c.a <= 0.0) {
+        return c;
+    }
+    vec3 s = c.rgb / c.a;
+    vec3 l = mix(pow((s + 0.055) / 1.055, vec3(2.4)), s / 12.92, vec3(lessThanEqual(s, vec3(0.04045))));
+    return vec4(l * c.a, c.a);
+}
+
+vec4 encode(vec4 c) {
+    if (u_linear < 0.5 || c.a <= 0.0) {
+        return c;
+    }
+    vec3 l = c.rgb / c.a;
+    vec3 s = mix(1.055 * pow(l, vec3(1.0 / 2.4)) - 0.055, l * 12.92, vec3(lessThanEqual(l, vec3(0.0031308))));
+    return vec4(s * c.a, c.a);
+}
 
 void main() {
     ivec2 low = ivec2(u_bounds.xy);
@@ -43,10 +65,10 @@ void main() {
             if (q.y > high.y) q.y = 2 * high.y + 1 - q.y;
         }
         q = clamp(q, low, high);
-        sum += texelFetch(u_src, q, 0) * w;
+        sum += decode(texelFetch(u_src, q, 0)) * w;
         weights += w;
     }
-    o_color = sum / weights;
+    o_color = encode(sum / weights);
 }
 "#;
 

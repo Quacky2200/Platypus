@@ -172,6 +172,7 @@ See [DESIGN.md](DESIGN.md) for the architecture these tests check.
 | M2-THEME-02 | Unit | A stored system scheme wins over the window's (winit) theme, `set_system_scheme` reports only real changes, and no preference means no theme (light). |
 | M2-THEME-03 | Unit | `project.json` `theme` is `system` when left out (and isn't written back) and then asks the system; `light` and `dark` are kept and force it without asking; an unknown value warns and means `system`. |
 | M2-THEME-04 | Manual | On Linux (GNOME, KDE or Fluid), switching the desktop between light and dark restyles a running game's `prefers-color-scheme` rules in the main window and its secondary windows within a frame; `theme: "dark"` keeps it dark. |
+| M2-BLEND-12 | Integration | GLES `set_linear_blur`: on sRGB canvases a `backdrop-filter: blur()` over a black/white edge averages in linear light (193 just inside the white, into sRGB and plain targets; 136 without it, as browsers), black and white stay so, and linear canvases give 193 too. |
 
 ### Box visuals (styles and draw commands, no GPU)
 | ID | Kind | Checks |

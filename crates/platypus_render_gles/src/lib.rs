@@ -156,6 +156,8 @@ pub struct GlesRenderer {
     canvas_blending: Blending,
     /// How translucent colours combine (docs/rendering.md "Blending").
     blending: Blending,
+    /// Blurs average in linear light on sRGB canvases too (`set_linear_blur`).
+    linear_blur: bool,
     glyphs: GlyphCache,
     images: ImageCache,
     /// Image textures by the cache's key.
@@ -306,6 +308,7 @@ impl GlesRenderer {
                 canvas_size: (0, 0),
                 canvas_blending: Blending::default(),
                 blending: Blending::default(),
+                linear_blur: false,
                 glyphs: GlyphCache::new(),
                 images: ImageCache::default(),
                 image_textures: HashMap::new(),
@@ -323,6 +326,14 @@ impl GlesRenderer {
 
     pub fn blending(&self) -> Blending {
         self.blending
+    }
+
+    /// Whether blur passes (`backdrop-filter`, and `filter` on layers) average in linear light while colours
+    /// blend in sRGB. Off by default, as browsers, which average sRGB values: bright detail then
+    /// blurs darker and flatter. On, a frosted backdrop keeps its glow, as with linear blending.
+    /// Linear canvases always blur in linear light.
+    pub fn set_linear_blur(&mut self, on: bool) {
+        self.linear_blur = on;
     }
 
     /// The programs compiled so far (they compile on first use).
@@ -981,6 +992,10 @@ impl GlesRenderer {
                         gl.uniform_1_f32(
                             gl.get_uniform_location(program, "u_mirror").as_ref(),
                             f32::from(*contained),
+                        );
+                        gl.uniform_1_f32(
+                            gl.get_uniform_location(program, "u_linear").as_ref(),
+                            f32::from(u8::from(srgb && self.linear_blur)),
                         );
                         gl.draw_arrays(glow::TRIANGLES, 0, 3);
                         stats.passes += 1;
