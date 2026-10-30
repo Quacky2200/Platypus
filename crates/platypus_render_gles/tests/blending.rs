@@ -124,6 +124,15 @@ fn wgpu_pixels(cmds: &[DrawCmd], blending: Blending) -> Vec<u8> {
 /// The GLES renderer's pixels, top row first, into an `SRGB8_ALPHA8` target (`srgb_target`) or a
 /// plain `RGBA8` one like the window's default framebuffer. `None` without an EGL driver.
 fn gles_pixels(cmds: &[DrawCmd], blending: Blending, srgb_target: bool) -> Option<Vec<u8>> {
+    gles_pixels_with(cmds, blending, srgb_target, false)
+}
+
+fn gles_pixels_with(
+    cmds: &[DrawCmd],
+    blending: Blending,
+    srgb_target: bool,
+    linear_blur: bool,
+) -> Option<Vec<u8>> {
     // One context at a time: ANGLE asserted with several made and dropped on parallel threads.
     static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
@@ -143,6 +152,7 @@ fn gles_pixels(cmds: &[DrawCmd], blending: Blending, srgb_target: bool) -> Optio
         }
     };
     renderer.set_blending(blending);
+    renderer.set_linear_blur(linear_blur);
     platypus_render::UiBackend::set_asset_root(&mut renderer, assets());
     let gl = cx.gl();
     unsafe {
@@ -419,6 +429,42 @@ fn shadows_and_blurs_darken_and_average_in_srgb() {
             [193, 193, 193],
             3,
         );
+    }
+}
+
+// M2-BLEND-12
+#[test]
+fn a_linear_blur_on_srgb_canvases_averages_in_linear_light() {
+    // A backdrop blur over a black/white edge, sampled just inside the white: averaging sRGB
+    // values gives about 136, linear light about 193 (as M2-BLEND-06's blurred edge).
+    let edge = draw_list(
+        "black",
+        &[
+            item([400.0, 0.0, 400.0, 200.0], &[("backgroundColor", "white")]),
+            item(
+                [200.0, 0.0, 400.0, 200.0],
+                &[("backdropFilter", "blur(6px)")],
+            ),
+        ],
+    );
+    let Some(browser) = gles_pixels_with(&edge, Blending::Srgb, true, false) else {
+        return;
+    };
+    check("sRGB blur", &browser, 400, [136, 136, 136], 4);
+    for srgb in [true, false] {
+        let Some(pixels) = gles_pixels_with(&edge, Blending::Srgb, srgb, true) else {
+            return;
+        };
+        let name = format!("linear blur (sRGB target: {srgb})");
+        check(&name, &pixels, 400, [193, 193, 193], 4);
+        // Away from the edge black and white stay so, inside the box and out.
+        check(&name, &pixels, 250, [0, 0, 0], 1);
+        check(&name, &pixels, 550, [255, 255, 255], 1);
+        check(&name, &pixels, 700, [255, 255, 255], 1);
+    }
+    // Linear canvases blur in linear light whatever the setting.
+    if let Some(pixels) = gles_pixels_with(&edge, Blending::Linear, true, false) {
+        check("linear canvas", &pixels, 400, [193, 193, 193], 4);
     }
 }
 

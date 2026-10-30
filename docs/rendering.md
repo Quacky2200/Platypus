@@ -282,7 +282,7 @@ premultiplied sRGB values, so the hardware's premultiplied blend is the browser'
 | Solid fills, borders, decorations | Blended on sRGB values by the hardware |
 | Gradients | Interpolated in premultiplied sRGB (as before, as CSS) and kept in sRGB (no conversion to linear) |
 | Opacity groups, layers | The composite multiplies and blends canvas values: in sRGB |
-| `filter: blur()`, drop shadows, `backdrop-filter` | The blur averages canvas values: sRGB, as browsers |
+| `filter: blur()`, drop shadows, `backdrop-filter` | The blur averages canvas values: sRGB, as browsers. GLES `set_linear_blur(true)` decodes each tap and encodes the sum (blur passes only; an analytic blurred box isn't one), so bright detail behind frosted glass keeps its light as in `linear` while colours still blend in sRGB |
 | Box shadows | Analytic coverage times the sRGB colour |
 | Filter colour functions, blend modes, luminance masks | Already worked on sRGB values; the conversions around them are skipped |
 | Images, colour glyphs (emoji) | Their textures stay sRGB-format (decoded on sampling); the shader re-encodes the sample. Filtering between texels is in linear light, a sub-pixel difference from browsers |
