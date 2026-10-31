@@ -10,8 +10,8 @@ use crate::frames;
 use crate::ir::*;
 use cranelift_codegen::ir::condcodes::{FloatCC, IntCC};
 use cranelift_codegen::ir::{
-    self, AbiParam, InstBuilder, MemFlagsData, Signature, StackSlot, StackSlotData, StackSlotKind,
-    TrapCode, Value, types,
+    self, AbiParam, InstBuilder, MemFlagsData, Signature, SourceLoc, StackSlot, StackSlotData,
+    StackSlotKind, TrapCode, Value, types,
 };
 use cranelift_codegen::isa::CallConv;
 use cranelift_codegen::settings::{self, Configurable};
@@ -148,23 +148,27 @@ pub fn compile(m: &Module, opt: &str) -> R<Compiled> {
         ObjectBuilder::new(isa, "platypus_ts", default_libcall_names())
             .map_err(|e| e.to_string())?,
     );
-    generate(&mut module, m, false)?;
+    let _ = generate(&mut module, m, false)?;
     let object = module.finish().emit().map_err(|e| e.to_string())?;
     Ok(Compiled { object })
+}
+
+/// What `generate` returns: every function by symbol, and per function (same order) the code
+/// ranges `(start, end, line)` relative to its start, `line` a line of the bundled source.
+pub(crate) struct Generated {
+    pub names: Vec<(String, CFuncId)>,
+    pub lines: Vec<Vec<(u32, u32, u32)>>,
 }
 
 /// Defines every function and datum of `m` in `module`. Returns every function by symbol name,
 /// exported (`ts_<prefix>..`) and local (`platypus_ts_local_..`) alike, so the JIT can name a fault
 /// in any of them. The same code drives the object writer and the JIT. `far_refs`: the module's
 /// own data and function addresses are absolute (the JIT, whose code and data may be far apart).
-pub(crate) fn generate<M: ClifModule>(
-    module: &mut M,
-    m: &Module,
-    far_refs: bool,
-) -> R<Vec<(String, CFuncId)>> {
+pub(crate) fn generate<M: ClifModule>(module: &mut M, m: &Module, far_refs: bool) -> R<Generated> {
     let call_conv = module.isa().default_call_conv();
     let fcfg = module.isa().frontend_config();
     let mut names: Vec<(String, CFuncId)> = Vec::new();
+    let mut lines: Vec<Vec<(u32, u32, u32)>> = Vec::new();
 
     // Functions: declare all first so calls can be forward references.
     let mut cfuncs: Vec<CFuncId> = Vec::new();
@@ -402,9 +406,21 @@ pub(crate) fn generate<M: ClifModule>(
         module
             .define_function(cfuncs[fi], &mut ctx)
             .map_err(|e| format!("{}: {e:?}", f.name))?;
+        lines.push(
+            ctx.compiled_code()
+                .map(|c| {
+                    c.buffer
+                        .get_srclocs_sorted()
+                        .iter()
+                        .filter(|l| !l.loc.is_default())
+                        .map(|l| (l.start, l.end, l.loc.bits()))
+                        .collect()
+                })
+                .unwrap_or_default(),
+        );
         module.clear_context(&mut ctx);
     }
-    Ok(names)
+    Ok(Generated { names, lines })
 }
 
 fn zero(b: &mut FunctionBuilder, t: ir::Type) -> Value {
@@ -887,6 +903,7 @@ impl<M: ClifModule> Cg<'_, '_, M> {
             Stmt::Eval(e) => {
                 self.expr(e)?;
             }
+            Stmt::Line(n) => self.b.set_srcloc(SourceLoc::new(*n)),
             Stmt::Throw(e) => {
                 let v = self.expr(e)?;
                 self.rt("ts_rt_throw", &[types::I64], None, &[v]);

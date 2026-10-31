@@ -374,6 +374,8 @@ pub enum Stmt {
     /// `try { body } catch (v) { handler }`: an exception thrown in `body`, by it or by a call it
     /// makes, runs the handler with the exception in `v`.
     Try(Vec<Stmt>, Option<VarId>, Vec<Stmt>),
+    /// The following code comes from this line of the bundled source (debug info; emits no code).
+    Line(u32),
 }
 
 #[derive(Clone, Debug)]
@@ -679,6 +681,7 @@ fn dump_stmts(s: &mut String, body: &[Stmt], depth: usize) {
                 *s += &format!("{pad}return {}\n", e.as_ref().map(ex).unwrap_or_default())
             }
             Stmt::Eval(e) => *s += &format!("{pad}{}\n", ex(e)),
+            Stmt::Line(n) => *s += &format!("{pad}// line {n}\n"),
         }
     }
 }

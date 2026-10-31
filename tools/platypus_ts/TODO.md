@@ -248,6 +248,14 @@ sidecar, GC (verifier, cheaper frames, escape analysis, pauses), closures, class
 surface, JS-semantics conformance, `JsValue`, direct engine calls, hybrid release builds,
 performance, cross targets and CI.
 
+## Debug info and a debugger (design 2026-10-31: `docs/research/platypus-ts-debug-info.md`)
+
+- [x] 1. `Stmt::Line`, Cranelift srclocs, per-function address tables in `Game`; crash report prints the bundle line.
+- [ ] 2. Optional `game.pdebug` sidecar beside the exe (`build`; `package --debug-info`): `file:line` and source excerpts in reports.
+- [ ] 3. Unwind info for JIT frames: a TypeScript call stack in crash reports.
+- [ ] 4. Debug build mode (spilled locals, break hook): pause, resume, step, breakpoints that survive hot reload.
+- [ ] 5. A debugger: Debug Adapter Protocol server (VS Code, then the editor).
+
 ## Log
 
 - 2026-10-19 Performance review and the sine-demo swap-out check: `docs/research/platypus-ts-sine-demo.md` (verbatim `SineCircle` 33x QuickJS, UI list 8-34x React/QuickJS, sim 44x). Field types are now inferred from constants and arithmetic (`M9-TS-592`).

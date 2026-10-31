@@ -16,6 +16,7 @@ mod bigint;
 mod classes;
 mod closures;
 mod collections;
+mod debug_lines;
 mod destructure;
 mod editor_gaps;
 mod errors;

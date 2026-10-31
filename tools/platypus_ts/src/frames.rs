@@ -115,7 +115,7 @@ pub(crate) fn scan_stmt(s: &Stmt, he: &dyn Fn(&Expr) -> bool, hs: &dyn Fn(&Stmt)
         Stmt::StoreIndex(a, i, x) => e(a) || e(i) || e(x),
         Stmt::If(c, a, b) => e(c) || st(a) || st(b),
         Stmt::Block(_, b) | Stmt::Loop(_, b) => st(b),
-        Stmt::Break(_) | Stmt::Continue(_) => false,
+        Stmt::Break(_) | Stmt::Continue(_) | Stmt::Line(_) => false,
     }
 }
 
@@ -167,7 +167,7 @@ fn stmt_may_alloc(s: &Stmt) -> bool {
             may_alloc(c) || a.iter().any(stmt_may_alloc) || b.iter().any(stmt_may_alloc)
         }
         Stmt::Block(_, b) | Stmt::Loop(_, b) => b.iter().any(stmt_may_alloc),
-        Stmt::Break(_) | Stmt::Continue(_) => false,
+        Stmt::Break(_) | Stmt::Continue(_) | Stmt::Line(_) => false,
     }
 }
 
@@ -262,7 +262,7 @@ fn count_stmts(stmts: &[Stmt], n: &mut u32) {
                 count_stmts(b, n);
             }
             Stmt::Block(_, b) | Stmt::Loop(_, b) => count_stmts(b, n),
-            Stmt::Break(_) | Stmt::Continue(_) => {}
+            Stmt::Break(_) | Stmt::Continue(_) | Stmt::Line(_) => {}
         }
     }
 }

@@ -43,6 +43,9 @@ pub struct Game {
     _module: std::mem::ManuallyDrop<JitModule>,
     /// Every function's address by symbol: exported `ts_<prefix>..` and local ones.
     funcs: HashMap<String, usize>,
+    /// Machine-code ranges `(start, end, line)` by address, ascending: `line` is a line of the
+    /// bundled source (debug info, see `docs/research/platypus-ts-debug-info.md`).
+    line_table: Vec<(usize, usize, u32)>,
     meta: Vec<ClassMeta>,
     prefix: String,
     /// Wall-clock time of lowering and of code generation plus linking.
@@ -209,14 +212,23 @@ pub fn compile_and_load(src: &str, options: &JitOptions) -> Result<Game, String>
     })?;
     lap.mark("Cranelift code generation");
     jit.finalize_definitions().map_err(|e| e.to_string())?;
-    let funcs: HashMap<String, usize> = symbols
-        .into_iter()
-        .map(|(name, id)| (name, jit.get_finalized_function(id) as usize))
-        .collect();
+    let mut line_table: Vec<(usize, usize, u32)> = Vec::new();
+    let mut funcs: HashMap<String, usize> = HashMap::new();
+    for ((name, id), lines) in symbols.names.into_iter().zip(symbols.lines) {
+        let base = jit.get_finalized_function(id) as usize;
+        line_table.extend(
+            lines
+                .into_iter()
+                .map(|(a, b, line)| (base + a as usize, base + b as usize, line)),
+        );
+        funcs.insert(name, base);
+    }
+    line_table.sort_unstable_by_key(|(a, _, _)| *a);
     lap.mark("JIT linking and finalising");
     Ok(Game {
         _module: std::mem::ManuallyDrop::new(JitModule(jit)),
         funcs,
+        line_table,
         meta: class_meta(&module),
         prefix: options.prefix.to_string(),
         lower_time,
@@ -248,6 +260,12 @@ impl Game {
     /// needs to name the function a fault is in (`platypus_app/src/crash.rs`).
     pub fn code_symbols(&self) -> Vec<(String, usize)> {
         self.funcs.iter().map(|(n, a)| (n.clone(), *a)).collect()
+    }
+
+    /// The source line ranges of the compiled code, `(start, end, line)` by address: what a crash
+    /// report maps a fault address to a line of the bundled source with.
+    pub fn line_table(&self) -> &[(usize, usize, u32)] {
+        &self.line_table
     }
 
     /// Runs the top-level code (module variables, `register(..)`, mounting). Call it once, on the

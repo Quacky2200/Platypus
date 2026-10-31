@@ -56,6 +56,29 @@ pub fn note_jit_functions(funcs: impl IntoIterator<Item = (String, usize)>) {
     table.sort_unstable_by_key(|(addr, _)| *addr);
 }
 
+/// Machine-code ranges `(start, end, line)` of the compiled game by address, ascending; `line` is
+/// a line of the bundled source (the sidecar maps it to a file, see the debug-info research doc).
+static JIT_LINES: Mutex<Vec<(usize, usize, u32)>> = Mutex::new(Vec::new());
+
+/// Adds a compiled module's line ranges; a reload adds the new module's.
+pub fn note_jit_lines(lines: &[(usize, usize, u32)]) {
+    let Ok(mut table) = JIT_LINES.lock() else {
+        return;
+    };
+    table.extend_from_slice(lines);
+    table.sort_unstable_by_key(|(a, _, _)| *a);
+}
+
+/// The line of the bundled source whose code contains `addr`.
+fn jit_line_at(addr: usize) -> Option<u32> {
+    let table = JIT_LINES.try_lock().ok()?;
+    let i = table
+        .partition_point(|(a, _, _)| *a <= addr)
+        .checked_sub(1)?;
+    let (_, end, line) = table[i];
+    (addr < end).then_some(line)
+}
+
 /// The nearest exported game function at or below `addr`, as `name+offset`. Only a hint: a
 /// local (not exported) function in between is not in the table.
 fn jit_function_at(addr: usize) -> Option<String> {
@@ -262,7 +285,10 @@ unsafe extern "system" fn report(
         _ => "Access violation".to_string(),
     };
     let place = match &func {
-        Some(f) => format!(" (in compiled game code, near {f})"),
+        Some(f) => match jit_line_at(at) {
+            Some(l) => format!(" (in compiled game code, near {f}, bundled source line {l})"),
+            None => format!(" (in compiled game code, near {f})"),
+        },
         None if in_exe => " (in the game's program)".to_string(),
         None => String::new(),
     };

@@ -263,7 +263,7 @@ impl Analysis<'_> {
                 self.stmts(b);
                 self.stmts(h);
             }
-            Stmt::Break(_) | Stmt::Continue(_) => {}
+            Stmt::Break(_) | Stmt::Continue(_) | Stmt::Line(_) => {}
         }
     }
 }
@@ -540,7 +540,7 @@ impl Rewrite {
             Stmt::Block(l, b) => Stmt::Block(l, self.stmts(b)),
             Stmt::Loop(l, b) => Stmt::Loop(l, self.stmts(b)),
             Stmt::Try(b, v, h) => Stmt::Try(self.stmts(b), v, self.stmts(h)),
-            s @ (Stmt::Break(_) | Stmt::Continue(_)) => s,
+            s @ (Stmt::Break(_) | Stmt::Continue(_) | Stmt::Line(_)) => s,
         }
     }
 }

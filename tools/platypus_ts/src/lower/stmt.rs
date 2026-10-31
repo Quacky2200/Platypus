@@ -58,6 +58,11 @@ impl<'a> Lowerer<'a> {
             {
                 continue;
             }
+            if !self.in_prelude(oxc_span::GetSpan::span(s).start) {
+                out.push(Stmt::Line(
+                    self.line(oxc_span::GetSpan::span(s).start) as u32
+                ));
+            }
             // A message without a line gets the statement's (the innermost one wins).
             self.lower_stmt(s, out).map_err(|e| {
                 if e.contains("line ") {
