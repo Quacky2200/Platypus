@@ -2230,3 +2230,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TSC-01 | Unit | The default `tsconfig.json` is self-contained (no `extends`): ES2022, strict, `noUncheckedIndexedAccess`, `noImplicitOverride`, `isolatedModules`, `verbatimModuleSyntax`, `moduleResolution: bundler`, `jsx: react-jsx`, `paths` to `src/modules`, `include: ["src"]` and `files: ["types/platypus.d.ts"]`. |
 | M9-TSC-02 | Unit | `init` writes that `tsconfig.json` (keeping an existing one) and `types/platypus.d.ts`, the text `platypus-build types` writes (it declares `Vector3` and `GameObject`), so an editor completes engine names at once. |
 | M9-TSC-03 | Unit | `init --editor-files` rewrites only `tsconfig.json` and `types/platypus.d.ts` (a stale declarations file is replaced) of one game or of every game in a folder; the other files stay byte-identical; a folder without games is an error. |
+| M3-INS-01 | Unit | `UiTree::inspect` reports a node's kind, classes, parent and border box; an unknown node is `None`. |
+| M3-INS-02 | Unit | `inspect` lists the matching rules with selector text and marks which declarations win the cascade (specificity, order, inline, `!important`). |
+| M3-INS-03 | Unit | `inspect_set_style` changes a node live and an empty value removes the inline declaration again. |
+| M3-INS-04 | Unit | `Bundle::parse` reads `uiInspector` (false when absent): the host's fast path without `--add-ui-inspector`. |

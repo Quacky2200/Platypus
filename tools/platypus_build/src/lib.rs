@@ -266,6 +266,10 @@ pub struct Options {
     pub no_prebuild: bool,
     /// Also lower the functions nothing calls (they are skipped otherwise), so their errors show.
     pub check_unused: bool,
+    /// Build with the UI inspector (`--add-ui-inspector`): `game.pbundle` says `"uiInspector": true`.
+    /// Off, the bundle has no trace of it and the host takes the fast path
+    /// (`docs/research/platypus-ui-inspector.md`).
+    pub ui_inspector: bool,
 }
 
 /// How `tsc` went.
@@ -688,6 +692,12 @@ pub fn build(root: &Path, opts: &Options) -> Result<Report, String> {
     if let Some(u) = &usage {
         pbundle["renderer"] = u.tier.as_str().into();
         pbundle["uses"] = u.uses.clone().into();
+    }
+    if opts.ui_inspector {
+        pbundle["uiInspector"] = true.into();
+        warnings.push(
+            "built with --add-ui-inspector: for development, leave it out of a release".into(),
+        );
     }
     let text = serde_json::to_string_pretty(&pbundle).map_err(|e| e.to_string())?;
     write_atomic(&out_dir.join("game.pbundle"), text.as_bytes()).map_err(|e| e.to_string())?;

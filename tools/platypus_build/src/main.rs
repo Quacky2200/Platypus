@@ -7,7 +7,7 @@ use platypus_build::{Options, Tsc, assets, build, dev, package, types_dts};
 use std::path::{Path, PathBuf};
 
 const USAGE: &str = "usage:
-  platypus-build build <game> [--no-tsc] [--aot] [--cook] [--no-prebuild] [--check-unused]   build <game>/build
+  platypus-build build <game> [--no-tsc] [--aot] [--cook] [--no-prebuild] [--check-unused] [--add-ui-inspector]   build <game>/build
   platypus-build types [<game>] [--out file]                write types/platypus.d.ts (default <game>/types/platypus.d.ts)
   platypus-build assets <folder>... [--prune]               write .meta files
   platypus-build dev <game> [--no-tsc]                      rebuild on change, signal the app (build/.platypus-reload)
@@ -27,6 +27,7 @@ fn options(args: &[String]) -> Options {
         no_compile: args.iter().any(|a| a == "--no-compile"),
         no_prebuild: args.iter().any(|a| a == "--no-prebuild"),
         check_unused: args.iter().any(|a| a == "--check-unused"),
+        ui_inspector: args.iter().any(|a| a == "--add-ui-inspector"),
     }
 }
 

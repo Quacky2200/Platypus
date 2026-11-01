@@ -55,7 +55,10 @@ pub use style::{
     CURSORS, CursorImage, ScrollbarWidth, StyleError, Visual, WideKeyword, apply_style,
     apply_wide_keyword, is_inherited,
 };
-pub use tree::{AddedStylesheet, ROOT, Scrollbar, TEXT_NODE, UiError, UiTree};
+pub use tree::{
+    AddedStylesheet, Inspected, InspectedDeclaration, InspectedInline, InspectedRule, ROOT,
+    Scrollbar, TEXT_NODE, UiError, UiTree,
+};
 
 /// Re-exported because [`LayoutEngine`] uses Taffy's `Style` as its
 /// backend-neutral description of CSS layout properties.

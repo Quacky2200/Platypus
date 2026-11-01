@@ -35,6 +35,8 @@ use crate::units::{UnitContext, Uses};
 
 mod escape;
 use escape::DrawOut;
+mod inspect;
+pub use inspect::{Inspected, InspectedDeclaration, InspectedInline, InspectedRule};
 
 /// The root container every React root renders into.
 pub const ROOT: NodeId = NodeId(0);

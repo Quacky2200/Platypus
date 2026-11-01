@@ -2242,6 +2242,20 @@ Left over after the UI events and attributes work (`b116ac6`, `docs/ui-native.md
 - [ ] **`<input type>` behaviour:** `type` is stored lower-cased and matches `input[type=password]` selectors, but changes no behaviour and every input is a text field. Implement per type: `password` (masked text, no copy), `number` (digit filtering, step/min/max, spin keys), `checkbox` / `radio` (look, checked state, `onChange`), `range`, `color`, `date`/`time` if wanted, `search`, `email`/`tel`/`url` keyboard hints, `hidden`, `button`/`submit`. Keep React's controlled and uncontrolled semantics.
 - [ ] **`pseudoElement` on transition and animation events** is always `""`: generated `::before` / `::after` boxes are not event targets, so events for them are reported on the owning element. Make generated boxes report their pseudo-element name (`"::before"`, `"::after"`) as in the DOM.
 
+## UI inspector (2026-10-31)
+
+Design: `docs/research/platypus-ui-inspector.md`. Opt-in at build time (`platypus-build build <game> --add-ui-inspector`); the release build keeps the fast path. Embedded in games and in the editor.
+- [x] **Tree queries:** `UiTree::inspect_pick` / `inspect` / `inspect_set_style` (matched rules with winning declarations, computed on demand; `M3-INS-01..03`).
+- [ ] **Build flag:** `--add-ui-inspector` in `platypus-build` (`Options.ui_inspector`), `"uiInspector": true` in `game.pbundle`, read by `platypus-app`; the inspector is compiled in only with it; warn when `package` is used with it.
+- [ ] **`UiInspector` API:** `#[platypus_api]` namespace (`hovered`, `info`, `nodes`, `setStyle`, `setClasses`, `trees`), declared only with the flag; host publishes per-frame state (model: `ui_resources.rs`, `native_render.rs`).
+- [ ] **Tree ids:** every call names a tree (screen UI, world panels, editor-hosted game UI).
+- [ ] **Overlay:** hover outline with content / padding / border tints and a label, `pointer-events: none`, skipped by pick; click pins the selection; key toggle (off by default).
+- [ ] **Panel:** elements tree, Styles list (cascade order, overridden declarations struck through, in-place value edit, per-declaration toggle), box-model diagram; `useInspector()` for custom layouts.
+- [ ] **Editor:** a dock tab "UI"; edits as undoable commands (`history.ts`); pick mode over the Game panel's UI.
+- [ ] **Source locations:** rule file and line (`StyleRule.source`, only with the flag), `@media` condition, pseudo-element rules, computed values; write an edited declaration back to the CSS file.
+- [ ] **Component tree (live component editing):** `Runtime` introspection (component names, props, hook state) behind the flag; JSX site of a host element; edits through hot reload.
+- [ ] **Docs:** `docs/ui-native.md` / `docs/platypus-build.md` once the flag exists.
+
 ## QuickJS removed (2026-10-28; was "deprecated; removal plan", 2026-10-22)
 
 QuickJS is gone from Platypus: `platypus_app` runs only compiled games and refuses a QuickJS bundle with a pointer to

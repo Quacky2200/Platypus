@@ -56,6 +56,9 @@ pub struct Bundle {
     pub tier: Tier,
     /// The engine names that set the tier (`uses`, for the log).
     pub uses: Vec<String>,
+    /// Built with `platypus-build --add-ui-inspector` (`uiInspector`): the host answers the
+    /// `UiInspector` calls. Off, the fast path.
+    pub ui_inspector: bool,
 }
 
 impl Bundle {
@@ -107,6 +110,7 @@ impl Bundle {
                         .collect()
                 })
                 .unwrap_or_default(),
+            ui_inspector: v["uiInspector"].as_bool().unwrap_or(false),
         })
     }
 }
@@ -967,6 +971,10 @@ mod tests {
         assert_eq!(b.css.as_deref(), Some("game.css"));
         assert_eq!(b.assets, ["assets/x.png"]);
         assert_eq!(b.tier, Tier::World3d, "no `renderer`: the 3D world");
+        // M3-INS-04
+        assert!(!b.ui_inspector, "no `uiInspector`: the fast path");
+        let b = Bundle::parse(r#"{"format":1,"source":"","uiInspector":true}"#).unwrap();
+        assert!(b.ui_inspector);
         let b =
             Bundle::parse(r#"{"format":1,"source":"","renderer":"world2d","uses":["TextMesh"]}"#)
                 .unwrap();
