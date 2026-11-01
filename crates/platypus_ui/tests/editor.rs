@@ -613,6 +613,94 @@ fn password_value_and_type_can_change_while_the_field_lives() {
     assert_eq!(f.value(), "abcde");
 }
 
+// M3-INP-04
+#[test]
+fn number_fields_take_only_numbers_and_step_with_the_arrows() {
+    let mut f = Field::new(
+        "input",
+        &[],
+        &[
+            ("type", "number".into()),
+            ("min", 0.0.into()),
+            ("max", 1.0.into()),
+            ("step", "0.1".into()),
+        ],
+    );
+    f.type_text("a1b.5e");
+    assert_eq!(f.value(), "1.5e", "letters other than e are dropped");
+    f.input(Input::Paste("x2-y".into()));
+    assert_eq!(f.value(), "1.5e2-", "pasted text is filtered too");
+
+    f.set_attr("value", "0.2".into());
+    f.key("ArrowUp");
+    assert_eq!(f.value(), "0.3", "no float noise: 0.2 + 0.1");
+    f.set_attr("value", "0.95".into());
+    f.key("ArrowUp");
+    assert_eq!(f.value(), "1", "steps stop at max");
+    f.key("ArrowUp");
+    assert_eq!(f.value(), "1");
+    f.set_attr("value", "".into());
+    f.key("ArrowDown");
+    assert_eq!(
+        f.value(),
+        "0",
+        "an empty field steps from 0, and stops at min"
+    );
+
+    let mut g = Field::new("input", &[], &[("type", "number".into())]);
+    g.key("ArrowUp");
+    g.key("ArrowUp");
+    g.key("ArrowDown");
+    assert_eq!(g.value(), "1", "step defaults to 1");
+    assert_eq!(g.input_values(), ["1", "2", "1"]);
+}
+
+// M3-INP-04
+#[test]
+fn number_steps_snap_to_the_grid_from_min() {
+    let mut f = Field::new(
+        "input",
+        &[],
+        &[
+            ("type", "number".into()),
+            ("min", 1.0.into()),
+            ("step", 5.0.into()),
+            ("value", "7".into()),
+        ],
+    );
+    f.key("ArrowUp");
+    assert_eq!(f.value(), "11", "7 snaps up to 1 + 2 * 5");
+    f.set_attr("value", "7".into());
+    f.key("ArrowDown");
+    assert_eq!(f.value(), "6", "and down to 1 + 5");
+}
+
+// M3-INP-04
+#[test]
+fn search_clears_on_escape_and_max_length_cuts_input() {
+    let mut f = Field::new("input", &[], &[("type", "search".into())]);
+    f.type_text("query");
+    f.key("Escape");
+    assert_eq!(f.value(), "");
+    assert_eq!(f.input_values().last().map(String::as_str), Some(""));
+
+    let mut g = Field::new("input", &[], &[("maxLength", 4.0.into())]);
+    g.type_text("abcdef");
+    assert_eq!(g.value(), "abcd");
+    g.input(Input::Paste("xyz".into()));
+    assert_eq!(g.value(), "abcd", "no room left");
+    g.chord("a");
+    g.input(Input::Paste("12345".into()));
+    assert_eq!(g.value(), "1234", "a selection makes room");
+
+    let mut p = password(&[("maxLength", 3.0.into())]);
+    p.type_text("secret");
+    assert_eq!(p.value(), "sec", "passwords count characters, not masks");
+    let mut t = Field::new("input", &[], &[("type", "email".into())]);
+    t.type_text("a@b.c");
+    assert_eq!(t.value(), "a@b.c");
+}
+
 #[test]
 fn focused_fields_draw_text_selection_and_a_blinking_caret() {
     let mut f = Field::new("input", &[("padding", px(4.0))], &[("value", "hi".into())]);

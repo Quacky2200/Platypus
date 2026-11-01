@@ -636,7 +636,14 @@ content-box `size`.
   `secret` and masks the editor again. As in browsers there is no copy or cut (no clipboard request,
   `editor_selection` is `None`), Ctrl moves and deletes to the ends, and a double click selects all.
   An IME pre-edit shows as typed until it is committed. Changing `type` re-shows the text masked
-  or plain and keeps the value. The other HTML5 types are not special yet.
+  or plain and keeps the value.
+- **Other input types** (`Editor::set_type`, `M3-INP-04`): `number` keeps only `0-9 + - . e E` from
+  typed and pasted text (`accept`), and ArrowUp/ArrowDown set the value one `step` along (`stepped`:
+  1 by default, on the grid that starts at `min` or 0, within `min`..`max`, an empty field counts as
+  0). `search` clears on Escape. `maxLength` (any field) cuts typed and pasted text to fit, counting
+  characters (not masks) and giving room for a replaced selection. `email`, `tel`, `url` and the
+  rest are plain one-line fields. Not done: spinner buttons, validation (`required`, `pattern`,
+  `:invalid`), `inputMode`, and the non-text types (`checkbox`, `radio`, `range`, `color`, dates).
 - **Style sync**: `refresh_editors` runs at the end of `layout_if_needed`. For every field it takes
   `computed_text(id)` (so `color`, `font*`, `line-height`, spacing come from the cascade), calls
   `Editor::set_style` (restyles only if the `ComputedText` changed, which also drops the placeholder

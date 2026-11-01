@@ -2676,7 +2676,13 @@ impl<L: LayoutEngine> UiTree<L> {
                     self.key_changes.push((id, keys));
                 }
                 if let Some(editor) = self.editors.get_mut(&id) {
-                    editor.set_password(attrs.input_type.as_deref() == Some("password"));
+                    editor.set_type(attrs.input_type.as_deref());
+                    let number =
+                        |s: &Option<String>| s.as_deref().and_then(|s| s.trim().parse().ok());
+                    editor.min = number(&attrs.min);
+                    editor.max = number(&attrs.max);
+                    editor.step = number(&attrs.step);
+                    editor.max_length = attrs.max_length.map(|n| n as usize);
                     // A controlled `value` wins; `defaultValue` only fills a new field.
                     let value = match (&attrs.value, &before.value) {
                         (Some(v), _) => Some(v.as_str()),

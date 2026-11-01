@@ -31,9 +31,16 @@ pub struct Attrs {
     pub cols: Option<u32>,
     /// `title`: advisory text (a tooltip in browsers; kept on the element, no tooltip is drawn).
     pub title: Option<String>,
-    /// `type` of an `input`, lower-cased. Selectors see it (`input[type="password"]`); `password`
-    /// masks the text (`Editor::set_password`), any other value is a plain text field for now.
+    /// `type` of an `input`, lower-cased. Selectors see it (`input[type="password"]`); the editor
+    /// acts on `password`, `number` and `search` (`Editor::set_type`), any other value is a plain
+    /// text field.
     pub input_type: Option<String>,
+    /// `min`, `max` and `step` of a `number` input, as written (parsed by the editor).
+    pub min: Option<String>,
+    pub max: Option<String>,
+    pub step: Option<String>,
+    /// `maxLength`: most characters a text field takes in.
+    pub max_length: Option<u32>,
     /// Images: `src`, a path inside the game folder or a `data:` URL.
     pub src: Option<String>,
     /// Dialogs: `open`, `modal` (in the top layer, with a `::backdrop`) and `closedBy`.
@@ -119,6 +126,16 @@ impl Attrs {
                 self.input_type = text()
                     .map(|s| s.trim().to_ascii_lowercase())
                     .filter(|s| !s.is_empty())
+            }
+            "min" => self.min = text().filter(|s| !s.trim().is_empty()),
+            "max" => self.max = text().filter(|s| !s.trim().is_empty()),
+            "step" => self.step = text().filter(|s| !s.trim().is_empty()),
+            "maxLength" => {
+                self.max_length = match value {
+                    Value::Null => None,
+                    Value::Number(n) if *n >= 0.0 => Some(*n as u32),
+                    _ => return Err(format!("invalid maxLength {value:?}")),
+                }
             }
             "cols" => {
                 self.cols = match value {

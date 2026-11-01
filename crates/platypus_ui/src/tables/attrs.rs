@@ -96,6 +96,34 @@ pub const ATTRS: &[Attr] = &[
     ),
     a("placeholder", "string", Html, &["input", "textarea"], ""),
     a(
+        "maxLength",
+        "number",
+        Html,
+        &["input", "textarea"],
+        "Most characters the field takes in (typed or pasted text is cut to fit).",
+    ),
+    a(
+        "min",
+        "number | string",
+        Html,
+        &["input"],
+        "`type=\"number\"`: the lowest value ArrowUp/ArrowDown reach, and where steps count from.",
+    ),
+    a(
+        "max",
+        "number | string",
+        Html,
+        &["input"],
+        "`type=\"number\"`: the highest value ArrowUp/ArrowDown reach.",
+    ),
+    a(
+        "step",
+        "number | string",
+        Html,
+        &["input"],
+        "`type=\"number\"`: how far ArrowUp/ArrowDown move the value (1 by default).",
+    ),
+    a(
         "value",
         "string",
         Html,
@@ -159,7 +187,7 @@ pub const ATTRS: &[Attr] = &[
         "string",
         Html,
         &["input"],
-        "Kept lower-cased for `input[type=\"password\"]` selectors; `password` shows each character as a bullet and gives nothing to the clipboard, any other value is a plain text field.",
+        "Kept lower-cased for `input[type=\"password\"]` selectors. `password` shows each character as a bullet and gives nothing to the clipboard; `number` takes only digits, signs, `.` and `e` and steps with ArrowUp/ArrowDown (`min`, `max`, `step`); `search` clears on Escape; any other value (`text`, `email`, `tel`, `url`, ...) is a plain one-line text field.",
     ),
     // Inline SVG (`<svg>` and the shapes inside it): attributes as React names them.
     a("viewBox", "string", Svg, &["svg"], ""),

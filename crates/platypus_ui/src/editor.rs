@@ -91,6 +91,25 @@ pub(crate) struct Editor {
     /// text is kept in `secret`.
     password: bool,
     secret: String,
+    /// What the `type` attribute makes of a single-line field besides `password`.
+    kind: InputKind,
+    /// `min`, `max` and `step` of a `number` field.
+    pub(crate) min: Option<f64>,
+    pub(crate) max: Option<f64>,
+    pub(crate) step: Option<f64>,
+    /// `maxLength`, in characters.
+    pub(crate) max_length: Option<usize>,
+}
+
+/// The `type`s of an `<input>` that change how it takes text; the rest are plain.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum InputKind {
+    #[default]
+    Text,
+    /// Digits, signs, `.` and `e`; ArrowUp/ArrowDown step the value.
+    Number,
+    /// Escape clears it.
+    Search,
 }
 
 impl Editor {
@@ -109,7 +128,70 @@ impl Editor {
             caret_to_end: false,
             password: false,
             secret: String::new(),
+            kind: InputKind::Text,
+            min: None,
+            max: None,
+            step: None,
+            max_length: None,
         }
+    }
+
+    /// Applies an `<input>`'s `type` (`None` for a textarea or no type).
+    pub(crate) fn set_type(&mut self, input_type: Option<&str>) {
+        self.set_password(input_type == Some("password"));
+        self.kind = match input_type {
+            Some("number") => InputKind::Number,
+            Some("search") => InputKind::Search,
+            _ => InputKind::Text,
+        };
+    }
+
+    /// The text a field takes from `s` typed or pasted at the selection: a `number` field
+    /// keeps only the characters of a number, and `maxLength` cuts what doesn't fit.
+    fn accept(&self, s: &str) -> String {
+        let mut out: String = if self.kind == InputKind::Number {
+            s.chars()
+                .filter(|c| c.is_ascii_digit() || "+-.eE".contains(*c))
+                .collect()
+        } else {
+            s.to_owned()
+        };
+        if let Some(max) = self.max_length {
+            let (from, to) = self.selection_chars();
+            let len = if self.password {
+                self.secret.chars().count()
+            } else {
+                self.editor.raw_text().chars().count()
+            };
+            let room = max.saturating_sub(len - (to - from));
+            out = out.chars().take(room).collect();
+        }
+        out
+    }
+
+    /// A `number` field's value one step up or down, kept on the step grid that starts at
+    /// `min` (or 0) and within `min`..`max`. An empty or unreadable field counts as 0.
+    fn stepped(&self, up: bool) -> String {
+        let step = self.step.filter(|s| *s > 0.0).unwrap_or(1.0);
+        let base = self.min.unwrap_or(0.0);
+        let now = self.text().trim().parse::<f64>().unwrap_or(0.0);
+        let cells = (now - base) / step;
+        let cells = if up {
+            (cells + 1e-9).floor() + 1.0
+        } else {
+            (cells - 1e-9).ceil() - 1.0
+        };
+        let mut next = base + cells * step;
+        if let Some(max) = self.max {
+            next = next.min(max);
+        }
+        if let Some(min) = self.min {
+            next = next.max(min);
+        }
+        // Whole numbers without a point, and no float noise (0.1 + 0.2).
+        let next = (next * 1e12).round() / 1e12 + 0.0;
+        let shown = format!("{next:.12}");
+        shown.trim_end_matches('0').trim_end_matches('.').to_owned()
     }
 
     /// Switches `type="password"` on or off, re-showing the text masked or plain.
@@ -431,6 +513,24 @@ impl Editor {
         m: Modifiers,
         read_only: bool,
     ) -> KeyOutcome {
+        // Fields with keys of their own: a number steps, a search clears.
+        let own = match (self.kind, key) {
+            (InputKind::Number, "ArrowUp" | "ArrowDown") => Some(self.stepped(key == "ArrowUp")),
+            (InputKind::Search, "Escape") if !self.editor.raw_text().is_empty() => {
+                Some(String::new())
+            }
+            _ => None,
+        };
+        if let Some(value) = own.filter(|_| !read_only) {
+            let changed = self.set_value(&value);
+            return KeyOutcome {
+                handled: true,
+                changed,
+                ..KeyOutcome::default()
+            };
+        }
+        let typed = typed.map(|t| self.accept(t));
+        let typed = typed.as_deref();
         let (font_cx, layout_cx) = text.contexts();
         let before = self.editor.generation();
         let pw = self.password;
@@ -595,6 +695,7 @@ impl Editor {
                 .replace("\r\n", " ")
                 .replace(['\n', '\r'], " ")
         };
+        let s = self.accept(&s);
         let old = if self.password {
             self.secret.clone()
         } else {
