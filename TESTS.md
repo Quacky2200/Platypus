@@ -2204,6 +2204,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3386 | Integration | `reduce` / `reduceRight` with no initial value start from the first (last) element, over numbers, strings and objects; an empty array throws a `TypeError` (`bench/leftovers_cases.ts`, compared with bun). |
 | M9-TS-3387 | Integration | Compiled code with every GC mode: `MeshRenderer.isVisible` and `SkinnedMeshRenderer.isVisible` are false until the host reports a frame, asking starts the watch (`watched_renderers`), the report (`set_seen_renderers`) answers each apart; `RenderStats.shadowCasters` reads the host's count (`bench/render_native.ts`). |
 | M9-TS-3389 | Integration | The JIT line table (`Game::line_table`) is ascending and covers the source lines of a compiled function, from `Stmt::Line` markers and Cranelift source locations (`lang/debug_lines.rs`). |
+| M9-TS-3413 | Unit | `platypus-build build` writes `build/game.pdebug` (format, hash of the bundled source, where each file starts) and the host reads it: bundle lines map to `file:line` (`crash.rs`). |
 
 ## M9 — One host: the renderer chosen from what the game uses
 

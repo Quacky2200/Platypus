@@ -329,6 +329,7 @@ impl Native {
             },
         )
         .map_err(|e| anyhow!("compiling the game: {e}"))?;
+        super::crash::note_source_hash(platypus_ts::modules::source_hash(&bundle.source));
         bundle.source = String::new();
         // So a crash in the compiled code can be named (`crash.rs`): every function, local ones
         // too, or a fault in one before the first exported function goes unnamed and unreported.

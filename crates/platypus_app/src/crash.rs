@@ -10,9 +10,9 @@
 //! the dialog never runs in the broken process. `Application.crash` takes the same way.
 
 use super::crash_dialog::{CHILD_ENV, PLAIN_FLAG, REPORT_FLAG};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -77,6 +77,78 @@ fn jit_line_at(addr: usize) -> Option<u32> {
         .checked_sub(1)?;
     let (_, end, line) = table[i];
     (addr < end).then_some(line)
+}
+
+/// The hash of the bundled source the running code was compiled from (`platypus_ts::modules::source_hash`).
+static SOURCE_HASH: AtomicU64 = AtomicU64::new(0);
+
+/// The game folder, where `build/game.pdebug` is looked for after the one beside the exe.
+static GAME_DIR: OnceLock<PathBuf> = OnceLock::new();
+
+/// Notes the source the compiled game came from, to check the debug sidecar against.
+pub fn note_source_hash(hash: u64) {
+    SOURCE_HASH.store(hash, Ordering::Relaxed);
+}
+
+/// Notes the game folder (for `build/game.pdebug`).
+pub fn note_game_dir(dir: &Path) {
+    let _ = GAME_DIR.set(dir.to_path_buf());
+}
+
+/// `game.pdebug`: where each file starts in the bundled source (`platypus-build` writes it).
+struct DebugInfo {
+    hash: String,
+    /// (0-based line of the bundle where the file starts, path).
+    starts: Vec<(usize, String)>,
+}
+
+impl DebugInfo {
+    fn parse(json: &str) -> Option<DebugInfo> {
+        let v: serde_json::Value = serde_json::from_str(json).ok()?;
+        let starts = v["starts"]
+            .as_array()?
+            .iter()
+            .filter_map(|p| Some((p[0].as_u64()? as usize, p[1].as_str()?.to_string())))
+            .collect();
+        Some(DebugInfo {
+            hash: v["hash"].as_str()?.to_string(),
+            starts,
+        })
+    }
+
+    /// The file and line (1-based) that line `line` (1-based) of the bundled source came from.
+    fn locate(&self, line: u32) -> Option<(&str, usize)> {
+        let at = (line as usize).checked_sub(1)?;
+        let (start, file) = self.starts.iter().rev().find(|(s, _)| *s <= at)?;
+        Some((file, at - start + 1))
+    }
+}
+
+/// The sidecar beside the exe (`<exe>.pdebug`), else the game folder's `build/game.pdebug`.
+fn load_debug_info() -> Option<DebugInfo> {
+    let beside = std::env::current_exe()
+        .ok()
+        .map(|e| e.with_extension("pdebug"));
+    let in_game = GAME_DIR.get().map(|d| d.join("build/game.pdebug"));
+    beside
+        .into_iter()
+        .chain(in_game)
+        .find_map(|p| DebugInfo::parse(&std::fs::read_to_string(p).ok()?))
+}
+
+/// Where in the TypeScript source a line of the bundled source is: `file:line` with the sidecar
+/// from this build, else the bundle line.
+fn describe_line(line: u32) -> String {
+    match load_debug_info() {
+        Some(info) if info.hash == format!("{:016x}", SOURCE_HASH.load(Ordering::Relaxed)) => {
+            info.locate(line).map_or_else(
+                || format!("bundled source line {line}"),
+                |(f, l)| format!("{f}:{l}"),
+            )
+        }
+        Some(_) => format!("bundled source line {line} (the .pdebug file is from another build)"),
+        None => format!("bundled source line {line}"),
+    }
 }
 
 /// The nearest exported game function at or below `addr`, as `name+offset`. Only a hint: a
@@ -286,7 +358,10 @@ unsafe extern "system" fn report(
     };
     let place = match &func {
         Some(f) => match jit_line_at(at) {
-            Some(l) => format!(" (in compiled game code, near {f}, bundled source line {l})"),
+            Some(l) => format!(
+                " (in compiled game code, near {f}, at {})",
+                describe_line(l)
+            ),
             None => format!(" (in compiled game code, near {f})"),
         },
         None if in_exe => " (in the game's program)".to_string(),
@@ -306,4 +381,24 @@ unsafe extern "system" fn report(
         save_and_show(&reason, &message, false);
     }
     CONTINUE_SEARCH
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // M9-TS-3413
+    #[test]
+    fn the_debug_sidecar_maps_bundle_lines_to_files() {
+        let info = DebugInfo::parse(
+            r#"{"format":1,"hash":"00000000000000ff","starts":[[0,"src/a.ts"],[10,"src/main.ts"]]}"#,
+        )
+        .unwrap();
+        assert_eq!(info.hash, "00000000000000ff");
+        assert_eq!(info.locate(1), Some(("src/a.ts", 1)));
+        assert_eq!(info.locate(10), Some(("src/a.ts", 10)));
+        assert_eq!(info.locate(11), Some(("src/main.ts", 1)));
+        assert_eq!(info.locate(0), None);
+        assert!(DebugInfo::parse("not json").is_none());
+    }
 }

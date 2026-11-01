@@ -349,6 +349,10 @@ pub struct Report {
 /// How the warning about a UI-only renderer for a world game starts.
 pub const RENDERER_WARNING: &str = "renderer is ";
 
+/// The debug sidecar `build` writes beside `game.pbundle`; `package --debug-info` copies it beside
+/// the exe as `<exe>.pdebug`.
+pub const DEBUG_FILE: &str = "game.pdebug";
+
 /// The warning for `renderer` (`gles`, `cpu`) chosen for a program that uses the world.
 pub fn renderer_warning(
     renderer: platypus_core::project::Renderer,
@@ -759,6 +763,20 @@ pub fn build(root: &Path, opts: &Options) -> Result<Report, String> {
     }
     let text = serde_json::to_string_pretty(&pbundle).map_err(|e| e.to_string())?;
     write_atomic(&out_dir.join("game.pbundle"), text.as_bytes()).map_err(|e| e.to_string())?;
+    // The debug sidecar: which file and line each line of the bundled source came from, for crash
+    // reports (`docs/research/platypus-ts-debug-info.md`). Not part of the bundle or the payload.
+    let root_prefix = format!("{}/", root.to_string_lossy().replace('\\', "/"));
+    let debug = serde_json::json!({
+        "format": 1,
+        "hash": format!("{:016x}", platypus_ts::modules::source_hash(&bundle.source)),
+        "starts": bundle.starts.iter().map(|(line, path)| {
+            // Relative to the game folder: no build machine paths in a file that may ship.
+            let rel = path.strip_prefix(&root_prefix).unwrap_or(path);
+            serde_json::json!([line, rel])
+        }).collect::<Vec<_>>(),
+    });
+    let text = serde_json::to_string(&debug).map_err(|e| e.to_string())?;
+    write_atomic(&out_dir.join(DEBUG_FILE), text.as_bytes()).map_err(|e| e.to_string())?;
 
     if opts.cook {
         match find_platypus(root) {
@@ -926,6 +944,20 @@ mod tests {
         assert_eq!(b["css"], "game.css");
         assert!(b["source"].as_str().unwrap().contains("function twice"));
         assert!(r.object_bytes > 0);
+        // M9-TS-3413: the debug sidecar says which file each bundle line came from, and which source.
+        let dbg: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(d.join("build").join(DEBUG_FILE)).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            dbg["hash"],
+            format!(
+                "{:016x}",
+                platypus_ts::modules::source_hash(b["source"].as_str().unwrap())
+            )
+        );
+        let starts = dbg["starts"].as_array().unwrap();
+        assert!(starts.iter().any(|s| s[1] == "src/util.ts"), "{starts:?}");
         // A type error stops the build.
         std::fs::write(
             d.join("src/util.ts"),

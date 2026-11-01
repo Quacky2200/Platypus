@@ -408,8 +408,14 @@ platypus-build package <game> [--host platypus-app.exe] [--out file] [--no-build
     [--exe name] [--title t] [--company c] [--version v] [--copyright c] [--description d]
     [--icon file.png|.ico] [--sign-cmd "signtool sign /fd sha256 ... {exe}"] [--data-dir name] [--no-data]
     [--packs [--report]] [--video-settings-prompt | --no-video-settings-prompt] [--renderer vulkan|gles|cpu|auto]
-    [--no-notices]
+    [--no-notices] [--debug-info]
 ```
+
+**Debug info.** `build` writes `build/game.pdebug` beside `game.pbundle`: a hash of the bundled source and where each source file
+starts in it. It is not in the bundle or the exe's payload. `package --debug-info` copies it beside the exe as `<exe>.pdebug`; the
+host looks for it there, then in the game folder's `build/`, when a crash happens in compiled code, and the crash report then
+names `src/file.ts:line` instead of "bundled source line N". A file from another build (hash differs) is ignored with a note.
+Design and plan: [research/platypus-ts-debug-info.md](research/platypus-ts-debug-info.md).
 
 `--video-settings-prompt` / `--no-video-settings-prompt` set `videoSettingsPrompt` in the exe's own `project.json`, over the game's
 ([platform.md](platform.md#startup-video-settings-prompt)). `--renderer` sets the exe's `renderer` the same way (`auto` removes

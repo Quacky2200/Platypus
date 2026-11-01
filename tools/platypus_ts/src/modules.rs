@@ -71,6 +71,14 @@ impl Bundle {
     }
 }
 
+/// A stable hash (FNV-1a, 64 bits) of the bundled source: the build writes it into the debug
+/// sidecar and the host compares it, so a sidecar from another build is not trusted.
+pub fn source_hash(source: &str) -> u64 {
+    source.bytes().fold(0xcbf2_9ce4_8422_2325, |h, b| {
+        (h ^ u64::from(b)).wrapping_mul(0x0000_0100_0000_01b3)
+    })
+}
+
 /// Reads a file by its normalised path; `None` when it does not exist.
 pub type ReadFn<'a> = &'a dyn Fn(&str) -> Option<String>;
 

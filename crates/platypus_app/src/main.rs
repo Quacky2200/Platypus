@@ -313,6 +313,9 @@ fn run() -> Result<()> {
     if let Some(log) = &log {
         tracing::info!("log: {}", log.display());
     }
+    if let Some(root) = &manifest_dir {
+        crash::note_game_dir(root);
+    }
     // Crash reports go beside the log (the temp folder without one); no dialog without a player.
     crash::set_reports(
         log.as_deref()
