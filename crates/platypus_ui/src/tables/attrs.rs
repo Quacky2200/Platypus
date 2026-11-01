@@ -159,7 +159,7 @@ pub const ATTRS: &[Attr] = &[
         "string",
         Html,
         &["input"],
-        "Kept lower-cased for `input[type=\"password\"]` selectors; every `input` is a text field.",
+        "Kept lower-cased for `input[type=\"password\"]` selectors; `password` shows each character as a bullet and gives nothing to the clipboard, any other value is a plain text field.",
     ),
     // Inline SVG (`<svg>` and the shapes inside it): attributes as React names them.
     a("viewBox", "string", Svg, &["svg"], ""),

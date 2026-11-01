@@ -2676,6 +2676,7 @@ impl<L: LayoutEngine> UiTree<L> {
                     self.key_changes.push((id, keys));
                 }
                 if let Some(editor) = self.editors.get_mut(&id) {
+                    editor.set_password(attrs.input_type.as_deref() == Some("password"));
                     // A controlled `value` wins; `defaultValue` only fills a new field.
                     let value = match (&attrs.value, &before.value) {
                         (Some(v), _) => Some(v.as_str()),

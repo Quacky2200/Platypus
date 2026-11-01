@@ -28,6 +28,8 @@ pub const TEXTAREA_ROWS: u32 = 2;
 pub const CARET_BLINK_MS: f64 = 530.0;
 /// Caret width in logical pixels.
 pub const CARET_WIDTH: f32 = 1.5;
+/// What a password field shows for each character.
+const MASK: char = '\u{2022}';
 /// Selected text background, when the field has focus.
 pub const SELECTION: Rgba = Rgba {
     r: 0.2,
@@ -85,6 +87,10 @@ pub(crate) struct Editor {
     activity_ms: f64,
     /// A script set the text: move the caret to the end at the next layout, like browsers.
     caret_to_end: bool,
+    /// `type="password"`: the Parley editor holds one [`MASK`] per character and the real
+    /// text is kept in `secret`.
+    password: bool,
+    secret: String,
 }
 
 impl Editor {
@@ -101,7 +107,73 @@ impl Editor {
             size: (0.0, 0.0),
             activity_ms: 0.0,
             caret_to_end: false,
+            password: false,
+            secret: String::new(),
         }
+    }
+
+    /// Switches `type="password"` on or off, re-showing the text masked or plain.
+    pub(crate) fn set_password(&mut self, on: bool) {
+        if self.password == on || self.multiline {
+            return;
+        }
+        if on {
+            self.secret = self.editor.raw_text().to_owned();
+            self.password = true;
+            self.show_masked();
+        } else {
+            let plain = std::mem::take(&mut self.secret);
+            self.password = false;
+            self.editor.set_text(&plain);
+        }
+        self.caret_to_end = true;
+    }
+
+    /// Puts one mask per character of `secret` into the editor, keeping the selection's
+    /// offsets (clamped).
+    fn show_masked(&mut self) {
+        let masked: String = self.secret.chars().map(|_| MASK).collect();
+        self.editor.set_text(&masked);
+    }
+
+    /// After an edit of a password field (the editor now holds the typed characters among
+    /// the masks): updates `secret` and masks the editor again. `old` is the selection's
+    /// character range before the edit, `n` the length of the secret before it.
+    fn absorb_edit(&mut self, text: &mut TextEngine, old: (usize, usize), n: usize) {
+        let shown = self.editor.raw_text();
+        let new_len = shown.chars().count();
+        let focus = self.editor.raw_selection().focus().index();
+        let caret = shown[..focus.min(shown.len())].chars().count();
+        let (start, _) = old;
+        let secret: Vec<char> = self.secret.chars().collect();
+        let (from, typed, removed) = if caret >= start {
+            // Typed or pasted text sits between `start` and the caret; what the edit took
+            // out (a selection, or a character for Delete) starts at `start` too.
+            let typed: String = shown.chars().skip(start).take(caret - start).collect();
+            (start, typed, (n + (caret - start)).saturating_sub(new_len))
+        } else {
+            // Backspace: the caret went back over what was removed.
+            (caret, String::new(), n.saturating_sub(new_len))
+        };
+        let mut next: String = secret.iter().take(from).collect();
+        next.push_str(&typed);
+        next.extend(secret.iter().skip((from + removed).min(n)));
+        self.secret = next;
+        self.show_masked();
+        let (font_cx, layout_cx) = text.contexts();
+        let at = (from + typed.chars().count()) * MASK.len_utf8();
+        self.editor.driver(font_cx, layout_cx).move_to_byte(at);
+    }
+
+    /// The selection as character offsets (masks are one character each).
+    fn selection_chars(&self) -> (usize, usize) {
+        let r = self.editor.raw_selection().text_range();
+        let count = |b: usize| {
+            self.editor.raw_text()[..b.min(self.editor.raw_text().len())]
+                .chars()
+                .count()
+        };
+        (count(r.start), count(r.end))
     }
 
     /// Content size when the element's size is auto: a default width, and one line
@@ -121,17 +193,32 @@ impl Editor {
         )
     }
 
+    /// The field's value (the real text of a password field, not its masks).
     pub(crate) fn text(&self) -> String {
+        if self.password {
+            return self.secret.clone();
+        }
         self.editor.text().to_string()
     }
 
     /// Replaces the text (from the `value` attribute) if it differs, keeping the
     /// selection where it can.
     pub(crate) fn set_value(&mut self, value: &str) -> bool {
-        if self.editor.raw_text() == value || self.editor.is_composing() {
+        if self.editor.is_composing() {
             return false;
         }
-        self.editor.set_text(value);
+        if self.password {
+            if self.secret == value {
+                return false;
+            }
+            self.secret = value.to_owned();
+            self.show_masked();
+        } else {
+            if self.editor.raw_text() == value {
+                return false;
+            }
+            self.editor.set_text(value);
+        }
         self.caret_to_end = true;
         true
     }
@@ -346,7 +433,14 @@ impl Editor {
     ) -> KeyOutcome {
         let (font_cx, layout_cx) = text.contexts();
         let before = self.editor.generation();
-        let old_text = self.editor.raw_text().to_owned();
+        let pw = self.password;
+        let old_text = if pw {
+            self.secret.clone()
+        } else {
+            self.editor.raw_text().to_owned()
+        };
+        let (old_sel, old_len) = (self.selection_chars(), self.secret.chars().count());
+        let mut mutated = false;
         let mut d = self.editor.driver(font_cx, layout_cx);
         // Ctrl on Windows and Linux, Command on macOS.
         let command = m.ctrl || m.meta;
@@ -362,6 +456,22 @@ impl Editor {
         };
         let edit = !read_only;
         match key {
+            // A password has no words: Ctrl moves and deletes to the ends.
+            "ArrowLeft" | "ArrowRight" if pw && command => match (key == "ArrowLeft", m.shift) {
+                (true, true) => d.select_to_text_start(),
+                (true, false) => d.move_to_text_start(),
+                (false, true) => d.select_to_text_end(),
+                (false, false) => d.move_to_text_end(),
+            },
+            "Backspace" | "Delete" if pw && command && edit => {
+                if key == "Backspace" {
+                    d.select_to_text_start();
+                } else {
+                    d.select_to_text_end();
+                }
+                d.delete_selection();
+                mutated = true;
+            }
             "ArrowLeft" => match (m.shift, command) {
                 (true, true) => d.select_word_left(),
                 (true, false) => d.select_left(),
@@ -418,6 +528,7 @@ impl Editor {
                 }
             }
             "Backspace" if edit => {
+                mutated = true;
                 if command {
                     d.backdelete_word()
                 } else {
@@ -425,17 +536,17 @@ impl Editor {
                 }
             }
             "Delete" if edit => {
-                if command {
-                    d.delete_word()
-                } else {
-                    d.delete()
-                }
+                mutated = true;
+                if command { d.delete_word() } else { d.delete() }
             }
             "Enter" if edit && self.multiline => d.insert_or_replace_selection("\n"),
             "a" | "A" if command => d.select_all(),
-            "c" | "C" if command => out.copy = d.editor.selected_text().map(str::to_owned),
+            // A password gives nothing to the clipboard, and cutting it does nothing.
+            "c" | "C" if command => {
+                out.copy = d.editor.selected_text().filter(|_| !pw).map(str::to_owned)
+            }
             "x" | "X" if command => {
-                out.copy = d.editor.selected_text().map(str::to_owned);
+                out.copy = d.editor.selected_text().filter(|_| !pw).map(str::to_owned);
                 if edit && out.copy.is_some() {
                     d.delete_selection();
                 }
@@ -452,13 +563,21 @@ impl Editor {
                             t.replace(['\n', '\r'], "")
                         };
                         d.insert_or_replace_selection(&t);
+                        mutated = true;
                     }
                     Some(_) => {}
                     None => out.handled = false,
                 }
             }
         }
-        out.changed = self.editor.raw_text() != old_text;
+        if pw && mutated {
+            self.absorb_edit(text, old_sel, old_len);
+        }
+        out.changed = if pw {
+            self.secret != old_text
+        } else {
+            self.editor.raw_text() != old_text
+        };
         if out.handled || self.editor.generation() != before {
             self.keep_caret_visible();
         }
@@ -476,13 +595,25 @@ impl Editor {
                 .replace("\r\n", " ")
                 .replace(['\n', '\r'], " ")
         };
+        let old = if self.password {
+            self.secret.clone()
+        } else {
+            self.editor.raw_text().to_owned()
+        };
+        let (old_sel, old_len) = (self.selection_chars(), self.secret.chars().count());
         let (font_cx, layout_cx) = text.contexts();
-        let old = self.editor.raw_text().to_owned();
         self.editor
             .driver(font_cx, layout_cx)
             .insert_or_replace_selection(&s);
+        if self.password {
+            self.absorb_edit(text, old_sel, old_len);
+        }
         self.keep_caret_visible();
-        self.editor.raw_text() != old
+        if self.password {
+            self.secret != old
+        } else {
+            self.editor.raw_text() != old
+        }
     }
 
     /// Places the caret or selects at (x, y) in content-box coordinates.
@@ -496,6 +627,8 @@ impl Editor {
                 shift: true,
             } => d.shift_click_extension(x, y),
             PointerSelect::Press { clicks: 0 | 1, .. } => d.move_to_point(x, y),
+            // The whole password is one word.
+            PointerSelect::Press { clicks: 2, .. } if self.password => d.select_all(),
             PointerSelect::Press { clicks: 2, .. } => d.select_word_at_point(x, y),
             PointerSelect::Press { .. } => {
                 if self.multiline {
@@ -510,6 +643,9 @@ impl Editor {
     }
 
     pub(crate) fn selected_text(&self) -> Option<String> {
+        if self.password {
+            return None;
+        }
         self.editor.selected_text().map(str::to_owned)
     }
 

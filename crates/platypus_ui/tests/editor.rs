@@ -485,6 +485,134 @@ fn draw(f: &mut Field) -> Vec<DrawCmd> {
     f.tree.draw_list()
 }
 
+/// Width of the first drawn text of a field.
+fn text_width(f: &mut Field) -> f32 {
+    draw(f)
+        .iter()
+        .find_map(|c| match c {
+            DrawCmd::Text(t) => Some(t.bounds.width),
+            _ => None,
+        })
+        .unwrap()
+}
+
+fn password(attrs: &[(&str, Value)]) -> Field {
+    let mut all = vec![("type", Value::from("password"))];
+    all.extend(attrs.iter().cloned());
+    Field::new("input", &[], &all)
+}
+
+// M3-INP-03
+#[test]
+fn password_fields_draw_masks_but_report_the_typed_value() {
+    let mut narrow = password(&[]);
+    narrow.type_text("iiiii");
+    let mut wide = password(&[]);
+    wide.type_text("WWWWW");
+    assert_eq!(narrow.value(), "iiiii");
+    assert_eq!(wide.value(), "WWWWW");
+    let (a, b) = (text_width(&mut narrow), text_width(&mut wide));
+    assert!(
+        (a - b).abs() < 0.01,
+        "same-length passwords draw alike: {a} vs {b}"
+    );
+
+    // A plain field does tell them apart.
+    let mut plain_narrow = Field::new("input", &[], &[]);
+    plain_narrow.type_text("iiiii");
+    let mut plain_wide = Field::new("input", &[], &[]);
+    plain_wide.type_text("WWWWW");
+    assert!(text_width(&mut plain_wide) > text_width(&mut plain_narrow) + 1.0);
+
+    assert_eq!(
+        narrow.input_values().last().map(String::as_str),
+        Some("iiiii")
+    );
+}
+
+// M3-INP-03
+#[test]
+fn password_edits_land_where_the_caret_is() {
+    let mut f = password(&[]);
+    f.type_text("secret");
+    f.key("Backspace");
+    assert_eq!(f.value(), "secre");
+    f.key("ArrowLeft");
+    f.key("ArrowLeft");
+    f.type_text("X");
+    assert_eq!(f.value(), "secXre");
+    f.key("Delete");
+    assert_eq!(f.value(), "secXe");
+    f.key("Home");
+    f.type_text("é😀");
+    assert_eq!(f.value(), "é😀secXe");
+    f.key("ArrowRight");
+    f.key("Backspace");
+    assert_eq!(f.value(), "é😀ecXe", "Backspace removed the s");
+
+    // Typing the mask character itself is just a character.
+    let mut g = password(&[]);
+    g.type_text("\u{2022}a");
+    assert_eq!(g.value(), "\u{2022}a");
+    g.key("ArrowLeft");
+    g.key("ArrowLeft");
+    g.type_text("b");
+    assert_eq!(g.value(), "b\u{2022}a");
+}
+
+// M3-INP-03
+#[test]
+fn password_selection_paste_and_word_keys_treat_the_value_as_one_word() {
+    let mut f = password(&[("value", "hunter two".into())]);
+    f.chord("a");
+    f.type_text("n");
+    assert_eq!(f.value(), "n", "typing over a selection replaces it");
+    f.input(Input::Paste("abc def".into()));
+    assert_eq!(f.value(), "nabc def");
+    f.key("ArrowLeft");
+    f.key("ArrowLeft");
+    f.mods(true, false);
+    f.key("Backspace");
+    f.mods(false, false);
+    assert_eq!(f.value(), "ef", "Ctrl+Backspace deletes back to the start");
+    f.key("Home");
+    f.mods(true, false);
+    f.key("Delete");
+    f.mods(false, false);
+    assert_eq!(f.value(), "", "Ctrl+Delete deletes to the end");
+}
+
+// M3-INP-03
+#[test]
+fn password_fields_give_nothing_to_the_clipboard() {
+    let mut f = password(&[("value", "hunter2".into())]);
+    f.chord("a");
+    f.chord("c");
+    assert_eq!(f.ui.take_clipboard(), None);
+    f.chord("x");
+    assert_eq!(f.ui.take_clipboard(), None);
+    assert_eq!(f.value(), "hunter2", "cut does not delete either");
+    assert_eq!(f.tree.editor_selection(f.id), None);
+}
+
+// M3-INP-03
+#[test]
+fn password_value_and_type_can_change_while_the_field_lives() {
+    let mut f = Field::new("input", &[], &[("value", "plain".into())]);
+    f.set_attr("type", "password".into());
+    assert_eq!(f.value(), "plain", "switching to password keeps the value");
+    f.set_attr("value", "abc".into());
+    assert_eq!(f.value(), "abc");
+    f.type_text("d");
+    assert_eq!(f.value(), "abcd", "the caret went to the end");
+    // What a controlled field's `onChange` does.
+    f.set_attr("value", "abcd".into());
+    f.set_attr("type", "text".into());
+    assert_eq!(f.value(), "abcd", "back to text keeps it too");
+    f.type_text("e");
+    assert_eq!(f.value(), "abcde");
+}
+
 #[test]
 fn focused_fields_draw_text_selection_and_a_blinking_caret() {
     let mut f = Field::new("input", &[("padding", px(4.0))], &[("value", "hi".into())]);

@@ -31,8 +31,8 @@ pub struct Attrs {
     pub cols: Option<u32>,
     /// `title`: advisory text (a tooltip in browsers; kept on the element, no tooltip is drawn).
     pub title: Option<String>,
-    /// `type` of an `input`, lower-cased. Selectors see it (`input[type="password"]`); it does not
-    /// change how the field behaves (every `input` is a text field).
+    /// `type` of an `input`, lower-cased. Selectors see it (`input[type="password"]`); `password`
+    /// masks the text (`Editor::set_password`), any other value is a plain text field for now.
     pub input_type: Option<String>,
     /// Images: `src`, a path inside the game folder or a `data:` URL.
     pub src: Option<String>,

@@ -629,6 +629,14 @@ content-box `size`.
   layout, like browsers). `defaultValue` only fills a field that never had a value or default.
   `placeholder` and `rows` are passed on. `readOnly` and `disabled` are read from `Attrs` when keys
   arrive.
+- **Password** (`type="password"` on an `<input>`, `Editor::set_password`, `M3-INP-03`): the Parley
+  editor holds one `•` (U+2022) per character and the real text lives in `Editor::secret`, which is what
+  `editor_value` and `input` events report and `value` sets. After each edit (`key`, `insert`)
+  `absorb_edit` reads what changed from the selection before it and the caret after it, updates
+  `secret` and masks the editor again. As in browsers there is no copy or cut (no clipboard request,
+  `editor_selection` is `None`), Ctrl moves and deletes to the ends, and a double click selects all.
+  An IME pre-edit shows as typed until it is committed. Changing `type` re-shows the text masked
+  or plain and keeps the value. The other HTML5 types are not special yet.
 - **Style sync**: `refresh_editors` runs at the end of `layout_if_needed`. For every field it takes
   `computed_text(id)` (so `color`, `font*`, `line-height`, spacing come from the cascade), calls
   `Editor::set_style` (restyles only if the `ComputedText` changed, which also drops the placeholder
