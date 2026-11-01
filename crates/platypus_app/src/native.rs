@@ -332,11 +332,11 @@ impl Native {
                 .map_or_else(|| sym.clone(), str::to_string);
             (name, a)
         }));
+        super::crash::note_jit_lines(game.line_table());
         Ok(game)
     }
 
     /// Has every module finished evaluating, so the game runs?
-        super::crash::note_jit_lines(game.line_table());
     #[allow(dead_code)]
     pub fn started(&self) -> bool {
         self.started
