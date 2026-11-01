@@ -49,16 +49,26 @@ rules (`::before`), the computed value of every property, and `!important` inlin
 
 ## Script API
 
-An `#[platypus_api]` namespace `UiInspector` in `platypus_engine_api` (declared only when the build flag is on,
-`ui_resources.rs` is the model). The host publishes into thread-local state once per frame, so calls from compiled
-code answer at once with no ops:
+Done (`crates/platypus_engine_api/src/ui_inspector.rs`, host half `crates/platypus_app/src/ui_inspector.rs`; tests
+`M3-INS-05..06`). The namespace `UiInspector` is always declared (the compiler's manifests are not per build), but it is
+inert unless the host called `enable()`, which it does only for a bundle with `"uiInspector": true`: every getter then
+answers 0, `""` or `false` and edits are dropped. The TSX inspector is what the build flag adds.
 
-- `hovered(): number`, the node under the pointer in the screen UI (0 = none), found with `inspect_pick`;
-- `info(id): UiNodeInfo`, a plain value with the fields of `Inspected`;
-- `setStyle(id, prop, value)`, `setClasses(id, text)` (queued, applied by the host before layout);
-- `nodes(): number[]` (the pre-order tree of the screen UI) for the elements panel.
+The host publishes a snapshot once per frame (`sync_native_render`), so calls from compiled code answer at once with no
+ops. Scripts say what they want with `select(id)` and `expand(id, open)`; the host publishes the hovered, selected and
+expanded nodes, their ancestors and the children of all of those (what an elements tree shows). Getters are scalar,
+because the API types are numbers, strings and string lists:
 
-Ids are node ids of the `UiTree`; scripts never hold tree references, as for everything else.
+- `enabled()`, `hovered()`, `selected()`, `select(id)`, `expand(id, open)`;
+- per node: `kind`, `parent`, `childCount` / `childAt(id, i)`, `elementId`, `className`, `x` / `y` / `width` / `height`,
+  `paddingBox(id, 0..3)`;
+- inline styles: `inlineCount`, `inlineProp` / `inlineValue` / `inlineApplied(id, i)`;
+- matching rules: `ruleCount`, `ruleSelector` / `ruleSheet(id, i)`, `declCount(id, rule)`, `declProp` / `declValue` /
+  `declImportant` / `declApplied(id, rule, i)`;
+- `setStyle(id, prop, value)`: queued, applied by the host before the frame is drawn; `""` removes.
+
+Ids are node ids of the screen `UiTree`; scripts never hold tree references, as for everything else. World panels and
+windows are not inspected yet (see Risks: tree ids).
 
 ## The component
 

@@ -53,6 +53,7 @@ pub(crate) mod reload;
 mod render_sync;
 pub(crate) mod sync_profile;
 mod ui_frame;
+mod ui_inspector;
 mod video_prompt;
 mod windows;
 pub(crate) mod world_view;
@@ -384,6 +385,10 @@ fn run() -> Result<()> {
     // The renderer: `--renderer`, then the project's `renderer`, then what the program uses (the
     // bundle's tier).
     let (tier, uses) = (bundle.tier, bundle.uses.clone());
+    if bundle.ui_inspector {
+        tracing::info!("UI inspector on (built with --add-ui-inspector)");
+        ui_inspector::enable();
+    }
     let choice = host::resolve(args.renderer, manifest.renderer, tier);
     host::set(choice);
     tracing::info!(

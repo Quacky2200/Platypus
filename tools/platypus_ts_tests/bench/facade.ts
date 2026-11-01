@@ -106,6 +106,16 @@ export function uiScale(): string {
   return "set";
 }
 
+export function uiInspector(): string {
+  UiInspector.select(7);
+  UiInspector.expand(7, true);
+  UiInspector.setStyle(7, "width", "200px");
+  const id = UiInspector.hovered();
+  const rule = UiInspector.ruleSelector(id, 0);
+  const applied = UiInspector.declApplied(id, 0, 0);
+  return `${UiInspector.enabled()}|${id}|${UiInspector.kind(id)}|${UiInspector.childAt(id, 1)}|${rule}|${applied}|${UiInspector.inlineValue(id, 0)}`;
+}
+
 export function particlesAndPoints(): string {
   const go = new GameObject("p");
   const ps = go.addComponent(ParticleSystem, {

@@ -509,6 +509,49 @@ fn ui_scale_modes_reach_the_host() {
     });
 }
 
+// M3-INS-07
+//
+// `UiInspector` from compiled code reads the snapshot the host published and queues the edit and
+// the selection; with the inspector off its calls answer nothing and drop the edit.
+#[test]
+fn ui_inspector_reads_the_snapshot_and_queues_edits() {
+    use platypus_engine_api::ui_inspector as ins;
+    in_every_gc_mode(|| unsafe {
+        ins::reset();
+        assert_eq!(
+            text(ts_fac_uiInspector()),
+            "false|0||0||false|",
+            "off: nothing"
+        );
+        assert!(ins::take_requests().is_empty());
+
+        ins::enable();
+        ins::set_hovered(7);
+        ins::publish(vec![ins::NodeSnapshot {
+            id: 7,
+            kind: "box".into(),
+            children: vec![8, 9],
+            inline: vec![("width".into(), "100".into(), true)],
+            rules: vec![ins::RuleSnapshot {
+                sheet: 1,
+                selector: ".card".into(),
+                declarations: vec![ins::DeclSnapshot {
+                    prop: "height".into(),
+                    value: "40px".into(),
+                    important: false,
+                    applied: true,
+                }],
+            }],
+            ..Default::default()
+        }]);
+        assert_eq!(text(ts_fac_uiInspector()), "true|7|box|9|.card|true|100");
+        assert_eq!(ins::watched(), [7]);
+        let edits = ins::take_requests();
+        assert_eq!((edits[0].id, edits[0].prop.as_str()), (7, "width"));
+        ins::reset();
+    });
+}
+
 // M9-TS-3384, M9-TS-3385
 //
 // What `examples/fog-white-room` needed: a plain `{ x, y }` for a Vector2 key of an options

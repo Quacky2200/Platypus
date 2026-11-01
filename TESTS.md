@@ -2234,3 +2234,6 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M3-INS-02 | Unit | `inspect` lists the matching rules with selector text and marks which declarations win the cascade (specificity, order, inline, `!important`). |
 | M3-INS-03 | Unit | `inspect_set_style` changes a node live and an empty value removes the inline declaration again. |
 | M3-INS-04 | Unit | `Bundle::parse` reads `uiInspector` (false when absent): the host's fast path without `--add-ui-inspector`. |
+| M3-INS-05 | Unit | `UiInspector` getters read the published snapshot (boxes, classes, children, inline styles, rules and declarations); an unknown or negative id answers 0 / `""` / `false`. |
+| M3-INS-06 | Unit | The host learns what to publish (hovered, selected, expanded) and takes the queued style edits; with the inspector off the edits are dropped. |
+| M3-INS-07 | Integration | Compiled TypeScript calls `UiInspector`: off, it answers nothing and drops the edit; on, it reads the published snapshot (kind, child, rule, declaration, inline) and queues `select` / `expand` / `setStyle`, in every GC mode. |

@@ -125,6 +125,8 @@ impl App {
         let mut lap = crate::sync_profile::Lap::start();
         self.apply_ui_resources();
         lap.mark("ui resources");
+        self.sync_ui_inspector();
+        lap.mark("ui inspector");
         self.apply_cursor_and_screen();
         lap.mark("cursor and screen");
         for (name, args) in extras.cloths {

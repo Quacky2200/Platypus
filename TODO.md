@@ -2246,8 +2246,9 @@ Left over after the UI events and attributes work (`b116ac6`, `docs/ui-native.md
 
 Design: `docs/research/platypus-ui-inspector.md`. Opt-in at build time (`platypus-build build <game> --add-ui-inspector`); the release build keeps the fast path. Embedded in games and in the editor.
 - [x] **Tree queries:** `UiTree::inspect_pick` / `inspect` / `inspect_set_style` (matched rules with winning declarations, computed on demand; `M3-INS-01..03`).
-- [ ] **Build flag:** `--add-ui-inspector` in `platypus-build` (`Options.ui_inspector`), `"uiInspector": true` in `game.pbundle`, read by `platypus-app`; the inspector is compiled in only with it; warn when `package` is used with it.
-- [ ] **`UiInspector` API:** `#[platypus_api]` namespace (`hovered`, `info`, `nodes`, `setStyle`, `setClasses`, `trees`), declared only with the flag; host publishes per-frame state (model: `ui_resources.rs`, `native_render.rs`).
+- [x] **Build flag (flag and bundle field):** `--add-ui-inspector` in `platypus-build` (`Options.ui_inspector`), `"uiInspector": true` in `game.pbundle`, read by `platypus-app`, which enables the API.
+- [ ] **Build flag (the rest):** compile the TSX inspector in only with the flag; warn when `package` is used with it.
+- [x] **`UiInspector` API (screen UI):** `#[platypus_api]` namespace with scalar getters over a per-frame snapshot, `select` / `expand` / `setStyle`; always declared, inert unless the host enables it (`M3-INS-05..06`). Still to do: `setClasses`, a compiled-code test through the facade, and the TypeScript `d.ts` check (`generated_dts`).
 - [ ] **Tree ids:** every call names a tree (screen UI, world panels, editor-hosted game UI).
 - [ ] **Overlay:** hover outline with content / padding / border tints and a label, `pointer-events: none`, skipped by pick; click pins the selection; key toggle (off by default).
 - [ ] **Panel:** elements tree, Styles list (cascade order, overridden declarations struck through, in-place value edit, per-declaration toggle), box-model diagram; `useInspector()` for custom layouts.

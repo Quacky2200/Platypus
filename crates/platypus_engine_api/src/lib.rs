@@ -34,6 +34,7 @@ pub mod random;
 pub mod screen;
 pub mod spline;
 pub mod time;
+pub mod ui_inspector;
 pub mod ui_resources;
 pub mod ui_scale;
 pub mod window;
@@ -84,6 +85,7 @@ pub fn manifests() -> Vec<String> {
         assets::assets_api::MANIFEST.to_json(),
         app::application_api::MANIFEST.to_json(),
         app::system_info_api::MANIFEST.to_json(),
+        ui_inspector::ui_inspector_api::MANIFEST.to_json(),
         ui_resources::ui_resources_api::MANIFEST.to_json(),
         ui_scale::ui_scale_api::MANIFEST.to_json(),
         window::window_api::MANIFEST.to_json(),
