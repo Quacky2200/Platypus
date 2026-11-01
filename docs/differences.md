@@ -367,6 +367,7 @@ The ahead-of-time compiler gives JavaScript's answer, with these exceptions (see
 | `relatedTarget` | `{ id }` of the other element | The element | Scripts hold ids, not elements |
 | `title` | Stored on the element (`[title]` selectors work) | Shows a tooltip | No tooltip UI yet |
 | `cols` | A textarea is `cols` x 8 logical pixels wide when CSS sets no width | `cols` average characters of the font | Fixed character width, like the default sizes of fields |
+| `:invalid` and `minLength` | A field is invalid for a too-short value however the text got there; `pattern` is a `regex-lite` expression (no look-around or back-references) | Only text a user edited can be too short; patterns are JavaScript regular expressions | Fields show their state from the first frame, and the engine has no JavaScript regex engine to share |
 | `type` on `input` | Stored lower-cased (`input[type="password"]` selectors work); every input is a text field | Changes the control (masking, numbers, checkboxes) | Only text editing exists |
 | `dataTransfer` | See "Drag and drop" | | |
 

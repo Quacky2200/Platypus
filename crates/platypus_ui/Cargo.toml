@@ -15,6 +15,7 @@ platypus_core = { version = "0.1.0", path = "../platypus_core" }
 # complex-scripts: dictionary word and line breaks for CJK, Thai, Lao, Khmer and Burmese.
 parley ={ version = "0.12.0", features = ["complex-scripts"] }
 precomputed-hash = "0.1.1"
+regex-lite = "0.1"
 rustc-hash = "2.1.3"
 selectors = "0.41"
 taffy = { version = "0.15.0", features = ["parse", "float_layout"] }

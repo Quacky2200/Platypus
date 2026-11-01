@@ -103,6 +103,27 @@ pub const ATTRS: &[Attr] = &[
         "Most characters the field takes in (typed or pasted text is cut to fit).",
     ),
     a(
+        "required",
+        "boolean",
+        Html,
+        &["input", "textarea"],
+        "The field is `:invalid` while it is empty (`:required` / `:optional` match by it).",
+    ),
+    a(
+        "pattern",
+        "string",
+        Html,
+        &["input"],
+        "A regular expression the whole text must match, else the field is `:invalid` (look-around and back-references are not supported; one that does not compile is ignored).",
+    ),
+    a(
+        "minLength",
+        "number",
+        Html,
+        &["input", "textarea"],
+        "Fewest characters; shorter non-empty text makes the field `:invalid`.",
+    ),
+    a(
         "min",
         "number | string",
         Html,

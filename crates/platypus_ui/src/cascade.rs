@@ -176,6 +176,7 @@ impl<'a, L: LayoutEngine> Element for NodeRef<'a, L> {
             }
             "disabled" if attrs.disabled => Some(""),
             "checked" if attrs.checked => Some(""),
+            "required" if attrs.required => Some(""),
             name => attrs.get(name),
         };
         value.is_some_and(|v| operation.eval_str(v))
@@ -197,6 +198,15 @@ impl<'a, L: LayoutEngine> Element for NodeRef<'a, L> {
             PseudoClass::Enabled => !disabled,
             PseudoClass::Disabled => disabled,
             PseudoClass::Checked => self.tree.attrs(self.id).is_some_and(|a| a.checked),
+            PseudoClass::Valid => self.tree.validity(self.id).is_some_and(|v| v.valid()),
+            PseudoClass::Invalid => self.tree.validity(self.id).is_some_and(|v| !v.valid()),
+            PseudoClass::Required => {
+                self.tree.is_editor(self.id) && self.tree.attrs(self.id).is_some_and(|a| a.required)
+            }
+            PseudoClass::Optional => {
+                self.tree.is_editor(self.id)
+                    && self.tree.attrs(self.id).is_some_and(|a| !a.required)
+            }
             PseudoClass::Blank => self.is_empty_like(true),
             PseudoClass::Outro => state.outro,
         }
@@ -383,6 +393,9 @@ pub(crate) enum Key {
     FocusVisible,
     Disabled,
     Checked,
+    /// What `:valid`, `:invalid`, `:required` and `:optional` read: a text field's text and
+    /// its constraint attributes.
+    Validity,
     Outro,
 }
 
@@ -457,6 +470,10 @@ impl Deps {
                 PseudoClass::FocusVisible => Some(Key::FocusVisible),
                 PseudoClass::Enabled | PseudoClass::Disabled => Some(Key::Disabled),
                 PseudoClass::Checked => Some(Key::Checked),
+                PseudoClass::Valid
+                | PseudoClass::Invalid
+                | PseudoClass::Required
+                | PseudoClass::Optional => Some(Key::Validity),
                 PseudoClass::Outro => {
                     self.uses_outro = true;
                     Some(Key::Outro)

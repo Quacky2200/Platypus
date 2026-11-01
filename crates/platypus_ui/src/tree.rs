@@ -3291,6 +3291,27 @@ impl<L: LayoutEngine> UiTree<L> {
         self.editors.get(&id).map(Editor::text)
     }
 
+    /// Which constraints field `id`'s text breaks (`None` if `id` isn't a text field). A
+    /// disabled or read-only field is never invalid, as in browsers.
+    pub fn validity(&self, id: NodeId) -> Option<crate::validity::Validity> {
+        let editor = self.editors.get(&id)?;
+        let attrs = self.attrs(id)?;
+        if attrs.disabled || attrs.read_only {
+            return Some(crate::validity::Validity::default());
+        }
+        let c = crate::validity::Constraints {
+            input_type: attrs.input_type.as_deref(),
+            textarea: editor.multiline,
+            required: attrs.required,
+            pattern: attrs.pattern.as_deref(),
+            min_length: attrs.min_length.map(|n| n as usize),
+            min: attrs.min.as_deref(),
+            max: attrs.max.as_deref(),
+            step: attrs.step.as_deref(),
+        };
+        Some(crate::validity::check(&c, &editor.text()))
+    }
+
     /// The selected text of a field, if any (for copying).
     pub fn editor_selection(&self, id: NodeId) -> Option<String> {
         self.editors.get(&id).and_then(Editor::selected_text)
@@ -3316,6 +3337,7 @@ impl<L: LayoutEngine> UiTree<L> {
             editors,
             text,
             needs_layout,
+            key_changes,
             ..
         } = self;
         let editor = editors.get_mut(&id)?;
@@ -3323,6 +3345,10 @@ impl<L: LayoutEngine> UiTree<L> {
         if out.handled {
             editor.touch(now);
             *needs_layout = true;
+        }
+        if out.changed {
+            // `:valid` / `:invalid` follow the text.
+            key_changes.push((id, vec![Key::Validity]));
         }
         Some(out)
     }
@@ -3338,6 +3364,7 @@ impl<L: LayoutEngine> UiTree<L> {
             editors,
             text,
             needs_layout,
+            key_changes,
             ..
         } = self;
         let Some(editor) = editors.get_mut(&id) else {
@@ -3345,7 +3372,11 @@ impl<L: LayoutEngine> UiTree<L> {
         };
         editor.touch(now);
         *needs_layout = true;
-        editor.insert(text, s)
+        let changed = editor.insert(text, s);
+        if changed {
+            key_changes.push((id, vec![Key::Validity]));
+        }
+        changed
     }
 
     /// Places the caret or selects in field `id` at absolute (x, y).
@@ -5241,6 +5272,29 @@ fn attr_keys_changed(before: &Attrs, after: &Attrs) -> Vec<Key> {
     }
     if before.input_type != after.input_type {
         keys.push(Key::Attr("type".into()));
+    }
+    if before.required != after.required {
+        keys.push(Key::Attr("required".into()));
+    }
+    // Everything `:valid` and friends read: the constraints and the text they judge.
+    if (
+        before.input_type.as_ref(),
+        before.required,
+        &before.pattern,
+        before.min_length,
+        (&before.min, &before.max, &before.step),
+        (&before.value, &before.default_value),
+        (before.disabled, before.read_only),
+    ) != (
+        after.input_type.as_ref(),
+        after.required,
+        &after.pattern,
+        after.min_length,
+        (&after.min, &after.max, &after.step),
+        (&after.value, &after.default_value),
+        (after.disabled, after.read_only),
+    ) {
+        keys.push(Key::Validity);
     }
     if before.title != after.title {
         keys.push(Key::Attr("title".into()));

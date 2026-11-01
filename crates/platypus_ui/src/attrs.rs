@@ -41,6 +41,10 @@ pub struct Attrs {
     pub step: Option<String>,
     /// `maxLength`: most characters a text field takes in.
     pub max_length: Option<u32>,
+    /// Constraint validation (`validity.rs`): `required`, `pattern` and `minLength`.
+    pub required: bool,
+    pub pattern: Option<String>,
+    pub min_length: Option<u32>,
     /// Images: `src`, a path inside the game folder or a `data:` URL.
     pub src: Option<String>,
     /// Dialogs: `open`, `modal` (in the top layer, with a `::backdrop`) and `closedBy`.
@@ -130,6 +134,15 @@ impl Attrs {
             "min" => self.min = text().filter(|s| !s.trim().is_empty()),
             "max" => self.max = text().filter(|s| !s.trim().is_empty()),
             "step" => self.step = text().filter(|s| !s.trim().is_empty()),
+            "required" => self.required = truthy,
+            "pattern" => self.pattern = text().filter(|s| !s.is_empty()),
+            "minLength" => {
+                self.min_length = match value {
+                    Value::Null => None,
+                    Value::Number(n) if *n >= 0.0 => Some(*n as u32),
+                    _ => return Err(format!("invalid minLength {value:?}")),
+                }
+            }
             "maxLength" => {
                 self.max_length = match value {
                     Value::Null => None,

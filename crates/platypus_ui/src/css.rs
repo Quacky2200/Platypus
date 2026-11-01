@@ -74,6 +74,12 @@ pub enum PseudoClass {
     Enabled,
     Disabled,
     Checked,
+    /// A text field whose text breaks no constraint (`validity.rs`), and one that does.
+    Valid,
+    Invalid,
+    /// A text field with `required`, and one without.
+    Required,
+    Optional,
     /// Selectors Level 4 `:blank`: no element children and only whitespace text.
     Blank,
     /// s&box's `:outro`: the element was removed and plays its exit transitions
@@ -92,6 +98,10 @@ impl ToCss for PseudoClass {
             PseudoClass::Enabled => ":enabled",
             PseudoClass::Disabled => ":disabled",
             PseudoClass::Checked => ":checked",
+            PseudoClass::Valid => ":valid",
+            PseudoClass::Invalid => ":invalid",
+            PseudoClass::Required => ":required",
+            PseudoClass::Optional => ":optional",
             PseudoClass::Blank => ":blank",
             PseudoClass::Outro => ":outro",
         })
@@ -198,6 +208,10 @@ impl<'i> SelectorParser<'i> for PlatypusSelectorParser {
             "enabled" => PseudoClass::Enabled,
             "disabled" => PseudoClass::Disabled,
             "checked" => PseudoClass::Checked,
+            "valid" => PseudoClass::Valid,
+            "invalid" => PseudoClass::Invalid,
+            "required" => PseudoClass::Required,
+            "optional" => PseudoClass::Optional,
             "blank" => PseudoClass::Blank,
             "outro" => PseudoClass::Outro,
             _ => return Err(ParseError::custom(

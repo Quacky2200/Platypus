@@ -642,8 +642,18 @@ content-box `size`.
   1 by default, on the grid that starts at `min` or 0, within `min`..`max`, an empty field counts as
   0). `search` clears on Escape. `maxLength` (any field) cuts typed and pasted text to fit, counting
   characters (not masks) and giving room for a replaced selection. `email`, `tel`, `url` and the
-  rest are plain one-line fields. Not done: spinner buttons, validation (`required`, `pattern`,
-  `:invalid`), `inputMode`, and the non-text types (`checkbox`, `radio`, `range`, `color`, dates).
+  rest are plain one-line fields. Not done: spinner buttons, `inputMode`, and the non-text types
+  (`checkbox`, `radio`, `range`, `color`, dates).
+- **Validation** (`validity.rs`, `UiTree::validity`, `M3-INP-05`): `check` judges a field's text by
+  `required`, `minLength`, `pattern` (a `regex-lite` expression anchored as `^(?:..)$`; look-around
+  and back-references are not supported, one that does not compile is ignored), `min` / `max` /
+  `step` for `number` (a step grid that starts at `min`, `any` lifts it, text that is not a number
+  is bad input) and the shape of `email` and `url`. Empty text breaks only `required`; a disabled
+  or read-only field is always valid. `:valid`, `:invalid`, `:required` and `:optional` match text
+  fields only, through `Key::Validity`, which `attr_keys_changed` pushes when a constraint or the
+  `value` changes and `editor_key` / `editor_insert` push when typing changes the text. Not done:
+  `checkValidity()` / `setCustomValidity()`, `invalid` events, `:user-invalid`, `tooLong`,
+  `:in-range` / `:out-of-range`, and error bubbles.
 - **Style sync**: `refresh_editors` runs at the end of `layout_if_needed`. For every field it takes
   `computed_text(id)` (so `color`, `font*`, `line-height`, spacing come from the cascade), calls
   `Editor::set_style` (restyles only if the `ComputedText` changed, which also drops the placeholder

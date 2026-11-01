@@ -24,6 +24,11 @@ struct Field {
 impl Field {
     /// A field of `kind` with inline `style` and attributes `attrs`, focused.
     fn new(kind: &str, style: &[(&str, Value)], attrs: &[(&str, Value)]) -> Self {
+        Self::with_css(kind, style, attrs, "")
+    }
+
+    /// Like [`Field::new`], under the stylesheet `css`.
+    fn with_css(kind: &str, style: &[(&str, Value)], attrs: &[(&str, Value)], css: &str) -> Self {
         let mut d = Dom::new();
         let id = d.add(0, kind, style);
         if !attrs.is_empty() {
@@ -35,7 +40,7 @@ impl Field {
             d.ops.push(op(SET_ATTRS, &a));
         }
         let mut f = Self {
-            tree: d.build(""),
+            tree: d.build(css),
             ui: Interaction::new(),
             id: NodeId(id),
             events: Vec::new(),
@@ -653,6 +658,53 @@ fn number_fields_take_only_numbers_and_step_with_the_arrows() {
     g.key("ArrowDown");
     assert_eq!(g.value(), "1", "step defaults to 1");
     assert_eq!(g.input_values(), ["1", "2", "1"]);
+}
+
+// M3-INP-05
+#[test]
+fn valid_and_invalid_restyle_as_the_text_changes() {
+    // Sizes stand in for colours: width 100 valid, 200 invalid; height 30 required, 40 optional.
+    let css = "input:valid { width: 100px } input:invalid { width: 200px }
+               input:required { height: 30px } input:optional { height: 40px }";
+    let size = |f: &Field| {
+        let r = f.tree.rect(f.id).unwrap();
+        (r.width, r.height)
+    };
+    let mut f = Field::with_css(
+        "input",
+        &[],
+        &[("type", "email".into()), ("required", true.into())],
+        css,
+    );
+    assert_eq!(size(&f), (200.0, 30.0), "empty and required: invalid");
+    f.type_text("a");
+    assert_eq!(size(&f), (200.0, 30.0), "not an address yet");
+    f.type_text("@b.co");
+    assert_eq!(size(&f), (100.0, 30.0), "an address: valid");
+    f.key("Home");
+    f.key("Delete");
+    assert_eq!(size(&f), (200.0, 30.0), "\"@b.co\" is not one");
+
+    f.set_attr("required", false.into());
+    f.set_attr("value", "".into());
+    assert_eq!(size(&f), (100.0, 40.0), "empty and optional: valid");
+    f.set_attr("disabled", true.into());
+    f.set_attr("value", "nope".into());
+    assert_eq!(size(&f), (100.0, 40.0), "a disabled field is never invalid");
+
+    // Changing the pattern restyles too (after the typed text is echoed into `value`).
+    let mut p = Field::with_css(
+        "input",
+        &[],
+        &[("pattern", "[0-9]+".into()), ("value", "12".into())],
+        css,
+    );
+    assert_eq!(size(&p), (100.0, 40.0));
+    p.type_text("x");
+    assert_eq!(size(&p), (200.0, 40.0));
+    p.set_attr("value", "12x".into());
+    p.set_attr("pattern", "[0-9a-z]+".into());
+    assert_eq!(size(&p), (100.0, 40.0));
 }
 
 // M3-INP-04

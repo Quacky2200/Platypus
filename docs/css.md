@@ -57,7 +57,8 @@ Inline `style` props and stylesheet rules end up in the same `apply_style` call
   combinators (descendant, `>`, `+`, `~`), `:first-child`/`:last-child`/`:only-child`,
   `:nth-child(.. of S)`, `:nth-last-child`, `*-of-type`, `:root`, `:empty`, `:not`, `:is`, `:where`,
   `:has` (relative selectors). Platypus-specific pseudo-classes (`PseudoClass`): `:hover`, `:active`,
-  `:focus`, `:focus-visible`, `:focus-within`, `:enabled`, `:disabled`, `:checked`, `:blank`.
+  `:focus`, `:focus-visible`, `:focus-within`, `:enabled`, `:disabled`, `:checked`, `:valid`, `:invalid`, `:required`, `:optional` (text fields,
+  see `docs/ui-tree.md` "Text fields"), `:blank`.
   Pseudo-elements: `::before`, `::after` only.
 - Element type selectors use the Platypus element names: `box`, `text`, `span`, `root`.
 

@@ -30,6 +30,7 @@ pub mod text_style;
 pub mod transform;
 mod tree;
 pub mod units;
+pub mod validity;
 
 mod background;
 pub use attrs::{Attrs, ClosedBy, ElementState};

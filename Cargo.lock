@@ -4472,6 +4472,7 @@ dependencies = [
  "parley",
  "platypus_core",
  "precomputed-hash",
+ "regex-lite",
  "rustc-hash 2.1.3",
  "selectors",
  "serde_json",
