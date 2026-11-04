@@ -258,8 +258,10 @@ export function f(): number { return 1; }";
         assert_eq!(m.globals.len(), 1);
         assert_eq!(m.globals[0].name, "n");
         let f = m.funcs.iter().find(|f| f.name == "f").unwrap();
+        // Line markers (`Stmt::Line`) between statements are for crash reports.
+        let first = f.body.iter().find(|s| !matches!(s, ir::Stmt::Line(_)));
         assert!(
-            matches!(f.body[0], ir::Stmt::StoreGlobal(0, _)),
+            matches!(first, Some(ir::Stmt::StoreGlobal(0, _))),
             "{:?}",
             f.body
         );
