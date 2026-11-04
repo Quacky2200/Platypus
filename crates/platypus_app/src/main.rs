@@ -123,6 +123,9 @@ struct Args {
     /// `--inspect-brk`: the controller (port 9229 unless `--debug-port` / `--dap-port` says) and a stop
     /// before the program's first statement.
     inspect_brk: bool,
+    /// `--inspect-ts-tool dap|console`: which protocol `--inspect-brk` serves on 9229 (`dap`, the
+    /// default, for editors; `console` for the plain text controller).
+    inspect_dap: bool,
 }
 
 impl Args {
@@ -189,6 +192,7 @@ games are built with `platypus-build build`; arguments after -- reach scripts as
         debug_port: None,
         dap_port: None,
         inspect_brk: false,
+        inspect_dap: true,
     };
     let mut frames_given = false;
     while let Some(arg) = args.next() {
@@ -203,6 +207,13 @@ games are built with `platypus-build build`; arguments after -- reach scripts as
             Some("--screenshot") => parsed.screenshot = Some(args.next().context(usage)?.into()),
             Some("--cook") => parsed.cook = true,
             Some("--inspect-brk") => parsed.inspect_brk = true,
+            Some("--inspect-ts-tool") => {
+                parsed.inspect_dap = match args.next().context(usage)?.to_str() {
+                    Some("dap") => true,
+                    Some("console") => false,
+                    _ => anyhow::bail!("--inspect-ts-tool takes dap or console"),
+                }
+            }
             Some("--dap-port") => {
                 parsed.dap_port = Some(
                     args.next()
@@ -349,7 +360,11 @@ fn run() -> Result<()> {
     if args.inspect_brk {
         debugger::break_at_start();
         if args.debug_port.is_none() && args.dap_port.is_none() {
-            args.debug_port = Some(9229);
+            if args.inspect_dap {
+                args.dap_port = Some(9229);
+            } else {
+                args.debug_port = Some(9229);
+            }
         }
     }
     if let Some(port) = args.debug_port {

@@ -5,9 +5,10 @@
 ([DAP](#editors-the-debug-adapter-protocol)).
 Design and plan: [research/platypus-ts-debug-info.md](research/platypus-ts-debug-info.md).
 
-`--inspect-brk` is `--debug-port 9229` that also stops before the program's first statement (the top level of the first module; `onAwake`
-and the first update come after, so set a breakpoint and `continue`). It combines with `--dap-port`. The port speaks this document's
-protocols, **not** Node's inspector protocol (CDP), so Node's auto-attach and `chrome://inspect` do not see it.
+`--inspect-brk` stops before the program's first statement (the top level of the first module; `onAwake` and the first update come
+after, so set a breakpoint and `continue`) and serves on port 9229. `--inspect-ts-tool dap|console` picks the protocol: `dap` (the default)
+for editors, `console` for the plain text controller below (`--debug-port 9229`). Neither is Node's inspector protocol (CDP), so Node's
+auto-attach and `chrome://inspect` do not see it.
 
 ## What a debug build is
 
