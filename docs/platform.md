@@ -98,6 +98,8 @@ Other exceptions are ignored. The report goes to stderr and `Player.log` and has
 - the compiled game function (`name+offset`, e.g. `crashHere+0xd`, `lambda80+0x105`) when the address is in JIT code.
   `native.rs` registers every compiled function after each compile (`note_jit_functions`, from `Game::code_symbols()`),
   local ones too; closures show as `lambdaN`, so a fault in compiled code always gets a report and the dialog;
+- the TypeScript file and line of the fault (`at src/main.ts:7`) and the game call stack, from the JIT's line table
+  (`note_jit_lines`) and the optional `game.pdebug` file; see [crashes.md](crashes.md#reading-a-report);
 - the general registers;
 - 112 bytes of machine code around the instruction (`rip-96` to `rip+16`), for a disassembler. Left out when the fault was
   executing a bad address, since the code is not readable then;

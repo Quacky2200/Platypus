@@ -54,6 +54,20 @@ the test suite (`PLATYPUS_TS_GC=stress` too) is the check that no optimisation r
 Columns: not in v1 (`SourceLoc` is 32 bits; line is enough). A later version can pack
 `line << 12 | col` for expression-level positions of calls, which is what a debugger's step-into needs.
 
+## Step 3 result (2026-11-04)
+
+- Unwind tables are registered (`unwind.rs`): the system has entries for every compiled function. Cranelift's JIT
+  frames are `push rbp; mov rbp, rsp` with correct codes.
+- Walking the stack with `RtlVirtualUnwind` from the crash handler worked in some builds of a test exe and faulted
+  inside ntdll (a read of -1, while unwinding a host frame after the game frames) in others: it depended on the build, not
+  the run. Not understood (TODO 3b). The crash report therefore scans the stack for return addresses into compiled code
+  (`unwind::stack_words`): it cannot fault, and it crosses host frames.
+- Verified end to end with a small game that dereferences null three calls deep: the report lists `deref`, `middle`, `outer`
+  and `Boom.onStart` with `src/main.ts` lines 7, 11, 15 and 20.
+- The top-down game (`examples/zombie-horders`) did not crash at start-up, nor when started automatically and paused and
+  resumed ~125 times in screenshot runs, also with `PLATYPUS_TS_GC=stress`. The old crashes were not reproduced, so this
+  gave no debug information about them.
+
 ## Debugger (later)
 
 Built on the same tables plus:

@@ -252,7 +252,9 @@ performance, cross targets and CI.
 
 - [x] 1. `Stmt::Line`, Cranelift srclocs, per-function address tables in `Game`; crash report prints the bundle line.
 - [x] 2. Optional `game.pdebug` sidecar beside the exe (`build`; `package --debug-info`): `file:line` and source excerpts in reports.
-- [x] 3. Unwind info for JIT frames: a TypeScript call stack in crash reports.
+- [x] 3. Unwind info for JIT frames; the crash report's game call stack (a stack scan, `unwind::stack_words`).
+- [ ] 3b. `RtlVirtualUnwind` over the host's frames faulted inside ntdll (a read of -1) for some builds of a test exe, from `walk_pcs`
+  (removed): find out why (a JIT unwind-info detail such as the `mov rsp, rbp` epilogue, or a host frame?) before relying on the system unwinder.
 - [ ] 4. Debug build mode (spilled locals, break hook): pause, resume, step, breakpoints that survive hot reload.
 - [ ] 5. A debugger: Debug Adapter Protocol server (VS Code, then the editor).
 - [ ] Per-compile cost of the line info (every run pays it, sidecar or not): measure `Stmt::Line` markers against compile time and

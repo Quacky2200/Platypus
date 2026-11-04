@@ -30,6 +30,32 @@ pub fn is_registered(addr: usize) -> bool {
     !unsafe { RtlLookupFunctionEntry(addr as u64, &mut base, std::ptr::null_mut()) }.is_null()
 }
 
+/// The words of the calling thread's stack from `rsp` up: a conservative scan for return
+/// addresses into compiled code. The OS unwinder is not used because it runs from a crash
+/// handler on whatever state the process is in, and it faulted there in testing (the report
+/// would be lost); a scan cannot fault and also crosses the host's frames in between. It may
+/// list a stale address; a caller keeps only words inside compiled code.
+///
+/// # Safety
+/// `rsp` is the stack pointer of the calling thread, or of a thread stopped in its handler.
+pub unsafe fn stack_words(rsp: usize) -> Vec<usize> {
+    use windows_sys::Win32::System::Threading::GetCurrentThreadStackLimits;
+    let (mut low, mut high) = (0usize, 0usize);
+    // SAFETY: fills two integers.
+    unsafe { GetCurrentThreadStackLimits(&mut low, &mut high) };
+    let from = rsp.max(low).next_multiple_of(8);
+    // A bound keeps the report quick: a megabyte is far deeper than a game's call stack.
+    let to = high.min(from + (1 << 20));
+    let mut out = Vec::new();
+    let mut at = from;
+    while at + 8 <= to {
+        // SAFETY: between the thread's stack limits, committed stack below `high`.
+        out.push(unsafe { *(at as *const usize) });
+        at += 8;
+    }
+    out
+}
+
 const ENTRY: usize = std::mem::size_of::<IMAGE_RUNTIME_FUNCTION_ENTRY>();
 const GRANULE: usize = 64 << 10;
 

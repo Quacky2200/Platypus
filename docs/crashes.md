@@ -128,13 +128,23 @@ build/release/platypus-app.exe --crash-report "C:\Users\you\AppData\Roaming\<com
   code, near `g_Arena_onUpdate+0x1c4`* names the compiled TypeScript function the fault is in, with the offset into it
   (`crashHere+0xd`, `lambda80+0x105`). Every compiled function is in the table, local ones too; closures show as
   `lambdaN`. A fault in compiled code always gets a report and the dialog.
+- **Where in the TypeScript** (`at src/main.ts:7`): the line of the game's source the fault's code came from. It needs the
+  debug file `platypus-build build` writes as `build/game.pdebug`; the host reads it from `<exe>.pdebug` beside the exe, else
+  `build/game.pdebug` in the game folder. A shipped game has it only if it was packaged with `--debug-info`
+  ([platypus-build.md](platypus-build.md), "Debug info"); without it the report says `bundled source line N`, a line of the
+  one text all the game's files are joined into. A file from another build (its source hash differs) is ignored, and the
+  report says so. Lines in code the compiler generated (hook wrappers) can be past the end of a file.
+- **Game call stack**: the compiled functions the fault is inside, innermost first, each with its line, for example
+  `deref at src/main.ts:7`, `middle at src/main.ts:11`, `outer at src/main.ts:15`, `Boom.onStart at src/main.ts:20`. It is
+  found by scanning the faulting thread's stack for return addresses into compiled code, so it also crosses the host's
+  frames between two game frames, and a stale address left on the stack can show as an extra entry. Windows x64 only.
 - **Reading or writing a small address** (`reading 0x28`) is a null pointer plus a field offset.
 - **Registers**: which register held the bad pointer. In the example above `rdi` is `0x10`, the `0x28` read is
   `rdi + 0x18`, so the code was handed a null `Arc`: the value had been zeroed.
 - **Code bytes**: the 96 bytes before the faulting instruction and 16 from it, for a disassembler. Left out when the fault
   was jumping to a bad address.
-- **Backtrace**: the Rust frames of the faulting thread. Compiled game code has no unwind information, so the walk stops
-  at the first game frame. A release build only names frames well with line tables:
+- **Backtrace**: the Rust frames of the faulting thread. Its walk may stop at the first game frame
+  (the game call stack above is the dependable way through the game's frames). A release build only names frames well with line tables:
 
 ```bash
 CARGO_PROFILE_RELEASE_DEBUG=line-tables-only cargo build --release -p platypus_app

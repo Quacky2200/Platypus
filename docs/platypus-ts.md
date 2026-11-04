@@ -1394,5 +1394,14 @@ Calls are unchanged: `cranelift-jit` routes an out-of-range call through a venee
 `platypus_app` reads `PLATYPUS_TS_GC` when the native backend starts (`gc_mode_from_env` in `native.rs`), with the same values as the
 tests: `stress` collects at every allocation and poisons freed memory, `off` never collects. Use it to chase memory bugs in a
 running game. After each compile, `native.rs` also gives the game's exported functions to the crash reporter
-([platform.md](platform.md#crash-report-windows)). Host use:
+([platform.md](platform.md#crash-report-windows)).
+
+**Debug info** (design and plan: [research/platypus-ts-debug-info.md](research/platypus-ts-debug-info.md)). The lowering puts
+`Stmt::Line(n)` (a line of the bundled source) before each statement; codegen turns it into a Cranelift source location, and
+`Game::line_table()` gives the JIT's `(start, end, line)` ranges by address, which the crash reporter maps to a line. Every
+compile pays for it; the cost is a TODO item. `platypus-build build` writes `build/game.pdebug` (a hash of the bundled source
+and where each file starts) to turn the line into `file:line`. The JIT also registers Windows x64 unwind tables
+(`unwind.rs`, `RtlAddFunctionTable`), so debuggers, profilers and exceptions can walk through compiled frames. The crash
+report's game call stack does not use the system unwinder: a handler-time `RtlVirtualUnwind` over the host's frames faulted in a
+unit test on some builds, so `unwind::stack_words` scans the stack for return addresses into compiled code instead. Host use:
 [platypus-api.md](platypus-api.md#native-games-in-platypus_app-compiled-in-process).

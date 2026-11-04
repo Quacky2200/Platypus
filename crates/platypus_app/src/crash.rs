@@ -303,70 +303,49 @@ unsafe fn registers(ctx: *const windows_sys::Win32::System::Diagnostics::Debug::
     )
 }
 
-/// The TypeScript call stack at the fault: the compiled-game frames found by unwinding the
-/// context with the tables `platypus_ts::unwind` registered, innermost first. Frames of the host
-/// in between (an engine call the game made) are skipped.
+/// The TypeScript call stack at the fault, innermost first: the faulting address, then every
+/// word of the stack that is a return address into compiled game code (a scan, see
+/// `platypus_ts::unwind::stack_words`; it crosses the host's frames between the game's, and may
+/// list a stale entry). Needs the line table, so only code it covers shows.
 ///
 /// # Safety
-/// `ctx` is null or the context record of the exception being handled.
+/// `ctx` is null or the context record of the exception being handled, on its own thread.
 #[cfg(all(windows, target_arch = "x86_64"))]
 unsafe fn game_stack(
     ctx: *const windows_sys::Win32::System::Diagnostics::Debug::CONTEXT,
 ) -> String {
-    use windows_sys::Win32::System::Diagnostics::Debug::{
-        RtlLookupFunctionEntry, RtlVirtualUnwind,
-    };
     // SAFETY: by the contract.
     let Some(c) = (unsafe { ctx.as_ref() }) else {
         return String::new();
     };
-    let mut c = *c;
+    // SAFETY: the handler runs on the faulting thread, whose stack pointer this is.
+    let words = unsafe { platypus_ts::unwind::stack_words(c.Rsp as usize) };
     let mut out = Vec::new();
-    for depth in 0..64 {
-        let pc = c.Rip as usize;
-        if pc == 0 {
-            break;
-        }
+    let mut last = 0;
+    for (i, w) in std::iter::once(c.Rip as usize).chain(words).enumerate() {
         // A return address is after the call: look the line up for the call itself.
-        let at = if depth == 0 { pc } else { pc - 1 };
-        if let Some(f) = jit_function_at(at) {
-            let line =
-                jit_line_at(at).map_or_else(String::new, |l| format!(" at {}", describe_line(l)));
-            out.push(format!("  {} ({f}{line})", out.len()));
-        }
-        let mut base = 0u64;
-        // SAFETY: plain queries and an unwind step on a copy of the context.
-        let entry = unsafe { RtlLookupFunctionEntry(c.Rip, &mut base, std::ptr::null_mut()) };
-        if entry.is_null() {
-            // A leaf function has no table entry: its caller's address is on top of the stack.
-            if c.Rsp == 0 {
-                break;
-            }
-            // SAFETY: Rsp of a live thread points into its stack.
-            c.Rip = unsafe { *(c.Rsp as *const u64) };
-            c.Rsp += 8;
+        let at = if i == 0 { w } else { w.wrapping_sub(1) };
+        let Some(line) = jit_line_at(at) else {
+            continue;
+        };
+        if at == last {
             continue;
         }
-        let mut data = std::ptr::null_mut();
-        let mut frame = 0u64;
-        // SAFETY: `entry` is the function's table entry for `c.Rip`; `c` is ours to modify.
-        unsafe {
-            RtlVirtualUnwind(
-                0,
-                base,
-                c.Rip,
-                entry,
-                &mut c,
-                &mut data,
-                &mut frame,
-                std::ptr::null_mut(),
-            );
-        }
+        last = at;
+        let f = jit_function_at(at).unwrap_or_default();
+        out.push(format!("  {} ({f} at {})", out.len(), describe_line(line)));
     }
     if out.is_empty() {
         String::new()
     } else {
-        format!("game call stack:\n{}", out.join("\n"))
+        format!(
+            "game call stack:
+{}",
+            out.join(
+                "
+"
+            )
+        )
     }
 }
 
