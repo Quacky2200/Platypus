@@ -2180,6 +2180,7 @@ declare module "@platypus/engine" :: export import TimeSpan = globalThis.TimeSpa
 declare module "@platypus/engine" :: export import TimeUntil = globalThis.TimeUntil;
 declare module "@platypus/engine" :: export import Transform = globalThis.Transform;
 declare module "@platypus/engine" :: export import TransitionSpec = globalThis.TransitionSpec;
+declare module "@platypus/engine" :: export import UiInspector = globalThis.UiInspector;
 declare module "@platypus/engine" :: export import UiResources = globalThis.UiResources;
 declare module "@platypus/engine" :: export import UiScale = globalThis.UiScale;
 declare module "@platypus/engine" :: export import Vector2 = globalThis.Vector2;
@@ -2848,6 +2849,37 @@ declare namespace TimeSpan :: function fromMinutes(m: number): TimeSpan;
 declare namespace TimeSpan :: function fromSeconds(s: number): TimeSpan;
 declare namespace TimeSpan :: function parse(text: string): TimeSpan;
 declare namespace TimeUntil
+declare namespace UiInspector
+declare namespace UiInspector :: function childAt(id: number, i: number): number;
+declare namespace UiInspector :: function childCount(id: number): number;
+declare namespace UiInspector :: function className(id: number): string;
+declare namespace UiInspector :: function declApplied(id: number, rule: number, i: number): boolean;
+declare namespace UiInspector :: function declCount(id: number, rule: number): number;
+declare namespace UiInspector :: function declImportant(id: number, rule: number, i: number): boolean;
+declare namespace UiInspector :: function declProp(id: number, rule: number, i: number): string;
+declare namespace UiInspector :: function declValue(id: number, rule: number, i: number): string;
+declare namespace UiInspector :: function elementId(id: number): string;
+declare namespace UiInspector :: function enabled(): boolean;
+declare namespace UiInspector :: function expand(id: number, open: boolean): void;
+declare namespace UiInspector :: function expand(id: number, options?: { open?: boolean }): void;
+declare namespace UiInspector :: function height(id: number): number;
+declare namespace UiInspector :: function hovered(): number;
+declare namespace UiInspector :: function inlineApplied(id: number, i: number): boolean;
+declare namespace UiInspector :: function inlineCount(id: number): number;
+declare namespace UiInspector :: function inlineProp(id: number, i: number): string;
+declare namespace UiInspector :: function inlineValue(id: number, i: number): string;
+declare namespace UiInspector :: function kind(id: number): string;
+declare namespace UiInspector :: function paddingBox(id: number, which: number): number;
+declare namespace UiInspector :: function parent(id: number): number;
+declare namespace UiInspector :: function ruleCount(id: number): number;
+declare namespace UiInspector :: function ruleSelector(id: number, i: number): string;
+declare namespace UiInspector :: function ruleSheet(id: number, i: number): number;
+declare namespace UiInspector :: function select(id: number): void;
+declare namespace UiInspector :: function selected(): number;
+declare namespace UiInspector :: function setStyle(id: number, prop: string, value: string): void;
+declare namespace UiInspector :: function width(id: number): number;
+declare namespace UiInspector :: function x(id: number): number;
+declare namespace UiInspector :: function y(id: number): number;
 declare namespace UiResources
 declare namespace UiResources :: function addStyleSheet(css: string): number;
 declare namespace UiResources :: function loadFont(data: FontFace): void;

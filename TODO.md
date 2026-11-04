@@ -2250,7 +2250,8 @@ Design: `docs/research/platypus-ui-inspector.md`. Opt-in at build time (`platypu
 - [ ] **Build flag (the rest):** compile the TSX inspector in only with the flag; warn when `package` is used with it.
 - [x] **`UiInspector` API (screen UI):** `#[platypus_api]` namespace with scalar getters over a per-frame snapshot, `select` / `expand` / `setStyle`; always declared, inert unless the host enables it (`M3-INS-05..06`). Still to do: `setClasses`, a compiled-code test through the facade, and the TypeScript `d.ts` check (`generated_dts`).
 - [ ] **Tree ids:** every call names a tree (screen UI, world panels, editor-hosted game UI).
-- [ ] **Overlay:** hover outline with content / padding / border tints and a label, `pointer-events: none`, skipped by pick; click pins the selection; key toggle (off by default).
+- [x] **Overlay (first version):** `tools/platypus_build/inspector/overlay.tsx`, appended by `--add-ui-inspector` and mounted in a second screen root (`createRoot(9000001)`, `INSPECTOR_TARGET`); F12 toggles (off by default), F9 pins the hovered node; outline (padding box green, border box blue), label, and a card of matching rules with overridden declarations struck through. `M3-INS-08`. **Not seen in a window yet** (compiles; needs a manual run).
+- [ ] **Overlay, next:** click to pin instead of F9 (needs a pick that skips the inspector's own nodes, e.g. a marker attribute); margin box; edit values in place.
 - [ ] **Panel:** elements tree, Styles list (cascade order, overridden declarations struck through, in-place value edit, per-declaration toggle), box-model diagram; `useInspector()` for custom layouts.
 - [ ] **Editor:** a dock tab "UI"; edits as undoable commands (`history.ts`); pick mode over the Game panel's UI.
 - [ ] **Source locations:** rule file and line (`StyleRule.source`, only with the flag), `@media` condition, pseudo-element rules, computed values; write an edited declaration back to the CSS file.

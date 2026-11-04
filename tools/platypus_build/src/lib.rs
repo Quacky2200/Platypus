@@ -272,6 +272,24 @@ pub struct Options {
     pub ui_inspector: bool,
 }
 
+/// The UI inspector's overlay (TSX, `inspector/overlay.tsx`): appended to the program, which
+/// mounts it in its own root (`createRoot(9000001)`, the host's inspector target).
+const INSPECTOR_OVERLAY: &str = include_str!("../inspector/overlay.tsx");
+const INSPECTOR_OVERLAY_NAME: &str = "<ui-inspector>/overlay.tsx";
+
+/// Adds the inspector to a bundled program (`--add-ui-inspector`).
+fn add_ui_inspector(bundle: &mut platypus_ts::modules::Bundle) {
+    if !bundle.source.ends_with('\n') {
+        bundle.source.push('\n');
+    }
+    // Lines of the appended text are told apart from the game's in error messages.
+    let start = bundle.source.matches('\n').count();
+    bundle.source.push_str(INSPECTOR_OVERLAY);
+    bundle
+        .starts
+        .push((start, INSPECTOR_OVERLAY_NAME.to_string()));
+}
+
 /// How `tsc` went.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Tsc {
@@ -536,7 +554,10 @@ pub fn build(root: &Path, opts: &Options) -> Result<Report, String> {
     let entry = root.join(&config.entry);
     // The engine's global names stay the engine's: a module's own `class Random` is renamed.
     let reserved = platypus_ts::modules::global_names(&types_dts()?);
-    let bundle = platypus_ts::modules::bundle_reserving(&entry, &reserved)?;
+    let mut bundle = platypus_ts::modules::bundle_reserving(&entry, &reserved)?;
+    if opts.ui_inspector {
+        add_ui_inspector(&mut bundle);
+    }
     let mut warnings = config.empty_field_warnings.clone();
     warnings.extend(config.project_warnings.iter().cloned());
 

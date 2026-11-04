@@ -11,6 +11,11 @@
 
 use std::cell::RefCell;
 
+/// The mount target of the UI inspector's overlay (`createRoot(9000001)` in
+/// `platypus-build`'s `inspector/overlay.tsx`): the host gives it a second root on the screen, so
+/// it never replaces the game's. Panel handles are far above it.
+pub const INSPECTOR_TARGET: u64 = 9_000_001;
+
 thread_local! {
     static MOUNTS: RefCell<Vec<(u64, u64)>> = const { RefCell::new(Vec::new()) };
     static WINDOW_MOUNTS: RefCell<Vec<(u64, u64)>> = const { RefCell::new(Vec::new()) };

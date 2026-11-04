@@ -111,3 +111,44 @@ fn prebuild_runs_in_the_game_folder_before_compiling_and_can_be_skipped() {
     );
     let _ = std::fs::remove_dir_all(&g);
 }
+
+// M3-INS-08
+#[test]
+fn add_ui_inspector_compiles_the_overlay_in_and_marks_the_bundle() {
+    let g = game("inspector", r#"{ "name": "g" }"#);
+    let parent = g.parent().unwrap().to_path_buf();
+    let pbundle = g.join("build/game.pbundle");
+
+    // The fast path: no overlay, no mark.
+    let b = run(&["build", g.to_str().unwrap(), "--no-tsc"], &parent);
+    assert!(b.status.success(), "{}", String::from_utf8_lossy(&b.stderr));
+    let text = std::fs::read_to_string(&pbundle).unwrap();
+    assert!(!text.contains("uiInspector") && !text.contains("UiInspOverlay"));
+
+    // With the flag the overlay is part of the program, and the host is told.
+    let b = run(
+        &[
+            "build",
+            g.to_str().unwrap(),
+            "--no-tsc",
+            "--add-ui-inspector",
+        ],
+        &parent,
+    );
+    let err = String::from_utf8_lossy(&b.stderr).into_owned();
+    assert!(b.status.success(), "{err}");
+    assert!(
+        err.contains("--add-ui-inspector"),
+        "warns it is a development build: {err}"
+    );
+    let v: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&pbundle).unwrap()).unwrap();
+    assert_eq!(v["uiInspector"], true);
+    assert!(
+        v["source"]
+            .as_str()
+            .unwrap()
+            .contains("function UiInspOverlay")
+    );
+    let _ = std::fs::remove_dir_all(&g);
+}

@@ -16,7 +16,7 @@
 //! and the prelude in `ui.ts`.
 
 mod mount;
-pub use mount::{root_manifest_json, take_mounts, take_window_mounts};
+pub use mount::{INSPECTOR_TARGET, root_manifest_json, take_mounts, take_window_mounts};
 
 use platypus_api::{return_string, script_str};
 use platypus_ts_rt::{

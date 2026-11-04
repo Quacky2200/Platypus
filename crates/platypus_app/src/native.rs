@@ -187,6 +187,8 @@ pub struct Native {
     host: NativeHost,
     rt: Runtime,
     screen_root: RootId,
+    /// The UI inspector's overlay: a second root on the screen, made when it first mounts.
+    inspector_root: Option<RootId>,
     /// How many games this app compiled (struct headers of each get their own range).
     generation: u32,
     /// Components whose hook list changed in a reload: they start over, the others keep state.
@@ -282,6 +284,7 @@ impl Native {
             host,
             rt,
             screen_root,
+            inspector_root: None,
             generation,
             remount: None,
             panel_mounts: Vec::new(),
@@ -559,6 +562,13 @@ impl Native {
                     None => self.rt.render(self.screen_root, element, ui),
                 };
                 for e in errors {
+                    tracing::warn!(target: "ui", "{e}");
+                }
+            } else if target == platypus_ts_ui::INSPECTOR_TARGET {
+                let root = *self
+                    .inspector_root
+                    .get_or_insert_with(|| self.rt.create_root(platypus_ui::ROOT));
+                for e in self.rt.render(root, element, ui) {
                     tracing::warn!(target: "ui", "{e}");
                 }
             } else {
