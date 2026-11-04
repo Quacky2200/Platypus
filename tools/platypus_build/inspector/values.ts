@@ -491,5 +491,7 @@ export function uiValSuggest(prefix: string, words: string[], max: number): stri
     if (lw.startsWith(p)) starts.push(w);
     else if (lw.indexOf(p) >= 0) has.push(w);
   }
+  // Shorter words first among those that start with it: `color` before `columnGap` for `co`.
+  starts.sort((a, b) => a.length - b.length);
   return starts.concat(has).slice(0, max);
 }

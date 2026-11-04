@@ -156,7 +156,9 @@
 
 /* A value reads as plain text; editing wraps it snugly: 2px above and below (1px padding, 1px border), 5px at the sides. */
 .uii-field {
-  padding: 1px 5px;
+  /* The text box has its spare room under the glyphs, so the padding goes above them: 2px on top, none
+     below, 2px (plus the 1px border) at the sides. */
+  padding: 2px 2px 0 2px;
   font-size: 12px;
   color: var(--uii-text);
   background-color: transparent;
@@ -167,7 +169,7 @@
 .uii-field:hover { background-color: var(--uii-field); }
 .uii-field:focus { background-color: var(--uii-field); border-color: var(--uii-accent); box-shadow: 0 0 0 2px var(--uii-accent-bg); }
 .uii-boxed { background-color: var(--uii-field); border-color: var(--uii-line); }
-.uii-pill { border-radius: 11px; padding: 1px 9px; min-width: 84px; background-color: var(--uii-field); border-color: var(--uii-accent); box-shadow: 0 0 0 2px var(--uii-accent-bg); }
+.uii-pill { border-radius: 11px; padding: 3px 9px 0 9px; min-width: 84px; background-color: var(--uii-field); border-color: var(--uii-accent); box-shadow: 0 0 0 2px var(--uii-accent-bg); }
 
 /* Text that acts: classes and states are links (hand cursor, underline on hover), not buttons. */
 .uii-link { color: var(--uii-text); font-size: 12px; cursor: pointer; padding: 1px 2px; border-radius: 3px; }

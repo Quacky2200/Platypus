@@ -147,9 +147,9 @@ test("property names go between the engine's camelCase and CSS's kebab-case", ()
 // M3-INS-11
 test("autocomplete lists prefix matches before inner matches", () => {
   const words = ["flexDirection", "flexGrow", "alignItems", "display", "flex"];
-  eq(uiValSuggest("fl", words, 10), ["flexDirection", "flexGrow", "flex"], "prefix");
+  eq(uiValSuggest("fl", words, 10), ["flex", "flexGrow", "flexDirection"], "prefix, shorter first");
   eq(uiValSuggest("grow", words, 10), ["flexGrow"], "inner match");
-  eq(uiValSuggest("FLEX", words, 2), ["flexDirection", "flexGrow"], "case-insensitive and capped");
+  eq(uiValSuggest("FLEX", words, 2), ["flexGrow", "flexDirection"], "case-insensitive and capped");
   eq(uiValSuggest("flex", words, 10).indexOf("flex"), -1, "the exact word is not suggested");
   eq(uiValSuggest("", words, 10), [], "nothing for an empty prefix");
 });
