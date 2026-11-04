@@ -11,7 +11,7 @@
 //!
 //! Supported: `initialize`, `attach`/`launch`, `setBreakpoints`, `setExceptionBreakpoints`,
 //! `configurationDone`, `threads`, `stackTrace` (the stop and the callers found on the stack),
-//! `scopes`/`variables` (the innermost frame's locals), `continue`, `next`, `stepIn`,
+//! `scopes`/`variables` (the innermost frame's locals, objects and arrays opened), `evaluate` (watches, hovers, the console), `continue`, `next`, `stepIn`,
 //! `stepOut`, `pause`, `disconnect`. One thread, id 1, is the game's.
 
 use crate::debugger;
@@ -123,6 +123,16 @@ pub fn serve<R: BufRead, W: Write + Send + 'static>(mut reader: R, out: Arc<Mute
         seq: AtomicI64::new(0),
     });
     let watching = Arc::new(AtomicBool::new(true));
+    // Log points write to the debugger's console.
+    {
+        let tx = tx.clone();
+        debug::set_output(Some(Box::new(move |m| {
+            tx.event(
+                "output",
+                json!({"category": "console", "output": format!("{m}\n")}),
+            );
+        })));
+    }
     {
         let (tx, watching) = (tx.clone(), watching.clone());
         let _ = std::thread::Builder::new()
@@ -158,6 +168,7 @@ pub fn serve<R: BufRead, W: Write + Send + 'static>(mut reader: R, out: Arc<Mute
         }
     }
     watching.store(false, Ordering::Relaxed);
+    debug::set_output(None);
     debug::detach();
     // A debugger that went away without configuring must not leave the game waiting.
     debugger::configured();
@@ -173,6 +184,10 @@ fn handle<W: Write>(tx: &Sender<W>, req: &Value) -> bool {
                 true,
                 json!({
                     "supportsConfigurationDoneRequest": true,
+                    "supportsConditionalBreakpoints": true,
+                    "supportsHitConditionalBreakpoints": true,
+                    "supportsLogPoints": true,
+                    "supportsEvaluateForHovers": true,
                     "supportsTerminateRequest": false,
                     "exceptionBreakpointFilters": [],
                 }),
@@ -184,20 +199,31 @@ fn handle<W: Write>(tx: &Sender<W>, req: &Value) -> bool {
         "setBreakpoints" => {
             let path = args["source"]["path"].as_str().unwrap_or_default();
             let file = file_of(path);
-            let lines: Vec<u32> = args["breakpoints"]
+            let text = |b: &Value, k: &str| b[k].as_str().map(str::to_string);
+            let wanted: Vec<debugger::FileBreakpoint> = args["breakpoints"]
                 .as_array()
                 .map(|a| {
                     a.iter()
-                        .filter_map(|b| b["line"].as_u64())
-                        .map(|l| l as u32)
+                        .filter_map(|b| {
+                            Some(debugger::FileBreakpoint {
+                                file: file.clone(),
+                                line: b["line"].as_u64()? as u32,
+                                condition: text(b, "condition"),
+                                hit_condition: text(b, "hitCondition"),
+                                log_message: text(b, "logMessage"),
+                            })
+                        })
                         .collect()
                 })
                 .unwrap_or_default();
-            let placed = debugger::set_file_breakpoints(&file, &lines);
-            let bps: Vec<Value> = lines
+            let placed = debugger::set_file_breakpoints(&file, &wanted);
+            let bps: Vec<Value> = wanted
                 .iter()
                 .zip(placed)
-                .map(|(l, ok)| json!({"verified": ok, "line": l}))
+                .map(|(b, r)| match r {
+                    Ok(()) => json!({"verified": true, "line": b.line}),
+                    Err(e) => json!({"verified": false, "line": b.line, "message": e}),
+                })
                 .collect();
             tx.respond(req, true, json!({"breakpoints": bps}), None);
         }
@@ -249,15 +275,34 @@ fn handle<W: Write>(tx: &Sender<W>, req: &Value) -> bool {
             tx.respond(req, true, json!({"scopes": scopes}), None);
         }
         "variables" => {
-            let vars: Vec<Value> = debug::stopped()
-                .map(|s| {
-                    s.locals
-                        .iter()
-                        .map(|l| json!({"name": l.name, "value": l.value, "type": l.ty, "variablesReference": 0}))
-                        .collect()
-                })
-                .unwrap_or_default();
+            let reference = args["variablesReference"].as_u64().unwrap_or(0) as u32;
+            let vars: Vec<Value> = debug::variables(reference)
+                .iter()
+                .map(variable_json)
+                .collect();
             tx.respond(req, true, json!({"variables": vars}), None);
+        }
+        // A watch, a hover or the debug console: an expression over the innermost frame's locals.
+        "evaluate" => {
+            let expr = args["expression"].as_str().unwrap_or_default();
+            if args["frameId"].as_i64().unwrap_or(0) != 0 {
+                tx.respond(
+                    req,
+                    false,
+                    json!({}),
+                    Some("only the innermost frame's locals are available"),
+                );
+            } else {
+                match debug::evaluate(expr) {
+                    Ok(v) => tx.respond(
+                        req,
+                        true,
+                        json!({"result": v.value, "type": v.ty, "variablesReference": v.handle}),
+                        None,
+                    ),
+                    Err(e) => tx.respond(req, false, json!({}), Some(&e)),
+                }
+            }
         }
         "continue" => {
             debug::resume(Resume::Continue);
@@ -283,6 +328,10 @@ fn handle<W: Write>(tx: &Sender<W>, req: &Value) -> bool {
         ),
     }
     true
+}
+
+fn variable_json(v: &debug::Variable) -> Value {
+    json!({"name": v.name, "value": v.value, "type": v.ty, "variablesReference": v.handle})
 }
 
 fn step<W: Write>(tx: &Sender<W>, req: &Value, how: Resume) {
@@ -325,7 +374,7 @@ mod tests {
             json!({"seq": 4, "type": "request", "command": "configurationDone"}),
             json!({"seq": 5, "type": "request", "command": "threads"}),
             json!({"seq": 6, "type": "request", "command": "stackTrace", "arguments": {"threadId": 1}}),
-            json!({"seq": 7, "type": "request", "command": "evaluate", "arguments": {}}),
+            json!({"seq": 7, "type": "request", "command": "setVariable", "arguments": {}}),
             json!({"seq": 8, "type": "request", "command": "disconnect"}),
             json!({"seq": 9, "type": "request", "command": "threads"}),
         ]);

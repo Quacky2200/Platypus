@@ -3,8 +3,8 @@
 
 //! The debug build's hook and the controller (`platypus_ts::debug`): breakpoints, pause,
 //! continue and the three steps. The game runs on its own thread; the test is the debugger.
-//! IDs are in TESTS.md (M9-TS-3393..3396, 3400..3401).
-use platypus_ts::debug::{self, Reason, Resume, Stop};
+//! IDs are in TESTS.md (M9-TS-3393..3396, 3400..3406).
+use platypus_ts::debug::{self, BreakpointSpec, Reason, Resume, Stop};
 use platypus_ts::jit::{JitOptions, compile_and_load};
 use std::time::Duration;
 
@@ -212,4 +212,227 @@ fn a_stop_lists_the_callers_on_the_stack() {
     }
     debug::detach();
     assert_eq!(game.join().unwrap(), 6.0);
+}
+
+// Lines are those of this source (1-based).
+const SRC_VALUES: &str = "\
+interface P { x: number; label: string }
+export function shapes(n: number): number {
+  const p: P = { x: n, label: 'pt' };
+  const arr: number[] = [1, 2, 3];
+  const cnt = arr.length + p.x;
+  return cnt;
+}
+export function looped(n: number): number {
+  let total = 0;
+  for (let i = 0; i < n; i++) {
+    total += i;
+  }
+  return total;
+}
+";
+
+fn start_values(entry: &'static str, arg: f64, base: u32) -> std::thread::JoinHandle<f64> {
+    start_src(SRC_VALUES, entry, arg, base)
+}
+
+fn eval(text: &str) -> (String, String) {
+    let v = debug::evaluate(text).unwrap_or_else(|e| panic!("{text}: {e}"));
+    (v.ty, v.value)
+}
+
+// M9-TS-3402
+#[test]
+fn watch_expressions_read_locals_fields_elements_and_do_arithmetic() {
+    let _serial = platypus_ts_tests::serial();
+    debug::detach();
+    debug::set_breakpoints(&[5]);
+    let game = start_values("shapes", 2.0, 2_376_000);
+    stop();
+    assert_eq!(eval("n"), ("number".into(), "2".into()));
+    assert_eq!(eval("p.x"), ("number".into(), "2".into()));
+    assert_eq!(eval("p.label"), ("string".into(), "\"pt\"".into()));
+    assert_eq!(eval("arr.length"), ("number".into(), "3".into()));
+    assert_eq!(eval("arr[1]"), ("number".into(), "2".into()));
+    assert_eq!(eval("p.x * 2 + arr[2]").1, "7");
+    assert_eq!(eval("p.x > 1 && arr.length == 3").1, "true");
+    assert_eq!(eval("p.label + '!' + n").1, "\"pt!2\"");
+    assert_eq!(eval("arr[9]").1, "undefined");
+    // Errors name the problem.
+    assert!(debug::evaluate("nope").unwrap_err().contains("not defined"));
+    assert!(debug::evaluate("p.nope").unwrap_err().contains("no field"));
+    assert!(debug::evaluate("1 +").is_err());
+    debug::detach();
+    assert_eq!(game.join().unwrap(), 5.0);
+}
+
+// M9-TS-3403
+#[test]
+fn objects_and_arrays_open_into_their_fields_and_elements() {
+    let _serial = platypus_ts_tests::serial();
+    debug::detach();
+    debug::set_breakpoints(&[5]);
+    let game = start_values("shapes", 2.0, 2_377_000);
+    stop();
+    let vars = debug::scope_variables();
+    let find = |name: &str| vars.iter().find(|v| v.name == name).unwrap().clone();
+    let p = find("p");
+    assert_eq!(p.value, "P");
+    assert!(p.handle >= 2, "{p:?}");
+    let fields: Vec<(String, String)> = debug::variables(p.handle)
+        .into_iter()
+        .map(|v| (v.name, v.value))
+        .collect();
+    assert_eq!(
+        fields,
+        [
+            ("x".to_string(), "2".to_string()),
+            ("label".to_string(), "\"pt\"".to_string())
+        ]
+    );
+    let arr = find("arr");
+    assert_eq!(arr.value, "Array(3)");
+    let items: Vec<String> = debug::variables(arr.handle)
+        .into_iter()
+        .map(|v| format!("{}={}", v.name, v.value))
+        .collect();
+    assert_eq!(items, ["[0]=1", "[1]=2", "[2]=3"]);
+    // A number has nothing inside.
+    assert_eq!(find("n").handle, 0);
+    debug::detach();
+    assert_eq!(game.join().unwrap(), 5.0);
+}
+
+fn run_with(
+    specs: &[BreakpointSpec],
+    entry: &'static str,
+    arg: f64,
+    base: u32,
+) -> std::thread::JoinHandle<f64> {
+    debug::detach();
+    debug::set_breakpoint_specs(specs)
+        .into_iter()
+        .for_each(|r| r.unwrap());
+    start_values(entry, arg, base)
+}
+
+// M9-TS-3404
+#[test]
+fn a_conditional_breakpoint_stops_only_when_its_condition_is_true() {
+    let _serial = platypus_ts_tests::serial();
+    let game = run_with(
+        &[BreakpointSpec {
+            line: 11,
+            condition: Some("i == 3".into()),
+            ..BreakpointSpec::default()
+        }],
+        "looped",
+        6.0,
+        2_378_000,
+    );
+    stop();
+    assert_eq!(eval("i").1, "3");
+    assert_eq!(eval("total").1, "3");
+    debug::detach();
+    assert_eq!(game.join().unwrap(), 15.0);
+}
+
+// M9-TS-3405
+#[test]
+fn a_hit_condition_counts_the_hits_that_pass_the_condition() {
+    let _serial = platypus_ts_tests::serial();
+    let game = run_with(
+        &[BreakpointSpec {
+            line: 11,
+            hit_condition: Some("3".into()),
+            ..BreakpointSpec::default()
+        }],
+        "looped",
+        6.0,
+        2_379_000,
+    );
+    stop();
+    // The third time through the loop body.
+    assert_eq!(eval("i").1, "2");
+    debug::resume(Resume::Continue);
+    // The hit condition `3` is exactly the third hit: the game now runs to the end.
+    assert_eq!(game.join().unwrap(), 15.0);
+    assert!(debug::stopped().is_none());
+    // `% 2` stops on every second hit.
+    let game = run_with(
+        &[BreakpointSpec {
+            line: 11,
+            hit_condition: Some("% 2".into()),
+            ..BreakpointSpec::default()
+        }],
+        "looped",
+        6.0,
+        2_380_000,
+    );
+    stop();
+    assert_eq!(eval("i").1, "1");
+    debug::resume(Resume::Continue);
+    stop();
+    assert_eq!(eval("i").1, "3");
+    debug::detach();
+    game.join().unwrap();
+}
+
+// M9-TS-3406
+#[test]
+fn a_log_point_writes_its_message_with_values_and_does_not_stop() {
+    let _serial = platypus_ts_tests::serial();
+    let lines = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+    let sink = lines.clone();
+    debug::set_output(Some(Box::new(move |m| {
+        sink.lock().unwrap().push(m.to_string())
+    })));
+    let game = run_with(
+        &[BreakpointSpec {
+            line: 11,
+            log_message: Some("i={i} total={total} big={i > 1}".into()),
+            ..BreakpointSpec::default()
+        }],
+        "looped",
+        4.0,
+        2_381_000,
+    );
+    assert_eq!(game.join().unwrap(), 6.0);
+    debug::set_output(None);
+    debug::detach();
+    assert_eq!(
+        *lines.lock().unwrap(),
+        [
+            "i=0 total=0 big=false",
+            "i=1 total=0 big=false",
+            "i=2 total=1 big=true",
+            "i=3 total=3 big=true"
+        ]
+    );
+}
+
+// M9-TS-3407
+#[test]
+fn a_condition_or_hit_condition_that_does_not_parse_is_reported_and_not_set() {
+    let _serial = platypus_ts_tests::serial();
+    debug::detach();
+    let r = debug::set_breakpoint_specs(&[
+        BreakpointSpec {
+            line: 3,
+            condition: Some("a +".into()),
+            ..BreakpointSpec::default()
+        },
+        BreakpointSpec {
+            line: 4,
+            hit_condition: Some("many".into()),
+            ..BreakpointSpec::default()
+        },
+        BreakpointSpec {
+            line: 5,
+            condition: Some("n > 1".into()),
+            ..BreakpointSpec::default()
+        },
+    ]);
+    assert!(r[0].is_err() && r[1].is_err() && r[2].is_ok(), "{r:?}");
+    debug::detach();
 }

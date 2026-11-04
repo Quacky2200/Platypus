@@ -145,9 +145,15 @@ fn an_editor_sets_a_breakpoint_steps_and_lets_the_game_finish() {
     c.send("attach", json!({}));
     let set = c.send(
         "setBreakpoints",
-        json!({"source": {"path": game.to_string_lossy()}, "breakpoints": [{"line": 4}]}),
+        json!({"source": {"path": game.to_string_lossy()}, "breakpoints": [{"line": 4, "condition": "this.n == 2"}, {"line": 5, "condition": "nonsense +"}]}),
     );
     assert_eq!(set["body"]["breakpoints"][0]["verified"], true, "{set}");
+    // A condition that does not parse is refused, with the reason.
+    assert_eq!(set["body"]["breakpoints"][1]["verified"], false, "{set}");
+    assert!(
+        set["body"]["breakpoints"][1]["message"].is_string(),
+        "{set}"
+    );
     c.send("configurationDone", json!({}));
 
     let s = c.stopped();
@@ -172,6 +178,50 @@ fn an_editor_sets_a_breakpoint_steps_and_lets_the_game_finish() {
         names.contains(&"this") && names.contains(&"doubled"),
         "{names:?}"
     );
+    // Watches: the condition held on the third frame (`this.n` is 2 before the increment).
+    let result = |c: &mut Client, e: &str| {
+        let r = c.send(
+            "evaluate",
+            json!({"expression": e, "frameId": 0, "context": "watch"}),
+        );
+        r["body"]["result"].as_str().unwrap().to_string()
+    };
+    assert_eq!(result(&mut c, "this.n"), "2");
+    assert_eq!(result(&mut c, "this.n * 10 + 1"), "21");
+    assert_eq!(result(&mut c, "this.n >= 2 && doubled == 0"), "true");
+    // An expression with an error is a failed response, not a value.
+    c.seq += 1;
+    let bad = json!({"seq": c.seq, "type": "request", "command": "evaluate", "arguments": {"expression": "nothing", "frameId": 0}}).to_string();
+    write!(c.stream, "Content-Length: {}\r\n\r\n{bad}", bad.len()).unwrap();
+    loop {
+        let m = c.read();
+        if m["type"] == "response" {
+            assert_eq!(m["success"], false, "{m}");
+            assert!(
+                m["message"].as_str().unwrap().contains("not defined"),
+                "{m}"
+            );
+            break;
+        }
+        c.events.push(m);
+    }
+    // The object a local holds opens into its fields.
+    let this = vars["body"]["variables"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|v| v["name"] == "this")
+        .unwrap();
+    let reference = this["variablesReference"].as_i64().unwrap();
+    assert!(reference >= 2, "{this}");
+    let inner = c.send("variables", json!({"variablesReference": reference}));
+    let n = inner["body"]["variables"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|v| v["name"] == "n")
+        .unwrap();
+    assert_eq!(n["value"], "2", "{inner}");
     c.send("next", json!({"threadId": 1}));
     let s = c.stopped();
     assert_eq!(s["body"]["reason"], "step", "{s}");

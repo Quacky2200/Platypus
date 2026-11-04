@@ -9,7 +9,9 @@
 //! with `telnet` or the DAP adapter of a later step can drive it:
 //!
 //! ```text
-//! break src/main.ts:20   set a breakpoint (adds to the list; the list survives hot reloads)
+//! break src/main.ts:20   set a breakpoint (adds to the list; the list survives hot reloads);
+//!                        `break src/main.ts:20 if i == 3` stops only when the condition holds
+//! eval <expression>      the value of an expression over the stopped function's locals
 //! clear                  remove every breakpoint
 //! pause                  stop at the next statement
 //! continue | in | over | out
@@ -37,7 +39,17 @@ use std::time::Duration;
 static ENABLED: AtomicBool = AtomicBool::new(false);
 
 /// The breakpoints as the debugger gave them: (file, line of that file).
-static BREAKPOINTS: Mutex<Vec<(String, u32)>> = Mutex::new(Vec::new());
+static BREAKPOINTS: Mutex<Vec<FileBreakpoint>> = Mutex::new(Vec::new());
+
+/// A breakpoint as the debugger gave it: a line of a file, and what makes it stop.
+#[derive(Clone, Debug, Default)]
+pub struct FileBreakpoint {
+    pub file: String,
+    pub line: u32,
+    pub condition: Option<String>,
+    pub hit_condition: Option<String>,
+    pub log_message: Option<String>,
+}
 
 /// Tests share the process-wide debugger state: one at a time.
 #[cfg(test)]
@@ -54,6 +66,31 @@ pub fn enabled() -> bool {
 /// Makes every compile a debug build.
 pub fn turn_on() {
     ENABLED.store(true, Ordering::Relaxed);
+    // A stopped game is the window's thread: keep answering the system so the window does not
+    // go "not responding" while the debugger looks at it.
+    #[cfg(windows)]
+    debug::set_idle(Some(Box::new(pump_window_messages)));
+}
+
+/// Dispatches this thread's pending window messages (move, resize, close, activate). Events the
+/// window raises are buffered by the event loop until the game goes on.
+#[cfg(windows)]
+fn pump_window_messages() {
+    use windows_sys::Win32::UI::WindowsAndMessaging::{
+        DispatchMessageW, MSG, PM_REMOVE, PeekMessageW, TranslateMessage,
+    };
+    // SAFETY: plain Win32 message calls on this thread with a zeroed message record.
+    unsafe {
+        let mut msg: MSG = std::mem::zeroed();
+        // A bounded number per call: a flood must not keep the game parked past a resume.
+        for _ in 0..64 {
+            if PeekMessageW(&mut msg, std::ptr::null_mut(), 0, 0, PM_REMOVE) == 0 {
+                break;
+            }
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+    }
 }
 
 /// Starts the text controller on `port` (0 picks one) and makes every compile a debug build.
@@ -99,17 +136,29 @@ fn bundle_line_of(file: &str, line: u32) -> Option<u32> {
 }
 
 /// Replaces the breakpoints of one file (a debugger sends each file's whole list). Returns,
-/// per line, whether it could be placed (`game.pdebug` knows the file).
-pub fn set_file_breakpoints(file: &str, lines: &[u32]) -> Vec<bool> {
+/// per breakpoint, whether it was placed or why not.
+pub fn set_file_breakpoints(file: &str, bps: &[FileBreakpoint]) -> Vec<Result<(), String>> {
     if let Ok(mut b) = BREAKPOINTS.lock() {
-        b.retain(|(f, _)| f != file);
-        b.extend(lines.iter().map(|l| (file.to_string(), *l)));
+        b.retain(|x| x.file != file);
+        b.extend(bps.iter().map(|x| FileBreakpoint {
+            file: file.to_string(),
+            ..x.clone()
+        }));
     }
-    resolve_breakpoints();
-    lines
+    let results = resolve_breakpoints();
+    // The results follow the stored list: this file's breakpoints are the ones just added.
+    let all = BREAKPOINTS.lock().map(|b| b.clone()).unwrap_or_default();
+    let mut mine: Vec<Result<(), String>> = all
         .iter()
-        .map(|l| bundle_line_of(file, *l).is_some())
-        .collect()
+        .zip(results)
+        .filter(|(x, _)| x.file == file)
+        .map(|(_, r)| r)
+        .collect();
+    // Not a debug build (nothing resolved): none of them is placed.
+    mine.resize_with(bps.len(), || {
+        Err("the game is not running as a debug build".into())
+    });
+    mine
 }
 
 /// The file and line of a line of the bundled source.
@@ -152,24 +201,42 @@ pub fn wait_for_configuration() {
 }
 
 /// Resolves the breakpoints against the code just compiled (the bundled lines moved if the
-/// source did): called after every compile.
-pub fn resolve_breakpoints() {
+/// source did): called after every compile. Returns, per stored breakpoint, whether it was placed.
+pub fn resolve_breakpoints() -> Vec<Result<(), String>> {
     if !enabled() {
-        return;
+        return Vec::new();
     }
     let wanted = BREAKPOINTS.lock().map(|b| b.clone()).unwrap_or_default();
-    let lines: Vec<u32> = wanted
+    // Only the ones with a line in the bundle go to the debugger; the results map back.
+    let mut specs = Vec::new();
+    let mut at = Vec::new();
+    for (i, w) in wanted.iter().enumerate() {
+        if let Some(line) = bundle_line_of(&w.file, w.line) {
+            specs.push(debug::BreakpointSpec {
+                line,
+                condition: w.condition.clone(),
+                hit_condition: w.hit_condition.clone(),
+                log_message: w.log_message.clone(),
+            });
+            at.push(i);
+        }
+    }
+    let placed = debug::set_breakpoint_specs(&specs);
+    let mut results: Vec<Result<(), String>> = wanted
         .iter()
-        .filter_map(|(file, line)| bundle_line_of(file, *line))
+        .map(|_| Err("no such file (game.pdebug does not list it)".to_string()))
         .collect();
-    if lines.len() < wanted.len() {
+    for (i, r) in at.into_iter().zip(placed) {
+        results[i] = r;
+    }
+    let missing = results.iter().filter(|r| r.is_err()).count();
+    if missing > 0 {
         tracing::warn!(
-            "debugger: {} of {} breakpoints could not be placed (no game.pdebug, or no such file)",
-            wanted.len() - lines.len(),
+            "debugger: {missing} of {} breakpoints could not be set (no game.pdebug, an unknown file, or a bad condition)",
             wanted.len()
         );
     }
-    debug::set_breakpoints(&lines);
+    results
 }
 
 /// `file:line` of a line of the bundled source, for messages.
@@ -228,17 +295,29 @@ fn command(line: &str) -> String {
     let (word, rest) = line.split_once(' ').unwrap_or((line, ""));
     match word {
         "break" => {
-            let Some((file, n)) = rest.trim().rsplit_once(':') else {
-                return "error: break <file>:<line>".into();
+            let (place, condition) = match rest.split_once(" if ") {
+                Some((p, c)) => (p.trim(), Some(c.trim().to_string())),
+                None => (rest.trim(), None),
+            };
+            let Some((file, n)) = place.rsplit_once(':') else {
+                return "error: break <file>:<line> [if <condition>]".into();
             };
             let Ok(n) = n.parse::<u32>() else {
                 return "error: the line is not a number".into();
             };
             if let Ok(mut b) = BREAKPOINTS.lock() {
-                b.push((file.to_string(), n));
+                b.push(FileBreakpoint {
+                    file: file.to_string(),
+                    line: n,
+                    condition,
+                    ..FileBreakpoint::default()
+                });
             }
-            resolve_breakpoints();
-            format!("ok break {file}:{n}")
+            let results = resolve_breakpoints();
+            match results.last() {
+                Some(Err(e)) => format!("error: {e}"),
+                _ => format!("ok break {file}:{n}"),
+            }
         }
         "clear" => {
             if let Ok(mut b) = BREAKPOINTS.lock() {
@@ -258,6 +337,10 @@ fn command(line: &str) -> String {
         "where" => match debug::stopped() {
             Some(s) => format!("ok stopped {}", describe(s.line)),
             None => "ok running".into(),
+        },
+        "eval" => match debug::evaluate(rest.trim()) {
+            Ok(v) => format!("ok {}: {} = {}", rest.trim(), v.ty, v.value),
+            Err(e) => format!("error: {e}"),
         },
         "locals" => match debug::stopped() {
             Some(s) => format!(

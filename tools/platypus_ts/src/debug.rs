@@ -5,14 +5,18 @@
 //! `docs/research/platypus-ts-debug-info.md`).
 //!
 //! A debug build puts a check before every statement: when the armed byte is non-zero it calls
-//! `ts_dbg_line(line)` with the line of the bundled source. The hook decides whether the game
-//! stops there (a breakpoint, a pause request, or the step being taken) and, if so, parks the
-//! game's thread until a controller on another thread resumes it. Everything here is
-//! process-wide: one game runs in a process.
+//! `ts_dbg_line(line, frame, function)` with the line of the bundled source, the function's
+//! spilled locals and its number. The hook decides whether the game stops there (a breakpoint
+//! whose condition and hit count say so, a pause request, or the step being taken) and, if so,
+//! parks the game's thread until a controller on another thread resumes it. While it is parked
+//! the controller reads variables and evaluates expressions (`debug_eval.rs`) straight from the
+//! game's memory. Everything here is process-wide: one game runs in a process.
 //!
 //! Stepping compares the stack pointer, so no call depth has to be tracked: a statement of the
 //! same function has the same stack pointer, a callee a lower one and a caller a higher one.
 
+use crate::debug_eval::{self, Expr, HitCondition, Scope, Val};
+pub use crate::debug_eval::{ShowTy, StructInfo, Structs};
 use std::sync::atomic::{AtomicU8, AtomicU32, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
@@ -84,22 +88,17 @@ pub struct Stop {
     pub frames: Vec<Frame>,
 }
 
-// ---- what the generated code tells about its functions ----
-
-/// How to show a local, from its static type.
-#[derive(Clone, Debug)]
-pub enum ShowTy {
-    Num,
-    Bool,
-    /// A member of a string-literal union: an index into the module's tag texts.
-    Lit(Arc<Vec<String>>),
-    Str,
-    Obj(String),
-    Arr,
-    Cell(Box<ShowTy>),
-    Nullable(Box<ShowTy>),
-    Other(String),
+/// A variable or evaluated expression as a debugger lists it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Variable {
+    pub name: String,
+    pub ty: String,
+    pub value: String,
+    /// 0 for a value with nothing inside; otherwise what [`variables`] opens (2 and up).
+    pub handle: u32,
 }
+
+// ---- what the generated code tells about its functions ----
 
 /// A function's locals for the debugger: (slot in the spilled frame, name, type).
 #[derive(Clone, Debug)]
@@ -149,87 +148,6 @@ pub fn set_code(lines: Vec<(usize, usize, u32)>, mut funcs: Vec<(usize, String)>
     }
 }
 
-fn number(v: f64) -> String {
-    if v.is_nan() {
-        "NaN".into()
-    } else if v.fract() == 0.0 && v.abs() < 9e15 {
-        format!("{}", v as i64)
-    } else {
-        format!("{v}")
-    }
-}
-
-/// The type name and text of a spilled local.
-fn show(raw: u64, ty: &ShowTy) -> (String, String) {
-    match ty {
-        ShowTy::Num => ("number".into(), number(f64::from_bits(raw))),
-        ShowTy::Bool => ("boolean".into(), (raw & 1 != 0).to_string()),
-        ShowTy::Lit(tags) => (
-            "string".into(),
-            match tags.get(raw as u32 as usize) {
-                Some(t) if raw as u32 != 0 => format!("{t:?}"),
-                _ => "undefined".into(),
-            },
-        ),
-        ShowTy::Str => ("string".into(), show_string(raw as usize)),
-        ShowTy::Obj(name) => (
-            name.clone(),
-            if raw == 0 {
-                "null".into()
-            } else {
-                format!("{name} @{raw:#x}")
-            },
-        ),
-        ShowTy::Arr => (
-            "array".into(),
-            if raw == 0 {
-                "null".into()
-            } else {
-                format!("Array @{raw:#x}")
-            },
-        ),
-        ShowTy::Cell(inner) => {
-            if raw == 0 {
-                ("cell".into(), "null".into())
-            } else {
-                // A captured variable: the value follows the cell's header word.
-                // SAFETY: a cell local holds a live cell (a header word, then the value).
-                let v = unsafe { *((raw as usize + 8) as *const u64) };
-                show(v, inner)
-            }
-        }
-        ShowTy::Nullable(inner) => {
-            let (t, v) = show(raw, inner);
-            let null = match **inner {
-                ShowTy::Num => f64::from_bits(raw).is_nan(),
-                ShowTy::Lit(_) => raw as u32 == 0,
-                _ => raw == 0,
-            };
-            (t, if null { "null".into() } else { v })
-        }
-        ShowTy::Other(t) => (t.clone(), format!("{raw:#x}")),
-    }
-}
-
-fn show_string(p: usize) -> String {
-    if p == 0 {
-        return "null".into();
-    }
-    if !p.is_multiple_of(8) {
-        return format!("<bad pointer {p:#x}>");
-    }
-    // SAFETY: a string local holds a live string or zero; a pointer that is not 8-aligned was
-    // ruled out, and the length is checked before the bytes are read.
-    let s = unsafe { platypus_ts_rt::Str::from_raw(p as *const platypus_ts_rt::Str) };
-    if !(0..1 << 24).contains(&s.byte_len) {
-        return format!("<string @{p:#x}>");
-    }
-    let t = String::from_utf8_lossy(s.as_bytes()).into_owned();
-    let cut: String = t.chars().take(200).collect();
-    let more = if cut.len() < t.len() { "…" } else { "" };
-    format!("{cut:?}{more}")
-}
-
 /// The compiled-game frames above the stop, found by scanning the stack for return addresses
 /// into compiled code (Windows; elsewhere the stop alone), from `from` upward. Stale words can show
 /// as an extra frame.
@@ -276,6 +194,28 @@ fn callers(_from: usize, _stop_line: u32, _from_hook: bool) -> Vec<Frame> {
     Vec::new()
 }
 
+// ---- breakpoints and the stop state ----
+
+/// A breakpoint as a debugger gives it: a line of the bundled source and what makes it stop.
+#[derive(Clone, Debug, Default)]
+pub struct BreakpointSpec {
+    pub line: u32,
+    /// An expression over the function's locals: stop only when it is true.
+    pub condition: Option<String>,
+    /// `5`, `>= 5`, `% 2`..: stop only on those hits (counted after the condition).
+    pub hit_condition: Option<String>,
+    /// Log this (`{expression}` is replaced by its value) instead of stopping.
+    pub log_message: Option<String>,
+}
+
+struct Spec {
+    line: u32,
+    cond: Option<Expr>,
+    hit: Option<HitCondition>,
+    log: Option<String>,
+    hits: u64,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Mode {
     Run,
@@ -286,12 +226,15 @@ enum Mode {
 }
 
 struct State {
-    /// Sorted lines of the bundled source.
-    breakpoints: Vec<u32>,
+    breakpoints: Vec<Spec>,
     mode: Mode,
     stopped: Option<Stop>,
     /// Set by the controller to let the parked thread go.
     go: bool,
+    /// The stopped function's named locals, raw: what expressions read.
+    scope: Option<Arc<Scope>>,
+    /// The values a debugger was given a handle to (handle = index + 2); forgotten on resume.
+    handles: Vec<Val>,
 }
 
 static STATE: Mutex<State> = Mutex::new(State {
@@ -299,9 +242,34 @@ static STATE: Mutex<State> = Mutex::new(State {
     mode: Mode::Run,
     stopped: None,
     go: false,
+    scope: None,
+    handles: Vec::new(),
 });
 /// Signalled when the game stops and when it is let go.
 static CHANGED: Condvar = Condvar::new();
+
+/// Where log points write (the controller's output).
+type Output = Box<dyn Fn(&str) + Send>;
+static OUTPUT: Mutex<Option<Output>> = Mutex::new(None);
+
+/// Called while the game is parked, a few times a second: a host keeps its window alive with it.
+type Idle = Box<dyn Fn() + Send>;
+static IDLE: Mutex<Option<Idle>> = Mutex::new(None);
+
+/// Sets where log points write; `None` drops them.
+pub fn set_output(f: Option<Output>) {
+    if let Ok(mut o) = OUTPUT.lock() {
+        *o = f;
+    }
+}
+
+/// Sets what the parked game thread does while it waits, about every 30 ms (it runs on the game's
+/// thread: pumping the window's messages is its use).
+pub fn set_idle(f: Option<Idle>) {
+    if let Ok(mut i) = IDLE.lock() {
+        *i = f;
+    }
+}
 
 fn lock() -> MutexGuard<'static, State> {
     STATE.lock().unwrap_or_else(|e| e.into_inner())
@@ -312,13 +280,52 @@ fn rearm(s: &State) {
     ARMED.store(u8::from(on), Ordering::SeqCst);
 }
 
-/// Replaces the breakpoints (lines of the bundled source).
-pub fn set_breakpoints(lines: &[u32]) {
+/// Replaces the breakpoints. Returns, per spec, an error for a condition or hit condition that
+/// does not parse (that breakpoint is not set).
+pub fn set_breakpoint_specs(specs: &[BreakpointSpec]) -> Vec<Result<(), String>> {
     let mut s = lock();
-    s.breakpoints = lines.to_vec();
-    s.breakpoints.sort_unstable();
-    s.breakpoints.dedup();
+    s.breakpoints.clear();
+    let mut results = Vec::new();
+    for spec in specs {
+        let cond = spec.condition.as_deref().filter(|c| !c.trim().is_empty());
+        let hit = spec
+            .hit_condition
+            .as_deref()
+            .filter(|c| !c.trim().is_empty());
+        let parsed = cond
+            .map(debug_eval::parse)
+            .transpose()
+            .map_err(|e| format!("condition: {e}"))
+            .and_then(|c| hit.map(HitCondition::parse).transpose().map(|h| (c, h)));
+        match parsed {
+            Ok((cond, hit)) => {
+                s.breakpoints.push(Spec {
+                    line: spec.line,
+                    cond,
+                    hit,
+                    log: spec.log_message.clone().filter(|m| !m.is_empty()),
+                    hits: 0,
+                });
+                results.push(Ok(()));
+            }
+            Err(e) => results.push(Err(e)),
+        }
+    }
+    s.breakpoints.sort_by_key(|b| b.line);
     rearm(&s);
+    results
+}
+
+/// Replaces the breakpoints with plain ones (lines of the bundled source).
+pub fn set_breakpoints(lines: &[u32]) {
+    let specs: Vec<BreakpointSpec> = lines
+        .iter()
+        .map(|l| BreakpointSpec {
+            line: *l,
+            ..BreakpointSpec::default()
+        })
+        .collect();
+    let _ = set_breakpoint_specs(&specs);
 }
 
 /// Asks the game to stop at the next statement.
@@ -362,6 +369,8 @@ pub fn resume(how: Resume) {
         Resume::StepOut => Mode::Out(at.sp),
     };
     s.stopped = None;
+    s.scope = None;
+    s.handles.clear();
     s.go = true;
     rearm(&s);
     CHANGED.notify_all();
@@ -373,9 +382,89 @@ pub fn detach() {
     s.breakpoints.clear();
     s.mode = Mode::Run;
     s.stopped = None;
+    s.scope = None;
+    s.handles.clear();
     s.go = true;
     rearm(&s);
     CHANGED.notify_all();
+}
+
+// ---- reading a stopped game ----
+
+/// Lists a value for a debugger, giving it a handle when it has parts to open.
+fn variable(s: &mut State, name: String, v: Val) -> Variable {
+    let (ty, value) = debug_eval::describe(&v);
+    let handle = if debug_eval::children(&v).is_empty() {
+        0
+    } else {
+        s.handles.push(v);
+        s.handles.len() as u32 + 1
+    };
+    Variable {
+        name,
+        ty,
+        value,
+        handle,
+    }
+}
+
+/// The innermost frame's named locals.
+pub fn scope_variables() -> Vec<Variable> {
+    let mut s = lock();
+    let Some(scope) = s.scope.clone() else {
+        return Vec::new();
+    };
+    scope
+        .locals
+        .iter()
+        .map(|(name, raw, ty)| variable(&mut s, name.clone(), debug_eval::from_raw(*raw, ty)))
+        .collect()
+}
+
+/// The parts of a value a handle names (1 is the locals).
+pub fn variables(handle: u32) -> Vec<Variable> {
+    if handle == 1 {
+        return scope_variables();
+    }
+    let mut s = lock();
+    let Some(v) = handle
+        .checked_sub(2)
+        .and_then(|i| s.handles.get(i as usize))
+        .cloned()
+    else {
+        return Vec::new();
+    };
+    debug_eval::children(&v)
+        .into_iter()
+        .map(|(name, v)| variable(&mut s, name, v))
+        .collect()
+}
+
+/// Evaluates an expression in the stopped function's scope (a watch).
+pub fn evaluate(text: &str) -> Result<Variable, String> {
+    let mut s = lock();
+    let Some(scope) = s.scope.clone() else {
+        return Err("the game is not stopped".into());
+    };
+    let e = debug_eval::parse(text)?;
+    let v = debug_eval::eval(&e, &scope)?;
+    Ok(variable(&mut s, text.to_string(), v))
+}
+
+fn scope_of(desc: &Option<FuncDebug>, frame: *const u64) -> Scope {
+    match desc {
+        Some(d) if !frame.is_null() => Scope {
+            locals: d
+                .locals
+                .iter()
+                .map(|(slot, name, ty)| {
+                    // SAFETY: the generated code spilled every local of the function into `frame`.
+                    (name.clone(), unsafe { *frame.add(*slot) }, ty.clone())
+                })
+                .collect(),
+        },
+        _ => Scope::default(),
+    }
 }
 
 /// The hook: runs on the game's thread before a statement while the armed byte is set. `frame`
@@ -385,40 +474,60 @@ extern "C" fn ts_dbg_line(line: u32, frame: *const u64, id: u32) {
     let marker = 0u8;
     let sp = std::ptr::addr_of!(marker) as usize;
     let mut s = lock();
-    let reason = match s.mode {
-        _ if s.stopped.is_some() => return,
+    if s.stopped.is_some() {
+        return;
+    }
+    let step = match s.mode {
         Mode::Pause => Some(Reason::Pause),
         Mode::In => Some(Reason::Step),
         Mode::Over(at) if sp >= at => Some(Reason::Step),
         Mode::Out(at) if sp > at => Some(Reason::Step),
         _ => None,
     };
-    let reason = reason.or_else(|| {
-        s.breakpoints
-            .binary_search(&line)
-            .is_ok()
-            .then_some(Reason::Breakpoint)
-    });
-    let Some(reason) = reason else {
+    let desc = func(id);
+    let mut scope = None;
+    let mut at_breakpoint = false;
+    if s.breakpoints.iter().any(|b| b.line == line) {
+        let sc = scope.insert(scope_of(&desc, frame));
+        for b in s.breakpoints.iter_mut().filter(|b| b.line == line) {
+            // A condition that cannot be evaluated stops: the debugger should see why.
+            if let Some(c) = &b.cond
+                && let Ok(v) = debug_eval::eval(c, sc)
+                && !debug_eval::truthy(&v)
+            {
+                continue;
+            }
+            b.hits += 1;
+            if b.hit.is_some_and(|h| !h.matches(b.hits)) {
+                continue;
+            }
+            if let Some(msg) = &b.log {
+                if let Ok(o) = OUTPUT.lock()
+                    && let Some(out) = o.as_ref()
+                {
+                    out(&debug_eval::interpolate(msg, sc));
+                }
+                continue;
+            }
+            at_breakpoint = true;
+        }
+    }
+    let Some(reason) = step.or(at_breakpoint.then_some(Reason::Breakpoint)) else {
         return;
     };
-    let desc = func(id);
-    let locals = match (&desc, frame.is_null()) {
-        (Some(d), false) => d
-            .locals
-            .iter()
-            .map(|(slot, name, ty)| {
-                // SAFETY: the generated code spilled every local of the function into `frame`.
-                let (ty, value) = show(unsafe { *frame.add(*slot) }, ty);
-                Local {
-                    name: name.clone(),
-                    ty,
-                    value,
-                }
-            })
-            .collect(),
-        _ => Vec::new(),
-    };
+    let scope = scope.unwrap_or_else(|| scope_of(&desc, frame));
+    let locals = scope
+        .locals
+        .iter()
+        .map(|(name, raw, ty)| {
+            let (ty, value) = debug_eval::describe(&debug_eval::from_raw(*raw, ty));
+            Local {
+                name: name.clone(),
+                ty,
+                value,
+            }
+        })
+        .collect();
     let mut frames = vec![Frame {
         name: desc.map(|d| d.name).unwrap_or_default(),
         line,
@@ -430,6 +539,8 @@ extern "C" fn ts_dbg_line(line: u32, frame: *const u64, id: u32) {
     } else {
         callers(frame as usize, line, false)
     });
+    s.scope = Some(Arc::new(scope));
+    s.handles.clear();
     s.stopped = Some(Stop {
         line,
         sp,
@@ -442,7 +553,21 @@ extern "C" fn ts_dbg_line(line: u32, frame: *const u64, id: u32) {
     rearm(&s);
     CHANGED.notify_all();
     while !s.go {
-        s = CHANGED.wait(s).unwrap_or_else(|e| e.into_inner());
+        // Wake now and then so a host can keep its window alive while the game is parked.
+        let (guard, timeout) = CHANGED
+            .wait_timeout(s, Duration::from_millis(30))
+            .unwrap_or_else(|e| e.into_inner());
+        s = guard;
+        if timeout.timed_out()
+            && !s.go
+            && let Ok(i) = IDLE.lock()
+            && let Some(idle) = i.as_ref()
+        {
+            // Not under the state lock: the idle function may take a while.
+            drop(s);
+            idle();
+            s = lock();
+        }
     }
     s.go = false;
 }

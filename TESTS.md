@@ -2219,6 +2219,16 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3399 | Integration | A DAP client against the real host (windowless bench run): the game waits for `configurationDone`, stops at the breakpoint, `stackTrace` gives its line, `next` and `stepIn` step, `disconnect` lets the game finish and exit cleanly (`tests/dap_session.rs`, Windows). |
 | M9-TS-3400 | Integration | A stop in a debug build gives the function's named locals with type and value (number, string, boolean, a captured variable read through its cell) (`lang/debugger.rs`). |
 | M9-TS-3401 | Integration | A stop lists the callers found on the stack: the stop's function and line, then its caller's (Windows). |
+| M9-TS-3402 | Integration | Watch expressions at a stop read locals, fields (`p.x`), elements (`arr[1]`), `.length` and do arithmetic, comparison and string joins; errors name the problem (`lang/debugger.rs`). |
+| M9-TS-3403 | Integration | Objects and arrays open into their fields and elements (`debug::variables`); a number has nothing inside. |
+| M9-TS-3404 | Integration | A conditional breakpoint stops only when its condition is true (`i == 3` in a loop). |
+| M9-TS-3405 | Integration | Hit conditions: a bare number is that hit only, `% 2` every second; the game runs to the end after the last stop. |
+| M9-TS-3406 | Integration | A log point writes its message with `{expression}` values and does not stop the game. |
+| M9-TS-3407 | Integration | A condition or hit condition that does not parse is reported and that breakpoint is not set. |
+| M9-TS-3408 | Unit | Expression precedence, shadowing (the later declaration of a name wins), string and null rules (`debug_eval.rs`). |
+| M9-TS-3409 | Unit | Bad expressions say what is wrong (ends too soon, unbalanced, unknown name, no field, no calls). |
+| M9-TS-3410 | Unit | Hit conditions (`3`, `= 3`, `>= 3`, `> 3`, `< 3`, `% 2`) and log message interpolation. |
+| M9-TS-3411 | Unit | Objects and arrays are read from memory by their layout: fields, `.length`, elements, out of range, children listings. |
 
 ## M9 — One host: the renderer chosen from what the game uses
 

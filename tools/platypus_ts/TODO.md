@@ -260,8 +260,9 @@ performance, cross targets and CI.
   (`crash.rs` `stack_overflow`: the report is written by a new thread, `M9-API-921`).
 - [x] 4. Debug build mode (`JitOptions::debug`, `platypus_ts::debug`, host `--debug-port`, `docs/debugger.md`): pause, resume, step, breakpoints that survive hot reload.
 - [x] 4b. Locals and the call stack at a stop: a debug build spills the locals (up to 256 per function) into a frame on the hook path, names and
-  types come from a per-function table; callers by the stack scan above the function's frame. Left: callers' locals, expanding objects
-  and arrays, keeping the window responsive while stopped.
+  types come from a per-function table; callers by the stack scan above the function's frame. Done after: expanding objects and arrays, watch expressions
+  (`debug_eval.rs`), conditional / hit-count / log breakpoints, the window answering the system while stopped (Windows). Left: callers' locals,
+  breaking on a thrown exception, calls in expressions.
 - [x] 5. A debugger: Debug Adapter Protocol server in the host (`--dap-port`, `dap.rs`), VS Code attach (`tools/vscode-platypus`). Left: the editor's own
   debugger UI (`editor/`), variables and the call stack (4b), conditional breakpoints, exception breakpoints.
 - [ ] Per-compile cost of the line info (every run pays it, sidecar or not): measure `Stmt::Line` markers against compile time and

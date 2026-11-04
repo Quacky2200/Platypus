@@ -139,29 +139,50 @@ fn libcalls() -> Vec<(&'static str, usize)> {
     ]
 }
 
-/// How a debugger shows a local of this type.
-fn show_ty(t: &ir::Ty, m: &ir::Module, tags: &std::sync::Arc<Vec<String>>) -> crate::debug::ShowTy {
+/// What a debugger needs to read a value of this type.
+fn show_ty(
+    t: &ir::Ty,
+    tags: &std::sync::Arc<Vec<String>>,
+    structs: &std::sync::Arc<crate::debug::Structs>,
+) -> crate::debug::ShowTy {
     use crate::debug::ShowTy;
     match t {
         ir::Ty::Num => ShowTy::Num,
         ir::Ty::Bool => ShowTy::Bool,
         ir::Ty::Lit => ShowTy::Lit(tags.clone()),
         ir::Ty::Str => ShowTy::Str,
-        ir::Ty::Obj(id) => ShowTy::Obj(
-            m.structs
-                .get(*id)
-                .map_or_else(|| "object".to_string(), |s| s.name.clone()),
-        ),
-        ir::Ty::Arr(_) => ShowTy::Arr,
-        ir::Ty::Cell(inner) => ShowTy::Cell(Box::new(show_ty(inner, m, tags))),
-        ir::Ty::Nullable(inner) => ShowTy::Nullable(Box::new(show_ty(inner, m, tags))),
+        ir::Ty::Obj(id) => ShowTy::Obj(structs.clone(), *id),
+        ir::Ty::Arr(inner) => ShowTy::Arr(Box::new(show_ty(inner, tags, structs))),
+        ir::Ty::Cell(inner) => ShowTy::Cell(Box::new(show_ty(inner, tags, structs))),
+        ir::Ty::Nullable(inner) => ShowTy::Nullable(Box::new(show_ty(inner, tags, structs))),
         other => ShowTy::Other(format!("{other}")),
     }
 }
 
-/// The named locals of every function of the module, for the debugger.
+/// The named locals of every function of the module, and the struct table they refer to.
 fn describe_functions(m: &ir::Module) -> Vec<crate::debug::FuncDebug> {
     let tags = std::sync::Arc::new(m.tags.clone());
+    let structs = std::sync::Arc::new(crate::debug::Structs::default());
+    let infos = m
+        .structs
+        .iter()
+        .map(|st| crate::debug::StructInfo {
+            name: st.name.clone(),
+            fields: st
+                .fields
+                .iter()
+                .enumerate()
+                .map(|(i, f)| {
+                    (
+                        f.name.clone(),
+                        ir::field_offset(i) as usize,
+                        show_ty(&f.ty, &tags, &structs),
+                    )
+                })
+                .collect(),
+        })
+        .collect();
+    let _ = structs.0.set(infos);
     m.funcs
         .iter()
         .enumerate()
@@ -177,7 +198,7 @@ fn describe_functions(m: &ir::Module) -> Vec<crate::debug::FuncDebug> {
                     (
                         *v as usize,
                         name.clone(),
-                        show_ty(&f.locals[*v as usize], m, &tags),
+                        show_ty(&f.locals[*v as usize], &tags, &structs),
                     )
                 })
                 .collect(),
