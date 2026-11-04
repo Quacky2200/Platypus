@@ -52,6 +52,26 @@ export function UiInspectorPanel({ width, height }: UiInspectorPanelProps) {
     return () => clearInterval(h);
   }, [on]);
 
+  // A node pinned elsewhere (F9, a click in pick mode) is shown in the tree: its ancestors open
+  // and its row is the focused one.
+  const shown = useRef(0);
+  useEffect(() => {
+    const sel = UiInspector.selected();
+    if (!on || sel === shown.current) return;
+    shown.current = sel;
+    if (sel === 0 || tree.focus === String(sel)) return;
+    const open = new Set(tree.expanded);
+    open.add("0");
+    let at = UiInspector.parent(sel);
+    // The chain is as deep as the UI; the cap keeps a bad answer from looping.
+    for (let n = 0; at !== 0 && n < 256; n++) {
+      open.add(String(at));
+      at = UiInspector.parent(at);
+    }
+    for (const id of open) if (!tree.expanded.has(id)) UiInspector.expand(Number(id), true);
+    setTree({ ...tree, expanded: open, selected: new Set([String(sel)]), focus: String(sel), anchor: String(sel) });
+  }, [on, tick]);
+
   const roots = useMemo(() => (on ? [nodeOf(0, tree.expanded)] : []), [on, tick, tree.expanded]);
 
   const change = (next: TreeState): void => {
