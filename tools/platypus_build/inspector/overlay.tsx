@@ -429,7 +429,7 @@ function UiInspCard(props: { id: number; onClose: () => void }) {
         </UiInspMini>
         {copyMenu ? (
           <box className="uii-menu" style={{ position: "absolute", top: 30, right: 56, flexDirection: "column", pointerEvents: "auto" }}>
-            <UiInspMenuItem label="Copy CSS" hint="element.style, rules" onClick={() => copy(false)} />
+            <UiInspMenuItem label="Copy CSS" hint="element.style { ... }" onClick={() => copy(false)} />
             <UiInspMenuItem label="Copy JSX" hint="style={{ … }}" onClick={() => copy(true)} />
           </box>
         ) : null}
