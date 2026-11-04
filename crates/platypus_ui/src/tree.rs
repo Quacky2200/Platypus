@@ -3314,6 +3314,11 @@ impl<L: LayoutEngine> UiTree<L> {
         Some(crate::validity::check(&c, &editor.text()))
     }
 
+    /// A field's selection as character offsets `(start, end)`.
+    pub fn editor_selection_range(&self, id: NodeId) -> Option<(usize, usize)> {
+        self.editors.get(&id).map(Editor::selection_range)
+    }
+
     /// The selected text of a field, if any (for copying).
     pub fn editor_selection(&self, id: NodeId) -> Option<String> {
         self.editors.get(&id).and_then(Editor::selected_text)

@@ -244,12 +244,13 @@ fn wheel_and_modifiers_are_reported() {
         Value::Array(
             [
                 50.0, 50.0, 0.0, 0.0, 0.0, 0.0, 120.0, 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                0.0, 0.0,
             ]
             .into_iter()
             .map(Value::Number)
             .collect()
         ),
-        "x, y, button, buttons, detail, deltaX, deltaY, modifiers (shift | alt), repeat, related, \n         then six scroll fields"
+        "x, y, button, buttons, detail, deltaX, deltaY, modifiers (shift | alt), repeat, related, \n         then six scroll fields, then the selection (start, end)"
     );
 }
 

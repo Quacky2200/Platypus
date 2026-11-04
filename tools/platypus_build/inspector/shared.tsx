@@ -86,7 +86,7 @@ export function UiInspThemeChip(props: { theme: string; onTheme: (theme: string)
 /** A small labelled pill; `on` highlights it. */
 function UiInspChip(props: { label: string; on?: boolean; onClick: () => void; dim?: boolean }) {
   return (
-    <box className={props.on === true ? "uii-chip on" : "uii-chip"} onClick={props.onClick}>
+    <box className={props.on === true ? "uii-chip on" : "uii-chip"} onMouseDown={(e) => e.stopPropagation()} onClick={props.onClick}>
       <text className={props.dim === true ? "uii-chip-text uii-chip-dim" : "uii-chip-text"}>{props.label}</text>
     </box>
   );
@@ -288,7 +288,17 @@ function UiInspValueField(props: {
       if (nums.length === 0) return;
       e.preventDefault();
       const big = e.shiftKey ? 10 : e.altKey ? 0.1 : 1;
-      const next = uiValStep(text, e.key === "ArrowUp" ? 1 : -1, uiValStepSize(props.prop, nums[0]!.unit) * big, -1);
+      // The number at the caret steps (as `uiValStep` picks it, for the step size's unit).
+      const caret = e.selectionStart;
+      let at = nums[0]!;
+      for (const n of nums) {
+        if (caret >= n.start && caret <= n.end) {
+          at = n;
+          break;
+        }
+        if (n.end <= caret) at = n;
+      }
+      const next = uiValStep(text, e.key === "ArrowUp" ? 1 : -1, uiValStepSize(props.prop, at.unit) * big, caret);
       if (next !== null) {
         editing.current = false;
         setText(next);
@@ -722,6 +732,22 @@ function UiInspOverride(id: number, prop: string): string {
   return out;
 }
 
+// Helper widgets (colour picker, curve and gradient editors) stay open until a click lands elsewhere.
+// `uiInspPopEpoch` ends every open one at once; `uiInspPopsOpen` counts the open ones (the overlay puts a
+// click-catching backdrop under the card while any is).
+let uiInspPopEpoch = 0;
+let uiInspPopsOpen = 0;
+
+/** Closes every open helper widget (a press outside them). */
+export function UiInspClosePops(): void {
+  uiInspPopEpoch++;
+}
+
+/** How many helper widgets are open. */
+export function UiInspPopsOpen(): number {
+  return uiInspPopsOpen;
+}
+
 /**
  * One `prop: value` line: plain text, or in edit mode the editable value with the helper it earns. A
  * rule's line whose property has an inline override shows that value (the one in effect), marked
@@ -732,7 +758,21 @@ function UiInspLine(props: { id: number; prop: string; value: string; override: 
   const edited = props.override !== "" && edit;
   // What the line stands for: the override once there is one.
   const value = edited ? props.override : props.value;
-  const [open, setOpen] = useState(false);
+  const [wanted, setWanted] = useState(false);
+  const openedAt = useRef(0);
+  // Open until a click anywhere else (`UiInspClosePops`) ends that "epoch".
+  const open = wanted && openedAt.current === uiInspPopEpoch;
+  const setOpen = (v: boolean): void => {
+    openedAt.current = uiInspPopEpoch;
+    setWanted(v);
+  };
+  useEffect(() => {
+    if (!open) return undefined;
+    uiInspPopsOpen++;
+    return () => {
+      uiInspPopsOpen--;
+    };
+  }, [open]);
   const pop = useRef<PlatypusElement | null>(null);
   // The name and the value, to move the caret between them.
   const keyBox = useRef<PlatypusElement | null>(null);
@@ -786,7 +826,7 @@ function UiInspLine(props: { id: number; prop: string; value: string; override: 
           <text className={applied || edited ? "uii-prop" : "uii-prop uii-off"}>{uiValKebab(prop) + ":"}</text>
         )}
         {kind === "color" ? (
-          <box className="uii-swatch" style={{ width: 18, height: 18, marginTop: 1, marginLeft: 6, backgroundColor: value }} onClick={() => setOpen(!open)} />
+          <box className="uii-swatch" style={{ width: 18, height: 18, marginTop: 1, marginLeft: 6, backgroundColor: value }} onMouseDown={(e) => e.stopPropagation()} onClick={() => setOpen(!open)} />
         ) : null}
         <UiInspValueField
           prop={prop}
@@ -802,7 +842,7 @@ function UiInspLine(props: { id: number; prop: string; value: string; override: 
         {edited ? <UiInspChip label="edited  ↺" on={true} onClick={() => UiInspector.setStyle(id, prop, "")} /> : null}
       </box>
       {open ? (
-        <box ref={pop} style={{ flexDirection: "column" }}>
+        <box ref={pop} style={{ flexDirection: "column" }} onMouseDown={(e) => e.stopPropagation()}>
           {kind === "color" ? <UiInspColorPicker value={value} onChange={(s) => UiInspector.setStyle(id, prop, s)} /> : null}
           {easing !== null ? (
             <UiInspEasingEditor

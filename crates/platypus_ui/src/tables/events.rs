@@ -6,7 +6,7 @@
 //!
 //! The slots index `UiEvent::script_args()` (`platypus_ui::events`): `data` is `[x, y, button, buttons,
 //! detail, deltaX, deltaY, modifiers, repeat, related, scrollLeft, scrollTop, scrollWidth,
-//! scrollHeight, clientWidth, clientHeight]`, `strings` is `[key, code]` for keyboard events and
+//! scrollHeight, clientWidth, clientHeight, selectionStart, selectionEnd]`, `strings` is `[key, code]` for keyboard events and
 //! `[value]` for input events. `crates/platypus_ui/tests/ui_tables.rs` checks the slots against it.
 
 /// Where a field's value comes from.
@@ -84,6 +84,8 @@ pub const EVENT_FIELDS: &[EventField] = &[
     f("scrollHeight", "number", Num(13)),
     f("clientWidth", "number", Num(14)),
     f("clientHeight", "number", Num(15)),
+    f("selectionStart", "number", Num(16)),
+    f("selectionEnd", "number", Num(17)),
     f("pointerId", "number", Const("1")),
     f("key", "string", Str(0)),
     f("code", "string", Str(1)),
@@ -144,7 +146,15 @@ pub const EVENT_INTERFACES: &[EventInterface] = &[
         name: "PlatypusKeyboardEvent",
         extends: Some("PlatypusEvent"),
         fields: &[
-            "key", "code", "repeat", "shiftKey", "ctrlKey", "altKey", "metaKey",
+            "key",
+            "code",
+            "repeat",
+            "shiftKey",
+            "ctrlKey",
+            "altKey",
+            "metaKey",
+            "selectionStart",
+            "selectionEnd",
         ],
     },
     EventInterface {

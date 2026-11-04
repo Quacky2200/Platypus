@@ -975,6 +975,7 @@ impl Interaction {
             key,
             code,
             repeat,
+            selection: tree.editor_selection_range(focused).unwrap_or_default(),
             ..UiEvent::new(kind, tree.event_path(focused), self.modifiers)
         };
         dispatch(&event)

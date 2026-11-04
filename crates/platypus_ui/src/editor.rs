@@ -743,6 +743,15 @@ impl Editor {
         self.keep_caret_visible();
     }
 
+    /// The selection as character offsets into the text, `(start, end)` (equal for a bare caret).
+    pub(crate) fn selection_range(&self) -> (usize, usize) {
+        let s = self.editor.raw_selection();
+        let (a, b) = (s.anchor().index(), s.focus().index());
+        let text = self.editor.raw_text();
+        let chars = |byte: usize| text.get(..byte).map_or(byte, |t| t.chars().count());
+        (chars(a.min(b)), chars(a.max(b)))
+    }
+
     pub(crate) fn selected_text(&self) -> Option<String> {
         if self.password {
             return None;

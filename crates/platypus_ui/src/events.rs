@@ -209,6 +209,8 @@ pub struct UiEvent {
     pub key: String,
     pub code: String,
     pub repeat: bool,
+    /// Keyboard events in a text field: the selection as character offsets (`selectionStart`, `selectionEnd`).
+    pub selection: (usize, usize),
     /// Focus events: the element losing (for `focusin`) or gaining (for `focusout`) focus.
     pub related: Option<NodeId>,
     /// Scroll events: the target's scroll position and sizes.
@@ -265,6 +267,7 @@ impl UiEvent {
             key: String::new(),
             code: String::new(),
             repeat: false,
+            selection: (0, 0),
             related: None,
             scroll: None,
             value: None,
@@ -308,7 +311,11 @@ impl UiEvent {
             s.client_width,
             s.client_height,
         ];
-        let data = data.into_iter().chain(scroll.map(f64::from));
+        let selection = [self.selection.0 as f64, self.selection.1 as f64];
+        let data = data
+            .into_iter()
+            .chain(scroll.map(f64::from))
+            .chain(selection);
         let mut args = vec![
             self.kind.name().into(),
             Value::Array(path),

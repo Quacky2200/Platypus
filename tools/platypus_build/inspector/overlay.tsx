@@ -450,7 +450,7 @@ function UiInspCard(props: { id: number; onClose: () => void }) {
           </box>
         ) : null}
       </box>
-      <box style={{ padding: "0 10px 6px 10px", flexDirection: "column", overflow: "auto", flexShrink: 1, minHeight: 0 }}>
+      <box style={{ padding: "0 10px 6px 10px", flexDirection: "column", overflow: "auto", flexShrink: 1, minHeight: 0 }} onMouseDown={() => UiInspClosePops()}>
         <UiInspStyles id={id} edit={true} />
       </box>
       <UiInspDocLine />
@@ -511,6 +511,10 @@ function UiInspOverlay() {
       {/* Editing: nothing over the element, but the box model while a margin / padding line is hovered. */}
       {editing && focus !== 0 ? <UiInspBoxModel id={focus} label={false} /> : null}
       <UiInspHighlights />
+      {/* A helper widget is open: a press anywhere else closes it (the card sits above this). */}
+      {editing && UiInspPopsOpen() > 0 ? (
+        <box style={{ position: "fixed", left: 0, top: 0, width: "100%", height: "100%", pointerEvents: "auto" }} onMouseDown={() => UiInspClosePops()} />
+      ) : null}
       {editing ? <UiInspCard id={pinned} onClose={() => UiInspector.select(0)} /> : null}
       <UiInspToolbar
         picking={picking}
