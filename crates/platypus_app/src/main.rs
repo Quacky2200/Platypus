@@ -17,6 +17,7 @@ pub(crate) mod asset_db;
 mod asset_root;
 mod bench;
 pub(crate) mod bone_cache;
+mod cdp;
 mod cloth_sync;
 pub(crate) mod cook;
 mod cpu_gfx;
@@ -123,9 +124,19 @@ struct Args {
     /// `--inspect-brk`: the controller (port 9229 unless `--debug-port` / `--dap-port` says) and a stop
     /// before the program's first statement.
     inspect_brk: bool,
-    /// `--inspect-ts-tool dap|console`: which protocol `--inspect-brk` serves on 9229 (`dap`, the
-    /// default, for editors; `console` for the plain text controller).
-    inspect_dap: bool,
+    /// `--inspect-ts-tool devtools|dap|console`: which protocol `--inspect-brk` serves on 9229
+    /// (`devtools`, the default: Chrome DevTools / Node tooling; `dap`: editors; `console`: text).
+    inspect_tool: InspectTool,
+    /// `--devtools-port <port>`: the DevTools protocol server on this port (`cdp.rs`).
+    cdp_port: Option<u16>,
+}
+
+/// The protocol `--inspect-brk` serves.
+#[derive(Clone, Copy, PartialEq)]
+enum InspectTool {
+    Devtools,
+    Dap,
+    Console,
 }
 
 impl Args {
@@ -192,7 +203,8 @@ games are built with `platypus-build build`; arguments after -- reach scripts as
         debug_port: None,
         dap_port: None,
         inspect_brk: false,
-        inspect_dap: true,
+        inspect_tool: InspectTool::Devtools,
+        cdp_port: None,
     };
     let mut frames_given = false;
     while let Some(arg) = args.next() {
@@ -208,11 +220,21 @@ games are built with `platypus-build build`; arguments after -- reach scripts as
             Some("--cook") => parsed.cook = true,
             Some("--inspect-brk") => parsed.inspect_brk = true,
             Some("--inspect-ts-tool") => {
-                parsed.inspect_dap = match args.next().context(usage)?.to_str() {
-                    Some("dap") => true,
-                    Some("console") => false,
-                    _ => anyhow::bail!("--inspect-ts-tool takes dap or console"),
+                parsed.inspect_tool = match args.next().context(usage)?.to_str() {
+                    Some("devtools") => InspectTool::Devtools,
+                    Some("dap") => InspectTool::Dap,
+                    Some("console") => InspectTool::Console,
+                    _ => anyhow::bail!("--inspect-ts-tool takes devtools, dap or console"),
                 }
+            }
+            Some("--devtools-port") => {
+                parsed.cdp_port = Some(
+                    args.next()
+                        .context(usage)?
+                        .to_str()
+                        .context(usage)?
+                        .parse()?,
+                )
             }
             Some("--dap-port") => {
                 parsed.dap_port = Some(
@@ -359,11 +381,11 @@ fn run() -> Result<()> {
     }
     if args.inspect_brk {
         debugger::break_at_start();
-        if args.debug_port.is_none() && args.dap_port.is_none() {
-            if args.inspect_dap {
-                args.dap_port = Some(9229);
-            } else {
-                args.debug_port = Some(9229);
+        if args.debug_port.is_none() && args.dap_port.is_none() && args.cdp_port.is_none() {
+            match args.inspect_tool {
+                InspectTool::Devtools => args.cdp_port = Some(9229),
+                InspectTool::Dap => args.dap_port = Some(9229),
+                InspectTool::Console => args.debug_port = Some(9229),
             }
         }
     }
@@ -382,6 +404,16 @@ fn run() -> Result<()> {
         && (name.ends_with(".ts") || name.ends_with(".tsx"))
     {
         debugger::note_single_file(name);
+    }
+    if let Some(port) = args.cdp_port {
+        match cdp::enable(port) {
+            Ok(p) => {
+                eprintln!("debugger: DevTools protocol on 127.0.0.1:{p} (ws://127.0.0.1:{p}/game)");
+                // Like node --inspect-brk: the game starts when the debugger lets it run.
+                debugger::wait_for_configuration();
+            }
+            Err(e) => tracing::error!("debugger: cannot listen on port {port}: {e}"),
+        }
     }
     if let Some(port) = args.dap_port {
         match dap::enable(port) {

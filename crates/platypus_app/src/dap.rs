@@ -99,7 +99,7 @@ impl<W: Write> Sender<W> {
 }
 
 /// The file (as `game.pdebug` names it) an editor's path is: the known file the path ends with.
-fn file_of(path: &str) -> String {
+pub(crate) fn file_of(path: &str) -> String {
     let norm = path.replace('\\', "/");
     debugger::files()
         .into_iter()
@@ -109,7 +109,7 @@ fn file_of(path: &str) -> String {
 }
 
 /// The path an editor opens for a file of the program.
-fn path_of(file: &str) -> String {
+pub(crate) fn path_of(file: &str) -> String {
     match crate::crash::game_dir() {
         Some(d) => d.join(file).to_string_lossy().into_owned(),
         None => file.to_string(),

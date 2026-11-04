@@ -1,14 +1,84 @@
 # Debugging a game: breakpoints, pause and stepping
 
-`platypus-app <game> --debug-port <port>` runs the game as a **debug build** and listens on `127.0.0.1:<port>` for a debugger
-(the text protocol below). `--dap-port <port>` does the same speaking the **Debug Adapter Protocol**, for VS Code and other editors
-([DAP](#editors-the-debug-adapter-protocol)).
+A game can be run as a **debug build** with a debugger attached: breakpoints (with conditions, hit counts and log points), pause, step in /
+over / out, locals, the call stack, watch expressions, and a stop at every `throw`. There are three ways to talk to it, all driving the
+same debugger (`platypus_ts::debug`):
+
+| Tool | Flag | Use it from |
+|---|---|---|
+| **DevTools** (the default) | `--inspect-brk` or `--devtools-port <port>` | Chrome DevTools (`chrome://inspect`), VS Code's JavaScript debugger, anything that attaches to a Node `--inspect` port |
+| **DAP** | `--inspect-brk --inspect-ts-tool dap` or `--dap-port <port>` | VS Code (the `tools/vscode-platypus` stub) and other Debug Adapter Protocol editors |
+| **Console** | `--inspect-brk --inspect-ts-tool console` or `--debug-port <port>` | a plain terminal: `nc`, `telnet`, a script |
+
+`--inspect-brk` is the quick way in, like `node --inspect-brk`: it serves on port **9229** and the game **stops before its first
+statement** (the top level of the first module; `onAwake` and the first update come after, so set a breakpoint and continue).
+`--inspect-ts-tool devtools|dap|console` picks the protocol (devtools if left out). The game waits for the debugger to attach (DevTools: until
+it sends `Runtime.runIfWaitingForDebugger`; DAP: `configurationDone`); the console tool does not wait, it simply stops at the first
+statement. Without `--inspect-brk`, `--debug-port`, `--dap-port` and `--devtools-port` start the matching server on the port you give and
+the game runs on (DevTools and DAP still wait for their client first).
+
 Design and plan: [research/platypus-ts-debug-info.md](research/platypus-ts-debug-info.md).
 
-`--inspect-brk` stops before the program's first statement (the top level of the first module; `onAwake` and the first update come
-after, so set a breakpoint and `continue`) and serves on port 9229. `--inspect-ts-tool dap|console` picks the protocol: `dap` (the default)
-for editors, `console` for the plain text controller below (`--debug-port 9229`). Neither is Node's inspector protocol (CDP), so Node's
-auto-attach and `chrome://inspect` do not see it.
+## Using the console debugger
+
+The console tool is the simplest and needs nothing installed beyond a terminal. Start the game, then connect from a second terminal:
+
+```bash
+platypus-app examples/zombie-horders --inspect-brk --inspect-ts-tool console
+```
+```bash
+nc 127.0.0.1 9229
+```
+
+(`telnet 127.0.0.1 9229` works too; on Windows without `nc`, use `ncat` or PuTTY in "raw" mode.) The window opens and freezes
+at once: the game is stopped before its first statement, and the first line you see is where. Type a command and press Enter; every command
+answers with one line starting `ok` (or `error`), and a line `stopped <file>:<line> <reason>` arrives each time the game stops.
+
+A typical session (what you type is after `>`):
+
+```
+stopped src/sim.ts:224 pause             the game stopped at the first statement
+> break src/main.tsx:416 if dt > 0       stop at line 416 of main.tsx, only when dt is above 0
+ok break src/main.tsx:416
+> continue                               let the game run
+ok
+stopped src/main.tsx:416 breakpoint      it hit the breakpoint (first frame)
+> stack                                  who called whom
+ok Arena.onUpdate src/main.tsx:416
+> locals                                 the function's local variables
+ok this:Arena=Arena; dt:number=0.0166667; inRound:boolean=false; mask:number=0
+> eval dt * 60                           any expression over those locals (no calls)
+ok dt * 60: number = 1
+> over                                   run to the next line of this function
+stopped src/main.tsx:420 step
+> in                                     step into a call on the next line
+> detach                                 clear everything and let the game run free
+```
+
+Tips:
+- **Files** are written as in the crash reports and `game.pdebug` (`src/main.tsx`), lines count from 1 in the source. The first line the
+  game stops on tells you the naming.
+- **Objects and arrays** show as `Arena` / `Array`; `eval` a field to look inside: `eval this.player.health`, `eval zombies[2].x`.
+- **Conditions** use the same expressions as `eval` (`==`, `<`, `&&`, `||`, `!`, field access, indexing, arithmetic); `break … if` takes the
+  rest of the line. Calls are not supported.
+- **Catching a crash early:** `catch on` stops at every `throw` statement, with its function's locals readable.
+- **Stuck window:** a stopped game does not repaint; `continue` (or `detach`) lets it run. If you close the terminal the debugger lets go.
+- Closing the connection does what `detach` does, so the game never stays stopped behind a closed terminal.
+
+## DevTools (Chrome, VS Code, Node tooling)
+
+`--inspect-brk` (or `--devtools-port <port>`) speaks the **Chrome DevTools Protocol** the way `node --inspect` does (`cdp.rs`): HTTP queries
+on the port (`/json/version`, `/json`, `/json/list`) and a WebSocket at `ws://127.0.0.1:9229/game`.
+- **Chrome / Edge:** open `chrome://inspect`, "Configure…" lists `localhost:9229` by default; the game appears under Remote Target; click
+  *inspect*. The Sources panel shows the program's files; click a line number for a breakpoint (right-click for a condition), use the
+  pause / step buttons, read Scope > Local, and type expressions in Watch or the console.
+- **VS Code:** a `launch.json` entry `{ "type": "node", "request": "attach", "name": "Platypus", "port": 9229 }` attaches the JavaScript debugger.
+- Supported: `Runtime.enable` / `evaluate` / `getProperties` / `runIfWaitingForDebugger`; `Debugger.enable`, `setBreakpointByUrl` (with a
+  condition), `removeBreakpoint`, `setPauseOnExceptions` (`all` and `uncaught` both stop at every `throw`), `pause`, `resume`, `stepOver`,
+  `stepInto`, `stepOut`, `evaluateOnCallFrame`, `getScriptSource`. The stops are `Break on start` (the first), `debugCommand` (pause),
+  `exception`, and `other` (breakpoints, steps; `hitBreakpoints` names the breakpoint). Log points print into the console.
+- Limits: one scope (the innermost frame's locals), expressions cannot call functions, the callers in the call stack have no scope, and column
+  numbers are always 0 (breakpoints are per line). The sources are the TypeScript files themselves (no source maps involved).
 
 ## What a debug build is
 

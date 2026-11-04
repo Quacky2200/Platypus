@@ -60,10 +60,17 @@ pub fn test_lock() -> std::sync::MutexGuard<'static, ()> {
 }
 
 static BREAK_AT_START: AtomicBool = AtomicBool::new(false);
+static INSPECT_BRK: AtomicBool = AtomicBool::new(false);
+
+/// Was the run started with `--inspect-brk`?
+pub fn inspect_brk() -> bool {
+    INSPECT_BRK.load(Ordering::Relaxed)
+}
 
 /// `--inspect-brk`: the game stops before the program's first statement (its top level, then `onAwake` and the first update follow by stepping or `continue`).
 pub fn break_at_start() {
     BREAK_AT_START.store(true, Ordering::Relaxed);
+    INSPECT_BRK.store(true, Ordering::Relaxed);
 }
 
 /// True once, when `--inspect-brk` asked for the stop and the program is about to start.
@@ -302,6 +309,8 @@ fn serve(stream: TcpStream) {
         say(&command(line.trim()));
     }
     watching.store(false, Ordering::Relaxed);
+    // A terminal that closes must not leave the game stopped.
+    debug::detach();
 }
 
 /// Runs one command and returns the reply line.
