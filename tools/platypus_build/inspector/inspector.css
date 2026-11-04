@@ -39,7 +39,9 @@
     --uii-shadow: rgba(20, 30, 50, 0.25);
   }
 }
-.uii.uii-dark {
+/* `uii-dark` / `uii-light` on a root force a theme for everything in it; `uii-scheme-dark` / `-light` do it
+   for one card, whatever the toolbar's theme is. */
+.uii.uii-dark, .uii-scheme-dark {
   --uii-bg: #161a22;
   --uii-bg2: #1e2430;
   --uii-text: #dfe7f5;
@@ -54,7 +56,7 @@
   --uii-warn: #e07a7a;
   --uii-shadow: rgba(0, 0, 0, 0.5);
 }
-.uii.uii-light {
+.uii.uii-light, .uii-scheme-light {
   --uii-bg: #fbfbfd;
   --uii-bg2: #f0f2f6;
   --uii-text: #1c2330;
@@ -99,6 +101,7 @@
 .uii-tool.close:hover { background-color: rgba(224, 122, 122, 0.35); }
 /* Names show under a tool when the pointer rests on it. */
 .uii-tool-tip {
+  z-index: 100;
   background-color: #0e1117;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 5px;
@@ -110,6 +113,7 @@
 .uii-bar, .uii-grip, .uii-tool, .uii-title-bar, .uii-chip, .uii-link, .uii-x, .uii-sugg-item { user-select: none; }
 /* A card's title bar drags it too. */
 .uii-title-bar { flex-direction: row; align-items: center; gap: 8px; flex-grow: 1; cursor: move; }
+.uii-title-bar.drag { cursor: grabbing; }
 
 /* Cards, headings and text */
 .uii-card {
@@ -179,8 +183,65 @@
 .uii-x:hover { background-color: var(--uii-hover); }
 .uii-x-text { color: var(--uii-warn); font-size: 13px; }
 
-.uii-swatch { border: 1px solid var(--uii-line); border-radius: 4px; cursor: pointer; transition: border-color 0.12s; }
+/* A colour swatch keeps a light edge inside a dark ring, so black, white and anything between stay visible
+   on a dark or a light card. */
+.uii-swatch {
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.55), 0 1px 4px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
 .uii-swatch:hover { border-color: var(--uii-accent); }
+
+/* A property name being edited reads as a name. */
+.uii-key { color: var(--uii-prop); }
+
+/* The strip at the foot of a card that says what the hovered property does: a fixed height, so nothing moves. */
+.uii-foot {
+  min-height: 34px;
+  max-height: 34px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--uii-line);
+  overflow: hidden;
+}
+
+/* An error balloon: floats under the field it is about. */
+.uii-error {
+  z-index: 100;
+  background-color: var(--uii-bg2);
+  border: 1px solid var(--uii-warn);
+  border-radius: 6px;
+  padding: 3px 8px;
+  box-shadow: 0 6px 18px var(--uii-shadow);
+}
+.uii-error-text { color: var(--uii-warn); font-size: 11px; }
+
+/* A small icon button in a themed card (the toolbar's own are .uii-tool, always dark). */
+.uii-mini { position: relative; width: 24px; height: 22px; align-items: center; justify-content: center; border-radius: 5px; cursor: pointer; transition: background-color 0.12s; }
+.uii-mini:hover { background-color: var(--uii-hover); }
+.uii-mini.on { background-color: var(--uii-accent-bg); }
+.uii-card-grip { padding: 3px 5px 3px 0; border-radius: 5px; cursor: move; }
+.uii-card-grip.drag { cursor: grabbing; }
+
+/* The card's menu (hamburger). */
+.uii-menu {
+  z-index: 100;
+  background-color: var(--uii-bg2);
+  border: 1px solid var(--uii-line);
+  border-radius: 8px;
+  padding: 4px;
+  min-width: 200px;
+  box-shadow: 0 8px 26px var(--uii-shadow);
+}
+.uii-menu-item { flex-direction: row; align-items: center; gap: 8px; padding: 4px 10px; border-radius: 5px; cursor: pointer; user-select: none; }
+.uii-menu-item:hover { background-color: var(--uii-hover); }
+.uii-menu-item.off { cursor: default; }
+.uii-menu-item.off:hover { background-color: transparent; }
+.uii-menu-item.off .uii-text { color: var(--uii-dim); opacity: 0.55; }
+.uii-menu-sub { padding-left: 14px; }
+.uii-menu-sep { height: 1px; margin: 3px 4px; background-color: var(--uii-line); }
+.uii-tick { width: 14px; color: var(--uii-accent); font-size: 12px; }
 
 /* Helper widgets: colour picker, timing curve, gradient and flexbox editors */
 .uii-pop {

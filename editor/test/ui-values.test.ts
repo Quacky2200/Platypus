@@ -10,8 +10,10 @@ import {
   uiValFormatEasing,
   uiValFormatGradient,
   uiValFormatNumber,
+  uiValCamel,
   uiValFromHsv,
   uiValGradientAngle,
+  uiValKebab,
   uiValNumbers,
   uiValParseColor,
   uiValParseGradient,
@@ -128,6 +130,18 @@ test("gradients split into a head and stops and come back as text", () => {
   yes(uiValParseGradient("repeating-linear-gradient(45deg, red, blue 10px)")!.repeating, "repeating");
   eq(uiValParseGradient("url(a.png)"), null, "not a gradient");
   eq(uiValSplitTop("a(1, 2), b, c(d(e, f))"), ["a(1, 2)", "b", "c(d(e, f))"], "commas inside brackets stay");
+});
+
+// M3-INS-11
+test("property names go between the engine's camelCase and CSS's kebab-case", () => {
+  same(uiValKebab("backgroundColor"), "background-color", "to kebab");
+  same(uiValKebab("width"), "width", "one word");
+  same(uiValKebab("--accentColor"), "--accentColor", "a custom property stays");
+  same(uiValCamel("background-color"), "backgroundColor", "to camel");
+  same(uiValCamel("border-top-left-radius"), "borderTopLeftRadius", "several words");
+  same(uiValCamel("width"), "width", "one word");
+  same(uiValCamel("--accent-color"), "--accent-color", "a custom property stays");
+  same(uiValCamel("backgroundColor"), "backgroundColor", "already camel");
 });
 
 // M3-INS-11

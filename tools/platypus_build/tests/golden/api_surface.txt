@@ -2856,6 +2856,7 @@ declare namespace UiInspector :: function childCount(id: number): number;
 declare namespace UiInspector :: function className(id: number): string;
 declare namespace UiInspector :: function classNames(): string[];
 declare namespace UiInspector :: function clearHighlight(): void;
+declare namespace UiInspector :: function copy(text: string): void;
 declare namespace UiInspector :: function declApplied(id: number, rule: number, i: number): boolean;
 declare namespace UiInspector :: function declComputed(id: number, rule: number, i: number): string;
 declare namespace UiInspector :: function declCount(id: number, rule: number): number;

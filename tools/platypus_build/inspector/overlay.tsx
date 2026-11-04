@@ -273,40 +273,155 @@ function UiInspToolbar(props: { picking: boolean; help: boolean; theme: string; 
   );
 }
 
-/** The card of the element being edited: its name (a bar to drag it by), a close button, and the style editor. */
+/** Two sheets: copy. (A mid grey, which reads on a light card and on a dark one.) */
+function UiInspIconCopy() {
+  return (
+    <svg viewBox="0 0 20 20" style={{ width: 15, height: 15 }}>
+      <rect x={7.2} y={7.2} width={9} height={9.6} rx={1.6} fill="none" stroke="#8a94a3" strokeWidth={1.3} />
+      <path d="M5 12.8 V5.2 A1.6 1.6 0 0 1 6.6 3.6 H12.8" fill="none" stroke="#8a94a3" strokeWidth={1.3} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Three bars: a menu. */
+function UiInspIconMenu() {
+  return (
+    <svg viewBox="0 0 20 20" style={{ width: 15, height: 15 }}>
+      <path d="M4 6 H16 M4 10 H16 M4 14 H16" fill="none" stroke="#8a94a3" strokeWidth={1.4} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** A small icon button for a themed card; its name shows under it, at the right edge, when the pointer rests on it. */
+function UiInspMini(props: { tip: string; on?: boolean; onClick: () => void; children?: ReactNode }) {
+  const [hot, setHot] = useState(false);
+  return (
+    <box className={props.on === true ? "uii-mini on" : "uii-mini"} onClick={props.onClick} onMouseEnter={() => setHot(true)} onMouseLeave={() => setHot(false)}>
+      {props.children}
+      {hot && props.on !== true ? (
+        <box className="uii-tool-tip" style={{ position: "absolute", top: 27, right: 0, pointerEvents: "none" }}>
+          <text className="uii-tool-tip-text">{props.tip}</text>
+        </box>
+      ) : null}
+    </box>
+  );
+}
+
+/** A tick (drawn, the font has no check mark) or an empty place the same size. */
+function UiInspTick(props: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 14 14" style={{ width: 12, height: 12 }}>
+      {props.on ? <path d="M2.5 7.4 L5.8 10.6 L11.5 3.8" fill="none" stroke="#6cb6ff" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" /> : null}
+    </svg>
+  );
+}
+
+/** A chevron: right when closed, down when open. */
+function UiInspChevron(props: { open: boolean }) {
+  return (
+    <svg viewBox="0 0 14 14" style={{ width: 10, height: 10 }}>
+      <path d={props.open ? "M3 5 L7 9.5 L11 5" : "M5 3 L9.5 7 L5 11"} fill="none" stroke="#8a94a3" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+/**
+ * One line of the card's menu; `off` greys it out (a coming feature), `tick` marks the chosen one of a
+ * submenu, `chevron` says there is a submenu (`true`: open).
+ */
+function UiInspMenuItem(props: { label: string; off?: boolean; tick?: boolean; sub?: boolean; hint?: string; chevron?: boolean; onClick: () => void }) {
+  const cls = "uii-menu-item" + (props.off === true ? " off" : "") + (props.sub === true ? " uii-menu-sub" : "");
+  return (
+    <box className={cls} onClick={props.off === true ? undefined : props.onClick}>
+      {props.sub === true ? <UiInspTick on={props.tick === true} /> : null}
+      <text className="uii-text">{props.label}</text>
+      <box style={{ flexGrow: 1 }} />
+      {props.hint !== undefined ? <text className="uii-dim">{props.hint}</text> : null}
+      {props.chevron !== undefined ? <UiInspChevron open={props.chevron} /> : null}
+    </box>
+  );
+}
+
+/**
+ * The card of the element being edited. The header has a grip and the title to drag it by, Copy styles, a
+ * menu and close; the styles scroll under it. The menu has a colour scheme of its own (match the toolbar,
+ * light or dark) and Detach, which is not built yet.
+ */
 function UiInspCard(props: { id: number; onClose: () => void }) {
   const id = props.id;
   const at = useRef([0, 0]);
   const [pos, setPos] = useState([0, 0]);
+  const [menu, setMenu] = useState(false);
+  const [schemeOpen, setSchemeOpen] = useState(false);
+  // "" matches the toolbar's theme; "light" and "dark" are the card's own.
+  const [scheme, setScheme] = useState("");
+  const [copied, setCopied] = useState(false);
+  const move = (dx: number, dy: number): void => {
+    at.current = [at.current[0]! + dx, at.current[1]! + dy];
+    setPos(at.current);
+  };
+  const copy = (): void => {
+    UiInspector.copy(UiInspCssText(id));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1400);
+  };
+  const cls = "uii-card" + (scheme === "" ? "" : " uii-scheme-" + scheme);
   return (
     <box
-      className="uii-card"
+      className={cls}
       style={{
         position: "fixed",
         left: 10 + pos[0]!,
         bottom: 10 - pos[1]!,
         maxHeight: "74%",
-        minWidth: 300,
-        maxWidth: 560,
-        padding: 10,
+        // A fixed width, so a long doc in the foot strip wraps instead of widening the card.
+        width: 440,
         flexDirection: "column",
-        overflow: "auto",
         pointerEvents: "auto",
       }}
     >
-      <box className="uii-head">
-        <UiInspGrip
-          className="uii-title-bar"
-          onMove={(dx, dy) => {
-            at.current = [at.current[0]! + dx, at.current[1]! + dy];
-            setPos(at.current);
-          }}
-        >
+      {/* The header is raised over the body, so the menu and the tooltips that hang from it are on top of (and
+          take the clicks before) the rows below. */}
+      <box className="uii-head" style={{ margin: "10px 10px 6px 10px", position: "relative", zIndex: 100 }}>
+        <UiInspGrip className="uii-card-grip" onMove={move}>
+          <UiInspIconGrip />
+        </UiInspGrip>
+        <UiInspGrip className="uii-title-bar" onMove={move}>
           <text className="uii-title">{UiInspName(id)}</text>
         </UiInspGrip>
+        <UiInspMini tip={copied ? "Copied" : "Copy styles"} on={copied} onClick={copy}>
+          <UiInspIconCopy />
+        </UiInspMini>
+        <UiInspMini tip="Menu" on={menu} onClick={() => setMenu(!menu)}>
+          <UiInspIconMenu />
+        </UiInspMini>
         <UiInspX onClick={props.onClose} />
+        {menu ? (
+          <box className="uii-menu" style={{ position: "absolute", top: 30, right: 0, flexDirection: "column", pointerEvents: "auto" }}>
+            <UiInspMenuItem
+              label="Copy styles"
+              onClick={() => {
+                copy();
+                setMenu(false);
+              }}
+            />
+            <UiInspMenuItem label="Colour scheme" chevron={schemeOpen} onClick={() => setSchemeOpen(!schemeOpen)} />
+            {schemeOpen ? (
+              <box style={{ flexDirection: "column" }}>
+                <UiInspMenuItem sub={true} tick={scheme === ""} label="Match toolbar" onClick={() => setScheme("")} />
+                <UiInspMenuItem sub={true} tick={scheme === "light"} label="Light" onClick={() => setScheme("light")} />
+                <UiInspMenuItem sub={true} tick={scheme === "dark"} label="Dark" onClick={() => setScheme("dark")} />
+              </box>
+            ) : null}
+            <box className="uii-menu-sep" />
+            <UiInspMenuItem off={true} label="Detach to window" hint="soon" onClick={() => {}} />
+          </box>
+        ) : null}
       </box>
-      <UiInspStyles id={id} edit={true} />
+      <box style={{ padding: "0 10px 6px 10px", flexDirection: "column", overflow: "auto", flexShrink: 1, minHeight: 0 }}>
+        <UiInspStyles id={id} edit={true} />
+      </box>
+      <UiInspDocLine />
     </box>
   );
 }

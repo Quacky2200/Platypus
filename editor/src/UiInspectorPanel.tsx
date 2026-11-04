@@ -7,7 +7,7 @@
 // host answer `UiInspector`. Picking a row pins the node, which the inspector overlay (F12) then
 // outlines. Design: docs/research/platypus-ui-inspector.md
 
-import { UiInspName, UiInspRoot, UiInspStyles, UiInspThemeChip } from "../../tools/platypus_build/inspector/shared.tsx";
+import { UiInspDocLine, UiInspName, UiInspRoot, UiInspStyles, UiInspThemeChip } from "../../tools/platypus_build/inspector/shared.tsx";
 import { emptyTreeState, type TreeNode, type TreeState } from "./tree.ts";
 import { TreeView } from "./TreeView.tsx";
 
@@ -127,6 +127,7 @@ export function UiInspectorPanel({ width, height }: UiInspectorPanelProps) {
       <box className="uii-card" style={{ flexGrow: 1, margin: 6, padding: 8, overflow: "auto", flexDirection: "column" }}>
         {selected !== 0 ? <UiInspStyles id={selected} edit={edit} /> : null}
       </box>
+      <UiInspDocLine />
     </UiInspRoot>
   );
 }

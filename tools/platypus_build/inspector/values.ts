@@ -446,6 +446,37 @@ export function uiValGradientAngle(g: UiValGradient): number | null {
   return at >= 0 ? at * 90 : null;
 }
 
+// --- Property names ------------------------------------------------------------------------------
+
+/** `backgroundColor` as CSS writes it, `background-color` (custom properties `--x` stay as they are). */
+export function uiValKebab(prop: string): string {
+  if (prop.startsWith("--")) return prop;
+  let out = "";
+  for (let i = 0; i < prop.length; i++) {
+    const c = prop.charAt(i);
+    const upper = c >= "A" && c <= "Z";
+    out += upper ? "-" + c.toLowerCase() : c;
+  }
+  return out;
+}
+
+/** `background-color` as the engine's scripts name it, `backgroundColor` (custom properties `--x` stay as they are). */
+export function uiValCamel(prop: string): string {
+  if (prop.startsWith("--")) return prop;
+  let out = "";
+  let up = false;
+  for (let i = 0; i < prop.length; i++) {
+    const c = prop.charAt(i);
+    if (c === "-" && i > 0) {
+      up = true;
+    } else {
+      out += up ? c.toUpperCase() : c;
+      up = false;
+    }
+  }
+  return out;
+}
+
 // --- Autocomplete --------------------------------------------------------------------------------
 
 /** The words that start with `prefix`, then those that contain it (case-insensitive), at most `max`. */

@@ -210,6 +210,12 @@ impl App {
                 tracing::warn!("UiInspector.setClass({}, {}): {e}", edit.id, edit.name);
             }
         }
+        // Styles copied in the inspector go to the system clipboard.
+        if let Some(text) = api::take_copies().pop()
+            && let Some(Err(e)) = self.clipboard().map(|c| c.set_text(text))
+        {
+            tracing::warn!("UiInspector.copy: {e}");
+        }
         // A state let go of is cleared once; the ones still forced are put back every frame, since
         // the pointer's own moves rewrite them.
         for change in api::take_state_changes().into_iter().filter(|c| !c.on) {

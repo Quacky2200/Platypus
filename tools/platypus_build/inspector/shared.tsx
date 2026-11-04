@@ -14,6 +14,7 @@
 // Design: docs/research/platypus-ui-inspector.md
 
 import {
+  uiValCamel,
   uiValColorFormat,
   uiValEasingPoint,
   uiValFindEasing,
@@ -22,6 +23,7 @@ import {
   uiValFormatGradient,
   uiValFromHsv,
   uiValGradientAngle,
+  uiValKebab,
   uiValNumbers,
   uiValParseColor,
   uiValParseGradient,
@@ -221,16 +223,32 @@ function UiInspField(props: { value: string; placeholder?: string; width: number
  * The field of a style value. Up and Down add one unit to the number (Shift: ten, Alt: a tenth) and
  * commit at once; the keywords the property takes complete as you type.
  */
-function UiInspValueField(props: { prop: string; value: string; width: number; boxed?: boolean; onCommit: (s: string) => void }) {
+function UiInspValueField(props: {
+  prop: string;
+  value: string;
+  width: number;
+  boxed?: boolean;
+  /** Where the caret can be put from outside (to come back to the value from the name). */
+  inputRef?: RefObject<PlatypusElement | null>;
+  /** Backspace in an empty field: the line's owner moves on to the name (the empty text is not committed). */
+  onBackspaceEmpty?: () => void;
+  onCommit: (s: string) => void;
+}) {
   const [text, setText] = useState(props.value);
   const [focused, setFocused] = useState(false);
   const editing = useRef(false);
+  // Set when Backspace left the field: leaving it must not commit its (empty) text.
+  const left = useRef(false);
   useEffect(() => {
     if (!editing.current) setText(props.value);
   }, [props.value]);
   const commit = (s: string): void => {
     editing.current = false;
     setFocused(false);
+    if (left.current) {
+      left.current = false;
+      return;
+    }
     if (s !== props.value) props.onCommit(s);
   };
   const words = focused ? UiInspector.styleKeywords(props.prop) : [];
@@ -238,6 +256,7 @@ function UiInspValueField(props: { prop: string; value: string; width: number; b
   return (
     <box style={{ flexDirection: "column" }}>
       <Input
+        ref={props.inputRef}
         className={props.boxed === true ? "uii-field uii-boxed" : "uii-field"}
         value={text}
         style={{ width: props.width }}
@@ -247,7 +266,11 @@ function UiInspValueField(props: { prop: string; value: string; width: number; b
           setText(e.value);
         }}
         onKeyDown={(e: PlatypusKeyboardEvent) => {
-          if (e.key === "Enter") commit(text);
+          if (e.key === "Backspace" && text === "" && props.onBackspaceEmpty !== undefined) {
+            e.preventDefault();
+            left.current = true;
+            props.onBackspaceEmpty();
+          } else if (e.key === "Enter") commit(text);
           else if (e.key === "Escape") {
             editing.current = false;
             setText(props.value);
@@ -557,6 +580,111 @@ function UiInspBoxProp(prop: string): boolean {
   return prop.startsWith("margin") || prop.startsWith("padding") || prop.startsWith("border") || prop === "width" || prop === "height" || prop === "gap";
 }
 
+// The doc of the property under the pointer, for the strip at the foot of a card (`UiInspDocLine`). A line
+// sets it when the pointer enters and clears it when it leaves; the strip reads it on every redraw.
+let uiInspDoc = "";
+let uiInspDocOwner = "";
+
+/**
+ * The strip at the foot of a card: the name and doc of the property the pointer is on. It always takes the
+ * same room, so it neither covers a row nor moves one.
+ */
+export function UiInspDocLine() {
+  return (
+    <box className="uii-foot">
+      <text className="uii-dim">{uiInspDoc === "" ? "Hover a property to read what it does." : uiInspDoc}</text>
+    </box>
+  );
+}
+
+/** A property name as typed (`background-color` or `backgroundColor`): the engine's name for it, `""` when it is not one. */
+function UiInspProp(text: string): string {
+  const t = text.trim();
+  if (t.startsWith("--") && t.length > 2) return t;
+  const camel = uiValCamel(t);
+  return UiInspector.styleProps().indexOf(camel) >= 0 ? camel : "";
+}
+
+/** Why a typed property name was refused, with the nearest supported one when there is one. */
+function UiInspPropError(text: string): string {
+  const t = text.trim();
+  if (t === "") return "Type a property name first.";
+  const guess = uiValSuggest(uiValCamel(t), UiInspector.styleProps(), 1);
+  return "`" + t + "` is not a style property here" + (guess.length > 0 ? ". Did you mean " + guess[0] + "?" : ".");
+}
+
+/** A small error balloon under a field; it floats, so nothing below it moves. */
+function UiInspError(props: { text: string }) {
+  return (
+    <box className="uii-error" style={{ position: "absolute", left: 0, top: 24, maxWidth: 340, pointerEvents: "none" }}>
+      <text className="uii-error-text">{props.text}</text>
+    </box>
+  );
+}
+
+/**
+ * The property name of an `element.style` line, editable. `:`, Enter and Tab check the name (a wrong one
+ * gets an error balloon) and move on to the value; Backspace in an emptied name removes the line.
+ */
+function UiInspKeyField(props: { value: string; inputRef: RefObject<PlatypusElement | null>; onRename: (name: string) => void; onNext: () => void; onRemove: () => void }) {
+  const [text, setText] = useState(props.value);
+  const [err, setErr] = useState("");
+  const editing = useRef(false);
+  useEffect(() => {
+    if (!editing.current) setText(props.value);
+  }, [props.value]);
+  // The name is good: the line is renamed when it changed.
+  const accept = (): boolean => {
+    const name = UiInspProp(text);
+    if (name === "") {
+      setErr(UiInspPropError(text));
+      return false;
+    }
+    setErr("");
+    editing.current = false;
+    if (name !== props.value) props.onRename(name);
+    return true;
+  };
+  return (
+    <box style={{ flexDirection: "row", alignItems: "flex-start", position: "relative", zIndex: err !== "" ? 100 : 0 }}>
+      <Input
+        ref={props.inputRef}
+        className="uii-field uii-key"
+        value={text}
+        style={{ width: Math.max(30, text.length * 6.6 + 12) }}
+        onChange={(e) => {
+          editing.current = true;
+          setErr("");
+          setText(e.value);
+        }}
+        onKeyDown={(e: PlatypusKeyboardEvent) => {
+          if (e.key === "Backspace" && text === "") {
+            e.preventDefault();
+            props.onRemove();
+          } else if (e.key === ":" || e.key === "Enter" || e.key === "Tab") {
+            e.preventDefault();
+            if (accept()) props.onNext();
+          } else if (e.key === "Escape") {
+            editing.current = false;
+            setErr("");
+            setText(props.value);
+          }
+        }}
+        onBlur={() => {
+          // Leaving with a changed name renames the line if the name is good, else puts the old one back.
+          if (editing.current && !accept()) {
+            editing.current = false;
+            setErr("");
+            setText(props.value);
+          }
+        }}
+      />
+      <text className="uii-prop" style={{ marginLeft: -3 }}>:</text>
+      {err !== "" ? <UiInspError text={err} /> : null}
+    </box>
+  );
+}
+
 /** The inline override that decides `prop` of a node (`""` when none). */
 function UiInspOverride(id: number, prop: string): string {
   let out = "";
@@ -577,8 +705,10 @@ function UiInspLine(props: { id: number; prop: string; value: string; override: 
   // What the line stands for: the override once there is one.
   const value = edited ? props.override : props.value;
   const [open, setOpen] = useState(false);
-  const [hot, setHot] = useState(false);
   const pop = useRef<PlatypusElement | null>(null);
+  // The name and the value, to move the caret between them.
+  const keyBox = useRef<PlatypusElement | null>(null);
+  const valBox = useRef<PlatypusElement | null>(null);
   // A helper opened below the visible part of the scrolling card scrolls into view.
   useEffect(() => {
     if (open) pop.current?.scrollIntoView({ block: "nearest" });
@@ -597,32 +727,52 @@ function UiInspLine(props: { id: number; prop: string; value: string; override: 
     <box
       style={{ flexDirection: "column", marginBottom: 1, position: "relative" }}
       onMouseEnter={() => {
-        setHot(true);
+        // The property's doc goes to the strip at the foot of the card.
+        uiInspDoc = UiInspector.styleDoc(prop) === "" ? "" : prop + " — " + UiInspector.styleDoc(prop);
+        uiInspDocOwner = id + ":" + prop;
         // A line about the box shows the box model over the node, while the pointer is on it.
         if (UiInspBoxProp(prop)) UiInspector.showBox(id);
       }}
       onMouseLeave={() => {
-        setHot(false);
+        if (uiInspDocOwner === id + ":" + prop) {
+          uiInspDoc = "";
+          uiInspDocOwner = "";
+        }
         if (UiInspBoxProp(prop)) UiInspector.showBox(0);
       }}
     >
       <box className="uii-row">
-        <text className={applied || edited ? "uii-prop" : "uii-prop uii-off"}>{prop + ":"}</text>
+        {props.removable ? (
+          // A line of element.style: the name is editable, and Backspace through the value, then the name, removes it.
+          <UiInspKeyField
+            value={prop}
+            inputRef={keyBox}
+            onRename={(name) => {
+              UiInspector.setStyle(id, prop, "");
+              UiInspector.setStyle(id, name, value);
+            }}
+            onNext={() => valBox.current?.focus()}
+            onRemove={() => UiInspector.setStyle(id, prop, "")}
+          />
+        ) : (
+          <text className={applied || edited ? "uii-prop" : "uii-prop uii-off"}>{prop + ":"}</text>
+        )}
         {kind === "color" ? (
-          <box className="uii-swatch" style={{ width: 18, height: 18, marginTop: 1, backgroundColor: value }} onClick={() => setOpen(!open)} />
+          <box className="uii-swatch" style={{ width: 18, height: 18, marginTop: 1, marginLeft: 6, backgroundColor: value }} onClick={() => setOpen(!open)} />
         ) : null}
-        <UiInspValueField prop={prop} value={value} width={Math.min(250, Math.max(kind === "color" ? 96 : 80, value.length * 7 + 18))} onCommit={(s) => UiInspector.setStyle(id, prop, s)} />
-        {kind === "easing" || kind === "gradient" ? <UiInspChip label={kind === "easing" ? "curve" : "stops"} on={open} onClick={() => setOpen(!open)} /> : null}
+        <UiInspValueField
+          prop={prop}
+          value={value}
+          inputRef={valBox}
+          onBackspaceEmpty={props.removable ? () => keyBox.current?.focus() : undefined}
+          width={Math.min(250, Math.max(kind === "color" ? 60 : 44, value.length * 6.4 + 16))}
+          onCommit={(s) => UiInspector.setStyle(id, prop, s)}
+        />
+        {/* What the value comes to, right beside it; it is read again every frame, so it follows the layout. */}
         {shownComputed !== "" ? <text className="uii-computed">{shownComputed}</text> : null}
+        {kind === "easing" || kind === "gradient" ? <UiInspChip label={kind === "easing" ? "curve" : "stops"} on={open} onClick={() => setOpen(!open)} /> : null}
         {edited ? <UiInspChip label="edited  ↺" on={true} onClick={() => UiInspector.setStyle(id, prop, "")} /> : null}
-        {props.removable ? <UiInspX onClick={() => UiInspector.setStyle(id, prop, "")} /> : null}
       </box>
-      {hot && UiInspector.styleDoc(prop) !== "" && !open ? (
-        // A tooltip over the rows below: it must not move them under the pointer.
-        <box className="uii-tip" style={{ position: "absolute", left: 12, top: 24, maxWidth: 330, pointerEvents: "none" }}>
-          <text className="uii-dim">{UiInspector.styleDoc(prop)}</text>
-        </box>
-      ) : null}
       {open ? (
         <box ref={pop} style={{ flexDirection: "column" }}>
           {kind === "color" ? <UiInspColorPicker value={value} onChange={(s) => UiInspector.setStyle(id, prop, s)} /> : null}
@@ -692,6 +842,7 @@ function UiInspAdd(props: { id: number }) {
   const [stage, setStage] = useState(0);
   const [prop, setProp] = useState("");
   const [val, setVal] = useState("");
+  const [err, setErr] = useState("");
   const stageNow = useRef(0);
   const propBox = useRef<PlatypusElement | null>(null);
   const valBox = useRef<PlatypusElement | null>(null);
@@ -718,20 +869,42 @@ function UiInspAdd(props: { id: number }) {
   return (
     <box className="uii-row" style={{ alignItems: "flex-start" }}>
       {stage === 1 ? (
-        <box style={{ flexDirection: "column" }}>
+        <box style={{ flexDirection: "column", position: "relative", zIndex: err !== "" ? 100 : 0 }}>
           <Input
             ref={propBox}
             className="uii-field"
             value={prop}
             style={{ width: Math.max(90, prop.length * 7 + 24) }}
-            onChange={(e) => setProp(e.value)}
+            onChange={(e) => {
+              setErr("");
+              // A whole declaration pasted (`color: red`): the name is checked, the value goes in its place.
+              const at = e.value.indexOf(":");
+              if (at > 0) {
+                const name = UiInspProp(e.value.substring(0, at));
+                if (name !== "") {
+                  setProp(name);
+                  setVal(e.value.substring(at + 1).trim());
+                  go(2);
+                } else {
+                  setProp(e.value.substring(0, at));
+                  setErr(UiInspPropError(e.value.substring(0, at)));
+                }
+              } else {
+                setProp(e.value);
+              }
+            }}
             onKeyDown={(e: PlatypusKeyboardEvent) => {
-              if (e.key === "Enter" || (e.key === "Tab" && propWords.length === 0)) {
+              if (e.key === "Enter" || e.key === ":" || (e.key === "Tab" && propWords.length === 0)) {
+                // `:` (like Enter) moves on to the value when the name is a property, else says why not.
                 e.preventDefault();
                 if (prop.trim() === "") {
-                  go(0);
-                } else {
+                  if (e.key !== ":") go(0);
+                } else if (UiInspProp(prop) !== "") {
+                  setProp(UiInspProp(prop));
+                  setErr("");
                   go(2);
+                } else {
+                  setErr(UiInspPropError(prop));
                 }
               } else if (e.key === "Tab" && propWords.length > 0) {
                 e.preventDefault();
@@ -744,6 +917,7 @@ function UiInspAdd(props: { id: number }) {
             onBlur={() => {
               if (stageNow.current === 1) {
                 setProp("");
+                setErr("");
                 go(0);
               }
             }}
@@ -755,6 +929,8 @@ function UiInspAdd(props: { id: number }) {
               go(2);
             }}
           />
+          {/* After the input: a child inserted before it would move it and remount it, which loses the focus. */}
+          {err !== "" ? <UiInspError text={err} /> : null}
         </box>
       ) : (
         <text className="uii-prop">{prop.trim() + ":"}</text>
@@ -991,6 +1167,37 @@ function UiInspUserRules() {
       ))}
     </box>
   );
+}
+
+/**
+ * A node's styles as CSS to paste elsewhere: `element.style`, then each matching rule (highest priority
+ * first, pseudo-element rules too), with property names as CSS writes them (`background-color`).
+ * Declarations something else overrides are kept as comments.
+ */
+export function UiInspCssText(id: number): string {
+  let out = "";
+  const block = (head: string, rows: string[]): void => {
+    out += head + " {\n" + rows.join("") + "}\n\n";
+  };
+  const inline: string[] = [];
+  for (let i = 0; i < UiInspector.inlineCount(id); i++) {
+    const row = uiValKebab(UiInspector.inlineProp(id, i)) + ": " + UiInspector.inlineValue(id, i) + ";";
+    inline.push(UiInspector.inlineApplied(id, i) ? "  " + row + "\n" : "  /* " + row + " */\n");
+  }
+  if (inline.length > 0) block("element.style", inline);
+  // The element's own rules, then the pseudo-elements', each highest priority first (as the card lists them).
+  for (const pseudoRules of [false, true]) {
+    for (let r = UiInspector.ruleCount(id) - 1; r >= 0; r--) {
+      if ((UiInspector.rulePseudo(id, r) !== "") !== pseudoRules) continue;
+      const rows: string[] = [];
+      for (let d = 0; d < UiInspector.declCount(id, r); d++) {
+        const row = uiValKebab(UiInspector.declProp(id, r, d)) + ": " + UiInspector.declValue(id, r, d) + (UiInspector.declImportant(id, r, d) ? " !important" : "") + ";";
+        rows.push(UiInspector.declApplied(id, r, d) ? "  " + row + "\n" : "  /* " + row + " */\n");
+      }
+      block(UiInspector.ruleSelector(id, r), rows);
+    }
+  }
+  return out.trim() + "\n";
 }
 
 /**

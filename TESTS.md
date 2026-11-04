@@ -2251,3 +2251,4 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M3-INS-19 | Unit | `inspect` layout has margins and paddings in px (percentages of the parent's content width) for a box-model overlay. |
 | M3-INS-20 | Unit | `inspect_rule_matches` names the elements a rule styles (a pseudo-element rule: its owners); unknown sheet or rule: none. |
 | M3-INS-21 | Unit | Highlights (node or rule) and the box focus reach the host and the highlighted boxes come back. |
+| M3-INS-22 | Unit | Text copied from the inspector (`UiInspector.copy`) waits for the host; dropped when the inspector is off. |

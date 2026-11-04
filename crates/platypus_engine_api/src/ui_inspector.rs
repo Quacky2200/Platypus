@@ -138,6 +138,8 @@ struct State {
     class_edits: Vec<ClassEdit>,
     /// Nodes scripts only want the boxes of (a widget finding where it is on screen).
     probes: BTreeSet<u32>,
+    /// Text scripts asked to put on the clipboard, oldest first.
+    copies: Vec<String>,
     highlight: Highlight,
     /// The border boxes `[x, y, width, height]` of what `highlight` names.
     highlights: Vec<[f32; 4]>,
@@ -246,6 +248,11 @@ pub fn watched() -> Vec<u32> {
         v.dedup();
         v
     })
+}
+
+/// The text scripts asked to copy since the last call (the host puts the last on the clipboard).
+pub fn take_copies() -> Vec<String> {
+    STATE.with(|s| std::mem::take(&mut s.borrow_mut().copies))
 }
 
 /// What scripts asked to have highlighted.
@@ -616,6 +623,17 @@ pub mod ui_inspector_api {
         rule(id, i).map_or(0.0, |r| f64::from(r.rule))
     }
 
+    /// Puts text on the system clipboard (the styles of an element, say). Dropped when the inspector
+    /// is off.
+    pub fn copy(text: &str) {
+        STATE.with(|s| {
+            let mut s = s.borrow_mut();
+            if s.enabled {
+                s.copies.push(text.to_string());
+            }
+        });
+    }
+
     /// Outlines one element until `clearHighlight`.
     pub fn highlight_node(id: f64) {
         STATE.with(|s| s.borrow_mut().highlight = super::Highlight::Node(id.max(0.0) as u32));
@@ -927,6 +945,19 @@ mod tests {
         assert_eq!(ui_inspector_api::box_focus(), 7.0);
         ui_inspector_api::show_box(0.0);
         assert_eq!(ui_inspector_api::box_focus(), 0.0);
+    }
+
+    // M3-INS-22
+    #[test]
+    fn copied_text_waits_for_the_host_and_is_dropped_when_off() {
+        reset();
+        ui_inspector_api::copy("ignored");
+        assert!(take_copies().is_empty(), "off: nothing is copied");
+        enable();
+        ui_inspector_api::copy("a { color: red; }");
+        ui_inspector_api::copy("b { }");
+        assert_eq!(take_copies(), ["a { color: red; }", "b { }"]);
+        assert!(take_copies().is_empty());
     }
 
     // M3-INS-17
