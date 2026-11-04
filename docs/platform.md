@@ -89,7 +89,7 @@ panic to the log (`M5-APP-04`).
 
 ### Crash report (Windows)
 
-A crash that is not a Rust panic (an access violation in compiled game code, the runtime or a driver) used to end the
+A crash that is not a Rust panic (an access violation in compiled TypeScript, the runtime or a driver) used to end the
 process with only an exit code. `crash::install` (`crates/platypus_app/src/crash.rs`, called first in `main`) adds a vectored
 exception handler that logs an access violation (`0xC0000005`) or heap corruption (`0xC0000374`) before the process dies.
 Other exceptions are ignored. The report goes to stderr and `Player.log` and has:
@@ -98,7 +98,7 @@ Other exceptions are ignored. The report goes to stderr and `Player.log` and has
 - the compiled game function (`name+offset`, e.g. `crashHere+0xd`, `lambda80+0x105`) when the address is in JIT code.
   `native.rs` registers every compiled function after each compile (`note_jit_functions`, from `Game::code_symbols()`),
   local ones too; closures show as `lambdaN`, so a fault in compiled code always gets a report and the dialog;
-- the TypeScript file and line of the fault (`at src/main.ts:7`) and the game call stack, from the JIT's line table
+- the TypeScript file and line of the fault (`at src/main.ts:7`) and the call stack, from the JIT's line table
   (`note_jit_lines`) and the optional `game.pdebug` file; see [crashes.md](crashes.md#reading-a-report);
 - the general registers;
 - 112 bytes of machine code around the instruction (`rip-96` to `rip+16`), for a disassembler. Left out when the fault was
@@ -113,7 +113,7 @@ crash at once. On other platforms the exception handler is not installed (`Appli
 
 The game maker's guide (the dialog, reports, `Application.crash`, reading a report) is [crashes.md](crashes.md).
 
-When the fault is the game's own (the address is in the exe or in compiled game code, or it is heap corruption), the
+When the fault is the game's own (the address is in the exe or in compiled TypeScript, or it is heap corruption), the
 handler also saves a report and starts a dialog. A fault elsewhere (a driver) is only logged, since its code may handle it.
 `Application.crash(message?, plain?)` (listed with `Application` in [scene-and-objects.md](scene-and-objects.md)) takes the same
 way and then exits with code 3.

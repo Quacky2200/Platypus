@@ -1,7 +1,7 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! A fault in compiled game code is reported (`crash.rs`): a crash report is saved and names the
+//! A fault in compiled TypeScript is reported (`crash.rs`): a crash report is saved and names the
 //! function, also when that function is a local one (not exported). Before, only exported
 //! functions were known, and a fault in a local function laid out before them was taken for a
 //! driver's: logged, but no report and no dialog. Windows only (the reporter is a vectored
@@ -53,7 +53,7 @@ fn a_fault_in_a_local_compiled_function_saves_a_report_naming_it() {
         "the game should have crashed: {log_text}"
     );
     assert!(
-        log_text.contains("in compiled game code, near crashHere+"),
+        log_text.contains("in compiled TypeScript, near crashHere+"),
         "{log_text}"
     );
     let saved = log_text

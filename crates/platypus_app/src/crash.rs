@@ -1,7 +1,7 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! A crash that is not a Rust panic (an access violation in compiled game code, the runtime or a
+//! A crash that is not a Rust panic (an access violation in compiled TypeScript, the runtime or a
 //! driver, or heap corruption) otherwise ends the process with an exit code and no log line. On
 //! Windows this logs what it can first: the exception, where it happened (and the compiled game
 //! function, when the address is in one), the registers, the code there and a backtrace. When the
@@ -339,7 +339,7 @@ unsafe fn game_stack(
         String::new()
     } else {
         format!(
-            "game call stack:
+            "call stack:
 {}",
             out.join(
                 "
@@ -410,10 +410,10 @@ unsafe extern "system" fn report(
     let place = match &func {
         Some(f) => match jit_line_at(at) {
             Some(l) => format!(
-                " (in compiled game code, near {f}, at {})",
+                " (in compiled TypeScript, near {f}, at {})",
                 describe_line(l)
             ),
-            None => format!(" (in compiled game code, near {f})"),
+            None => format!(" (in compiled TypeScript, near {f})"),
         },
         None if in_exe => " (in the game's program)".to_string(),
         None => String::new(),

@@ -1402,6 +1402,6 @@ running game. After each compile, `native.rs` also gives the game's exported fun
 compile pays for it; the cost is a TODO item. `platypus-build build` writes `build/game.pdebug` (a hash of the bundled source
 and where each file starts) to turn the line into `file:line`. The JIT also registers Windows x64 unwind tables
 (`unwind.rs`, `RtlAddFunctionTable`), so debuggers, profilers and exceptions can walk through compiled frames. The crash
-report's game call stack does not use the system unwinder: a handler-time `RtlVirtualUnwind` over the host's frames faulted in a
+report's call stack does not use the system unwinder: a handler-time `RtlVirtualUnwind` over the host's frames faulted in a
 unit test on some builds, so `unwind::stack_words` scans the stack for return addresses into compiled code instead. Host use:
 [platypus-api.md](platypus-api.md#native-games-in-platypus_app-compiled-in-process).
