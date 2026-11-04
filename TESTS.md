@@ -2229,6 +2229,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3409 | Unit | Bad expressions say what is wrong (ends too soon, unbalanced, unknown name, no field, no calls). |
 | M9-TS-3410 | Unit | Hit conditions (`3`, `= 3`, `>= 3`, `> 3`, `< 3`, `% 2`) and log message interpolation. |
 | M9-TS-3411 | Unit | Objects and arrays are read from memory by their layout: fields, `.length`, elements, out of range, children listings. |
+| M9-TS-3412 | Integration | Break on throw: with it off a caught `throw` does not stop; on, the game stops at the `throw` statement (reason exception) with its locals readable, and runs on after `continue` (`lang/debugger.rs`). |
 
 ## M9 — One host: the renderer chosen from what the game uses
 

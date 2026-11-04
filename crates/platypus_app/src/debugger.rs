@@ -12,6 +12,7 @@
 //! break src/main.ts:20   set a breakpoint (adds to the list; the list survives hot reloads);
 //!                        `break src/main.ts:20 if i == 3` stops only when the condition holds
 //! eval <expression>      the value of an expression over the stopped function's locals
+//! catch on | off         stop at every `throw` statement
 //! clear                  remove every breakpoint
 //! pause                  stop at the next statement
 //! continue | in | over | out
@@ -275,6 +276,7 @@ fn serve(stream: TcpStream) {
                                 Reason::Breakpoint => "breakpoint",
                                 Reason::Pause => "pause",
                                 Reason::Step => "step",
+                                Reason::Exception => "exception",
                             };
                             say(&format!("stopped {} {why}", describe(stop.line)));
                         }
@@ -337,6 +339,13 @@ fn command(line: &str) -> String {
         "where" => match debug::stopped() {
             Some(s) => format!("ok stopped {}", describe(s.line)),
             None => "ok running".into(),
+        },
+        "catch" => match rest.trim() {
+            "on" | "off" => {
+                debug::set_break_on_throw(rest.trim() == "on");
+                "ok".into()
+            }
+            _ => "error: catch on|off".into(),
         },
         "eval" => match debug::evaluate(rest.trim()) {
             Ok(v) => format!("ok {}: {} = {}", rest.trim(), v.ty, v.value),

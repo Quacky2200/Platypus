@@ -35,9 +35,10 @@ Lines of text over TCP (`telnet 127.0.0.1 <port>` works); one reply line per com
 | `eval <expression>` | the value of a watch expression: `ok <expr>: <type> = <value>` |
 | `locals` | the stopped function's named locals as `name:type=value; ...` |
 | `stack` | the stop and its callers as `function file:line; ...` |
+| `catch on` / `catch off` | stops (or not) at every `throw` statement |
 | `detach` | clears everything and lets the game go |
 
-Events: `stopped <file>:<line> <breakpoint|pause|step>`.
+Events: `stopped <file>:<line> <breakpoint|pause|step|exception>`.
 
 ## Editors: the Debug Adapter Protocol
 
@@ -47,7 +48,7 @@ folder `tools/vscode-platypus` (it only registers the `platypus` debugger type, 
 `{ "type": "platypus", "request": "attach", "debugServer": 4711 }` and press F5.
 
 Supported requests: `initialize`, `attach`/`launch`, `setBreakpoints` (with conditions, hit conditions and log messages),
-`setExceptionBreakpoints` (accepted, nothing to break on), `configurationDone`, `threads` (one: the game's), `stackTrace` (the stop and
+`setExceptionBreakpoints` (the filter `all`: stop at every `throw` statement), `configurationDone`, `threads` (one: the game's), `stackTrace` (the stop and
 its callers), `scopes`/`variables` (the innermost frame's locals; objects and arrays open), `evaluate` (watches, hovers, the debug console),
 `continue`, `next`, `stepIn`, `stepOut`, `pause`, `disconnect`. A `stopped` event follows every stop. Editor paths are matched to the
 program's files by their ends (`game.pdebug`); a game run as one `.ts` file needs no sidecar (its lines are the bundle's).
@@ -76,6 +77,9 @@ only (a caller's registers were not saved), so a watch in a caller's frame is re
   debug console as an `output` event.
 - An expression or hit condition that does not parse is reported (the breakpoint is shown unverified, with the reason) and not set.
 
+**Break on throw** (DAP exception filter `all`, `catch on`): the game stops at the `throw` statement, before the error is raised, with the
+function's locals readable (`stopped` reason `exception`). It does not tell caught from uncaught errors.
+
 ## Files, lines and hot reload
 
 A breakpoint is a file and a line of that file. The bundled source joins all files into one text, so the host maps with
@@ -99,7 +103,7 @@ a stop shows only its own frame), so it crosses the host's frames between two ga
 
 ## Not yet
 - Callers' locals (a frame other than the innermost shows none).
-- Breaking on a thrown exception.
+- Breaking on an error the runtime itself raises (a library call's type error): only `throw` statements stop.
 - Calls in expressions, and setting a variable.
 - The editor's own debugger UI (`editor/`): it can speak DAP to a game the same way.
 - Conditional breakpoints, watchpoints, breaking on a thrown exception.

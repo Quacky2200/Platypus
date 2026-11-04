@@ -431,6 +431,7 @@ pub(crate) fn generate<M: ClifModule>(module: &mut M, m: &Module, far_refs: bool
                 far_refs,
                 fi,
                 dbg_slot: None,
+                cur_line: 0,
             };
             cg.prologue(m.init == Some(fi))?;
             cg.stmts(&f.body)?;
@@ -477,6 +478,8 @@ struct Cg<'a, 'b, M: ClifModule> {
     fi: usize,
     /// A debug build's spill area for the locals, made at the first statement.
     dbg_slot: Option<StackSlot>,
+    /// The line of the last marker (a `throw` reports it).
+    cur_line: u32,
     b: FunctionBuilder<'b>,
     /// The shadow-stack frame (see `frames.rs`): pointer locals are mirrored here.
     frame_slot: Option<StackSlot>,
@@ -584,7 +587,7 @@ impl<M: ClifModule> Cg<'_, '_, M> {
 
     /// A debug build's check before a statement: when the debugger's armed byte is set, call its
     /// hook with the line.
-    fn debug_check(&mut self, line: u32) {
+    fn debug_call(&mut self, hook_fn: &'static str, line: u32) {
         let at = self.b.ins().iconst(types::I64, self.m.debug_armed as i64);
         let armed = self.b.ins().uload8(types::I64, self.mf_t, at, 0);
         let hook = self.b.create_block();
@@ -624,7 +627,7 @@ impl<M: ClifModule> Cg<'_, '_, M> {
             .ins()
             .iconst(types::I32, i64::from(self.m.debug_base + self.fi as u32));
         self.rt(
-            "ts_dbg_line",
+            hook_fn,
             &[types::I32, types::I64, types::I32],
             None,
             &[l, frame, id],
@@ -1000,13 +1003,17 @@ impl<M: ClifModule> Cg<'_, '_, M> {
                 self.expr(e)?;
             }
             Stmt::Line(n) => {
+                self.cur_line = *n;
                 self.b.set_srcloc(SourceLoc::new(*n));
                 if self.m.debug_armed != 0 {
-                    self.debug_check(*n);
+                    self.debug_call("ts_dbg_line", *n);
                 }
             }
             Stmt::Throw(e) => {
                 let v = self.expr(e)?;
+                if self.m.debug_armed != 0 {
+                    self.debug_call("ts_dbg_throw", self.cur_line);
+                }
                 self.rt("ts_rt_throw", &[types::I64], None, &[v]);
                 let t = self.exc_target();
                 self.b.ins().jump(t, &[]);

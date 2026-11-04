@@ -261,14 +261,13 @@ performance, cross targets and CI.
 - [x] 4. Debug build mode (`JitOptions::debug`, `platypus_ts::debug`, host `--debug-port`, `docs/debugger.md`): pause, resume, step, breakpoints that survive hot reload.
 - [x] 4b. Locals and the call stack at a stop: a debug build spills the locals (up to 256 per function) into a frame on the hook path, names and
   types come from a per-function table; callers by the stack scan above the function's frame. Done after: expanding objects and arrays, watch expressions
-  (`debug_eval.rs`), conditional / hit-count / log breakpoints, the window answering the system while stopped (Windows). Left: callers' locals,
-  breaking on a thrown exception, calls in expressions.
+  (`debug_eval.rs`), conditional / hit-count / log breakpoints, the window answering the system while stopped (Windows). Break on throw statements is done too (`catch on`, DAP filter `all`). Left: callers' locals, calls in expressions, uncaught-only exceptions.
 - [x] 5. A debugger: Debug Adapter Protocol server in the host (`--dap-port`, `dap.rs`), VS Code attach (`tools/vscode-platypus`). Left: the editor's own
   debugger UI (`editor/`), variables and the call stack (4b), conditional breakpoints, exception breakpoints.
-- [ ] Per-compile cost of the line info (every run pays it, sidecar or not): measure `Stmt::Line` markers against compile time and
-  memory (`PLATYPUS_TS_TIMING`, md-reader), then cut: one marker per statement only where the line changes, store ranges as
-  deltas, keep the table only when a crash can use it (lazy: recompile with srclocs on the first crash is not possible, so
-  consider a build flag that drops it from shipped hosts).
+- [x] Per-compile cost of the line info: it was in lowering, not codegen: `Lowerer::line` counted newlines from the start of the source for
+  every statement (quadratic). A newline-offset table and a binary search cut Zombie Horders' compile from ~465 ms to ~325 ms (lowering
+  200 to 67 ms), below the compile without markers; the markers' codegen cost is within noise (255 ms either way). A debug build adds
+  ~60 ms (spills on the hook path only).
 
 ## Log
 

@@ -258,6 +258,7 @@ pub fn compile_and_load(src: &str, options: &JitOptions) -> Result<Game, String>
     known.extend(options.symbols.iter().copied());
     if options.debug {
         known.insert("ts_dbg_line", crate::debug::hook_addr());
+        known.insert("ts_dbg_throw", crate::debug::throw_hook_addr());
     }
     let missing = missing_symbols(&module, &known);
     if !missing.is_empty() {

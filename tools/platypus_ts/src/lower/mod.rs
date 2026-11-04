@@ -335,6 +335,9 @@ pub struct Lowerer<'a> {
     /// Lines of the program as given: what the compiler appends (hook wrappers, facade members)
     /// comes after and gets no line markers, so a debugger never stops in it.
     pub(crate) user_lines: usize,
+    /// Byte offsets of every newline of `src`: a line number is a binary search, not a count from
+    /// the start (every statement asks for its line, for crash reports and the debugger).
+    pub(crate) newlines: Vec<usize>,
     /// The next closure's return type comes from its body, not from the expected type.
     pub(crate) infer_ret: bool,
     /// Top-level `const NAME = init` without an annotation, for guessing field types from syntax.
@@ -612,6 +615,7 @@ pub fn lower_source_opts(src: &str, manifests: &[String], check_unused: bool) ->
         regex_info: HashMap::new(),
         prelude_lines,
         user_lines,
+        newlines: src.match_indices('\n').map(|(i, _)| i).collect(),
         infer_ret: false,
         const_inits: HashMap::new(),
         cb_skip: 0,
@@ -658,21 +662,20 @@ pub fn lower_source_opts(src: &str, manifests: &[String], check_unused: bool) ->
 }
 
 impl<'a> Lowerer<'a> {
+    /// How many newlines come before a byte offset.
+    fn newlines_before(&self, offset: u32) -> usize {
+        self.newlines.partition_point(|n| *n < offset as usize)
+    }
+
     pub(crate) fn line(&self, offset: u32) -> usize {
-        (self.src[..(offset as usize).min(self.src.len())]
-            .matches('\n')
-            .count()
-            + 1)
-        .saturating_sub(self.prelude_lines)
-        .max(1)
+        (self.newlines_before(offset) + 1)
+            .saturating_sub(self.prelude_lines)
+            .max(1)
     }
 
     /// Whether a byte offset of the source is in the prelude written in front of the program.
     fn in_prelude(&self, offset: u32) -> bool {
-        self.src[..(offset as usize).min(self.src.len())]
-            .matches('\n')
-            .count()
-            < self.prelude_lines
+        self.newlines_before(offset) < self.prelude_lines
     }
 
     /// A top-level function nothing needs unless the code refers to it.

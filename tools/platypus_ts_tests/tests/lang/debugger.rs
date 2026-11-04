@@ -3,7 +3,7 @@
 
 //! The debug build's hook and the controller (`platypus_ts::debug`): breakpoints, pause,
 //! continue and the three steps. The game runs on its own thread; the test is the debugger.
-//! IDs are in TESTS.md (M9-TS-3393..3396, 3400..3406).
+//! IDs are in TESTS.md (M9-TS-3393..3396, 3400..3407, 3412).
 use platypus_ts::debug::{self, BreakpointSpec, Reason, Resume, Stop};
 use platypus_ts::jit::{JitOptions, compile_and_load};
 use std::time::Duration;
@@ -434,5 +434,43 @@ fn a_condition_or_hit_condition_that_does_not_parse_is_reported_and_not_set() {
         },
     ]);
     assert!(r[0].is_err() && r[1].is_err() && r[2].is_ok(), "{r:?}");
+    debug::detach();
+}
+
+// Lines are those of this source (1-based).
+const SRC_THROW: &str = "\
+export function thrower(n: number): number {
+  let seen = 0;
+  try {
+    seen = n;
+    if (n > 1) throw new Error('big');
+  } catch (e) {
+    return -seen;
+  }
+  return n;
+}
+";
+
+// M9-TS-3412
+#[test]
+fn break_on_throw_stops_at_the_throw_statement_and_off_it_does_not() {
+    let _serial = platypus_ts_tests::serial();
+    debug::detach();
+    // Off: the exception is caught and nothing stops.
+    let game = start_src(SRC_THROW, "thrower", 5.0, 2_382_000);
+    assert_eq!(game.join().unwrap(), -5.0);
+    assert!(debug::stopped().is_none());
+    // On: it stops where the error is thrown, with the locals at that point.
+    debug::set_break_on_throw(true);
+    let game = start_src(SRC_THROW, "thrower", 5.0, 2_383_000);
+    let s = stop();
+    assert_eq!((s.reason, s.line), (Reason::Exception, 5));
+    assert_eq!(eval("seen").1, "5");
+    assert_eq!(eval("n > 1").1, "true");
+    debug::resume(Resume::Continue);
+    assert_eq!(game.join().unwrap(), -5.0);
+    // A call that does not throw is not stopped by it.
+    let game = start_src(SRC_THROW, "thrower", 1.0, 2_384_000);
+    assert_eq!(game.join().unwrap(), 1.0);
     debug::detach();
 }

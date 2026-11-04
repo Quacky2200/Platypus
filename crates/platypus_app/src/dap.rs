@@ -147,6 +147,7 @@ pub fn serve<R: BufRead, W: Write + Send + 'static>(mut reader: R, out: Arc<Mute
                                 Reason::Breakpoint => "breakpoint",
                                 Reason::Pause => "pause",
                                 Reason::Step => "step",
+                                Reason::Exception => "exception",
                             };
                             tx.event(
                                 "stopped",
@@ -189,7 +190,9 @@ fn handle<W: Write>(tx: &Sender<W>, req: &Value) -> bool {
                     "supportsLogPoints": true,
                     "supportsEvaluateForHovers": true,
                     "supportsTerminateRequest": false,
-                    "exceptionBreakpointFilters": [],
+                    "exceptionBreakpointFilters": [
+                        {"filter": "all", "label": "All throws", "default": false}
+                    ],
                 }),
                 None,
             );
@@ -227,7 +230,13 @@ fn handle<W: Write>(tx: &Sender<W>, req: &Value) -> bool {
                 .collect();
             tx.respond(req, true, json!({"breakpoints": bps}), None);
         }
-        "setExceptionBreakpoints" => tx.respond(req, true, json!({}), None),
+        "setExceptionBreakpoints" => {
+            let on = args["filters"]
+                .as_array()
+                .is_some_and(|f| f.iter().any(|x| x == "all"));
+            debug::set_break_on_throw(on);
+            tx.respond(req, true, json!({}), None);
+        }
         "configurationDone" => {
             debugger::configured();
             tx.respond(req, true, json!({}), None);

@@ -35,6 +35,11 @@ pub fn hook_addr() -> usize {
     ts_dbg_line as *const () as usize
 }
 
+/// The address of the hook a `throw` statement calls first.
+pub fn throw_hook_addr() -> usize {
+    ts_dbg_throw as *const () as usize
+}
+
 /// How the game goes on after a stop.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Resume {
@@ -54,6 +59,8 @@ pub enum Reason {
     Breakpoint,
     Pause,
     Step,
+    /// A `throw` statement, with break-on-throw on.
+    Exception,
 }
 
 /// A local variable at a stop.
@@ -235,6 +242,8 @@ struct State {
     scope: Option<Arc<Scope>>,
     /// The values a debugger was given a handle to (handle = index + 2); forgotten on resume.
     handles: Vec<Val>,
+    /// Stop at every `throw` statement.
+    on_throw: bool,
 }
 
 static STATE: Mutex<State> = Mutex::new(State {
@@ -244,6 +253,7 @@ static STATE: Mutex<State> = Mutex::new(State {
     go: false,
     scope: None,
     handles: Vec::new(),
+    on_throw: false,
 });
 /// Signalled when the game stops and when it is let go.
 static CHANGED: Condvar = Condvar::new();
@@ -276,7 +286,7 @@ fn lock() -> MutexGuard<'static, State> {
 }
 
 fn rearm(s: &State) {
-    let on = !s.breakpoints.is_empty() || s.mode != Mode::Run;
+    let on = !s.breakpoints.is_empty() || s.mode != Mode::Run || s.on_throw;
     ARMED.store(u8::from(on), Ordering::SeqCst);
 }
 
@@ -326,6 +336,14 @@ pub fn set_breakpoints(lines: &[u32]) {
         })
         .collect();
     let _ = set_breakpoint_specs(&specs);
+}
+
+/// Stops the game at every `throw` statement (a thrown error that the runtime itself raises, such as
+/// a type error from a library call, is not one).
+pub fn set_break_on_throw(on: bool) {
+    let mut s = lock();
+    s.on_throw = on;
+    rearm(&s);
 }
 
 /// Asks the game to stop at the next statement.
@@ -381,6 +399,7 @@ pub fn detach() {
     let mut s = lock();
     s.breakpoints.clear();
     s.mode = Mode::Run;
+    s.on_throw = false;
     s.stopped = None;
     s.scope = None;
     s.handles.clear();
@@ -515,6 +534,28 @@ extern "C" fn ts_dbg_line(line: u32, frame: *const u64, id: u32) {
     let Some(reason) = step.or(at_breakpoint.then_some(Reason::Breakpoint)) else {
         return;
     };
+    park(s, reason, (line, frame, sp), desc, scope);
+}
+
+/// The hook of a `throw` statement: stops there when break-on-throw is on.
+extern "C" fn ts_dbg_throw(line: u32, frame: *const u64, id: u32) {
+    let marker = 0u8;
+    let sp = std::ptr::addr_of!(marker) as usize;
+    let s = lock();
+    if s.stopped.is_some() || !s.on_throw {
+        return;
+    }
+    park(s, Reason::Exception, (line, frame, sp), func(id), None);
+}
+
+/// Records the stop and parks the game's thread until a controller resumes it.
+fn park(
+    mut s: MutexGuard<'static, State>,
+    reason: Reason,
+    (line, frame, sp): (u32, *const u64, usize),
+    desc: Option<FuncDebug>,
+    scope: Option<Scope>,
+) {
     let scope = scope.unwrap_or_else(|| scope_of(&desc, frame));
     let locals = scope
         .locals
