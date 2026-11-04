@@ -2152,6 +2152,10 @@ impl PlatformApp for App {
             }
             InputEvent::MouseDown { button } => {
                 self.buttons_down += 1;
+                // The UI inspector's pick mode keeps the press from the game.
+                if self.inspector_takes_press() {
+                    return;
+                }
                 // Keys go to whatever was clicked last.
                 self.keys_on = self.pointer_on;
                 let time_ms = self.now_ms();
@@ -2165,6 +2169,10 @@ impl PlatformApp for App {
                 return;
             }
             InputEvent::MouseUp { button } => {
+                if platypus_engine_api::ui_inspector::release() {
+                    self.buttons_down = self.buttons_down.saturating_sub(1);
+                    return;
+                }
                 self.handle_on(
                     self.pointer_on,
                     Input::PointerUp {

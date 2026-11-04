@@ -2238,3 +2238,4 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M3-INS-06 | Unit | The host learns what to publish (hovered, selected, expanded) and takes the queued style edits; with the inspector off the edits are dropped. |
 | M3-INS-07 | Integration | Compiled TypeScript calls `UiInspector`: off, it answers nothing and drops the edit; on, it reads the published snapshot (kind, child, rule, declaration, inline) and queues `select` / `expand` / `setStyle`, in every GC mode. |
 | M3-INS-08 | Integration | `platypus-build build --add-ui-inspector` appends the overlay to the program (it compiles) and writes `uiInspector` into the bundle; without the flag the bundle has neither. |
+| M3-INS-09 | Unit | Pick mode: a press on the screen UI is swallowed with its release and its node comes back from `takeClick` once; not picking, or the inspector off, lets presses through. |

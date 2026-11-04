@@ -69,6 +69,12 @@ struct State {
     expanded: BTreeSet<u32>,
     nodes: HashMap<u32, NodeSnapshot>,
     edits: Vec<StyleEdit>,
+    /// Pick mode: the host swallows a press on the screen UI and reports the node under it.
+    picking: bool,
+    /// The node a swallowed press hit (0: none yet).
+    clicked: u32,
+    /// A press was swallowed, so its release is too.
+    swallowed: bool,
 }
 
 thread_local! {
@@ -92,6 +98,26 @@ pub fn reset() {
 /// The node under the pointer (0: none).
 pub fn set_hovered(id: u32) {
     STATE.with(|s| s.borrow_mut().hovered = id);
+}
+
+/// A mouse press on the screen UI, `hit` the node under it. In pick mode the host does not send
+/// the press to the game: it is kept for `takeClick` and its release is swallowed too. Returns
+/// whether the press was taken.
+pub fn press(hit: u32) -> bool {
+    STATE.with(|s| {
+        let mut s = s.borrow_mut();
+        let take = s.enabled && s.picking;
+        if take {
+            s.clicked = hit;
+            s.swallowed = true;
+        }
+        take
+    })
+}
+
+/// A mouse release; true when its press was swallowed by [`press`] (the host then drops it).
+pub fn release() -> bool {
+    STATE.with(|s| std::mem::take(&mut s.borrow_mut().swallowed))
 }
 
 /// The nodes scripts want data for: the hovered and the selected node and the expanded ones. The
@@ -169,6 +195,17 @@ pub mod ui_inspector_api {
     /// Selects a node (0 clears it); the host publishes its data from the next frame.
     pub fn select(id: f64) {
         STATE.with(|s| s.borrow_mut().selected = id.max(0.0) as u32);
+    }
+
+    /// Pick mode: while on, a mouse press on the screen UI does not reach the game; the node under
+    /// it comes back from `takeClick`. Ignored when the inspector is off.
+    pub fn pick(on: bool) {
+        STATE.with(|s| s.borrow_mut().picking = on);
+    }
+
+    /// The node the last swallowed press hit (0 when there was none since the last call).
+    pub fn take_click() -> f64 {
+        STATE.with(|s| f64::from(std::mem::take(&mut s.borrow_mut().clicked)))
     }
 
     /// Asks for the children of a node too (an open row of the elements tree).
@@ -394,5 +431,28 @@ mod tests {
         reset();
         ui_inspector_api::set_style(7.0, "width", "200px");
         assert!(take_requests().is_empty());
+    }
+
+    // M3-INS-09
+    #[test]
+    fn pick_mode_swallows_a_press_and_its_release_and_reports_the_node() {
+        reset();
+        enable();
+        // Not picking: the game gets the press.
+        assert!(!press(7));
+        assert!(!release());
+        ui_inspector_api::pick(true);
+        assert!(press(7));
+        assert_eq!(ui_inspector_api::take_click(), 7.0);
+        assert_eq!(ui_inspector_api::take_click(), 0.0, "taken once");
+        assert!(release(), "the release goes with it");
+        assert!(!release());
+        // Leaving pick mode (the script does after a click) lets presses through again.
+        ui_inspector_api::pick(false);
+        assert!(!press(8));
+        // Off, nothing is swallowed even if a script asked.
+        reset();
+        ui_inspector_api::pick(true);
+        assert!(!press(7));
     }
 }

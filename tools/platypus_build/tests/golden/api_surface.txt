@@ -2871,12 +2871,15 @@ declare namespace UiInspector :: function inlineValue(id: number, i: number): st
 declare namespace UiInspector :: function kind(id: number): string;
 declare namespace UiInspector :: function paddingBox(id: number, which: number): number;
 declare namespace UiInspector :: function parent(id: number): number;
+declare namespace UiInspector :: function pick(on: boolean): void;
+declare namespace UiInspector :: function pick(options?: { on?: boolean }): void;
 declare namespace UiInspector :: function ruleCount(id: number): number;
 declare namespace UiInspector :: function ruleSelector(id: number, i: number): string;
 declare namespace UiInspector :: function ruleSheet(id: number, i: number): number;
 declare namespace UiInspector :: function select(id: number): void;
 declare namespace UiInspector :: function selected(): number;
 declare namespace UiInspector :: function setStyle(id: number, prop: string, value: string): void;
+declare namespace UiInspector :: function takeClick(): number;
 declare namespace UiInspector :: function width(id: number): number;
 declare namespace UiInspector :: function x(id: number): number;
 declare namespace UiInspector :: function y(id: number): number;

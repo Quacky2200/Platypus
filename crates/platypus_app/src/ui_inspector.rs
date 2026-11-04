@@ -77,6 +77,23 @@ fn snapshot(i: &Inspected) -> api::NodeSnapshot {
 }
 
 impl App {
+    /// A mouse press: in pick mode the inspector takes it (and, with it, the release) instead of
+    /// the game, and remembers the node under the pointer. True when it was taken.
+    pub(super) fn inspector_takes_press(&mut self) -> bool {
+        if !api::enabled() || self.pointer_on != Surface::Screen {
+            return false;
+        }
+        let Some((px, py)) = self.pointer_px else {
+            return false;
+        };
+        let scale = self.scale();
+        let hit = self
+            .ui
+            .inspect_pick(px / scale, py / scale)
+            .map_or(0, |n| n.0);
+        api::press(hit)
+    }
+
     /// Called before drawing each frame of a compiled game (`sync_native_render`).
     pub(super) fn sync_ui_inspector(&mut self) {
         if !api::enabled() {
