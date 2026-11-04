@@ -12,7 +12,7 @@ use cssparser::ToCss;
 use selectors::context::SelectorCaches;
 
 use super::{TEXT_NODE, UiError, UiTree};
-use crate::cascade::{Matched, Target, matched_declarations};
+use crate::cascade::{Matched, Target, matched_declarations, rule_matches};
 use crate::css::{PseudoElement, Stylesheet, substitute_vars};
 use crate::draw::Rect;
 use crate::layout::LayoutEngine;
@@ -42,6 +42,9 @@ pub struct InspectedRule {
     pub rule: usize,
     /// The rule's selector list as written (`.card > text:first-child`).
     pub selector: String,
+    /// `""` for a rule of the element itself, else the pseudo-element it styles (`before`, `after`,
+    /// `marker`, `selection`, `placeholder`, `backdrop`).
+    pub pseudo: String,
     pub declarations: Vec<InspectedDeclaration>,
 }
 
@@ -99,6 +102,16 @@ fn kebab(debug: &str) -> String {
         }
     }
     out
+}
+
+/// A margin or padding side in pixels (`auto` and `calc()` read as 0).
+fn edge_px(raw: taffy::CompactLength, base: f32) -> f32 {
+    use taffy::CompactLength;
+    match raw.tag() {
+        CompactLength::LENGTH_TAG => raw.value(),
+        CompactLength::PERCENT_TAG => raw.value() * base,
+        _ => 0.0,
+    }
 }
 
 /// A gap as CSS text (a `calc()` gap reads as 0: the preview only needs the common cases).
@@ -202,6 +215,7 @@ impl<L: LayoutEngine> UiTree<L> {
         &self,
         id: NodeId,
         target: Target,
+        pseudo: &str,
         inline_has: &dyn Fn(&str) -> bool,
     ) -> Vec<InspectedRule> {
         let mut caches = SelectorCaches::default();
@@ -252,6 +266,7 @@ impl<L: LayoutEngine> UiTree<L> {
                     selector: sheets[sheet_index].rules[rule_index]
                         .selectors
                         .to_css_string(),
+                    pseudo: pseudo.to_owned(),
                     declarations: vec![decl],
                 }),
             }
@@ -273,10 +288,25 @@ impl<L: LayoutEngine> UiTree<L> {
         };
         match self.nodes.get(&id) {
             Some(n) if n.generated.is_none() && n.kind != TEXT_NODE => {
-                self.rules_for(id, Target::Pseudo(which), &|_| false)
+                self.rules_for(id, Target::Pseudo(which), pseudo, &|_| false)
             }
             _ => Vec::new(),
         }
+    }
+
+    /// The rules of every pseudo-element of `id` that has any.
+    fn pseudo_rules(&self, id: NodeId) -> Vec<InspectedRule> {
+        [
+            "before",
+            "after",
+            "marker",
+            "selection",
+            "placeholder",
+            "backdrop",
+        ]
+        .into_iter()
+        .flat_map(|p| self.inspect_pseudo(id, p))
+        .collect()
     }
 
     /// The layout the node got, as CSS text: what a flexbox preview draws.
@@ -289,7 +319,23 @@ impl<L: LayoutEngine> UiTree<L> {
             taffy::FlexWrap::NoWrap => "nowrap".to_owned(),
             other => kebab(&format!("{other:?}")),
         };
-        vec![
+        // Percentages of a margin or padding are of the parent's content width.
+        let base = node
+            .parent
+            .and_then(|p| self.content_box(p))
+            .map_or(0.0, |r| r.width);
+        let edges = [
+            ("marginTop", s.margin.top.into_raw()),
+            ("marginRight", s.margin.right.into_raw()),
+            ("marginBottom", s.margin.bottom.into_raw()),
+            ("marginLeft", s.margin.left.into_raw()),
+            ("paddingTop", s.padding.top.into_raw()),
+            ("paddingRight", s.padding.right.into_raw()),
+            ("paddingBottom", s.padding.bottom.into_raw()),
+            ("paddingLeft", s.padding.left.into_raw()),
+        ]
+        .map(|(name, raw)| (name.to_owned(), format!("{}px", edge_px(raw, base))));
+        let mut out = vec![
             ("display".into(), kebab(&format!("{:?}", s.display))),
             ("position".into(), kebab(&format!("{:?}", s.position))),
             (
@@ -318,17 +364,62 @@ impl<L: LayoutEngine> UiTree<L> {
             ("rowGap".into(), length_text(s.gap.height)),
             ("flexGrow".into(), s.flex_grow.to_string()),
             ("flexShrink".into(), s.flex_shrink.to_string()),
-        ]
+        ];
+        out.extend(edges);
+        out
+    }
+
+    /// The nodes the rule at `rule` of the stylesheet `sheet` matches (a rule of a pseudo-element
+    /// matches the elements it belongs to): what an inspector highlights while a rule is hovered.
+    pub fn inspect_rule_matches(&self, sheet: u32, rule: usize) -> Vec<NodeId> {
+        let Some((_, sheet)) = self.sheets.iter().find(|(id, _)| *id == sheet) else {
+            return Vec::new();
+        };
+        let mut caches = SelectorCaches::default();
+        let mut ids: Vec<NodeId> = self
+            .nodes
+            .iter()
+            .filter(|(_, n)| n.generated.is_none() && n.kind != TEXT_NODE)
+            .map(|(id, _)| *id)
+            .filter(|id| rule_matches(self, sheet, rule, *id, &mut caches))
+            .collect();
+        ids.sort_by_key(|n| n.0);
+        ids
     }
 
     /// What the inspector shows for `id`, or `None` for a node that does not exist.
     pub fn inspect(&self, id: NodeId) -> Option<Inspected> {
+        self.inspect_with(id, true)
+    }
+
+    /// [`Self::inspect`] without the styles (rules, inline, layout): what an elements tree row
+    /// needs, at a fraction of the cost.
+    pub fn inspect_brief(&self, id: NodeId) -> Option<Inspected> {
+        self.inspect_with(id, false)
+    }
+
+    fn inspect_with(&self, id: NodeId, styles: bool) -> Option<Inspected> {
         let node = self.nodes.get(&id)?;
+        if !styles {
+            return Some(Inspected {
+                id,
+                kind: node.kind.clone(),
+                parent: node.parent,
+                children: node.children.clone(),
+                element_id: node.attrs.id.clone(),
+                classes: node.attrs.classes.clone(),
+                rect: self.rect(id),
+                padding_box: self.padding_box(id),
+                inline: Vec::new(),
+                rules: Vec::new(),
+                layout: Vec::new(),
+            });
+        }
         let important_inline = |prop: &str| node.inline.iter().any(|(p, _)| p == prop);
         let rules = if node.generated.is_some() || node.kind == TEXT_NODE {
             Vec::new()
         } else {
-            self.rules_for(id, Target::Element, &important_inline)
+            self.rules_for(id, Target::Element, "", &important_inline)
         };
         let important_has = |prop: &str| {
             rules
@@ -363,7 +454,8 @@ impl<L: LayoutEngine> UiTree<L> {
             rect: self.rect(id),
             padding_box: self.padding_box(id),
             inline,
-            rules,
+            // The element's own rules, then each pseudo-element's.
+            rules: rules.into_iter().chain(self.pseudo_rules(id)).collect(),
             layout: self.layout_text(id),
         })
     }

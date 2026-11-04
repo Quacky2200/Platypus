@@ -531,15 +531,23 @@ fn ui_inspector_reads_the_snapshot_and_queues_edits() {
             id: 7,
             kind: "box".into(),
             children: vec![8, 9],
-            inline: vec![("width".into(), "100".into(), true)],
+            inline: vec![ins::InlineSnapshot {
+                prop: "width".into(),
+                value: "100".into(),
+                applied: true,
+                computed: String::new(),
+            }],
             rules: vec![ins::RuleSnapshot {
                 sheet: 1,
+                rule: 0,
                 selector: ".card".into(),
+                pseudo: String::new(),
                 declarations: vec![ins::DeclSnapshot {
                     prop: "height".into(),
                     value: "40px".into(),
                     important: false,
                     applied: true,
+                    computed: String::new(),
                 }],
             }],
             ..Default::default()

@@ -2245,3 +2245,9 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M3-INS-13 | Unit | `inspect` reports the layout a flexbox preview draws: display, direction, wrap, justify, align, gaps. |
 | M3-INS-14 | Unit | `inspect_set_class` adds and removes a class (once), and `inspect_class_names` lists the classes the stylesheets mention. |
 | M3-INS-15 | Unit | `inspect_pseudo` lists the rules matching `::before`, `::after` and the other pseudo-elements, apart from the element's own rules. |
+| M3-INS-16 | Unit | Forced states (`hover`, `active`, `focus`, `focus-visible`), class edits and the pseudo view reach the host; off, nothing is queued; `probe` keeps up to 256 nodes. |
+| M3-INS-17 | Unit | The style table (properties, keywords, kinds, docs, units) and the stylesheets' class names answer autocomplete. |
+| M3-INS-18 | Unit | `inspect_brief` has the boxes and names but none of the styles. |
+| M3-INS-19 | Unit | `inspect` layout has margins and paddings in px (percentages of the parent's content width) for a box-model overlay. |
+| M3-INS-20 | Unit | `inspect_rule_matches` names the elements a rule styles (a pseudo-element rule: its owners); unknown sheet or rule: none. |
+| M3-INS-21 | Unit | Highlights (node or rule) and the box focus reach the host and the highlighted boxes come back. |

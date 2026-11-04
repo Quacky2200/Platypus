@@ -7,7 +7,7 @@
 // host answer `UiInspector`. Picking a row pins the node, which the inspector overlay (F12) then
 // outlines. Design: docs/research/platypus-ui-inspector.md
 
-import { UiInspName, UiInspStyles } from "../../tools/platypus_build/inspector/shared.tsx";
+import { UiInspName, UiInspRoot, UiInspStyles, UiInspThemeChip } from "../../tools/platypus_build/inspector/shared.tsx";
 import { emptyTreeState, type TreeNode, type TreeState } from "./tree.ts";
 import { TreeView } from "./TreeView.tsx";
 
@@ -42,6 +42,7 @@ export function UiInspectorPanel({ width, height }: UiInspectorPanelProps) {
   const on = UiInspector.enabled();
   const [tree, setTree] = useState<TreeState>(() => ({ ...emptyTreeState(), expanded: new Set(["0"]) }));
   const [edit, setEdit] = useState(false);
+  const [theme, setTheme] = useState("");
   const [tick, setTick] = useState(0);
 
   // The host publishes what is asked for: the root, then each open row.
@@ -94,10 +95,11 @@ export function UiInspectorPanel({ width, height }: UiInspectorPanelProps) {
   const selected = UiInspector.selected();
   const treeHeight = Math.max(60, Math.floor((height - HEADER) * TREE_SHARE));
   return (
-    <box style={{ width, height, flexDirection: "column" }}>
+    <UiInspRoot theme={theme} style={{ width, height, flexDirection: "column" }}>
       <box style={{ height: HEADER, flexDirection: "row", alignItems: "center", gap: 8, padding: "0 8px" }}>
         <Text>{selected === 0 ? "Pick a row, or press F9 over the UI" : UiInspName(selected)}</Text>
         <box style={{ flexGrow: 1 }} />
+        <UiInspThemeChip theme={theme} onTheme={setTheme} />
         <box
           style={{ cursor: "pointer", padding: "1px 8px", borderRadius: 3, backgroundColor: edit ? "rgba(80, 160, 255, 0.35)" : "rgba(255, 255, 255, 0.08)" }}
           onClick={() => setEdit(!edit)}
@@ -105,10 +107,26 @@ export function UiInspectorPanel({ width, height }: UiInspectorPanelProps) {
           <Text>{edit ? "Editing" : "Edit"}</Text>
         </box>
       </box>
-      <TreeView roots={roots} state={tree} onStateChange={change} height={treeHeight} />
-      <box style={{ flexGrow: 1, padding: 8, overflow: "auto", flexDirection: "column" }}>
+      <TreeView
+        roots={roots}
+        state={tree}
+        onStateChange={change}
+        height={treeHeight}
+        // A row outlines its element (marching ants over the editor's own UI) while the pointer is on it.
+        renderLabel={(node) => (
+          <box
+            onMouseEnter={() => {
+              if (!node.id.endsWith(":more")) UiInspector.highlightNode(Number(node.id));
+            }}
+            onMouseLeave={() => UiInspector.clearHighlight()}
+          >
+            <Text className="platypus-tree-label">{node.label}</Text>
+          </box>
+        )}
+      />
+      <box className="uii-card" style={{ flexGrow: 1, margin: 6, padding: 8, overflow: "auto", flexDirection: "column" }}>
         {selected !== 0 ? <UiInspStyles id={selected} edit={edit} /> : null}
       </box>
-    </box>
+    </UiInspRoot>
   );
 }

@@ -2266,16 +2266,18 @@ Design: `docs/research/platypus-ui-inspector.md`. Opt-in at build time (`platypu
 
 Direction: **no JSX / TSX source editing** (too likely to go wrong). What is wanted is a tree viewer with collapsible nodes and a good style editor, in the inspector (overlay, the editor's "UI" tab, later a UI-only editor app), in light and dark. `docs/research/platypus-ui-editor.md` has the earlier source-editing study; it is parked. The VS Code extension is still wanted, but for **TS code execution and debugging** (the `ts-debugger` session's DAP work), not for UI editing.
 - [x] **Value logic** (`tools/platypus_build/inspector/values.ts`, tests `M3-INS-11`): stepping a number, colours (hex / rgb / hsl, hsv for a picker), cubic-bezier, gradients, autocomplete filter.
-- [ ] **Smart value field:** Up / Down add one unit (Shift ×10, Alt ×0.1) at the caret; a colour swatch; hover over `calc()` / `var()` shows the computed value.
-- [ ] **Colour picker** (hover / click popup): saturation-value square, hue and alpha sliders, output as hex / rgb / hsl (remembers the format the value was written in).
-- [ ] **Cubic-bezier editor** for `transition` and `animation` timing: draggable handles, the presets, a moving dot preview.
-- [ ] **Gradient helper:** angle dial, stops with colours and positions (add / remove), live preview bar.
-- [ ] **Autocomplete limited to what is supported:** property names, keywords, units from `STYLE_PROPS` / `LENGTH_UNITS` (the host publishes the table; `UiInspector.styleProps` / `styleKeywords` / `styleDoc`), with the docs shown.
-- [ ] **Layout info and flexbox preview:** the host publishes the node's layout (display, flex direction / wrap / justify / align / gap, children's grow / shrink / basis); the overlay draws the flex container (axis arrow, gap, children boxes), the style editor has a flexbox widget (direction, justify, align, wrap, gap buttons with a diagram).
-- [ ] **State toggles:** force `:hover`, `:active`, `:focus`, `:focus-visible`, `:disabled`, `:checked` on the pinned node (a forced layer over the real interaction state).
-- [ ] **Classes:** chips for the node's classes with remove, an add field (autocomplete from the loaded stylesheets' class names).
-- [ ] **Pseudo-elements:** `::before` / `::after` (and `::marker`, `::placeholder`, `::selection`) tabs show the rules that match them; add a rule's declarations as an override.
-- [ ] **Light and dark:** a second block of the `--platypus-*` variables under `prefers-color-scheme: light` plus a manual switch; preview the UI under edit in either scheme with `UiTree::set_media_env`.
+- [x] **Smart value field:** Up / Down add one unit (Shift ×10, Alt ×0.1; first number, not yet at the caret); `calc()` / `var()` / relative units show `= 752px` beside the value (always, not on hover). Checked in screenshots.
+- [x] **Colour picker:** saturation-value square, hue and alpha sliders, hex / rgb / hsl output (opens from the swatch; also inside gradient stops).
+- [x] **Cubic-bezier editor** for `transition` / `animation`: draggable handles, presets, the `cubic-bezier()` text. Not yet: a moving dot preview.
+- [x] **Gradient helper:** angle field and arrows, stops with colour swatch (opens the picker) and position, add / remove, live preview bar.
+- [x] **Autocomplete limited to what is supported:** property names, keywords and class names complete from the engine's own tables (`STYLE_PROPS`, `UiInspector.styleProps` / `styleKeywords` / `classNames`); hover shows the property's doc as a tooltip. Not yet: units and `var(--…)` names.
+- [x] **Layout info and flexbox editor:** `UiInspector.layout(id, name)`; a flexbox editor with a live preview and buttons. Not yet: the overlay drawing the flex axis / gaps over the page.
+- [x] **State toggles:** force `:hover`, `:active`, `:focus`, `:focus-visible` (text links; ancestors too for hover and active). Not yet: `:disabled`, `:checked`.
+- [x] **Classes:** links with a hand cursor (a click takes one off, a struck-through one comes back), `+` opens a pill input with completion.
+- [x] **Rules you write:** a "new rule" field (`.card:hover { color: red }`) adds a real rule to the program's styles, pseudo-classes and pseudo-elements included; the rules typed are listed to edit or remove. Pseudo-element rules of the node show inline under "Pseudo ::before element" headings.
+- [x] **Hover feedback:** the box model (margin, border, padding, content) over a hovered element; marching ants (1px dashes, animated by CSS) for a pinned element; while editing nothing over the node (it hid colours), only the box model of a hovered margin / padding / size line and ants round the elements a hovered rule matches (`UiInspector.highlightRule` / `highlightNode` / `showBox`), and the editor tab's rows highlight their element.
+- [x] **Light and dark:** a stylesheet with colour variables (`theme.ts`: dark, light, system via `prefers-color-scheme`) and a theme pill (system / light / dark).
+- [ ] **Light and dark, next:** preview the UI under edit in either scheme with `UiTree::set_media_env`.
 - [ ] **Standalone UI editor app** (`ui-editor/`, UI-only, GLES tier): the tree and the style editor over a game built with the inspector (a local socket, or later the canvas UI element).
 - [ ] **VS Code extension for TS execution / debugging:** with the `ts-debugger` session (DAP server and attach exist); not part of this work.
 

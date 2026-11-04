@@ -23,13 +23,39 @@ pub struct DeclSnapshot {
     pub important: bool,
     /// False when the cascade overrides it.
     pub applied: bool,
+    /// What `calc()`, `var()` or relative units come to (`""` for a plain value).
+    pub computed: String,
+}
+
+/// An inline style declaration of a node.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct InlineSnapshot {
+    pub prop: String,
+    pub value: String,
+    pub applied: bool,
+    pub computed: String,
+}
+
+/// One style property the engine supports, for autocomplete.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct StyleEntry {
+    pub name: String,
+    /// The keywords it takes (`flex`, `column`, ...).
+    pub keywords: Vec<String>,
+    /// What else it takes: `number`, `length`, `string`, space separated.
+    pub kinds: String,
+    pub doc: String,
 }
 
 /// A rule that matches a node.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct RuleSnapshot {
     pub sheet: u32,
+    /// The rule's position in its stylesheet (what `highlightRule` takes).
+    pub rule: u32,
     pub selector: String,
+    /// `""` for the element's own rule, else the pseudo-element it styles (`before`, `after`, ...).
+    pub pseudo: String,
     pub declarations: Vec<DeclSnapshot>,
 }
 
@@ -47,9 +73,38 @@ pub struct NodeSnapshot {
     pub rect: [f32; 4],
     /// Padding box, same layout.
     pub padding: [f32; 4],
-    /// `(prop, value, applied)`.
-    pub inline: Vec<(String, String, bool)>,
+    pub inline: Vec<InlineSnapshot>,
     pub rules: Vec<RuleSnapshot>,
+    /// The layout the node was given (`display`, `flexDirection`, ...), as CSS text.
+    pub layout: Vec<(String, String)>,
+}
+
+/// What the inspector outlines besides the pointer's node: while a rule or an element row is hovered,
+/// the elements it is about.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Highlight {
+    #[default]
+    None,
+    /// One element.
+    Node(u32),
+    /// Every element a stylesheet rule matches.
+    Rule { sheet: u32, rule: u32 },
+}
+
+/// A class added to or removed from a node.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ClassEdit {
+    pub id: u32,
+    pub name: String,
+    pub on: bool,
+}
+
+/// A forced interaction state turned on or off (`hover`, `active`, `focus`, `focus-visible`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct StateChange {
+    pub id: u32,
+    pub state: String,
+    pub on: bool,
 }
 
 /// A style edit a script made.
@@ -75,6 +130,23 @@ struct State {
     clicked: u32,
     /// A press was swallowed, so its release is too.
     swallowed: bool,
+    /// Which pseudo-element's rules the selected node publishes (`""`: the element's own).
+    pseudo: String,
+    /// States forced on, by node.
+    forced: HashMap<u32, BTreeSet<String>>,
+    state_changes: Vec<StateChange>,
+    class_edits: Vec<ClassEdit>,
+    /// Nodes scripts only want the boxes of (a widget finding where it is on screen).
+    probes: BTreeSet<u32>,
+    highlight: Highlight,
+    /// The border boxes `[x, y, width, height]` of what `highlight` names.
+    highlights: Vec<[f32; 4]>,
+    /// The node whose box model (margin, border, padding, content) is drawn whatever the pointer is over
+    /// (a hovered `margin` line).
+    box_focus: u32,
+    styles: Vec<StyleEntry>,
+    units: Vec<String>,
+    class_names: Vec<String>,
 }
 
 thread_local! {
@@ -93,6 +165,46 @@ pub fn enabled() -> bool {
 /// Forgets everything, and turns it off (a test, or a reload).
 pub fn reset() {
     STATE.with(|s| *s.borrow_mut() = State::default());
+}
+
+/// The style properties and length units the engine supports, once, for autocomplete.
+pub fn set_style_table(styles: Vec<StyleEntry>, units: Vec<String>) {
+    STATE.with(|s| {
+        let mut s = s.borrow_mut();
+        s.styles = styles;
+        s.units = units;
+    });
+}
+
+/// The class names the loaded stylesheets mention.
+pub fn set_class_names(names: Vec<String>) {
+    STATE.with(|s| s.borrow_mut().class_names = names);
+}
+
+/// Which pseudo-element's rules the selected node should publish (`""`: the element's own).
+pub fn pseudo() -> String {
+    STATE.with(|s| s.borrow().pseudo.clone())
+}
+
+/// The states scripts forced on, by node: the host keeps them applied over the real ones.
+pub fn forced() -> Vec<(u32, Vec<String>)> {
+    STATE.with(|s| {
+        s.borrow()
+            .forced
+            .iter()
+            .map(|(id, set)| (*id, set.iter().cloned().collect()))
+            .collect()
+    })
+}
+
+/// The forced states turned on or off since the last call.
+pub fn take_state_changes() -> Vec<StateChange> {
+    STATE.with(|s| std::mem::take(&mut s.borrow_mut().state_changes))
+}
+
+/// The class edits scripts queued since the last call.
+pub fn take_class_edits() -> Vec<ClassEdit> {
+    STATE.with(|s| std::mem::take(&mut s.borrow_mut().class_edits))
 }
 
 /// The node under the pointer (0: none).
@@ -134,6 +246,21 @@ pub fn watched() -> Vec<u32> {
         v.dedup();
         v
     })
+}
+
+/// What scripts asked to have highlighted.
+pub fn highlight() -> Highlight {
+    STATE.with(|s| s.borrow().highlight)
+}
+
+/// Replaces the boxes of what is highlighted (the host does, each frame).
+pub fn publish_highlights(rects: Vec<[f32; 4]>) {
+    STATE.with(|s| s.borrow_mut().highlights = rects);
+}
+
+/// The nodes scripts probed: the host publishes their boxes (and nothing else) every frame.
+pub fn probes() -> Vec<u32> {
+    STATE.with(|s| s.borrow().probes.iter().copied().collect())
 }
 
 /// Replaces the snapshot scripts read.
@@ -206,6 +333,21 @@ pub mod ui_inspector_api {
     /// The node the last swallowed press hit (0 when there was none since the last call).
     pub fn take_click() -> f64 {
         STATE.with(|s| f64::from(std::mem::take(&mut s.borrow_mut().clicked)))
+    }
+
+    /// Asks for a node's boxes (`x`, `y`, `width`, `height`), whatever it is: a widget that needs
+    /// the pointer's position inside itself probes the element it is made of (`e.target.id` of its
+    /// `onPointerEnter`) and reads `x` / `y` from the next frame on. At most 256 nodes are kept.
+    pub fn probe(id: f64) {
+        STATE.with(|s| {
+            let mut s = s.borrow_mut();
+            if s.enabled && id >= 1.0 {
+                if s.probes.len() >= 256 {
+                    s.probes.clear();
+                }
+                s.probes.insert(id as u32);
+            }
+        });
     }
 
     /// Asks for the children of a node too (an open row of the elements tree).
@@ -282,21 +424,170 @@ pub mod ui_inspector_api {
 
     pub fn inline_prop(id: f64, i: f64) -> String {
         index(i)
-            .and_then(|i| node(id, |n| n.inline.get(i).map(|d| d.0.clone())).flatten())
+            .and_then(|i| node(id, |n| n.inline.get(i).map(|d| d.prop.clone())).flatten())
             .unwrap_or_default()
     }
 
     pub fn inline_value(id: f64, i: f64) -> String {
         index(i)
-            .and_then(|i| node(id, |n| n.inline.get(i).map(|d| d.1.clone())).flatten())
+            .and_then(|i| node(id, |n| n.inline.get(i).map(|d| d.value.clone())).flatten())
             .unwrap_or_default()
     }
 
     /// False when a later inline declaration or an `!important` rule overrides it.
     pub fn inline_applied(id: f64, i: f64) -> bool {
         index(i)
-            .and_then(|i| node(id, |n| n.inline.get(i).is_some_and(|d| d.2)))
+            .and_then(|i| node(id, |n| n.inline.get(i).is_some_and(|d| d.applied)))
             .unwrap_or(false)
+    }
+
+    /// What an inline value with `calc()`, `var()` or relative units comes to for the node
+    /// (`"280px"`), `""` for a plain value.
+    pub fn inline_computed(id: f64, i: f64) -> String {
+        index(i)
+            .and_then(|i| node(id, |n| n.inline.get(i).map(|d| d.computed.clone())).flatten())
+            .unwrap_or_default()
+    }
+
+    /// As `inlineComputed`, for a declaration of a matching rule.
+    pub fn decl_computed(id: f64, rule: f64, i: f64) -> String {
+        decl(id, rule, i).map(|d| d.computed).unwrap_or_default()
+    }
+
+    /// One part of the layout the node was given, as CSS text: `display`, `position`,
+    /// `flexDirection`, `flexWrap`, `justifyContent`, `alignItems`, `alignContent`, `alignSelf`,
+    /// `columnGap`, `rowGap`, `flexGrow`, `flexShrink`. `""` for another name.
+    pub fn layout(id: f64, name: &str) -> String {
+        node(id, |n| {
+            n.layout
+                .iter()
+                .find(|(k, _)| k == name)
+                .map(|(_, v)| v.clone())
+        })
+        .flatten()
+        .unwrap_or_default()
+    }
+
+    /// Which pseudo-element's rules `ruleCount` and the rule getters answer for the selected node:
+    /// `""` (the element's own), `before`, `after`, `marker`, `selection`, `placeholder` or
+    /// `backdrop`. Other nodes keep answering their own.
+    pub fn set_pseudo(name: &str) {
+        STATE.with(|s| s.borrow_mut().pseudo = name.to_string());
+    }
+
+    /// The pseudo-element view `setPseudo` chose.
+    pub fn pseudo() -> String {
+        super::pseudo()
+    }
+
+    /// Forces an interaction state on a node, or lets go of it: `hover`, `active`, `focus` or
+    /// `focus-visible`. The host keeps it applied over the real state until it is turned off.
+    pub fn force_state(id: f64, state: &str, on: bool) {
+        STATE.with(|s| {
+            let mut s = s.borrow_mut();
+            if !s.enabled || id < 1.0 {
+                return;
+            }
+            let id = id as u32;
+            let known = matches!(state, "hover" | "active" | "focus" | "focus-visible");
+            if !known {
+                return;
+            }
+            let set = s.forced.entry(id).or_default();
+            let changed = if on {
+                set.insert(state.to_string())
+            } else {
+                set.remove(state)
+            };
+            if set.is_empty() {
+                s.forced.remove(&id);
+            }
+            if changed {
+                s.state_changes.push(super::StateChange {
+                    id,
+                    state: state.to_string(),
+                    on,
+                });
+            }
+        });
+    }
+
+    /// The states forced on a node, space separated (`"hover active"`).
+    pub fn forced_states(id: f64) -> String {
+        STATE.with(|s| {
+            s.borrow()
+                .forced
+                .get(&(id.max(0.0) as u32))
+                .map(|set| set.iter().cloned().collect::<Vec<_>>().join(" "))
+                .unwrap_or_default()
+        })
+    }
+
+    /// Adds (`on`) or removes a class of a node, like a `className` prop. Dropped when the
+    /// inspector is off.
+    pub fn set_class(id: f64, name: &str, on: bool) {
+        STATE.with(|s| {
+            let mut s = s.borrow_mut();
+            if s.enabled && id >= 1.0 && !name.trim().is_empty() {
+                s.class_edits.push(super::ClassEdit {
+                    id: id as u32,
+                    name: name.trim().to_string(),
+                    on,
+                });
+            }
+        });
+    }
+
+    /// Every style property the engine supports (what autocomplete offers), in the table's order.
+    pub fn style_props() -> Vec<String> {
+        STATE.with(|s| s.borrow().styles.iter().map(|e| e.name.clone()).collect())
+    }
+
+    /// The keywords a property takes (`flex`, `none` for `display`), empty when it has none.
+    pub fn style_keywords(prop: &str) -> Vec<String> {
+        STATE.with(|s| {
+            s.borrow()
+                .styles
+                .iter()
+                .find(|e| e.name == prop)
+                .map(|e| e.keywords.clone())
+                .unwrap_or_default()
+        })
+    }
+
+    /// What else a property takes: `number`, `length`, `string`, space separated; `""` for an
+    /// unknown property.
+    pub fn style_kinds(prop: &str) -> String {
+        STATE.with(|s| {
+            s.borrow()
+                .styles
+                .iter()
+                .find(|e| e.name == prop)
+                .map(|e| e.kinds.clone())
+                .unwrap_or_default()
+        })
+    }
+
+    /// The property's documentation.
+    pub fn style_doc(prop: &str) -> String {
+        STATE.with(|s| {
+            s.borrow()
+                .styles
+                .iter()
+                .find(|e| e.name == prop)
+                .map(|e| e.doc.clone())
+                .unwrap_or_default()
+        })
+    }
+
+    /// The units a length takes besides a bare number (`px`, `%`, `em`, ...).
+    pub fn style_units() -> Vec<String> {
+        STATE.with(|s| s.borrow().units.clone())
+    }
+
+    /// The class names the loaded stylesheets mention.
+    pub fn class_names() -> Vec<String> {
+        STATE.with(|s| s.borrow().class_names.clone())
     }
 
     /// How many stylesheet rules match the node, lowest priority first.
@@ -309,9 +600,72 @@ pub mod ui_inspector_api {
         rule(id, i).map(|r| r.selector).unwrap_or_default()
     }
 
+    /// `""` when the `i`th matching rule is the element's own, else the pseudo-element it styles
+    /// (`before`, `after`, `marker`, `selection`, `placeholder`, `backdrop`).
+    pub fn rule_pseudo(id: f64, i: f64) -> String {
+        rule(id, i).map(|r| r.pseudo).unwrap_or_default()
+    }
+
     /// The id of the stylesheet the rule came from.
     pub fn rule_sheet(id: f64, i: f64) -> f64 {
         rule(id, i).map_or(0.0, |r| f64::from(r.sheet))
+    }
+
+    /// The `i`th matching rule's position in its stylesheet (with `ruleSheet`, what `highlightRule` takes).
+    pub fn rule_index(id: f64, i: f64) -> f64 {
+        rule(id, i).map_or(0.0, |r| f64::from(r.rule))
+    }
+
+    /// Outlines one element until `clearHighlight`.
+    pub fn highlight_node(id: f64) {
+        STATE.with(|s| s.borrow_mut().highlight = super::Highlight::Node(id.max(0.0) as u32));
+    }
+
+    /// Outlines every element a rule matches (a rule of a pseudo-element: the elements it belongs to)
+    /// until `clearHighlight`.
+    pub fn highlight_rule(sheet: f64, rule: f64) {
+        STATE.with(|s| {
+            s.borrow_mut().highlight = super::Highlight::Rule {
+                sheet: sheet.max(0.0) as u32,
+                rule: rule.max(0.0) as u32,
+            }
+        });
+    }
+
+    pub fn clear_highlight() {
+        STATE.with(|s| s.borrow_mut().highlight = super::Highlight::None);
+    }
+
+    /// How many boxes the highlight outlines.
+    pub fn highlight_count() -> f64 {
+        STATE.with(|s| s.borrow().highlights.len() as f64)
+    }
+
+    /// The `i`th highlighted box's left, top, width or height (`which` 0..3), window pixels.
+    pub fn highlight_rect(i: f64, which: f64) -> f64 {
+        STATE.with(|s| {
+            index(i)
+                .zip(index(which))
+                .and_then(|(i, w)| {
+                    s.borrow()
+                        .highlights
+                        .get(i)
+                        .and_then(|r| r.get(w))
+                        .map(|v| f64::from(*v))
+                })
+                .unwrap_or(0.0)
+        })
+    }
+
+    /// Draws the box model of a node (0: none) whatever the pointer is over: what a hovered `margin` or
+    /// `padding` line asks for.
+    pub fn show_box(id: f64) {
+        STATE.with(|s| s.borrow_mut().box_focus = id.max(0.0) as u32);
+    }
+
+    /// The node `showBox` named, 0 for none.
+    pub fn box_focus() -> f64 {
+        STATE.with(|s| f64::from(s.borrow().box_focus))
     }
 
     pub fn decl_count(id: f64, rule: f64) -> f64 {
@@ -365,17 +719,29 @@ mod tests {
             classes: vec!["card".into(), "hot".into()],
             rect: [10.0, 20.0, 100.0, 40.0],
             padding: [11.0, 21.0, 98.0, 38.0],
-            inline: vec![("width".into(), "100".into(), true)],
+            inline: vec![InlineSnapshot {
+                prop: "width".into(),
+                value: "100".into(),
+                applied: true,
+                computed: String::new(),
+            }],
             rules: vec![RuleSnapshot {
                 sheet: 3,
+                rule: 5,
                 selector: ".card".into(),
+                pseudo: "before".into(),
                 declarations: vec![DeclSnapshot {
                     prop: "height".into(),
-                    value: "40px".into(),
+                    value: "calc(100% - 20px)".into(),
                     important: true,
                     applied: false,
+                    computed: "280px".into(),
                 }],
             }],
+            layout: vec![
+                ("display".into(), "flex".into()),
+                ("flexDirection".into(), "column".into()),
+            ],
         }
     }
 
@@ -394,7 +760,16 @@ mod tests {
         assert!(ui_inspector_api::inline_applied(7.0, 0.0));
         assert_eq!(ui_inspector_api::rule_selector(7.0, 0.0), ".card");
         assert_eq!(ui_inspector_api::rule_sheet(7.0, 0.0), 3.0);
-        assert_eq!(ui_inspector_api::decl_value(7.0, 0.0, 0.0), "40px");
+        assert_eq!(ui_inspector_api::rule_pseudo(7.0, 0.0), "before");
+        assert_eq!(ui_inspector_api::rule_pseudo(7.0, 3.0), "");
+        assert_eq!(
+            ui_inspector_api::decl_value(7.0, 0.0, 0.0),
+            "calc(100% - 20px)"
+        );
+        assert_eq!(ui_inspector_api::decl_computed(7.0, 0.0, 0.0), "280px");
+        assert_eq!(ui_inspector_api::inline_computed(7.0, 0.0), "");
+        assert_eq!(ui_inspector_api::layout(7.0, "flexDirection"), "column");
+        assert_eq!(ui_inspector_api::layout(7.0, "nope"), "");
         assert!(ui_inspector_api::decl_important(7.0, 0.0, 0.0));
         assert!(!ui_inspector_api::decl_applied(7.0, 0.0, 0.0));
         assert_eq!(ui_inspector_api::kind(99.0), "");
@@ -454,5 +829,143 @@ mod tests {
         reset();
         ui_inspector_api::pick(true);
         assert!(!press(7));
+    }
+
+    // M3-INS-16
+    #[test]
+    fn states_classes_and_the_pseudo_view_reach_the_host() {
+        reset();
+        // Off: nothing is queued or forced.
+        ui_inspector_api::force_state(7.0, "hover", true);
+        ui_inspector_api::set_class(7.0, "hot", true);
+        assert!(
+            forced().is_empty() && take_state_changes().is_empty() && take_class_edits().is_empty()
+        );
+
+        enable();
+        ui_inspector_api::force_state(7.0, "hover", true);
+        ui_inspector_api::force_state(7.0, "focus-visible", true);
+        ui_inspector_api::force_state(7.0, "hover", true); // again: no second change
+        ui_inspector_api::force_state(7.0, "bogus", true);
+        assert_eq!(ui_inspector_api::forced_states(7.0), "focus-visible hover");
+        assert_eq!(
+            forced(),
+            [(7, vec!["focus-visible".to_string(), "hover".to_string()])]
+        );
+        ui_inspector_api::force_state(7.0, "hover", false);
+        let changes = take_state_changes();
+        assert_eq!(
+            changes
+                .iter()
+                .map(|c| (c.state.as_str(), c.on))
+                .collect::<Vec<_>>(),
+            [("hover", true), ("focus-visible", true), ("hover", false)]
+        );
+        ui_inspector_api::force_state(7.0, "focus-visible", false);
+        assert!(forced().is_empty(), "nothing left forced");
+
+        ui_inspector_api::set_class(7.0, " hot ", true);
+        ui_inspector_api::set_class(7.0, "", true);
+        assert_eq!(
+            take_class_edits(),
+            [ClassEdit {
+                id: 7,
+                name: "hot".into(),
+                on: true
+            }]
+        );
+
+        ui_inspector_api::set_pseudo("before");
+        assert_eq!(ui_inspector_api::pseudo(), "before");
+        assert_eq!(pseudo(), "before");
+
+        ui_inspector_api::probe(9.0);
+        ui_inspector_api::probe(4.0);
+        ui_inspector_api::probe(0.0);
+        assert_eq!(probes(), [4, 9]);
+        reset();
+        ui_inspector_api::probe(9.0);
+        assert!(probes().is_empty(), "off: nothing is probed");
+    }
+
+    // M3-INS-21
+    #[test]
+    fn highlights_and_the_box_focus_reach_the_host_and_their_boxes_come_back() {
+        reset();
+        enable();
+        publish(vec![NodeSnapshot {
+            id: 7,
+            rules: vec![RuleSnapshot {
+                sheet: 3,
+                rule: 5,
+                selector: ".card".into(),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }]);
+        assert_eq!(ui_inspector_api::rule_index(7.0, 0.0), 5.0);
+        assert_eq!(highlight(), Highlight::None);
+        ui_inspector_api::highlight_rule(
+            ui_inspector_api::rule_sheet(7.0, 0.0),
+            ui_inspector_api::rule_index(7.0, 0.0),
+        );
+        assert_eq!(highlight(), Highlight::Rule { sheet: 3, rule: 5 });
+        ui_inspector_api::highlight_node(9.0);
+        assert_eq!(highlight(), Highlight::Node(9));
+        publish_highlights(vec![[10.0, 20.0, 30.0, 40.0], [1.0, 2.0, 3.0, 4.0]]);
+        assert_eq!(ui_inspector_api::highlight_count(), 2.0);
+        assert_eq!(ui_inspector_api::highlight_rect(0.0, 2.0), 30.0);
+        assert_eq!(ui_inspector_api::highlight_rect(1.0, 1.0), 2.0);
+        assert_eq!(
+            ui_inspector_api::highlight_rect(2.0, 0.0),
+            0.0,
+            "past the end"
+        );
+        ui_inspector_api::clear_highlight();
+        assert_eq!(highlight(), Highlight::None);
+        ui_inspector_api::show_box(7.0);
+        assert_eq!(ui_inspector_api::box_focus(), 7.0);
+        ui_inspector_api::show_box(0.0);
+        assert_eq!(ui_inspector_api::box_focus(), 0.0);
+    }
+
+    // M3-INS-17
+    #[test]
+    fn the_style_table_feeds_autocomplete() {
+        reset();
+        set_style_table(
+            vec![
+                StyleEntry {
+                    name: "display".into(),
+                    keywords: vec!["flex".into(), "none".into()],
+                    kinds: String::new(),
+                    doc: "How the box lays out its children.".into(),
+                },
+                StyleEntry {
+                    name: "width".into(),
+                    keywords: vec!["auto".into()],
+                    kinds: "number length string".into(),
+                    doc: String::new(),
+                },
+            ],
+            vec!["px".into(), "%".into()],
+        );
+        set_class_names(vec!["card".into(), "hot".into()]);
+        assert_eq!(ui_inspector_api::style_props(), ["display", "width"]);
+        assert_eq!(
+            ui_inspector_api::style_keywords("display"),
+            ["flex", "none"]
+        );
+        assert!(ui_inspector_api::style_keywords("nope").is_empty());
+        assert_eq!(
+            ui_inspector_api::style_kinds("width"),
+            "number length string"
+        );
+        assert_eq!(
+            ui_inspector_api::style_doc("display"),
+            "How the box lays out its children."
+        );
+        assert_eq!(ui_inspector_api::style_units(), ["px", "%"]);
+        assert_eq!(ui_inspector_api::class_names(), ["card", "hot"]);
     }
 }

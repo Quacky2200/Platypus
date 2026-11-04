@@ -169,6 +169,71 @@ fn inspect_adds_and_removes_classes_and_lists_the_ones_stylesheets_name() {
     assert!(!names.iter().any(|n| n == "main"), "an id is not a class");
 }
 
+// M3-INS-19
+#[test]
+fn inspect_layout_has_the_margins_and_paddings_a_box_model_overlay_draws() {
+    let tree = card(".card { margin: 6px 8px; padding-top: 4px; padding-left: 10% }");
+    let layout = tree.inspect(NodeId(1)).unwrap().layout;
+    let get = |name: &str| {
+        layout
+            .iter()
+            .find(|(n, _)| n == name)
+            .map(|(_, v)| v.as_str())
+    };
+    assert_eq!(get("marginTop"), Some("6px"));
+    assert_eq!(get("marginRight"), Some("8px"));
+    assert_eq!(get("marginLeft"), Some("8px"));
+    assert_eq!(get("paddingTop"), Some("4px"));
+    assert_eq!(get("paddingBottom"), Some("0px"));
+    // 10% of the parent's content width (the root is 400 wide).
+    assert_eq!(get("paddingLeft"), Some("40px"));
+}
+
+// M3-INS-20
+#[test]
+fn inspect_rule_matches_names_the_elements_a_rule_styles() {
+    let tree = card(".hot { color: red } .card::before { color: blue }");
+    let rules = tree.inspect(NodeId(1)).unwrap().rules;
+    let find = |selector: &str| rules.iter().find(|r| r.selector == selector).unwrap();
+    let hot = find(".hot");
+    assert_eq!(tree.inspect_rule_matches(hot.sheet, hot.rule), [NodeId(1)]);
+    // A pseudo-element's rule is about the element that owns it.
+    let before = find(".card::before");
+    assert_eq!(
+        tree.inspect_rule_matches(before.sheet, before.rule),
+        [NodeId(1)]
+    );
+    assert!(tree.inspect_rule_matches(hot.sheet, 99).is_empty());
+    assert!(tree.inspect_rule_matches(9999, 0).is_empty());
+}
+
+// M3-INS-18
+#[test]
+fn inspect_brief_has_the_boxes_and_names_but_none_of_the_styles() {
+    let tree = card(".card { height: 10px } .card::before { color: red }");
+    let full = tree.inspect(NodeId(1)).unwrap();
+    let brief = tree.inspect_brief(NodeId(1)).unwrap();
+    assert!(!full.rules.is_empty() && !full.inline.is_empty() && !full.layout.is_empty());
+    assert!(brief.rules.is_empty() && brief.inline.is_empty() && brief.layout.is_empty());
+    assert_eq!(
+        (
+            brief.kind.as_str(),
+            &brief.classes,
+            brief.rect,
+            brief.padding_box,
+            &brief.children
+        ),
+        (
+            full.kind.as_str(),
+            &full.classes,
+            full.rect,
+            full.padding_box,
+            &full.children
+        )
+    );
+    assert!(tree.inspect_brief(NodeId(99)).is_none());
+}
+
 // M3-INS-15
 #[test]
 fn inspect_lists_the_rules_of_a_pseudo_element() {
@@ -186,9 +251,17 @@ fn inspect_lists_the_rules_of_a_pseudo_element() {
     );
     let after = tree.inspect_pseudo(NodeId(1), "after");
     assert_eq!(after[0].declarations[0].value, "blue");
-    // The element's own rules do not include them.
-    let own = tree.inspect(NodeId(1)).unwrap().rules;
+    // `inspect` lists the element's own rules (no pseudo tag) and then each pseudo-element's, tagged.
+    let all = tree.inspect(NodeId(1)).unwrap().rules;
+    let own: Vec<_> = all.iter().filter(|r| r.pseudo.is_empty()).collect();
     assert!(own.iter().all(|r| !r.selector.contains("::")));
+    assert_eq!(
+        all.iter()
+            .filter(|r| !r.pseudo.is_empty())
+            .map(|r| (r.pseudo.as_str(), r.selector.as_str()))
+            .collect::<Vec<_>>(),
+        [("before", ".card::before"), ("after", ".card::after")]
+    );
     assert!(tree.inspect_pseudo(NodeId(1), "marker").is_empty());
     assert!(tree.inspect_pseudo(NodeId(1), "bogus").is_empty());
     assert!(tree.inspect_pseudo(NodeId(99), "before").is_empty());

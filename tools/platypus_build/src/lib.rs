@@ -278,13 +278,37 @@ const INSPECTOR_OVERLAY: &str = include_str!("../inspector/overlay.tsx");
 /// What the overlay and the editor's "UI" panel share (`inspector/shared.tsx`). A program that
 /// imports it itself (the editor does) already has it, so it is not appended twice.
 const INSPECTOR_SHARED: &str = include_str!("../inspector/shared.tsx");
+/// The value logic the shared parts use (`inspector/values.ts`).
+const INSPECTOR_VALUES: &str = include_str!("../inspector/values.ts");
+/// The inspector's stylesheet (`inspector/theme.ts`).
+const INSPECTOR_THEME: &str = include_str!("../inspector/theme.ts");
 const INSPECTOR_SHARED_MARKER: &str = "function UiInspField(";
+
+/// `text` as part of the program: no `import` statements (the parts are appended in order) and no
+/// `export`s (the program's own exports stay its exports).
+fn inspector_part(text: &str) -> String {
+    let mut out = text.to_owned();
+    while let Some(at) = out.find("import ") {
+        // Only a statement that starts a line.
+        if at > 0 && !out[..at].ends_with('\n') {
+            break;
+        }
+        let Some(end) = out[at..].find("\";") else {
+            break;
+        };
+        out.replace_range(at..at + end + 2, "");
+    }
+    out.replace("\nexport ", "\n")
+}
 
 /// Adds the inspector to a bundled program (`--add-ui-inspector`).
 fn add_ui_inspector(bundle: &mut platypus_ts::modules::Bundle) {
     let mut parts = vec![("<ui-inspector>/overlay.tsx", INSPECTOR_OVERLAY)];
+    // A program that imports the shared parts (the editor does) has them, and the logic below them.
     if !bundle.source.contains(INSPECTOR_SHARED_MARKER) {
         parts.insert(0, ("<ui-inspector>/shared.tsx", INSPECTOR_SHARED));
+        parts.insert(0, ("<ui-inspector>/theme.ts", INSPECTOR_THEME));
+        parts.insert(0, ("<ui-inspector>/values.ts", INSPECTOR_VALUES));
     }
     for (name, text) in parts {
         if !bundle.source.ends_with('\n') {
@@ -292,8 +316,7 @@ fn add_ui_inspector(bundle: &mut platypus_ts::modules::Bundle) {
         }
         // Lines of the appended text are told apart from the game's in error messages.
         let start = bundle.source.matches('\n').count();
-        // The program's own exports stay its exports: the appended text exports nothing.
-        bundle.source.push_str(&text.replace("\nexport ", "\n"));
+        bundle.source.push_str(&inspector_part(text));
         bundle.starts.push((start, name.to_string()));
     }
 }

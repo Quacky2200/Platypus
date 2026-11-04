@@ -277,6 +277,38 @@ pub(crate) enum Target {
     Pseudo(PseudoElement),
 }
 
+/// Whether any selector of rule `rule` in `sheet` matches element `id`; for a selector with a
+/// pseudo-element, whether it matches the element the pseudo-element belongs to (the inspector's
+/// "which elements does this rule style").
+pub(crate) fn rule_matches<L: LayoutEngine>(
+    tree: &UiTree<L>,
+    sheet: &Stylesheet,
+    rule: usize,
+    id: NodeId,
+    caches: &mut SelectorCaches,
+) -> bool {
+    let Some(rule) = sheet.rules.get(rule) else {
+        return false;
+    };
+    let element = NodeRef { tree, id };
+    rule.selectors.slice().iter().any(|selector| {
+        let mode = if selector.pseudo_element().is_some() {
+            MatchingMode::ForStatelessPseudoElement
+        } else {
+            MatchingMode::Normal
+        };
+        let mut context = MatchingContext::new(
+            mode,
+            None,
+            caches,
+            QuirksMode::NoQuirks,
+            NeedsSelectorFlags::No,
+            MatchingForInvalidation::No,
+        );
+        matches_selector(selector, 0, None, &element, &mut context)
+    })
+}
+
 /// A declaration that applies to an element, with its cascade position.
 #[derive(Clone, Debug)]
 pub(crate) struct Matched {
