@@ -137,6 +137,7 @@ See [DESIGN.md](DESIGN.md) for the architecture these tests check.
 | M2-PLN-05 | Unit | Text plans one glyph instance per visible glyph and queues the glyph pixels in the `GlyphCache` (not again on a second plan). |
 | M2-PLN-06 | Unit | An image fill plans a `Draw` step naming its texture; an image the resources don't know is skipped. |
 | M2-PLN-07 | Unit | `needs_backdrop` finds backdrop filters without planning. |
+| M2-PLN-08 | Unit | A character the font lacks (glyph 0) is drawn as a red box of the font's own "NO GLYPH" letters stacked one per row, at least 0.34 em wide and as tall as the font's `.notdef`; all seven letters are cut out, every letter keeps its own pixels when the Y is redrawn (the L's foot runs under the Y), and the Y gets a tail down its middle. |
 | M2-GLES-01 | Integration | A GLES 3 context through EGL (ANGLE via `PLATYPUS_ANGLE_DIR`) clears an `SRGB8_ALPHA8` framebuffer and reads it back; skipped without an EGL driver. |
 | M2-GLES-02 | Integration | Boxes with borders (solid, dashed, dotted, per-side colours), per-corner radii and linear, radial and conic gradients: the GLES executor matches the wgpu one pixel for pixel (within 6/255 on all but 0.2% of pixels). |
 | M2-GLES-03 | Integration | Outer and inset box shadows match between the GLES and wgpu executors. |

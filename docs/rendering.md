@@ -18,7 +18,7 @@ background: [DESIGN.md](../DESIGN.md) section 5.2; milestone tests `M2-DRW-*`, `
 | [ui/plan.rs](../crates/platypus_render/src/ui/plan.rs) | The **backend-neutral plan**: `plan()` turns a draw list into a `FramePlan` (no GPU object); `PlanResources` |
 | [ui/backend.rs](../crates/platypus_render/src/ui/backend.rs) | The `UiBackend` trait the app-facing renderers implement (`UiRenderer` today) |
 | [platypus_render_gles](../crates/platypus_render_gles/src/lib.rs) | `GlesRenderer`: executes a `FramePlan` with GLES 3 through EGL / ANGLE (`egl.rs`, `shaders.rs`) |
-| [ui/glyphs.rs](../crates/platypus_render/src/ui/glyphs.rs) | `GlyphCache`: GPU-free glyph rasterizing and packing, with a queue of pixel uploads |
+| [ui/glyphs.rs](../crates/platypus_render/src/ui/glyphs.rs) | `GlyphCache`: GPU-free glyph rasterizing and packing, with a queue of pixel uploads. A character the font lacks (glyph 0) is drawn as a red box of Inter's own `.notdef` letters, "NO GLYPH", cut out, stood up and stacked one per row (colour page, cached per size like any glyph) |
 | [ui/quad.wgsl](../crates/platypus_render/src/ui/quad.wgsl) | Instanced shader: boxes, shadows, glyphs, gradients, clips, images |
 | [ui/effects.wgsl](../crates/platypus_render/src/ui/effects.wgsl) | Fullscreen passes: blur, composite, blit |
 | [ui/atlas.rs](../crates/platypus_render/src/ui/atlas.rs) | The wgpu glyph atlas: the page textures a `GlyphCache` fills |
