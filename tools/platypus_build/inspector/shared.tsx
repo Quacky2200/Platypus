@@ -4,8 +4,8 @@
 // widgets. They use only the `UiInspector` API, which is always declared and answers nothing unless
 // the host runs the inspector, so a program built without the flag still compiles with them. Names
 // start with `UiInsp` so they never meet a game's. When the build appends this file it drops the
-// `export`s and the `import`s. The look is the stylesheet of `theme.ts` (classes `uii-*`, a dark and a
-// light theme): an entry point wraps what it draws in `UiInspRoot`.
+// `export`s and the `import`s. The look is `inspector.css` (classes `uii-*`, a dark and a light theme),
+// which the build adds to `game.css` with the flag: an entry point wraps what it draws in `UiInspRoot`.
 // What the style editor offers: Up / Down on a value add one unit (Shift ten, Alt a tenth); names and
 // keywords complete from the properties the engine supports (with their docs); a swatch opens a colour
 // picker (hex / rgb / hsl), a timing function opens a cubic-bezier editor, a gradient opens a stops
@@ -13,7 +13,6 @@
 // they come to; states (`:hover` ...), classes and pseudo-elements can be toggled and added.
 // Design: docs/research/platypus-ui-inspector.md
 
-import { uiInspEnsureCss } from "./theme.ts";
 import {
   uiValColorFormat,
   uiValEasingPoint,
@@ -57,7 +56,6 @@ function UiInspClamp01(n: number): number {
 
 /** What an entry point draws inside: the colour variables of the theme (`""`: follow the system; `dark`; `light`). */
 export function UiInspRoot(props: { theme: string; style?: PlatypusStyle; children?: ReactNode }) {
-  uiInspEnsureCss();
   return (
     <box className={"uii" + (props.theme !== "" ? " uii-" + props.theme : "")} style={props.style}>
       {props.children}
@@ -690,22 +688,115 @@ function UiInspBlock(props: { head: string; onEnter?: () => void; onLeave?: () =
 
 /** The row that adds a property: a name that completes from the supported ones, then a value. */
 function UiInspAdd(props: { id: number }) {
+  // 0: nothing showing (the block looks empty), 1: typing a property name, 2: typing its value.
+  const [stage, setStage] = useState(0);
   const [prop, setProp] = useState("");
+  const [val, setVal] = useState("");
+  const stageNow = useRef(0);
+  const propBox = useRef<PlatypusElement | null>(null);
+  const valBox = useRef<PlatypusElement | null>(null);
+  const go = (s: number): void => {
+    stageNow.current = s;
+    setStage(s);
+  };
+  useEffect(() => {
+    if (stage === 1) propBox.current?.focus();
+    if (stage === 2) valBox.current?.focus();
+  }, [stage]);
+  // The line is done: a property with a value is set; the entry is cleared either way.
+  const finish = (): void => {
+    if (prop.trim() !== "" && val.trim() !== "") UiInspector.setStyle(props.id, prop.trim(), val.trim());
+    setProp("");
+    setVal("");
+  };
+  if (stage === 0) {
+    // Clicking in the empty block starts a line, as in a browser's devtools.
+    return <box className="uii-row uii-add" onClick={() => go(1)} />;
+  }
+  const propWords = stage === 1 ? uiValSuggest(prop, UiInspector.styleProps(), 6) : [];
+  const valWords = stage === 2 && val.indexOf(" ") < 0 ? uiValSuggest(val, UiInspector.styleKeywords(prop.trim()), 6) : [];
   return (
-    <box className="uii-row" style={{ marginTop: 4 }}>
-      <UiInspField boxed={true} value={prop} placeholder="property" width={124} words={UiInspector.styleProps()} onCommit={(s) => setProp(s)} />
-      <UiInspValueField
-        boxed={true}
-        prop={prop}
-        value=""
-        width={124}
-        onCommit={(s) => {
-          if (prop !== "" && s !== "") {
-            UiInspector.setStyle(props.id, prop, s);
-            setProp("");
-          }
-        }}
-      />
+    <box className="uii-row" style={{ alignItems: "flex-start" }}>
+      {stage === 1 ? (
+        <box style={{ flexDirection: "column" }}>
+          <Input
+            ref={propBox}
+            className="uii-field"
+            value={prop}
+            style={{ width: Math.max(90, prop.length * 7 + 24) }}
+            onChange={(e) => setProp(e.value)}
+            onKeyDown={(e: PlatypusKeyboardEvent) => {
+              if (e.key === "Enter" || (e.key === "Tab" && propWords.length === 0)) {
+                e.preventDefault();
+                if (prop.trim() === "") {
+                  go(0);
+                } else {
+                  go(2);
+                }
+              } else if (e.key === "Tab" && propWords.length > 0) {
+                e.preventDefault();
+                setProp(propWords[0]!);
+              } else if (e.key === "Escape") {
+                setProp("");
+                go(0);
+              }
+            }}
+            onBlur={() => {
+              if (stageNow.current === 1) {
+                setProp("");
+                go(0);
+              }
+            }}
+          />
+          <UiInspSuggest
+            items={propWords}
+            onPick={(w) => {
+              setProp(w);
+              go(2);
+            }}
+          />
+        </box>
+      ) : (
+        <text className="uii-prop">{prop.trim() + ":"}</text>
+      )}
+      {stage === 2 ? (
+        <box style={{ flexDirection: "column" }}>
+          <Input
+            ref={valBox}
+            className="uii-field"
+            value={val}
+            style={{ width: Math.max(110, val.length * 7 + 24) }}
+            onChange={(e) => setVal(e.value)}
+            onKeyDown={(e: PlatypusKeyboardEvent) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                // Done: the property is set and a new line starts.
+                finish();
+                go(1);
+              } else if (e.key === "Tab" && valWords.length > 0) {
+                e.preventDefault();
+                setVal(valWords[0]!);
+              } else if (e.key === "Escape") {
+                setProp("");
+                setVal("");
+                go(0);
+              }
+            }}
+            onBlur={() => {
+              if (stageNow.current === 2) {
+                finish();
+                go(0);
+              }
+            }}
+          />
+          <UiInspSuggest
+            items={valWords}
+            onPick={(w) => {
+              setVal(w);
+            }}
+          />
+        </box>
+      ) : null}
     </box>
   );
 }

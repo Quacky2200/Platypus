@@ -1,18 +1,17 @@
 // The UI inspector's overlay: added to a program by `platypus-build build --add-ui-inspector`
-// (appended to the bundle after `values.ts`, `theme.ts` and `shared.tsx`, mounted in its own root by
+// (appended to the bundle after `values.ts` and `shared.tsx`, mounted in its own root by
 // `createRoot(9000001)`, the host's inspector target). Names start with `UiInsp` so they never meet a game's.
-//   F12  turns the inspector on and off.
-//   F9   pins the node under the pointer (and unpins).
-//   F7   pick mode: the next mouse click is kept from the game and pins the node under it.
-//   F8   edit mode: pins the hovered node if none is pinned and makes the card editable. A value typed into
-//        a rule's declaration (or into `element.style`) sets an inline override on that node (Enter or
-//        leaving the field commits, Escape puts it back, an empty value removes the override); the last
-//        row adds a property.
-// What it draws: the node under the pointer with its box model (margin orange, border yellow, padding
-// green, content blue) and a label; a pinned node as marching ants (moving dashes, no fill); while
-// editing, nothing over the pinned node (it would hide the colours being changed) except the box model
-// of a hovered margin / padding line and the marching ants round whatever a hovered rule or row is about.
-// The card lists the CSS rules that match the pinned (else hovered) node; its pill switches the theme.
+//   F12  turns the inspector on and off; a small toolbar shows while it is on.
+//   Inspect (F7)  the toolbar's button, as in a browser: move over the page to see each element's box
+//        model (margin orange, border yellow, padding green, content blue) and name, and click one to
+//        edit it. Esc cancels.
+//   Editing  a card lists the element's classes, forced states and CSS rules as `selector { ... }`; every
+//        value is a field (Enter commits, Escape reverts), and what you type sets an inline override on
+//        the element. Nothing is drawn over the element while editing (it would hide the colours being
+//        changed), except the box model of a hovered margin / padding / size line and marching ants round
+//        the elements a hovered rule matches. The card's × closes it.
+//   ?  the toolbar's button lists the shortcuts.
+// The inspector's own UI is never picked or outlined (the host skips what is under a `uii` root).
 // Design: docs/research/platypus-ui-inspector.md
 
 /** A layout number (`marginTop`, ...) of a node, 0 when it has none. */
@@ -91,8 +90,51 @@ function UiInspHighlights() {
   return <>{out}</>;
 }
 
-function UiInspCard(props: { id: number; pinned: boolean; edit: boolean; theme: string; onTheme: (theme: string) => void }) {
-  const { id, edit } = props;
+// --- Toolbar and help ------------------------------------------------------------------------------
+
+/** What the keys and mouse do, for the `?` panel. */
+const UiInspHelp = [
+  ["F12", "turn the inspector on or off"],
+  ["F7", "inspect: click an element to edit it (Esc cancels)"],
+  ["Enter / Esc", "commit / revert the value you are typing"],
+  ["Up / Down", "add or take 1 in a number (Shift: 10, Alt: 0.1)"],
+  ["Tab", "take the first completion"],
+  ["swatch / curve / stops", "colour picker / timing curve / gradient editor"],
+  ["flexbox", "a layout editor for a flex container"],
+  ["class links", "click to take a class off, again to put it back; + adds one"],
+  [":hover :active ...", "force a state on the element"],
+  ["hover a rule", "outline the elements it matches"],
+  ["hover margin / padding", "show the box model over the element"],
+  ["NEW RULE", "type .a:hover { color: red } to add a real rule"],
+];
+
+/** The toolbar: Inspect (as in a browser), `?` for the shortcuts, the theme, and off. */
+function UiInspToolbar(props: { picking: boolean; help: boolean; theme: string; onInspect: () => void; onHelp: () => void; onTheme: (theme: string) => void; onClose: () => void }) {
+  return (
+    <box className="uii-card" style={{ position: "fixed", top: 10, right: 10, padding: "6px 8px", flexDirection: "column", gap: 6, pointerEvents: "auto" }}>
+      <box style={{ flexDirection: "row", gap: 6, alignItems: "center" }}>
+        <UiInspChip label={props.picking ? "Inspecting… (Esc)" : "Inspect  F7"} on={props.picking} onClick={props.onInspect} />
+        <UiInspChip label="?" on={props.help} onClick={props.onHelp} />
+        <UiInspThemeChip theme={props.theme} onTheme={props.onTheme} />
+        <UiInspX onClick={props.onClose} />
+      </box>
+      {props.help ? (
+        <box style={{ flexDirection: "column", gap: 3, maxWidth: 380 }}>
+          {UiInspHelp.map((row) => (
+            <box key={row[0]} style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
+              <text className="uii-prop" style={{ width: 130 }}>{row[0]}</text>
+              <text className="uii-text" style={{ maxWidth: 240 }}>{row[1]}</text>
+            </box>
+          ))}
+        </box>
+      ) : null}
+    </box>
+  );
+}
+
+/** The card of the element being edited: its name, a close button, and the style editor. */
+function UiInspCard(props: { id: number; onClose: () => void }) {
+  const id = props.id;
   return (
     <box
       className="uii-card"
@@ -100,61 +142,58 @@ function UiInspCard(props: { id: number; pinned: boolean; edit: boolean; theme: 
         position: "fixed",
         left: 10,
         bottom: 10,
-        maxHeight: "62%",
-        minWidth: 280,
-        maxWidth: 540,
+        maxHeight: "74%",
+        minWidth: 300,
+        maxWidth: 560,
         padding: 10,
         flexDirection: "column",
-        overflow: edit ? "auto" : "hidden",
-        pointerEvents: edit ? "auto" : "none",
+        overflow: "auto",
+        pointerEvents: "auto",
       }}
     >
       <box className="uii-head">
-        <text className="uii-title">{(edit ? "editing  " : props.pinned ? "pinned  " : "") + UiInspName(id)}</text>
+        <text className="uii-title">{UiInspName(id)}</text>
         <box style={{ flexGrow: 1 }} />
-        {edit ? <UiInspThemeChip theme={props.theme} onTheme={props.onTheme} /> : null}
+        <UiInspX onClick={props.onClose} />
       </box>
-      <UiInspStyles id={id} edit={edit} />
-      {edit ? <text className="uii-dim" style={{ marginTop: 6 }}>values you type set inline overrides · Enter commits · Up / Down step · F8 leaves</text> : null}
+      <UiInspStyles id={id} edit={true} />
     </box>
   );
 }
 
 function UiInspOverlay() {
   const [on, setOn] = useState(false);
-  const [edit, setEdit] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [help, setHelp] = useState(false);
   const [theme, setTheme] = useState("");
   const [, setTick] = useState(0);
   useEffect(() => {
     return input.on("keydown", (e) => {
       if (e.code === "F12") {
         setOn((v) => !v);
-        setEdit(false);
         setPicking(false);
+        setHelp(false);
+        UiInspector.select(0);
       } else if (e.code === "F7") {
-        setEdit(false);
+        setOn(true);
         setPicking((v) => !v);
-      } else if (e.code === "F9") {
-        UiInspector.select(UiInspector.selected() !== 0 ? 0 : UiInspector.hovered());
-        setEdit(false);
-      } else if (e.code === "F8") {
-        if (UiInspector.selected() === 0) UiInspector.select(UiInspector.hovered());
-        setEdit((v) => !v);
+      } else if (e.code === "Escape") {
+        setPicking(false);
       }
     });
   }, []);
-  // In pick mode the host keeps mouse presses from the game and tells us what was under one.
+  // While inspecting the host keeps mouse presses on the page from the game and says what was under one.
   useEffect(() => {
-    UiInspector.pick(on && picking && !edit);
+    UiInspector.pick(on && picking);
     return () => UiInspector.pick(false);
-  }, [on, picking, edit]);
+  }, [on, picking]);
   // The host publishes once a frame; redraw at about the same pace while on.
   useEffect(() => {
     if (!on) return undefined;
     const h = setInterval(() => {
       const clicked = UiInspector.takeClick();
       if (clicked !== 0) {
+        // The element clicked while inspecting is edited at once.
         UiInspector.select(clicked);
         setPicking(false);
       }
@@ -165,24 +204,29 @@ function UiInspOverlay() {
   if (!on) return null;
   const hovered = UiInspector.hovered();
   const pinned = UiInspector.selected();
-  const shown = pinned !== 0 ? pinned : hovered;
-  const editing = edit && pinned !== 0;
+  const editing = pinned !== 0 && !picking;
   const focus = UiInspector.boxFocus();
   return (
     <UiInspRoot theme={theme} style={{ position: "fixed", left: 0, top: 0, width: "100%", height: "100%", pointerEvents: "none" }}>
-      {picking ? (
-        <box className="uii-tip" style={{ position: "fixed", top: 10, left: "50%" }}>
-          <text className="uii-text">click an element to pin it · F7 cancels</text>
-        </box>
-      ) : null}
-      {/* Pointing at the page: the box model of what is under the pointer. */}
-      {!editing && hovered !== 0 && hovered !== pinned ? <UiInspBoxModel id={hovered} label={true} /> : null}
-      {/* Pinned: moving dashes, so the colours under it stay visible. */}
-      {!editing && pinned !== 0 ? <UiInspAnts x={UiInspector.x(pinned)} y={UiInspector.y(pinned)} w={UiInspector.width(pinned)} h={UiInspector.height(pinned)} /> : null}
-      {/* Editing: nothing over the node, but the box model while a margin / padding line is hovered. */}
+      {/* Inspecting: the box model of what is under the pointer. */}
+      {picking && hovered !== 0 ? <UiInspBoxModel id={hovered} label={true} /> : null}
+      {/* Editing: nothing over the element, but the box model while a margin / padding line is hovered. */}
       {editing && focus !== 0 ? <UiInspBoxModel id={focus} label={false} /> : null}
       <UiInspHighlights />
-      {shown !== 0 ? <UiInspCard id={shown} pinned={pinned !== 0} edit={editing} theme={theme} onTheme={setTheme} /> : null}
+      {editing ? <UiInspCard id={pinned} onClose={() => UiInspector.select(0)} /> : null}
+      <UiInspToolbar
+        picking={picking}
+        help={help}
+        theme={theme}
+        onInspect={() => setPicking(!picking)}
+        onHelp={() => setHelp(!help)}
+        onTheme={setTheme}
+        onClose={() => {
+          setOn(false);
+          setPicking(false);
+          UiInspector.select(0);
+        }}
+      />
     </UiInspRoot>
   );
 }

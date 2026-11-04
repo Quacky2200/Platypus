@@ -124,6 +124,10 @@ fn add_ui_inspector_compiles_the_overlay_in_and_marks_the_bundle() {
     assert!(b.status.success(), "{}", String::from_utf8_lossy(&b.stderr));
     let text = std::fs::read_to_string(&pbundle).unwrap();
     assert!(!text.contains("uiInspector") && !text.contains("UiInspOverlay"));
+    assert!(
+        !g.join("build/game.css").exists(),
+        "no inspector styles without the flag"
+    );
 
     // With the flag the overlay is part of the program, and the host is told.
     let b = run(
@@ -150,5 +154,13 @@ fn add_ui_inspector_compiles_the_overlay_in_and_marks_the_bundle() {
             .unwrap()
             .contains("function UiInspOverlay")
     );
+    // Its styles are a real CSS file added to game.css, not part of the program.
+    let css = std::fs::read_to_string(g.join("build/game.css")).unwrap();
+    assert!(
+        css.contains(".uii-card") && css.contains("prefers-color-scheme"),
+        "{css}"
+    );
+    assert!(!v["source"].as_str().unwrap().contains("--uii-bg"));
+    assert_eq!(v["css"], "game.css");
     let _ = std::fs::remove_dir_all(&g);
 }

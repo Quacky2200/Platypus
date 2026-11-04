@@ -154,6 +154,22 @@ fn set_state(ui: &mut UiTree, id: NodeId, state: &str, on: bool) {
     }
 }
 
+/// Whether `id` is part of the inspector's own UI (it or an ancestor has a `uii` class: the overlay's and
+/// the editor panel's roots do), which is neither picked nor outlined.
+fn in_inspector(ui: &UiTree, id: NodeId) -> bool {
+    let mut at = Some(id);
+    while let Some(n) = at {
+        if ui
+            .attrs(n)
+            .is_some_and(|a| a.classes.iter().any(|c| c == "uii"))
+        {
+            return true;
+        }
+        at = ui.parent(n);
+    }
+    false
+}
+
 impl App {
     /// A mouse press: in pick mode the inspector takes it (and, with it, the release) instead of
     /// the game, and remembers the node under the pointer. True when it was taken.
@@ -165,11 +181,12 @@ impl App {
             return false;
         };
         let scale = self.scale();
-        let hit = self
-            .ui
-            .inspect_pick(px / scale, py / scale)
-            .map_or(0, |n| n.0);
-        api::press(hit)
+        let hit = self.ui.inspect_pick(px / scale, py / scale);
+        // The inspector's own buttons and card take presses as usual, and are never picked.
+        if hit.is_some_and(|n| in_inspector(&self.ui, n)) {
+            return false;
+        }
+        api::press(hit.map_or(0, |n| n.0))
     }
 
     /// Called before drawing each frame of a compiled game (`sync_native_render`).
@@ -209,6 +226,7 @@ impl App {
                 let scale = self.scale();
                 self.ui
                     .inspect_pick(px / scale, py / scale)
+                    .filter(|n| !in_inspector(&self.ui, *n))
                     .map_or(0, |n| n.0)
             }
             _ => 0,

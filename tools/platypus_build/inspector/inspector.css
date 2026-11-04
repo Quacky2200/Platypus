@@ -1,10 +1,13 @@
-// The UI inspector's look: one stylesheet with colour variables for a dark and a light theme, the field,
-// pill and popup styles, added to the UI once (`uiInspEnsureCss`). The theme follows the system
-// (`prefers-color-scheme`) unless an entry point puts `uii-dark` or `uii-light` next to `uii` on its root.
-// Names start with `uiInsp` / `UiInsp`. When the build appends this file it drops the `export`s.
-// Design: docs/research/platypus-ui-inspector.md
+/*
+ * The UI inspector's look. `platypus-build build --add-ui-inspector` adds this file to the game's
+ * `game.css`; without the flag it is not part of the build. Colour variables for a dark and a light theme:
+ * `.uii` follows the system (`prefers-color-scheme`), `uii-dark` / `uii-light` next to it force one.
+ * Everything the inspector draws is under a `.uii` root (the host also skips such roots when picking).
+ * Design: docs/research/platypus-ui-inspector.md
+ */
 
-const UI_INSP_DARK = `
+/* Themes */
+.uii {
   --uii-bg: #161a22;
   --uii-bg2: #1e2430;
   --uii-text: #dfe7f5;
@@ -18,9 +21,40 @@ const UI_INSP_DARK = `
   --uii-sel: #f0b86e;
   --uii-warn: #e07a7a;
   --uii-shadow: rgba(0, 0, 0, 0.5);
-`;
-
-const UI_INSP_LIGHT = `
+}
+@media (prefers-color-scheme: light) {
+  .uii {
+    --uii-bg: #fbfbfd;
+    --uii-bg2: #f0f2f6;
+    --uii-text: #1c2330;
+    --uii-dim: #6b7685;
+    --uii-line: rgba(20, 30, 50, 0.16);
+    --uii-hover: rgba(20, 30, 50, 0.07);
+    --uii-field: rgba(20, 30, 50, 0.05);
+    --uii-accent: #1a6ee0;
+    --uii-accent-bg: rgba(26, 110, 224, 0.2);
+    --uii-prop: #1d5bb8;
+    --uii-sel: #a8531b;
+    --uii-warn: #c43a3a;
+    --uii-shadow: rgba(20, 30, 50, 0.25);
+  }
+}
+.uii.uii-dark {
+  --uii-bg: #161a22;
+  --uii-bg2: #1e2430;
+  --uii-text: #dfe7f5;
+  --uii-dim: #8a94a3;
+  --uii-line: rgba(255, 255, 255, 0.12);
+  --uii-hover: rgba(255, 255, 255, 0.07);
+  --uii-field: rgba(255, 255, 255, 0.06);
+  --uii-accent: #6cb6ff;
+  --uii-accent-bg: rgba(108, 182, 255, 0.22);
+  --uii-prop: #9cc4ff;
+  --uii-sel: #f0b86e;
+  --uii-warn: #e07a7a;
+  --uii-shadow: rgba(0, 0, 0, 0.5);
+}
+.uii.uii-light {
   --uii-bg: #fbfbfd;
   --uii-bg2: #f0f2f6;
   --uii-text: #1c2330;
@@ -34,14 +68,9 @@ const UI_INSP_LIGHT = `
   --uii-sel: #a8531b;
   --uii-warn: #c43a3a;
   --uii-shadow: rgba(20, 30, 50, 0.25);
-`;
+}
 
-export const UI_INSP_CSS = `
-.uii { ${UI_INSP_DARK} }
-@media (prefers-color-scheme: light) { .uii { ${UI_INSP_LIGHT} } }
-.uii.uii-dark { ${UI_INSP_DARK} }
-.uii.uii-light { ${UI_INSP_LIGHT} }
-
+/* Cards, headings and text */
 .uii-card {
   background-color: var(--uii-bg);
   border: 1px solid var(--uii-line);
@@ -57,11 +86,17 @@ export const UI_INSP_CSS = `
 .uii-sel { color: var(--uii-sel); font-size: 12px; }
 .uii-prop { color: var(--uii-prop); font-size: 12px; padding-top: 2px; }
 .uii-off { color: var(--uii-dim); text-decoration: line-through; }
-.uii-row { flex-direction: row; flex-wrap: wrap; align-items: flex-start; gap: 4px; padding-left: 18px; border-radius: 4px; }
-.uii-block { flex-direction: column; margin-bottom: 6px; }
-.uii-line-text { padding-left: 18px; }
-.uii-row:hover { background-color: var(--uii-hover); }
+.uii-brace { color: var(--uii-dim); font-size: 12px; }
+.uii-group { color: var(--uii-dim); font-size: 11px; margin-top: 6px; }
 .uii-computed { color: var(--uii-sel); font-size: 11px; padding-top: 3px; }
+
+/* A rule as devtools draws it: `selector {`, lines, `}` */
+.uii-block { flex-direction: column; margin-bottom: 6px; }
+.uii-row { flex-direction: row; flex-wrap: wrap; align-items: flex-start; gap: 4px; padding-left: 18px; border-radius: 4px; }
+.uii-row:hover { background-color: var(--uii-hover); }
+.uii-line-text { padding-left: 18px; }
+/* The empty line of a block: nothing to see, a text cursor, click to start a property. */
+.uii-add { min-height: 18px; cursor: text; }
 
 /* A value reads as plain text; editing wraps it snugly: 2px above and below (1px padding, 1px border), 5px at the sides. */
 .uii-field {
@@ -84,9 +119,8 @@ export const UI_INSP_CSS = `
 .uii-link.on { color: var(--uii-accent); text-decoration: underline; }
 .uii-link.gone { color: var(--uii-dim); text-decoration: line-through; }
 .uii-link.add { color: var(--uii-dim); }
-.uii-brace { color: var(--uii-dim); font-size: 12px; }
-.uii-group { color: var(--uii-dim); font-size: 11px; margin-top: 6px; }
 
+/* Pills and small controls */
 .uii-chip {
   padding: 1px 8px;
   border-radius: 10px;
@@ -107,6 +141,7 @@ export const UI_INSP_CSS = `
 .uii-swatch { border: 1px solid var(--uii-line); border-radius: 4px; cursor: pointer; transition: border-color 0.12s; }
 .uii-swatch:hover { border-color: var(--uii-accent); }
 
+/* Helper widgets: colour picker, timing curve, gradient and flexbox editors */
 .uii-pop {
   background-color: var(--uii-bg2);
   border: 1px solid var(--uii-line);
@@ -121,7 +156,9 @@ export const UI_INSP_CSS = `
 .uii-graph { background-color: var(--uii-field); border: 1px solid var(--uii-line); border-radius: 4px; }
 .uii-line { background-color: var(--uii-line); }
 .uii-knob { border: 2px solid #ffffff; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.6); }
+.uii-flex-box { border: 1px dashed var(--uii-dim); border-radius: 4px; background-color: var(--uii-field); }
 
+/* Completions and tooltips */
 .uii-sugg {
   margin-top: 2px;
   min-width: 120px;
@@ -135,7 +172,6 @@ export const UI_INSP_CSS = `
 .uii-sugg-item { padding: 2px 8px; border-radius: 4px; cursor: pointer; }
 .uii-sugg-item:hover { background-color: var(--uii-hover); }
 .uii-sugg-item.first { background-color: var(--uii-accent-bg); }
-
 .uii-tip {
   background-color: var(--uii-bg2);
   border: 1px solid var(--uii-line);
@@ -143,6 +179,7 @@ export const UI_INSP_CSS = `
   padding: 3px 8px;
   box-shadow: 0 4px 14px var(--uii-shadow);
 }
+
 /* Marching ants: a selection drawn as moving dashes, never as a fill, so it hides no colour. Four strips
    with a repeating gradient whose position the animation walks by one period. */
 @keyframes uii-march-x { from { background-position: 0px 0px; } to { background-position: 6px 0px; } }
@@ -159,18 +196,8 @@ export const UI_INSP_CSS = `
 }
 .uii-ant-back { animation-direction: reverse; }
 
-/* The box model drawn over a hovered element, as browsers' devtools do. */
+/* The box model drawn over an inspected element, as browsers' devtools do. */
 .uii-bm-margin { background-color: rgba(246, 178, 107, 0.45); }
 .uii-bm-border { background-color: rgba(255, 229, 153, 0.5); }
 .uii-bm-padding { background-color: rgba(147, 196, 125, 0.5); }
 .uii-bm-content { background-color: rgba(111, 168, 220, 0.5); }
-
-.uii-flex-box { border: 1px dashed var(--uii-dim); border-radius: 4px; background-color: var(--uii-field); }
-`;
-
-let uiInspCssId = 0;
-
-/** Adds the inspector's stylesheet to the UI once. */
-export function uiInspEnsureCss(): void {
-  if (uiInspCssId === 0) uiInspCssId = addStyleSheet(UI_INSP_CSS);
-}

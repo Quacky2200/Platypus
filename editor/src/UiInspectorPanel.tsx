@@ -97,7 +97,7 @@ export function UiInspectorPanel({ width, height }: UiInspectorPanelProps) {
   return (
     <UiInspRoot theme={theme} style={{ width, height, flexDirection: "column" }}>
       <box style={{ height: HEADER, flexDirection: "row", alignItems: "center", gap: 8, padding: "0 8px" }}>
-        <Text>{selected === 0 ? "Pick a row, or press F9 over the UI" : UiInspName(selected)}</Text>
+        <Text>{selected === 0 ? "Pick a row, or press F12 then Inspect" : UiInspName(selected)}</Text>
         <box style={{ flexGrow: 1 }} />
         <UiInspThemeChip theme={theme} onTheme={setTheme} />
         <box

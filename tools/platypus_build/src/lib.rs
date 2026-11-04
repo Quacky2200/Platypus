@@ -280,8 +280,8 @@ const INSPECTOR_OVERLAY: &str = include_str!("../inspector/overlay.tsx");
 const INSPECTOR_SHARED: &str = include_str!("../inspector/shared.tsx");
 /// The value logic the shared parts use (`inspector/values.ts`).
 const INSPECTOR_VALUES: &str = include_str!("../inspector/values.ts");
-/// The inspector's stylesheet (`inspector/theme.ts`).
-const INSPECTOR_THEME: &str = include_str!("../inspector/theme.ts");
+/// The inspector's stylesheet: added to `game.css` by the build, not to the program.
+const INSPECTOR_CSS: &str = include_str!("../inspector/inspector.css");
 const INSPECTOR_SHARED_MARKER: &str = "function UiInspField(";
 
 /// `text` as part of the program: no `import` statements (the parts are appended in order) and no
@@ -307,7 +307,6 @@ fn add_ui_inspector(bundle: &mut platypus_ts::modules::Bundle) {
     // A program that imports the shared parts (the editor does) has them, and the logic below them.
     if !bundle.source.contains(INSPECTOR_SHARED_MARKER) {
         parts.insert(0, ("<ui-inspector>/shared.tsx", INSPECTOR_SHARED));
-        parts.insert(0, ("<ui-inspector>/theme.ts", INSPECTOR_THEME));
         parts.insert(0, ("<ui-inspector>/values.ts", INSPECTOR_VALUES));
     }
     for (name, text) in parts {
@@ -623,8 +622,15 @@ pub fn build(root: &Path, opts: &Options) -> Result<Report, String> {
         platypus_ts::extern_symbols(&bundle.source, &manifests()).ok()
     };
 
-    // Stylesheets, in import order.
-    let css_paths: Vec<PathBuf> = bundle.css.iter().map(PathBuf::from).collect();
+    // Stylesheets, in import order; the inspector's (`inspector/inspector.css`) comes with the flag.
+    let mut css_paths: Vec<PathBuf> = bundle.css.iter().map(PathBuf::from).collect();
+    let inspector_css = out_dir.join("ui-inspector.css");
+    if opts.ui_inspector {
+        write_atomic(&inspector_css, INSPECTOR_CSS.as_bytes()).map_err(|e| e.to_string())?;
+        css_paths.push(inspector_css);
+    } else {
+        let _ = std::fs::remove_file(&inspector_css);
+    }
     let mut css_name = None;
     let mut copied = Vec::new();
     if !css_paths.is_empty() {
