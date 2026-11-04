@@ -253,47 +253,74 @@ function UiInspValueField(props: {
   };
   const words = focused ? UiInspector.styleKeywords(props.prop) : [];
   const suggestions = focused && text.indexOf(" ") < 0 ? uiValSuggest(text, words, 6) : [];
+  // A value wider than its field is shown wrapped, in a few lines, so all of it can be read; a one-line
+  // field would only show its end. (Chosen by the committed value, so typing never swaps the element
+  // under the caret.)
+  // The width a value needs is the estimate the line sizes its field by (6.4px a character and 16 of padding), so
+  // only a field held at its largest width, or one set narrower than its value, wraps.
+  const natural = props.value.length * 6.4 + 16;
+  const wrapped = natural > props.width + 2;
+  const rows = Math.max(2, Math.ceil((props.value.length * 6.9) / (props.width - 14)));
+  const onChangeText = (e: PlatypusInputEvent): void => {
+    editing.current = true;
+    setText(e.value);
+  };
+  const onKey = (e: PlatypusKeyboardEvent): void => {
+    if (e.key === "Backspace" && text === "" && props.onBackspaceEmpty !== undefined) {
+      e.preventDefault();
+      left.current = true;
+      props.onBackspaceEmpty();
+    } else if (e.key === "Enter") {
+      // Enter commits (a wrapped value is a text area, where it would add a line).
+      e.preventDefault();
+      commit(text);
+    } else if (e.key === "Escape") {
+      editing.current = false;
+      setText(props.value);
+      setFocused(false);
+    } else if (e.key === "Tab" && suggestions.length > 0) {
+      e.preventDefault();
+      editing.current = true;
+      setText(suggestions[0]!);
+    } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+      const nums = uiValNumbers(text);
+      if (nums.length === 0) return;
+      e.preventDefault();
+      const big = e.shiftKey ? 10 : e.altKey ? 0.1 : 1;
+      const next = uiValStep(text, e.key === "ArrowUp" ? 1 : -1, uiValStepSize(props.prop, nums[0]!.unit) * big, -1);
+      if (next !== null) {
+        editing.current = false;
+        setText(next);
+        props.onCommit(next);
+      }
+    }
+  };
   return (
     <box style={{ flexDirection: "column" }}>
-      <Input
-        ref={props.inputRef}
-        className={props.boxed === true ? "uii-field uii-boxed" : "uii-field"}
-        value={text}
-        style={{ width: props.width }}
-        onFocus={() => setFocused(true)}
-        onChange={(e) => {
-          editing.current = true;
-          setText(e.value);
-        }}
-        onKeyDown={(e: PlatypusKeyboardEvent) => {
-          if (e.key === "Backspace" && text === "" && props.onBackspaceEmpty !== undefined) {
-            e.preventDefault();
-            left.current = true;
-            props.onBackspaceEmpty();
-          } else if (e.key === "Enter") commit(text);
-          else if (e.key === "Escape") {
-            editing.current = false;
-            setText(props.value);
-            setFocused(false);
-          } else if (e.key === "Tab" && suggestions.length > 0) {
-            e.preventDefault();
-            editing.current = true;
-            setText(suggestions[0]!);
-          } else if (e.key === "ArrowUp" || e.key === "ArrowDown") {
-            const nums = uiValNumbers(text);
-            if (nums.length === 0) return;
-            e.preventDefault();
-            const big = e.shiftKey ? 10 : e.altKey ? 0.1 : 1;
-            const next = uiValStep(text, e.key === "ArrowUp" ? 1 : -1, uiValStepSize(props.prop, nums[0]!.unit) * big, -1);
-            if (next !== null) {
-              editing.current = false;
-              setText(next);
-              props.onCommit(next);
-            }
-          }
-        }}
-        onBlur={() => commit(text)}
-      />
+      {wrapped ? (
+        <TextArea
+          ref={props.inputRef}
+          rows={rows}
+          className={props.boxed === true ? "uii-field uii-boxed" : "uii-field"}
+          value={text}
+          style={{ width: props.width }}
+          onFocus={() => setFocused(true)}
+          onChange={onChangeText}
+          onKeyDown={onKey}
+          onBlur={() => commit(text)}
+        />
+      ) : (
+        <Input
+          ref={props.inputRef}
+          className={props.boxed === true ? "uii-field uii-boxed" : "uii-field"}
+          value={text}
+          style={{ width: props.width }}
+          onFocus={() => setFocused(true)}
+          onChange={onChangeText}
+          onKeyDown={onKey}
+          onBlur={() => commit(text)}
+        />
+      )}
       <UiInspSuggest
         items={suggestions}
         onPick={(w) => {
@@ -765,7 +792,7 @@ function UiInspLine(props: { id: number; prop: string; value: string; override: 
           value={value}
           inputRef={valBox}
           onBackspaceEmpty={props.removable ? () => keyBox.current?.focus() : undefined}
-          width={Math.min(250, Math.max(kind === "color" ? 60 : 44, value.length * 6.4 + 16))}
+          width={Math.min(280, Math.max(kind === "color" ? 60 : 44, value.length * 6.4 + 16))}
           onCommit={(s) => UiInspector.setStyle(id, prop, s)}
         />
         {/* What the value comes to, right beside it; it is read again every frame, so it follows the layout. */}
