@@ -743,6 +743,16 @@ export function UiInspClosePops(): void {
   uiInspPopEpoch++;
 }
 
+/** The current epoch: something opened at an earlier one has been closed by a press elsewhere. */
+export function UiInspPopEpoch(): number {
+  return uiInspPopEpoch;
+}
+
+/** The card's menus count as open helpers too (`+1` when one opens, `-1` when it is gone). */
+export function UiInspPopsBump(by: number): void {
+  uiInspPopsOpen += by;
+}
+
 /** How many helper widgets are open. */
 export function UiInspPopsOpen(): number {
   return uiInspPopsOpen;

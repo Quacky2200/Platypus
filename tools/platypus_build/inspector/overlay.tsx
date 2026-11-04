@@ -323,7 +323,7 @@ function UiInspIconMenu() {
 function UiInspMini(props: { tip: string; on?: boolean; onClick: () => void; children?: ReactNode }) {
   const [hot, setHot] = useState(false);
   return (
-    <box className={props.on === true ? "uii-mini on" : "uii-mini"} onClick={props.onClick} onMouseEnter={() => setHot(true)} onMouseLeave={() => setHot(false)}>
+    <box className={props.on === true ? "uii-mini on" : "uii-mini"} onMouseDown={(e) => e.stopPropagation()} onClick={props.onClick} onMouseEnter={() => setHot(true)} onMouseLeave={() => setHot(false)}>
       {props.children}
       {hot && props.on !== true ? (
         <box className="uii-tool-tip" style={{ position: "absolute", top: 27, right: 0, pointerEvents: "none" }}>
@@ -359,7 +359,7 @@ function UiInspChevron(props: { open: boolean }) {
 function UiInspMenuItem(props: { label: string; off?: boolean; tick?: boolean; sub?: boolean; hint?: string; chevron?: boolean; onClick: () => void }) {
   const cls = "uii-menu-item" + (props.off === true ? " off" : "") + (props.sub === true ? " uii-menu-sub" : "");
   return (
-    <box className={cls} onClick={props.off === true ? undefined : props.onClick}>
+    <box className={cls} onMouseDown={(e) => e.stopPropagation()} onClick={props.off === true ? undefined : props.onClick}>
       {props.sub === true ? <UiInspTick on={props.tick === true} /> : null}
       <text className="uii-text">{props.label}</text>
       <box style={{ flexGrow: 1 }} />
@@ -378,7 +378,28 @@ function UiInspCard(props: { id: number; onClose: () => void }) {
   const id = props.id;
   const at = useRef([0, 0]);
   const [pos, setPos] = useState([0, 0]);
-  const [menu, setMenu] = useState(false);
+  // The menus close on a press anywhere else (the overlay's backdrop, or the card's body).
+  const [menuWanted, setMenuWanted] = useState(false);
+  const [copyWanted, setCopyWanted] = useState(false);
+  const openedAt = useRef(0);
+  const menu = menuWanted && openedAt.current === UiInspPopEpoch();
+  const copyMenu = copyWanted && openedAt.current === UiInspPopEpoch();
+  const setMenu = (v: boolean): void => {
+    openedAt.current = UiInspPopEpoch();
+    setMenuWanted(v);
+    if (v) setCopyWanted(false);
+  };
+  const setCopyMenu = (v: boolean): void => {
+    openedAt.current = UiInspPopEpoch();
+    setCopyWanted(v);
+    if (v) setMenuWanted(false);
+  };
+  const anyMenu = menu || copyMenu;
+  useEffect(() => {
+    if (!anyMenu) return undefined;
+    UiInspPopsBump(1);
+    return () => UiInspPopsBump(-1);
+  }, [anyMenu]);
   const [schemeOpen, setSchemeOpen] = useState(false);
   // "" matches the toolbar's theme; "light" and "dark" are the card's own.
   const [scheme, setScheme] = useState("");
@@ -411,7 +432,7 @@ function UiInspCard(props: { id: number; onClose: () => void }) {
     >
       {/* The header is raised over the body, so the menu and the tooltips that hang from it are on top of (and
           take the clicks before) the rows below. */}
-      <box className="uii-head" style={{ margin: "10px 10px 6px 10px", position: "relative", zIndex: 100 }}>
+      <box className="uii-head" style={{ margin: "10px 10px 6px 10px", position: "relative", zIndex: 100 }} onMouseDown={() => UiInspClosePops()}>
         <UiInspGrip className="uii-card-grip" onMove={move}>
           <UiInspIconGrip />
         </UiInspGrip>
