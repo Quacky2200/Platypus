@@ -85,8 +85,9 @@ pub(crate) struct Editor {
     pub(crate) size: (f32, f32),
     /// When the caret last moved or the text changed, to restart the blink.
     activity_ms: f64,
-    /// A script set the text: move the caret to the end at the next layout, like browsers.
-    caret_to_end: bool,
+    /// A script set the text: put the caret this many characters from the end at the next layout (0: at the
+    /// end, as browsers do).
+    caret_from_end: Option<usize>,
     /// `type="password"`: the Parley editor holds one [`MASK`] per character and the real
     /// text is kept in `secret`.
     password: bool,
@@ -125,7 +126,7 @@ impl Editor {
             scroll: (0.0, 0.0),
             size: (0.0, 0.0),
             activity_ms: 0.0,
-            caret_to_end: false,
+            caret_from_end: None,
             password: false,
             secret: String::new(),
             kind: InputKind::Text,
@@ -208,7 +209,7 @@ impl Editor {
             self.password = false;
             self.editor.set_text(&plain);
         }
-        self.caret_to_end = true;
+        self.caret_from_end = Some(0);
     }
 
     /// Puts one mask per character of `secret` into the editor, keeping the selection's
@@ -295,13 +296,21 @@ impl Editor {
             }
             self.secret = value.to_owned();
             self.show_masked();
+            self.caret_from_end = Some(0);
         } else {
             if self.editor.raw_text() == value {
                 return false;
             }
+            // The caret keeps its distance from the end, so a value changed from outside in front of it (a
+            // number stepped with the arrow keys) leaves it where it was; a caret at the end stays at the end.
+            let from_end = {
+                let text = self.editor.raw_text();
+                let focus = self.editor.raw_selection().focus().index();
+                text.get(focus..).map_or(0, |tail| tail.chars().count())
+            };
             self.editor.set_text(value);
+            self.caret_from_end = Some(from_end);
         }
-        self.caret_to_end = true;
         true
     }
 
@@ -352,8 +361,19 @@ impl Editor {
         self.editor
             .set_width(self.multiline.then_some(width.max(1.0)));
         let (font_cx, layout_cx) = text.contexts();
-        if std::mem::take(&mut self.caret_to_end) {
-            self.editor.driver(font_cx, layout_cx).move_to_text_end();
+        if let Some(from_end) = self.caret_from_end.take() {
+            let text = self.editor.raw_text();
+            let at = text
+                .char_indices()
+                .rev()
+                .nth(from_end.saturating_sub(1))
+                .map_or(0, |(i, _)| i);
+            let mut driver = self.editor.driver(font_cx, layout_cx);
+            if from_end == 0 {
+                driver.move_to_text_end();
+            } else {
+                driver.move_to_byte(at);
+            }
         }
         self.editor.refresh_layout(font_cx, layout_cx);
         if let (Some((placeholder, layout @ None)), Some(style)) =

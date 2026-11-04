@@ -852,7 +852,7 @@ function UiInspLine(props: { id: number; prop: string; value: string; override: 
         {edited ? <UiInspChip label="edited  ↺" on={true} onClick={() => UiInspector.setStyle(id, prop, "")} /> : null}
       </box>
       {open ? (
-        <box ref={pop} style={{ flexDirection: "column" }} onMouseDown={(e) => e.stopPropagation()}>
+        <box ref={pop} style={{ flexDirection: "column", alignSelf: "flex-start" }} onMouseDown={(e) => e.stopPropagation()}>
           {kind === "color" ? <UiInspColorPicker value={value} onChange={(s) => UiInspector.setStyle(id, prop, s)} /> : null}
           {easing !== null ? (
             <UiInspEasingEditor
