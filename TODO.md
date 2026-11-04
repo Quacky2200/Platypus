@@ -2261,6 +2261,11 @@ Design: `docs/research/platypus-ui-inspector.md`. Opt-in at build time (`platypu
 - [ ] **Source locations:** rule file and line (`StyleRule.source`, only with the flag), `@media` condition, pseudo-element rules, computed values; write an edited declaration back to the CSS file.
 - [ ] **Component tree (live component editing):** `Runtime` introspection (component names, props, hook state) behind the flag; JSX site of a host element; edits through hot reload.
 - [ ] **Docs:** `docs/ui-native.md` / `docs/platypus-build.md` once the flag exists.
+- [ ] **Game UI in the editor (design: `docs/research/platypus-react-pane.md`, 2026-11-06):** the UI tab inspects the editor's own UI; the user wants the game's (the Game view). In order:
+  - [ ] Tree ids (`UiInspector.target` / `targets`, one tree per call; screen = 0, a `WorldPanel` id for a panel), a target menu in the UI tab, the editor's own roots marked as tool UI so picking in the Game view never lands on them, a camera-ray pick into the world panel under the pointer.
+  - [ ] `File > New React Component`: `src/modules/<Name>.tsx` (+ optional `.css`, `.meta`), offers the import.
+  - [ ] `GameObject > React Pane`: a `WorldPanel` with a `component` property (a dropdown of `src/modules` components), a placeholder until E11.
+  - [ ] E11 (above) makes a pane render its component; the canvas UI element gives the Game view a screen UI to inspect.
 
 ## UI style editor (2026-11-05; direction revised by the user the same day)
 
