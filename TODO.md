@@ -2262,6 +2262,17 @@ Design: `docs/research/platypus-ui-inspector.md`. Opt-in at build time (`platypu
 - [ ] **Component tree (live component editing):** `Runtime` introspection (component names, props, hook state) behind the flag; JSX site of a host element; edits through hot reload.
 - [ ] **Docs:** `docs/ui-native.md` / `docs/platypus-build.md` once the flag exists.
 
+## UI editor (TSX as the source, 2026-11-05)
+
+Design: `docs/research/platypus-ui-editor.md`. A UI-only editor (not the engine editor) that edits a game's UI by patching its TSX, with light and dark modes. Builds on the UI inspector above and on the debug-info / VS Code work of the `ts-debugger` session.
+- [ ] **Source tags:** with `--add-ui-inspector`, `Ui.begin(..)` carries the JSX element's position (file, line, column from the bundle's `locate`); `UiInspector.source(id)`; "reveal in VS Code". Needs the columns of the debug-info work.
+- [ ] **`platypus_ui_edit` crate and `platypus-build edit-ui`:** one operation on a file and position (`set-style`, `set-class`, `set-text`, `remove`, `move`, `wrap`) as oxc span edits (formatting and comments kept); refuses expressions (`style={styles.card}`, spreads, `.map`) with a reason. Round-trip tests.
+- [ ] **Inspector "write to source":** a literal edit in the overlay card / UI tab patches the file; `platypus-build dev` reloads.
+- [ ] **`ui-editor/` app** (UI-only, GLES tier): Elements tree with source, Styles (the shared `UiInspStyles`), canvas of the UI under edit by attaching to a game built with the inspector over a local socket (later: the canvas UI element), undo as a text history.
+- [ ] **Light and dark:** a second block of the `--platypus-*` variables under `prefers-color-scheme: light` plus a manual switch; preview the UI under edit in either scheme with `UiTree::set_media_env`.
+- [ ] **VS Code:** a thin extension (Node host only) that starts the Rust tools: "Open in UI Editor", reveal in source; shares the channel of the DAP server.
+- [ ] **Open question (user):** what "similar format" means for the element view: devtools style (tree plus Styles) or JSX text lines, or both; and what "node tools" are (a Node.js extension, or something else).
+
 ## QuickJS removed (2026-10-28; was "deprecated; removal plan", 2026-10-22)
 
 QuickJS is gone from Platypus: `platypus_app` runs only compiled games and refuses a QuickJS bundle with a pointer to
