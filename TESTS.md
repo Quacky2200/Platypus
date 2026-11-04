@@ -2216,6 +2216,8 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3397 | Unit | The host's debugger answers malformed or out-of-state commands with an `error` line; `DebugInfo::bundle_line` maps a file and line to the bundle (`debugger.rs`, `crash.rs`). Checked live too: break, over, in, out, continue, detach over a socket, and breakpoints after a hot reload. |
 | M9-TS-3398 | Unit | A DAP session over in-memory streams: `initialize` (and the `initialized` event), `attach`, `setBreakpoints` for an unknown file (answered, not verified), `configurationDone`, `threads`, `stackTrace` with nothing stopped, an unsupported request (`success: false`), `disconnect` ends the session (`dap.rs`). |
 | M9-TS-3399 | Integration | A DAP client against the real host (windowless bench run): the game waits for `configurationDone`, stops at the breakpoint, `stackTrace` gives its line, `next` and `stepIn` step, `disconnect` lets the game finish and exit cleanly (`tests/dap_session.rs`, Windows). |
+| M9-TS-3400 | Integration | A stop in a debug build gives the function's named locals with type and value (number, string, boolean, a captured variable read through its cell) (`lang/debugger.rs`). |
+| M9-TS-3401 | Integration | A stop lists the callers found on the stack: the stop's function and line, then its caller's (Windows). |
 
 ## M9 — One host: the renderer chosen from what the game uses
 

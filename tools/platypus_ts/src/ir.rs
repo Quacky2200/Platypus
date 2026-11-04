@@ -575,6 +575,11 @@ pub struct Module {
     /// Debug builds: the address of the byte that arms the per-statement hook (`debug.rs`); 0 =
     /// no hook code at all.
     pub debug_armed: usize,
+    /// Debug builds: the first number of this module's function descriptors (`debug.rs`); a
+    /// function's is this plus its index.
+    pub debug_base: u32,
+    /// The names of locals, per function (index in `funcs`): (local, name), for a debugger.
+    pub local_names: std::collections::HashMap<usize, Vec<(VarId, String)>>,
 }
 
 impl Module {

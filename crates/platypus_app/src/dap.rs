@@ -10,8 +10,8 @@
 //! while the editor connects are in place before the first statement runs.
 //!
 //! Supported: `initialize`, `attach`/`launch`, `setBreakpoints`, `setExceptionBreakpoints`,
-//! `configurationDone`, `threads`, `stackTrace` (the one frame the game is stopped in),
-//! `scopes`/`variables` (empty until locals are spilled), `continue`, `next`, `stepIn`,
+//! `configurationDone`, `threads`, `stackTrace` (the stop and the callers found on the stack),
+//! `scopes`/`variables` (the innermost frame's locals), `continue`, `next`, `stepIn`,
 //! `stepOut`, `pause`, `disconnect`. One thread, id 1, is the game's.
 
 use crate::debugger;
@@ -214,18 +214,22 @@ fn handle<W: Write>(tx: &Sender<W>, req: &Value) -> bool {
         ),
         "stackTrace" => {
             let frames: Vec<Value> = debug::stopped()
-                .and_then(|s| debugger::locate(s.line))
-                .map(|(file, line)| {
-                    json!({
-                        "id": 1,
-                        "name": "game",
-                        "source": {"name": file, "path": path_of(&file)},
-                        "line": line,
-                        "column": 1,
-                    })
+                .map(|s| {
+                    s.frames
+                        .iter()
+                        .enumerate()
+                        .map(|(i, f)| {
+                            let at = debugger::locate(f.line);
+                            let name = if f.name.is_empty() { "game" } else { &f.name };
+                            let mut v = json!({"id": i, "name": name, "line": at.as_ref().map_or(f.line, |a| a.1), "column": 1});
+                            if let Some((file, _)) = &at {
+                                v["source"] = json!({"name": file, "path": path_of(file)});
+                            }
+                            v
+                        })
+                        .collect()
                 })
-                .into_iter()
-                .collect();
+                .unwrap_or_default();
             let n = frames.len();
             tx.respond(
                 req,
@@ -234,8 +238,27 @@ fn handle<W: Write>(tx: &Sender<W>, req: &Value) -> bool {
                 None,
             );
         }
-        "scopes" => tx.respond(req, true, json!({"scopes": []}), None),
-        "variables" => tx.respond(req, true, json!({"variables": []}), None),
+        // Only the innermost frame keeps its locals (callers' registers were not saved).
+        "scopes" => {
+            let top = args["frameId"].as_i64().unwrap_or(0) == 0;
+            let scopes = if top && debug::stopped().is_some() {
+                vec![json!({"name": "Locals", "variablesReference": 1, "expensive": false})]
+            } else {
+                Vec::new()
+            };
+            tx.respond(req, true, json!({"scopes": scopes}), None);
+        }
+        "variables" => {
+            let vars: Vec<Value> = debug::stopped()
+                .map(|s| {
+                    s.locals
+                        .iter()
+                        .map(|l| json!({"name": l.name, "value": l.value, "type": l.ty, "variablesReference": 0}))
+                        .collect()
+                })
+                .unwrap_or_default();
+            tx.respond(req, true, json!({"variables": vars}), None);
+        }
         "continue" => {
             debug::resume(Resume::Continue);
             tx.respond(req, true, json!({"allThreadsContinued": true}), None);

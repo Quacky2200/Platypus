@@ -153,6 +153,25 @@ fn an_editor_sets_a_breakpoint_steps_and_lets_the_game_finish() {
     let s = c.stopped();
     assert_eq!(s["body"]["reason"], "breakpoint", "{s}");
     assert_eq!(c.top_line(), 4);
+    // The stop's function and its locals.
+    let st = c.send("stackTrace", json!({"threadId": 1}));
+    let top = &st["body"]["stackFrames"][0];
+    assert!(top["name"].as_str().unwrap().contains("onUpdate"), "{top}");
+    let scopes = c.send("scopes", json!({"frameId": 0}));
+    let reference = scopes["body"]["scopes"][0]["variablesReference"]
+        .as_i64()
+        .unwrap();
+    let vars = c.send("variables", json!({"variablesReference": reference}));
+    let names: Vec<&str> = vars["body"]["variables"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v["name"].as_str().unwrap())
+        .collect();
+    assert!(
+        names.contains(&"this") && names.contains(&"doubled"),
+        "{names:?}"
+    );
     c.send("next", json!({"threadId": 1}));
     let s = c.stopped();
     assert_eq!(s["body"]["reason"], "step", "{s}");

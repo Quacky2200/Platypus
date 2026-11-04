@@ -32,6 +32,8 @@ Lines of text over TCP (`telnet 127.0.0.1 <port>` works); one reply line per com
 | `pause` | stops at the next statement |
 | `continue`, `in`, `over`, `out` | resumes a stopped game |
 | `where` | `ok stopped <file>:<line>` or `ok running` |
+| `locals` | the stopped function's named locals as `name:type=value; ...` |
+| `stack` | the stop and its callers as `function file:line; ...` |
 | `detach` | clears everything and lets the game go |
 
 Events: `stopped <file>:<line> <breakpoint|pause|step>`.
@@ -44,7 +46,7 @@ folder `tools/vscode-platypus` (it only registers the `platypus` debugger type, 
 `{ "type": "platypus", "request": "attach", "debugServer": 4711 }` and press F5.
 
 Supported requests: `initialize`, `attach`/`launch`, `setBreakpoints`, `setExceptionBreakpoints` (accepted, nothing to break on),
-`configurationDone`, `threads` (one: the game's), `stackTrace` (the one frame the game is stopped in), `scopes`/`variables` (empty),
+`configurationDone`, `threads` (one: the game's), `stackTrace` (the stop and its callers), `scopes`/`variables` (the innermost frame's locals),
 `continue`, `next`, `stepIn`, `stepOut`, `pause`, `disconnect`. A `stopped` event follows every stop. Editor paths are matched to the
 program's files by their ends (`game.pdebug`); a game run as one `.ts` file needs no sidecar (its lines are the bundle's).
 Tests: `M9-TS-3398`, `M9-TS-3399`.
@@ -57,9 +59,21 @@ cannot be placed (the log says so), except for a game run as one `.ts` file. Aft
 (`debugger::resolve_breakpoints`), so they follow a file's lines when other files change size, and the reloaded game is a debug
 build again. A reload cannot happen while the game is stopped: the reload is handled by the thread that is parked.
 
-## Not yet
+## Locals and the call stack
 
-- Variables and the call stack of a stop (locals live in registers; a debug build will have to spill them: TODO step 4b).
+A debug build gives every function a stack slot for its locals. On the hook path only (so nothing is paid while nobody is stopped),
+the generated code stores each local there as raw 64-bit words and passes the slot and the function's number to the hook; the hook
+reads them with the function's table (names from the lowering, types from the IR) and keeps the text of each in the `Stop`:
+numbers (`3`, `0.5`), booleans, strings (quoted, cut at 200 characters), string-literal unions (the member), class instances and
+arrays (the class name and address: they are not expanded), and a variable that a closure captured (its value, read through the
+cell). A function with more than 256 locals (a big top-level `init`) is not spilled, so a stop in it has no locals.
+
+The call stack is found by scanning the stack above the function's slot for return addresses into compiled code (Windows; elsewhere
+a stop shows only its own frame), so it crosses the host's frames between two game frames; a stale word can show as an extra frame.
+**Only the innermost frame has locals**: a caller's registers were not saved at its call.
+
+## Not yet
+- Callers' locals, and expanding objects and arrays.
 - The editor's own debugger UI (`editor/`): it can speak DAP to a game the same way.
 - Conditional breakpoints, watchpoints, breaking on a thrown exception.
 - Stopping while the window stays responsive (pumping the event loop while parked).

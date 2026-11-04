@@ -139,6 +139,52 @@ fn libcalls() -> Vec<(&'static str, usize)> {
     ]
 }
 
+/// How a debugger shows a local of this type.
+fn show_ty(t: &ir::Ty, m: &ir::Module, tags: &std::sync::Arc<Vec<String>>) -> crate::debug::ShowTy {
+    use crate::debug::ShowTy;
+    match t {
+        ir::Ty::Num => ShowTy::Num,
+        ir::Ty::Bool => ShowTy::Bool,
+        ir::Ty::Lit => ShowTy::Lit(tags.clone()),
+        ir::Ty::Str => ShowTy::Str,
+        ir::Ty::Obj(id) => ShowTy::Obj(
+            m.structs
+                .get(*id)
+                .map_or_else(|| "object".to_string(), |s| s.name.clone()),
+        ),
+        ir::Ty::Arr(_) => ShowTy::Arr,
+        ir::Ty::Cell(inner) => ShowTy::Cell(Box::new(show_ty(inner, m, tags))),
+        ir::Ty::Nullable(inner) => ShowTy::Nullable(Box::new(show_ty(inner, m, tags))),
+        other => ShowTy::Other(format!("{other}")),
+    }
+}
+
+/// The named locals of every function of the module, for the debugger.
+fn describe_functions(m: &ir::Module) -> Vec<crate::debug::FuncDebug> {
+    let tags = std::sync::Arc::new(m.tags.clone());
+    m.funcs
+        .iter()
+        .enumerate()
+        .map(|(i, f)| crate::debug::FuncDebug {
+            name: f.name.clone(),
+            locals: m
+                .local_names
+                .get(&i)
+                .into_iter()
+                .flatten()
+                .filter(|(v, _)| (*v as usize) < f.locals.len())
+                .map(|(v, name)| {
+                    (
+                        *v as usize,
+                        name.clone(),
+                        show_ty(&f.locals[*v as usize], m, &tags),
+                    )
+                })
+                .collect(),
+        })
+        .collect()
+}
+
 /// The imports of a module that no table can resolve (so the error comes before any code runs).
 fn missing_symbols(m: &ir::Module, known: &HashMap<&str, usize>) -> Vec<String> {
     let mut out: Vec<String> = m
@@ -172,6 +218,9 @@ pub fn compile_and_load(src: &str, options: &JitOptions) -> Result<Game, String>
                 }
                 let mut lap = crate::timing::Lap::start();
                 sroa::run(&mut m);
+                if options.debug {
+                    m.debug_base = crate::debug::next_base(m.funcs.len());
+                }
                 lap.mark("IR passes (sroa)");
                 Ok((m, t0.elapsed()))
             })
@@ -223,6 +272,7 @@ pub fn compile_and_load(src: &str, options: &JitOptions) -> Result<Game, String>
     jit.finalize_definitions().map_err(|e| e.to_string())?;
     let mut line_table: Vec<(usize, usize, u32)> = Vec::new();
     let mut funcs: HashMap<String, usize> = HashMap::new();
+    let mut func_addrs: Vec<usize> = Vec::new();
     #[cfg(windows)]
     let mut unwind: Vec<crate::unwind::FnUnwind> = Vec::new();
     for (((name, id), lines), info) in symbols
@@ -247,9 +297,20 @@ pub fn compile_and_load(src: &str, options: &JitOptions) -> Result<Game, String>
                 .into_iter()
                 .map(|(a, b, line)| (base + a as usize, base + b as usize, line)),
         );
+        func_addrs.push(base);
         funcs.insert(name, base);
     }
     line_table.sort_unstable_by_key(|(a, _, _)| *a);
+    if options.debug {
+        crate::debug::register(module.debug_base, describe_functions(&module));
+        let names: Vec<(usize, String)> = module
+            .funcs
+            .iter()
+            .zip(&func_addrs)
+            .map(|(f, a)| (*a, f.name.clone()))
+            .collect();
+        crate::debug::set_code(line_table.clone(), names);
+    }
     // So the system can walk a stack through compiled frames (a crash report's call stack).
     #[cfg(windows)]
     crate::unwind::register(unwind)?;

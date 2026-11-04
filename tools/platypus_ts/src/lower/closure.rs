@@ -221,6 +221,7 @@ impl<'a> Lowerer<'a> {
         self.cur = saved;
         let (pvars, envv, stmts, ret) = r?;
 
+        self.m.local_names.insert(id, ctx.names);
         let f = &mut self.m.funcs[id];
         f.params = std::iter::once(envv).chain(pvars).collect();
         f.ret = ret.clone();

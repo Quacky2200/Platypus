@@ -233,6 +233,8 @@ pub(crate) struct FinCtx {
 
 #[derive(Default)]
 pub(crate) struct FnCtx {
+    /// The locals that hold a named variable (the cell, for a captured one), for a debugger.
+    pub names: Vec<(VarId, String)>,
     /// Open `try ... finally`s, innermost last.
     pub fins: Vec<FinCtx>,
     pub locals: Vec<Ty>,
@@ -884,6 +886,7 @@ impl<'a> Lowerer<'a> {
         }
         init_body.push(Stmt::Return(None));
         let ctx = std::mem::take(&mut self.cur);
+        self.m.local_names.insert(init_id, ctx.names);
         self.m.funcs[init_id].locals = ctx.locals;
         self.m.funcs[init_id].body = init_body;
         self.m.init = Some(init_id);
@@ -1257,6 +1260,7 @@ impl<'a> Lowerer<'a> {
         let (stmts, ret) = self.lower_body_into(body, pro)?;
         self.fsig[id].1 = Some(ret.clone());
         let ctx = std::mem::take(&mut self.cur);
+        self.m.local_names.insert(id, ctx.names);
         let f = &mut self.m.funcs[id];
         f.params = pvars;
         f.ret = ret;
@@ -1292,6 +1296,7 @@ impl<'a> Lowerer<'a> {
         if self.captured.contains(name) {
             let ty = self.cur.locals[var as usize].clone();
             let cell = self.new_local(Ty::Cell(Box::new(ty.clone())));
+            self.cur.names.push((cell, name.to_string()));
             let cell_ty = self.cur.locals[cell as usize].clone();
             let init = Expr {
                 kind: ExprKind::NewCell(Box::new(self.var_expr(var))),
@@ -1300,6 +1305,7 @@ impl<'a> Lowerer<'a> {
             out.push(Stmt::Assign(cell, init));
             self.cur.scopes[scope].insert(name.to_string(), Binding::Boxed(cell, ty));
         } else {
+            self.cur.names.push((var, name.to_string()));
             self.cur.scopes[scope].insert(name.to_string(), Binding::Direct(var));
         }
     }

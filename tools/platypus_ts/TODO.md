@@ -259,8 +259,9 @@ performance, cross targets and CI.
   inline stack probes (research doc, "Zombie Horders crashes"). Left: report a real stack overflow (0xC00000FD) in the crash
   handler; a thread with no stack left cannot run it, so it needs a reserved-stack guarantee or a watchdog process.
 - [x] 4. Debug build mode (`JitOptions::debug`, `platypus_ts::debug`, host `--debug-port`, `docs/debugger.md`): pause, resume, step, breakpoints that survive hot reload.
-- [ ] 4b. Locals and the call stack at a stop: spill every local at each marker in a debug build, name them (a per-function table of
-  local, name, type, slot); the call stack by the stack scan from the stop's stack pointer. Keep the window responsive while stopped.
+- [x] 4b. Locals and the call stack at a stop: a debug build spills the locals (up to 256 per function) into a frame on the hook path, names and
+  types come from a per-function table; callers by the stack scan above the function's frame. Left: callers' locals, expanding objects
+  and arrays, keeping the window responsive while stopped.
 - [x] 5. A debugger: Debug Adapter Protocol server in the host (`--dap-port`, `dap.rs`), VS Code attach (`tools/vscode-platypus`). Left: the editor's own
   debugger UI (`editor/`), variables and the call stack (4b), conditional breakpoints, exception breakpoints.
 - [ ] Per-compile cost of the line info (every run pays it, sidecar or not): measure `Stmt::Line` markers against compile time and

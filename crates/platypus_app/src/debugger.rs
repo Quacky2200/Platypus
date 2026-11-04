@@ -14,6 +14,8 @@
 //! pause                  stop at the next statement
 //! continue | in | over | out
 //! where                  the line the game is stopped at
+//! locals                 the named locals of the function it is stopped in
+//! stack                  the stop and its callers
 //! detach                 clear everything and let the game go
 //! ```
 //!
@@ -257,6 +259,28 @@ fn command(line: &str) -> String {
             Some(s) => format!("ok stopped {}", describe(s.line)),
             None => "ok running".into(),
         },
+        "locals" => match debug::stopped() {
+            Some(s) => format!(
+                "ok {}",
+                s.locals
+                    .iter()
+                    .map(|l| format!("{}:{}={}", l.name, l.ty, l.value))
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            ),
+            None => "error: the game is not stopped".into(),
+        },
+        "stack" => match debug::stopped() {
+            Some(s) => format!(
+                "ok {}",
+                s.frames
+                    .iter()
+                    .map(|f| format!("{} {}", f.name, describe(f.line)))
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            ),
+            None => "error: the game is not stopped".into(),
+        },
         "detach" => {
             if let Ok(mut b) = BREAKPOINTS.lock() {
                 b.clear();
@@ -291,5 +315,7 @@ mod tests {
         assert!(command("break src/a.ts:x").starts_with("error"));
         assert!(command("continue").starts_with("error: the game is not stopped"));
         assert_eq!(command("where"), "ok running");
+        assert!(command("locals").starts_with("error"));
+        assert!(command("stack").starts_with("error"));
     }
 }

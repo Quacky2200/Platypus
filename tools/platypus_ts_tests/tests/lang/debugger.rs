@@ -3,7 +3,7 @@
 
 //! The debug build's hook and the controller (`platypus_ts::debug`): breakpoints, pause,
 //! continue and the three steps. The game runs on its own thread; the test is the debugger.
-//! IDs are in TESTS.md (M9-TS-3393..3396).
+//! IDs are in TESTS.md (M9-TS-3393..3396, 3400..3401).
 use platypus_ts::debug::{self, Reason, Resume, Stop};
 use platypus_ts::jit::{JitOptions, compile_and_load};
 use std::time::Duration;
@@ -120,4 +120,96 @@ fn an_unarmed_debug_build_runs_without_stopping() {
     let game = start("run", 3.0, 2_373_000);
     assert_eq!(game.join().unwrap(), 7.0 + 9.0);
     assert!(debug::stopped().is_none());
+}
+
+// Lines are those of this source (1-based).
+const SRC_LOCALS: &str = "\
+export function labels(n: number): number {
+  const name = 'hi ' + n;
+  const flag = n > 1;
+  let count = 0;
+  const bump = () => { count += 1; };
+  bump();
+  count += name.length;
+  return flag ? count : -count;
+}
+export function outer(n: number): number {
+  return labels(n) + 1;
+}
+";
+
+fn start_src(
+    src: &'static str,
+    entry: &'static str,
+    arg: f64,
+    base: u32,
+) -> std::thread::JoinHandle<f64> {
+    std::thread::spawn(move || {
+        let game = compile_and_load(
+            src,
+            &JitOptions {
+                prefix: "dbgl_",
+                struct_base: base,
+                debug: true,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        game.init().unwrap();
+        let f: unsafe extern "C" fn(f64) -> f64 =
+            unsafe { std::mem::transmute(game.function(entry).unwrap()) };
+        unsafe { f(arg) }
+    })
+}
+
+// M9-TS-3400
+#[test]
+fn a_stop_shows_the_functions_named_locals_with_their_types() {
+    let _serial = platypus_ts_tests::serial();
+    debug::detach();
+    debug::set_breakpoints(&[7]);
+    let game = start_src(SRC_LOCALS, "labels", 2.0, 2_374_000);
+    let s = stop();
+    let find = |name: &str| {
+        s.locals
+            .iter()
+            .find(|l| l.name == name)
+            .unwrap_or_else(|| panic!("no local {name} in {:?}", s.locals))
+            .clone()
+    };
+    let n = find("n");
+    assert_eq!((n.ty.as_str(), n.value.as_str()), ("number", "2"));
+    let name = find("name");
+    assert_eq!(
+        (name.ty.as_str(), name.value.as_str()),
+        ("string", "\"hi 2\"")
+    );
+    let flag = find("flag");
+    assert_eq!((flag.ty.as_str(), flag.value.as_str()), ("boolean", "true"));
+    // A variable a closure captured lives in a cell: its value is shown, not the cell.
+    let count = find("count");
+    assert_eq!((count.ty.as_str(), count.value.as_str()), ("number", "1"));
+    debug::detach();
+    // flag is true: count is 1 + "hi 2".length
+    assert_eq!(game.join().unwrap(), 5.0);
+}
+
+// M9-TS-3401
+#[test]
+fn a_stop_lists_the_callers_on_the_stack() {
+    let _serial = platypus_ts_tests::serial();
+    debug::detach();
+    debug::set_breakpoints(&[7]);
+    let game = start_src(SRC_LOCALS, "outer", 2.0, 2_375_000);
+    let s = stop();
+    assert_eq!((s.frames[0].name.as_str(), s.frames[0].line), ("labels", 7));
+    // The scan finds the caller where there is a stack walk (Windows).
+    #[cfg(windows)]
+    {
+        let names: Vec<&str> = s.frames.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(&names[..2], ["labels", "outer"], "{:?}", s.frames);
+        assert_eq!(s.frames[1].line, 11);
+    }
+    debug::detach();
+    assert_eq!(game.join().unwrap(), 6.0);
 }

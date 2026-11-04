@@ -1402,7 +1402,7 @@ touches the pages it passes, so Windows can grow the stack through its guard pag
 at start-up on some runs, or died silently with no report (`M9-TS-3392`).
 
 **Debug builds.** `JitOptions::debug` makes each line marker a check of the debugger's armed byte and a call of its hook
-(`debug.rs`): breakpoints, pause and the three steps; guide [debugger.md](debugger.md).
+(`debug.rs`): breakpoints, pause, the three steps, and at a stop the function's named locals (spilled on the hook path) and the callers on the stack; guide [debugger.md](debugger.md).
 
 **Debug info** (design and plan: [research/platypus-ts-debug-info.md](research/platypus-ts-debug-info.md)). The lowering puts
 `Stmt::Line(n)` (a line of the bundled source) before each statement; codegen turns it into a Cranelift source location, and

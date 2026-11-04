@@ -37,6 +37,9 @@ pub fn clif_ty(t: &Ty) -> ir::Type {
     }
 }
 
+/// A debug build spills a function's locals at each statement only up to this many.
+pub(crate) const DEBUG_SPILL_MAX: usize = 256;
+
 /// The machine type of a value at the engine boundary.
 fn ext_clif(t: &ExtTy) -> ir::Type {
     match t {
@@ -426,6 +429,8 @@ pub(crate) fn generate<M: ClifModule>(module: &mut M, m: &Module, far_refs: bool
                 labels: HashMap::new(),
                 call_conv,
                 far_refs,
+                fi,
+                dbg_slot: None,
             };
             cg.prologue(m.init == Some(fi))?;
             cg.stmts(&f.body)?;
@@ -468,6 +473,10 @@ fn zero(b: &mut FunctionBuilder, t: ir::Type) -> Value {
 }
 
 struct Cg<'a, 'b, M: ClifModule> {
+    /// This function's index in the module (a debug build names it by `debug_base + fi`).
+    fi: usize,
+    /// A debug build's spill area for the locals, made at the first statement.
+    dbg_slot: Option<StackSlot>,
     b: FunctionBuilder<'b>,
     /// The shadow-stack frame (see `frames.rs`): pointer locals are mirrored here.
     frame_slot: Option<StackSlot>,
@@ -583,7 +592,43 @@ impl<M: ClifModule> Cg<'_, '_, M> {
         self.b.ins().brif(armed, hook, &[], go_on, &[]);
         self.b.switch_to_block(hook);
         let l = self.b.ins().iconst(types::I32, i64::from(line));
-        self.rt("ts_dbg_line", &[types::I32], None, &[l]);
+        // The locals, raw, in a frame the debugger reads at the stop: only on this path, and not
+        // for a function with so many (a big `init`) that spilling them at every statement would
+        // swamp the code.
+        let n = self.f.locals.len();
+        let frame = if n > 0 && n <= DEBUG_SPILL_MAX {
+            let slot = *self.dbg_slot.get_or_insert_with(|| {
+                self.b.create_sized_stack_slot(StackSlotData::new(
+                    StackSlotKind::ExplicitSlot,
+                    8 * n as u32,
+                    3,
+                ))
+            });
+            for (i, v) in self.vars.clone().into_iter().enumerate() {
+                let x = self.b.use_var(v);
+                let raw = match self.b.func.dfg.value_type(x) {
+                    types::F64 => self.b.ins().bitcast(types::I64, self.mf_p, x),
+                    types::I64 => x,
+                    _ => self.b.ins().uextend(types::I64, x),
+                };
+                self.b
+                    .ins()
+                    .stack_store(types::I64, raw, slot, 8 * i as i32);
+            }
+            self.b.ins().stack_addr(types::I64, slot, 0)
+        } else {
+            self.b.ins().iconst(types::I64, 0)
+        };
+        let id = self
+            .b
+            .ins()
+            .iconst(types::I32, i64::from(self.m.debug_base + self.fi as u32));
+        self.rt(
+            "ts_dbg_line",
+            &[types::I32, types::I64, types::I32],
+            None,
+            &[l, frame, id],
+        );
         self.b.ins().jump(go_on, &[]);
         self.b.switch_to_block(go_on);
     }
