@@ -214,8 +214,25 @@ pub fn compile_and_load(src: &str, options: &JitOptions) -> Result<Game, String>
     jit.finalize_definitions().map_err(|e| e.to_string())?;
     let mut line_table: Vec<(usize, usize, u32)> = Vec::new();
     let mut funcs: HashMap<String, usize> = HashMap::new();
-    for ((name, id), lines) in symbols.names.into_iter().zip(symbols.lines) {
+    #[cfg(windows)]
+    let mut unwind: Vec<crate::unwind::FnUnwind> = Vec::new();
+    for (((name, id), lines), info) in symbols
+        .names
+        .into_iter()
+        .zip(symbols.lines)
+        .zip(symbols.unwind)
+    {
         let base = jit.get_finalized_function(id) as usize;
+        #[cfg(windows)]
+        if let Some((size, info)) = info {
+            unwind.push(crate::unwind::FnUnwind {
+                start: base,
+                size,
+                info,
+            });
+        }
+        #[cfg(not(windows))]
+        let _ = info;
         line_table.extend(
             lines
                 .into_iter()
@@ -224,6 +241,9 @@ pub fn compile_and_load(src: &str, options: &JitOptions) -> Result<Game, String>
         funcs.insert(name, base);
     }
     line_table.sort_unstable_by_key(|(a, _, _)| *a);
+    // So the system can walk a stack through compiled frames (a crash report's call stack).
+    #[cfg(windows)]
+    crate::unwind::register(unwind)?;
     lap.mark("JIT linking and finalising");
     Ok(Game {
         _module: std::mem::ManuallyDrop::new(JitModule(jit)),

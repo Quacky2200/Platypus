@@ -2163,6 +2163,7 @@ dependencies = [
  "platypus_ui",
  "serde_json",
  "target-lexicon",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

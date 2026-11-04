@@ -27,6 +27,11 @@ fn compiled_code_maps_to_source_lines() {
     for want in [2, 3, 4] {
         assert!(lines.contains(&want), "line {want} in {lines:?}");
     }
+    // M9-TS-3390: the system can unwind through the function (its table entry is registered).
+    #[cfg(windows)]
+    assert!(platypus_ts::unwind::is_registered(
+        game.function("f").unwrap()
+    ));
     // Every range lies inside the compiled function.
     let f = game.function("f").unwrap();
     assert!(table.iter().any(|(a, b, _)| *a >= f && a < b));

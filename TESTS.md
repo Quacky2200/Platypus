@@ -2205,6 +2205,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3387 | Integration | Compiled code with every GC mode: `MeshRenderer.isVisible` and `SkinnedMeshRenderer.isVisible` are false until the host reports a frame, asking starts the watch (`watched_renderers`), the report (`set_seen_renderers`) answers each apart; `RenderStats.shadowCasters` reads the host's count (`bench/render_native.ts`). |
 | M9-TS-3389 | Integration | The JIT line table (`Game::line_table`) is ascending and covers the source lines of a compiled function, from `Stmt::Line` markers and Cranelift source locations (`lang/debug_lines.rs`). |
 | M9-TS-3413 | Unit | `platypus-build build` writes `build/game.pdebug` (format, hash of the bundled source, where each file starts) and the host reads it: bundle lines map to `file:line` (`crash.rs`). |
+| M9-TS-3390 | Integration | On Windows the JIT registers x64 unwind tables for compiled functions (`platypus_ts::unwind`), so the system can walk a stack through them: `is_registered` (`lang/debug_lines.rs`). The call stack a crash report prints from it (`crash.rs` `game_stack`) is not tested automatically. |
 
 ## M9 — One host: the renderer chosen from what the game uses
 

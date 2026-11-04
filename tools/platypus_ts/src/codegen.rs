@@ -127,8 +127,9 @@ pub(crate) fn host_isa(
     let mut flags = settings::builder();
     flags.set("opt_level", opt).map_err(|e| e.to_string())?;
     flags.set("is_pic", "false").map_err(|e| e.to_string())?;
+    // Only the JIT registers unwind info (`unwind.rs`); an object file has no use for it here.
     flags
-        .set("unwind_info", "false")
+        .set("unwind_info", if native { "true" } else { "false" })
         .map_err(|e| e.to_string())?;
     let flags = settings::Flags::new(flags);
     if native {
@@ -158,6 +159,25 @@ pub fn compile(m: &Module, opt: &str) -> R<Compiled> {
 pub(crate) struct Generated {
     pub names: Vec<(String, CFuncId)>,
     pub lines: Vec<Vec<(u32, u32, u32)>>,
+    /// Per function: its code size and Windows x64 unwind info, when the ISA makes it (the JIT).
+    pub unwind: Vec<Option<(u32, Vec<u8>)>>,
+}
+
+/// The size and Windows x64 unwind info of the function last compiled in `ctx`.
+fn unwind_of(
+    ctx: &cranelift_codegen::Context,
+    isa: &dyn cranelift_codegen::isa::TargetIsa,
+) -> Option<(u32, Vec<u8>)> {
+    use cranelift_codegen::isa::unwind::UnwindInfo;
+    let code = ctx.compiled_code()?;
+    match code.create_unwind_info(isa).ok().flatten()? {
+        UnwindInfo::WindowsX64(info) => {
+            let mut bytes = vec![0u8; info.emit_size()];
+            info.emit(&mut bytes);
+            Some((code.code_info().total_size, bytes))
+        }
+        _ => None,
+    }
 }
 
 /// Defines every function and datum of `m` in `module`. Returns every function by symbol name,
@@ -169,6 +189,7 @@ pub(crate) fn generate<M: ClifModule>(module: &mut M, m: &Module, far_refs: bool
     let fcfg = module.isa().frontend_config();
     let mut names: Vec<(String, CFuncId)> = Vec::new();
     let mut lines: Vec<Vec<(u32, u32, u32)>> = Vec::new();
+    let mut unwind: Vec<Option<(u32, Vec<u8>)>> = Vec::new();
 
     // Functions: declare all first so calls can be forward references.
     let mut cfuncs: Vec<CFuncId> = Vec::new();
@@ -418,9 +439,14 @@ pub(crate) fn generate<M: ClifModule>(module: &mut M, m: &Module, far_refs: bool
                 })
                 .unwrap_or_default(),
         );
+        unwind.push(unwind_of(&ctx, module.isa()));
         module.clear_context(&mut ctx);
     }
-    Ok(Generated { names, lines })
+    Ok(Generated {
+        names,
+        lines,
+        unwind,
+    })
 }
 
 fn zero(b: &mut FunctionBuilder, t: ir::Type) -> Value {

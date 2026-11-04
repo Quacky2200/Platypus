@@ -303,6 +303,78 @@ unsafe fn registers(ctx: *const windows_sys::Win32::System::Diagnostics::Debug::
     )
 }
 
+/// The TypeScript call stack at the fault: the compiled-game frames found by unwinding the
+/// context with the tables `platypus_ts::unwind` registered, innermost first. Frames of the host
+/// in between (an engine call the game made) are skipped.
+///
+/// # Safety
+/// `ctx` is null or the context record of the exception being handled.
+#[cfg(all(windows, target_arch = "x86_64"))]
+unsafe fn game_stack(
+    ctx: *const windows_sys::Win32::System::Diagnostics::Debug::CONTEXT,
+) -> String {
+    use windows_sys::Win32::System::Diagnostics::Debug::{
+        RtlLookupFunctionEntry, RtlVirtualUnwind,
+    };
+    // SAFETY: by the contract.
+    let Some(c) = (unsafe { ctx.as_ref() }) else {
+        return String::new();
+    };
+    let mut c = *c;
+    let mut out = Vec::new();
+    for depth in 0..64 {
+        let pc = c.Rip as usize;
+        if pc == 0 {
+            break;
+        }
+        // A return address is after the call: look the line up for the call itself.
+        let at = if depth == 0 { pc } else { pc - 1 };
+        if let Some(f) = jit_function_at(at) {
+            let line =
+                jit_line_at(at).map_or_else(String::new, |l| format!(" at {}", describe_line(l)));
+            out.push(format!("  {} ({f}{line})", out.len()));
+        }
+        let mut base = 0u64;
+        // SAFETY: plain queries and an unwind step on a copy of the context.
+        let entry = unsafe { RtlLookupFunctionEntry(c.Rip, &mut base, std::ptr::null_mut()) };
+        if entry.is_null() {
+            // A leaf function has no table entry: its caller's address is on top of the stack.
+            if c.Rsp == 0 {
+                break;
+            }
+            // SAFETY: Rsp of a live thread points into its stack.
+            c.Rip = unsafe { *(c.Rsp as *const u64) };
+            c.Rsp += 8;
+            continue;
+        }
+        let mut data = std::ptr::null_mut();
+        let mut frame = 0u64;
+        // SAFETY: `entry` is the function's table entry for `c.Rip`; `c` is ours to modify.
+        unsafe {
+            RtlVirtualUnwind(
+                0,
+                base,
+                c.Rip,
+                entry,
+                &mut c,
+                &mut data,
+                &mut frame,
+                std::ptr::null_mut(),
+            );
+        }
+    }
+    if out.is_empty() {
+        String::new()
+    } else {
+        format!("game call stack:\n{}", out.join("\n"))
+    }
+}
+
+#[cfg(all(windows, not(target_arch = "x86_64")))]
+unsafe fn game_stack(_: *const windows_sys::Win32::System::Diagnostics::Debug::CONTEXT) -> String {
+    String::new()
+}
+
 #[cfg(all(windows, not(target_arch = "x86_64")))]
 unsafe fn registers(_: *const windows_sys::Win32::System::Diagnostics::Debug::CONTEXT) -> String {
     String::new()
@@ -368,8 +440,10 @@ unsafe extern "system" fn report(
         None => String::new(),
     };
     let reason = format!("{what} at {at:#x}{place}");
+    // SAFETY: as above.
+    let stack = unsafe { game_stack((*info).ContextRecord) };
     let message = format!(
-        "crash: exception {code:#010x}: {reason} on thread {:?}\n{registers}\n{}",
+        "crash: exception {code:#010x}: {reason} on thread {:?}\n{registers}\n{stack}\n{}",
         thread.name().unwrap_or("<unnamed>"),
         std::backtrace::Backtrace::force_capture()
     );

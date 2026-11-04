@@ -21,6 +21,8 @@ pub mod throws;
 pub mod timing;
 pub mod types_dts;
 pub mod ui_dts;
+#[cfg(windows)]
+pub mod unwind;
 
 /// What a compile produced.
 pub struct Output {
