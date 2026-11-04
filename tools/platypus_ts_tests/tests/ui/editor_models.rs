@@ -125,6 +125,13 @@ fn the_editor_inspector_model_passes() {
     assert!(failures.is_empty(), "\n{failures}");
 }
 
+// M3-INS-11
+#[test]
+fn the_ui_inspector_value_logic_passes() {
+    let failures = run_editor_test("ui-values.test.ts", "edv_", 970_000);
+    assert!(failures.is_empty(), "\n{failures}");
+}
+
 // M5-EDT-31..33
 #[test]
 fn the_editor_file_dialog_passes() {

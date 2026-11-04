@@ -2262,16 +2262,22 @@ Design: `docs/research/platypus-ui-inspector.md`. Opt-in at build time (`platypu
 - [ ] **Component tree (live component editing):** `Runtime` introspection (component names, props, hook state) behind the flag; JSX site of a host element; edits through hot reload.
 - [ ] **Docs:** `docs/ui-native.md` / `docs/platypus-build.md` once the flag exists.
 
-## UI editor (TSX as the source, 2026-11-05)
+## UI style editor (2026-11-05; direction revised by the user the same day)
 
-Design: `docs/research/platypus-ui-editor.md`. A UI-only editor (not the engine editor) that edits a game's UI by patching its TSX, with light and dark modes. Builds on the UI inspector above and on the debug-info / VS Code work of the `ts-debugger` session.
-- [ ] **Source tags:** with `--add-ui-inspector`, `Ui.begin(..)` carries the JSX element's position (file, line, column from the bundle's `locate`); `UiInspector.source(id)`; "reveal in VS Code". Needs the columns of the debug-info work.
-- [ ] **`platypus_ui_edit` crate and `platypus-build edit-ui`:** one operation on a file and position (`set-style`, `set-class`, `set-text`, `remove`, `move`, `wrap`) as oxc span edits (formatting and comments kept); refuses expressions (`style={styles.card}`, spreads, `.map`) with a reason. Round-trip tests.
-- [ ] **Inspector "write to source":** a literal edit in the overlay card / UI tab patches the file; `platypus-build dev` reloads.
-- [ ] **`ui-editor/` app** (UI-only, GLES tier): Elements tree with source, Styles (the shared `UiInspStyles`), canvas of the UI under edit by attaching to a game built with the inspector over a local socket (later: the canvas UI element), undo as a text history.
+Direction: **no JSX / TSX source editing** (too likely to go wrong). What is wanted is a tree viewer with collapsible nodes and a good style editor, in the inspector (overlay, the editor's "UI" tab, later a UI-only editor app), in light and dark. `docs/research/platypus-ui-editor.md` has the earlier source-editing study; it is parked. The VS Code extension is still wanted, but for **TS code execution and debugging** (the `ts-debugger` session's DAP work), not for UI editing.
+- [x] **Value logic** (`tools/platypus_build/inspector/values.ts`, tests `M3-INS-11`): stepping a number, colours (hex / rgb / hsl, hsv for a picker), cubic-bezier, gradients, autocomplete filter.
+- [ ] **Smart value field:** Up / Down add one unit (Shift ×10, Alt ×0.1) at the caret; a colour swatch; hover over `calc()` / `var()` shows the computed value.
+- [ ] **Colour picker** (hover / click popup): saturation-value square, hue and alpha sliders, output as hex / rgb / hsl (remembers the format the value was written in).
+- [ ] **Cubic-bezier editor** for `transition` and `animation` timing: draggable handles, the presets, a moving dot preview.
+- [ ] **Gradient helper:** angle dial, stops with colours and positions (add / remove), live preview bar.
+- [ ] **Autocomplete limited to what is supported:** property names, keywords, units from `STYLE_PROPS` / `LENGTH_UNITS` (the host publishes the table; `UiInspector.styleProps` / `styleKeywords` / `styleDoc`), with the docs shown.
+- [ ] **Layout info and flexbox preview:** the host publishes the node's layout (display, flex direction / wrap / justify / align / gap, children's grow / shrink / basis); the overlay draws the flex container (axis arrow, gap, children boxes), the style editor has a flexbox widget (direction, justify, align, wrap, gap buttons with a diagram).
+- [ ] **State toggles:** force `:hover`, `:active`, `:focus`, `:focus-visible`, `:disabled`, `:checked` on the pinned node (a forced layer over the real interaction state).
+- [ ] **Classes:** chips for the node's classes with remove, an add field (autocomplete from the loaded stylesheets' class names).
+- [ ] **Pseudo-elements:** `::before` / `::after` (and `::marker`, `::placeholder`, `::selection`) tabs show the rules that match them; add a rule's declarations as an override.
 - [ ] **Light and dark:** a second block of the `--platypus-*` variables under `prefers-color-scheme: light` plus a manual switch; preview the UI under edit in either scheme with `UiTree::set_media_env`.
-- [ ] **VS Code:** a thin extension (Node host only) that starts the Rust tools: "Open in UI Editor", reveal in source; shares the channel of the DAP server.
-- [ ] **Open question (user):** what "similar format" means for the element view: devtools style (tree plus Styles) or JSX text lines, or both; and what "node tools" are (a Node.js extension, or something else).
+- [ ] **Standalone UI editor app** (`ui-editor/`, UI-only, GLES tier): the tree and the style editor over a game built with the inspector (a local socket, or later the canvas UI element).
+- [ ] **VS Code extension for TS execution / debugging:** with the `ts-debugger` session (DAP server and attach exist); not part of this work.
 
 ## QuickJS removed (2026-10-28; was "deprecated; removal plan", 2026-10-22)
 

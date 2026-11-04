@@ -2240,3 +2240,8 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M3-INS-08 | Integration | `platypus-build build --add-ui-inspector` appends the overlay to the program (it compiles) and writes `uiInspector` into the bundle; without the flag the bundle has neither. |
 | M3-INS-09 | Unit | Pick mode: a press on the screen UI is swallowed with its release and its node comes back from `takeClick` once; not picking, or the inspector off, lets presses through. |
 | M3-INS-10 | Integration | The editor built with `--add-ui-inspector` shows a "UI" tab with the editor's own UI tree (its `root` row) and takes F9 without a fault (windowless `--bench` run). |
+| M3-INS-11 | Unit | The inspector value logic (`tools/platypus_build/inspector/values.ts`): numbers with units found (not inside colours or names) and stepped at the caret, colours read and written as hex / rgb / hsl and round-tripped through hsv, easing keywords and `cubic-bezier()` found in a transition and written back (as a keyword when it is one), gradients split into head and stops and formatted, autocomplete ordering. Run natively in every GC mode (`editor/test/ui-values.test.ts`). |
+| M3-INS-12 | Unit | `inspect` gives the computed form of values with `calc()` (percentages against the parent's box), `var()` and relative units, and none for plain values. |
+| M3-INS-13 | Unit | `inspect` reports the layout a flexbox preview draws: display, direction, wrap, justify, align, gaps. |
+| M3-INS-14 | Unit | `inspect_set_class` adds and removes a class (once), and `inspect_class_names` lists the classes the stylesheets mention. |
+| M3-INS-15 | Unit | `inspect_pseudo` lists the rules matching `::before`, `::after` and the other pseudo-elements, apart from the element's own rules. |
