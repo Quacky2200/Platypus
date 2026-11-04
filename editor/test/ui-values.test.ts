@@ -13,6 +13,7 @@ import {
   uiValCamel,
   uiValFromHsv,
   uiValGradientAngle,
+  uiValGradientHead,
   uiValKebab,
   uiValNumbers,
   uiValParseColor,
@@ -128,6 +129,10 @@ test("gradients split into a head and stops and come back as text", () => {
   same(r.kind, "radial", "radial");
   same(r.head, "circle", "radial head");
   yes(uiValParseGradient("repeating-linear-gradient(45deg, red, blue 10px)")!.repeating, "repeating");
+  const conic = uiValParseGradient("conic-gradient(from 90deg, red, blue)")!;
+  same(conic.kind, "conic", "conic");
+  same(conic.head, "from 90deg", "conic head");
+  same(uiValFormatGradient({ ...conic, kind: "radial", head: uiValGradientHead("radial") }), "radial-gradient(circle, red, blue)", "switching kind");
   eq(uiValParseGradient("url(a.png)"), null, "not a gradient");
   eq(uiValSplitTop("a(1, 2), b, c(d(e, f))"), ["a(1, 2)", "b", "c(d(e, f))"], "commas inside brackets stay");
 });

@@ -398,7 +398,7 @@ function stopSplit(s: string): number {
   return -1;
 }
 
-/** `linear-gradient(..)` / `radial-gradient(..)` (also `repeating-`), or `null`. */
+/** `linear-gradient(..)` / `radial-gradient(..)` / `conic-gradient(..)` (also `repeating-`), or `null`. */
 export function uiValParseGradient(text: string): UiValGradient | null {
   const t = text.trim();
   const open = t.indexOf("(");
@@ -409,7 +409,7 @@ export function uiValParseGradient(text: string): UiValGradient | null {
     repeating = true;
     name = name.substring(10);
   }
-  if (name !== "linear-gradient" && name !== "radial-gradient") return null;
+  if (name !== "linear-gradient" && name !== "radial-gradient" && name !== "conic-gradient") return null;
   const parts = uiValSplitTop(t.substring(open + 1, t.length - 1));
   if (parts.length < 2) return null;
   let head = "";
@@ -422,11 +422,16 @@ export function uiValParseGradient(text: string): UiValGradient | null {
     return at < 0 ? { color: p, pos: "" } : { color: p.substring(0, at), pos: p.substring(at + 1).trim() };
   });
   if (stops.length < 2) return null;
-  return { kind: name === "linear-gradient" ? "linear" : "radial", head, stops, repeating };
+  return { kind: name.substring(0, name.indexOf("-")), head, stops, repeating };
+}
+
+/** The head a gradient of `kind` starts with when it is switched to that kind (`linear`, `radial`, `conic`). */
+export function uiValGradientHead(kind: string): string {
+  return kind === "radial" ? "circle" : kind === "conic" ? "from 0deg" : "";
 }
 
 export function uiValFormatGradient(g: UiValGradient): string {
-  const name = (g.repeating ? "repeating-" : "") + (g.kind === "linear" ? "linear-gradient" : "radial-gradient");
+  const name = (g.repeating ? "repeating-" : "") + g.kind + "-gradient";
   const parts: string[] = [];
   if (g.head !== "") parts.push(g.head);
   for (const s of g.stops) parts.push(s.pos === "" ? s.color : `${s.color} ${s.pos}`);

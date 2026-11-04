@@ -24,6 +24,7 @@ import {
   uiValFormatNumber,
   uiValFromHsv,
   uiValGradientAngle,
+  uiValGradientHead,
   uiValKebab,
   uiValNumbers,
   uiValParseColor,
@@ -508,8 +509,17 @@ function UiInspGradientEditor(props: { value: string; onChange: (text: string) =
   const angle = uiValGradientAngle(g);
   const set = (next: UiValGradient): void => props.onChange(uiValFormatGradient(next));
   return (
-    <box className="uii-pop" style={{ flexDirection: "column", width: 250 }}>
+    // A press inside the editor, off the stop colour picker and its swatches, puts that picker away.
+    <box className="uii-pop" style={{ flexDirection: "column", width: 250 }} onMouseDown={() => setOpenStop(-1)}>
       <box className="uii-graph" style={{ height: 22, backgroundImage: props.value }} />
+      <box style={{ flexDirection: "row", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+        {["linear", "radial", "conic"].map((k) => (
+          <UiInspChip key={k} label={k} on={g.kind === k} onClick={() => {
+            if (g.kind !== k) set({ ...g, kind: k, head: uiValGradientHead(k) });
+          }} />
+        ))}
+        <UiInspChip label="repeating" on={g.repeating} onClick={() => set({ ...g, repeating: !g.repeating })} />
+      </box>
       {g.kind === "linear" ? (
         <box style={{ flexDirection: "row", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
           <text className="uii-dim">angle</text>
@@ -524,9 +534,12 @@ function UiInspGradientEditor(props: { value: string; onChange: (text: string) =
           ))}
         </box>
       ) : (
-        <box style={{ flexDirection: "row", gap: 4, alignItems: "center" }}>
-          <text className="uii-dim">shape</text>
+        <box style={{ flexDirection: "row", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+          <text className="uii-dim">{g.kind === "conic" ? "from / at" : "shape"}</text>
           <UiInspField boxed={true} value={g.head} width={150} onCommit={(s) => set({ ...g, head: s.trim() })} />
+          {g.kind === "radial"
+            ? ["circle", "ellipse"].map((s) => <UiInspChip key={s} label={s} on={g.head.startsWith(s)} onClick={() => set({ ...g, head: s })} />)
+            : null}
         </box>
       )}
       {g.stops.map((st, i) => (
@@ -535,6 +548,7 @@ function UiInspGradientEditor(props: { value: string; onChange: (text: string) =
             <box
               className="uii-swatch"
               style={{ width: 18, height: 18, backgroundColor: st.color }}
+              onMouseDown={(e) => e.stopPropagation()}
               onClick={() => setOpenStop(openStop === i ? -1 : i)}
             />
             <UiInspField boxed={true} value={st.color} width={104} onCommit={(s) => set({ ...g, stops: g.stops.map((x, j) => (j === i ? { color: s, pos: x.pos } : x)) })} />
@@ -542,7 +556,9 @@ function UiInspGradientEditor(props: { value: string; onChange: (text: string) =
             {g.stops.length > 2 ? <UiInspX onClick={() => set({ ...g, stops: g.stops.filter((_, j) => j !== i) })} /> : null}
           </box>
           {openStop === i ? (
-            <UiInspColorPicker value={st.color} onChange={(s) => set({ ...g, stops: g.stops.map((x, j) => (j === i ? { color: s, pos: x.pos } : x)) })} />
+            <box style={{ flexDirection: "column", alignSelf: "flex-start" }} onMouseDown={(e) => e.stopPropagation()}>
+              <UiInspColorPicker value={st.color} onChange={(s) => set({ ...g, stops: g.stops.map((x, j) => (j === i ? { color: s, pos: x.pos } : x)) })} />
+            </box>
           ) : null}
         </box>
       ))}
@@ -859,7 +875,7 @@ function UiInspLine(props: { id: number; prop: string; value: string; override: 
         {kind === "easing" || kind === "gradient" ? <UiInspChip label={kind === "easing" ? "curve" : "stops"} on={open} onClick={() => setOpen(!open)} /> : null}
         {/* Reverting an edited rule line: a small arrow in the gutter, out of the flow so editing never moves the lines. */}
         {edited ? (
-          <box className="uii-revert" style={{ position: "absolute", left: 3, top: 3 }} onMouseDown={(e) => e.stopPropagation()} onClick={() => UiInspector.setStyle(id, prop, "")}>
+          <box className="uii-revert" style={{ position: "absolute", left: 1, top: 3 }} onMouseDown={(e) => e.stopPropagation()} onClick={() => UiInspector.setStyle(id, prop, "")}>
             <text className="uii-revert-text">↺</text>
           </box>
         ) : null}
