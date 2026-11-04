@@ -256,8 +256,8 @@ performance, cross targets and CI.
 - [ ] 3b. `RtlVirtualUnwind` over the host's frames faulted inside ntdll (a read of -1) for some builds of a test exe, from `walk_pcs`
   (removed): find out why (a JIT unwind-info detail such as the `mov rsp, rbp` epilogue, or a host frame?) before relying on the system unwinder.
 - [x] 3c. Zombie Horders start-up crashes (about 1 start-up in 5): the JIT did not probe big stack frames; fixed with Cranelift
-  inline stack probes (research doc, "Zombie Horders crashes"). Left: report a real stack overflow (0xC00000FD) in the crash
-  handler; a thread with no stack left cannot run it, so it needs a reserved-stack guarantee or a watchdog process.
+  inline stack probes (research doc, "Zombie Horders crashes"). A real stack overflow (0xC00000FD) is reported too
+  (`crash.rs` `stack_overflow`: the report is written by a new thread, `M9-API-921`).
 - [x] 4. Debug build mode (`JitOptions::debug`, `platypus_ts::debug`, host `--debug-port`, `docs/debugger.md`): pause, resume, step, breakpoints that survive hot reload.
 - [x] 4b. Locals and the call stack at a stop: a debug build spills the locals (up to 256 per function) into a frame on the hook path, names and
   types come from a per-function table; callers by the stack scan above the function's frame. Left: callers' locals, expanding objects

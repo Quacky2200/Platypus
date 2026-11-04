@@ -360,7 +360,8 @@ unsafe fn registers(ctx: *const windows_sys::Win32::System::Diagnostics::Debug::
 /// The TypeScript call stack at the fault, innermost first: the faulting address, then every
 /// word of the stack that is a return address into compiled game code (a scan, see
 /// `platypus_ts::unwind::stack_words`; it crosses the host's frames between the game's, and may
-/// list a stale entry). Needs the line table, so only code it covers shows.
+/// list a stale entry). Needs the line table, so only code it covers shows. Runs of the same
+/// frame (a recursion) are counted, and a long stack is cut in the middle.
 ///
 /// # Safety
 /// `ctx` is null or the context record of the exception being handled, on its own thread.
@@ -374,33 +375,53 @@ unsafe fn game_stack(
     };
     // SAFETY: the handler runs on the faulting thread, whose stack pointer this is.
     let words = unsafe { platypus_ts::unwind::stack_words(c.Rsp as usize) };
-    let mut out = Vec::new();
-    let mut last = 0;
-    for (i, w) in std::iter::once(c.Rip as usize).chain(words).enumerate() {
+    format_game_stack(c.Rip as usize, words)
+}
+
+/// The text of the call stack from the faulting address and the words of the stack above it.
+fn format_game_stack(rip: usize, words: Vec<usize>) -> String {
+    // (text, how many times in a row)
+    let mut runs: Vec<(String, usize)> = Vec::new();
+    for (i, w) in std::iter::once(rip).chain(words).enumerate() {
         // A return address is after the call: look the line up for the call itself.
         let at = if i == 0 { w } else { w.wrapping_sub(1) };
         let Some(line) = jit_line_at(at) else {
             continue;
         };
-        if at == last {
+        // The function without the offset: frames of a recursion are the same run.
+        let f = jit_function_at(at)
+            .map(|f| f.split('+').next().unwrap_or_default().to_string())
+            .unwrap_or_default();
+        let text = format!("{f} at {}", describe_line(line));
+        match runs.last_mut() {
+            Some((t, n)) if *t == text => *n += 1,
+            _ => runs.push((text, 1)),
+        }
+    }
+    if runs.is_empty() {
+        return String::new();
+    }
+    let mut lines = Vec::new();
+    let mut index = 0;
+    let n = runs.len();
+    for (k, (text, count)) in runs.iter().enumerate() {
+        // A long stack: the first 25 runs and the last 10.
+        if n > 40 && (25..n - 10).contains(&k) {
+            if k == 25 {
+                lines.push(format!("  ... {} more runs of frames", n - 35));
+            }
+            index += count;
             continue;
         }
-        last = at;
-        let f = jit_function_at(at).unwrap_or_default();
-        out.push(format!("  {} ({f} at {})", out.len(), describe_line(line)));
+        let times = if *count > 1 {
+            format!(" (x{count})")
+        } else {
+            String::new()
+        };
+        lines.push(format!("  {index} ({text}){times}"));
+        index += count;
     }
-    if out.is_empty() {
-        String::new()
-    } else {
-        format!(
-            "call stack:
-{}",
-            out.join(
-                "
-"
-            )
-        )
-    }
+    format!("call stack:\n{}", lines.join("\n"))
 }
 
 #[cfg(all(windows, not(target_arch = "x86_64")))]
@@ -413,6 +434,69 @@ unsafe fn registers(_: *const windows_sys::Win32::System::Diagnostics::Debug::CO
     String::new()
 }
 
+/// A stack overflow: the thread has almost no stack left (Rust keeps 20 KB for handlers), too
+/// little for the normal report. The report is written by a new thread with a big stack from
+/// what the faulting one left: its registers and its stack, which stays as it is while this
+/// handler waits for the new thread.
+///
+/// # Safety
+/// `ctx` is null or the context record of the exception being handled, on its own thread.
+#[cfg(all(windows, target_arch = "x86_64"))]
+unsafe fn stack_overflow(
+    at: usize,
+    ctx: *const windows_sys::Win32::System::Diagnostics::Debug::CONTEXT,
+) {
+    use windows_sys::Win32::System::Threading::GetCurrentThreadStackLimits;
+    // SAFETY: by the contract.
+    let Some(c) = (unsafe { ctx.as_ref() }) else {
+        return;
+    };
+    let rsp = c.Rsp as usize;
+    let (mut low, mut high) = (0usize, 0usize);
+    // SAFETY: fills two integers.
+    unsafe { GetCurrentThreadStackLimits(&mut low, &mut high) };
+    let thread = std::thread::current()
+        .name()
+        .unwrap_or("<unnamed>")
+        .to_string();
+    let (start, end) = own_image();
+    let in_game = jit_function_at(at).is_some() || (start..end).contains(&at);
+    let report = move || {
+        // SAFETY: the faulting thread is stopped in this handler; its stack is as it was.
+        let words = unsafe { platypus_ts::unwind::stack_words_in(low, high, rsp) };
+        let stack = format_game_stack(at, words);
+        let place = match jit_function_at(at) {
+            Some(f) => format!(" (in compiled TypeScript, near {f})"),
+            None if (start..end).contains(&at) => " (in the game's program)".to_string(),
+            None => String::new(),
+        };
+        let reason = format!("Stack overflow at {at:#x}{place} (endless recursion?)");
+        let message = format!(
+            "crash: exception 0xc00000fd: {reason} on thread {thread:?}\nregisters: rip {at:#x} rsp {rsp:#x}\n{stack}\n"
+        );
+        eprintln!("{message}");
+        tracing::error!("{message}");
+        if in_game {
+            save_and_show(&reason, &message, false);
+        }
+    };
+    // A fresh stack for the report; this thread waits, so nothing else touches the old one.
+    if let Ok(h) = std::thread::Builder::new()
+        .name("crash report".into())
+        .stack_size(8 << 20)
+        .spawn(report)
+    {
+        let _ = h.join();
+    }
+}
+
+#[cfg(all(windows, not(target_arch = "x86_64")))]
+unsafe fn stack_overflow(
+    _: usize,
+    _: *const windows_sys::Win32::System::Diagnostics::Debug::CONTEXT,
+) {
+}
+
 #[cfg(windows)]
 unsafe extern "system" fn report(
     info: *mut windows_sys::Win32::System::Diagnostics::Debug::EXCEPTION_POINTERS,
@@ -420,18 +504,24 @@ unsafe extern "system" fn report(
     const CONTINUE_SEARCH: i32 = 0;
     const ACCESS_VIOLATION: u32 = 0xC000_0005;
     const HEAP_CORRUPTION: u32 = 0xC000_0374;
+    const STACK_OVERFLOW: u32 = 0xC000_00FD;
     // SAFETY: the system passes a valid record for the exception being raised.
     let rec = unsafe { &*(*info).ExceptionRecord };
     let code = rec.ExceptionCode as u32;
     // A vectored handler also sees exceptions that are handled later (C++ exceptions, debugger
     // and driver probes): only these two are crashes worth a report.
-    if code != ACCESS_VIOLATION && code != HEAP_CORRUPTION {
+    if code != ACCESS_VIOLATION && code != HEAP_CORRUPTION && code != STACK_OVERFLOW {
         return CONTINUE_SEARCH;
     }
     let at = rec.ExceptionAddress as usize;
     // First the bare facts: the rest allocates and walks the stack, and a handler that faults
     // itself (a corrupt heap or stack) would otherwise end the process without a word.
     eprintln!("crash: exception {code:#010x} at {at:#x}");
+    if code == STACK_OVERFLOW {
+        // SAFETY: the context of the faulting thread, as above.
+        unsafe { stack_overflow(at, (*info).ContextRecord) };
+        return CONTINUE_SEARCH;
+    }
     // Executing a bad address means the code at `at` is not there to read either.
     let code_readable = !(code == ACCESS_VIOLATION
         && rec.NumberParameters >= 2

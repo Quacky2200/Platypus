@@ -113,3 +113,60 @@ fn a_panic_that_aborts_the_process_saves_a_report_with_the_panic() {
     let _ = std::fs::remove_file(&saved);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+const RECURSES: &str = r#"
+function down(n: number): number {
+  return down(n + 1) + 1;
+}
+class Deep extends Component {
+  frames = 0;
+  override onUpdate(_dt: number) {
+    this.frames++;
+    if (this.frames === 3) console.log(`depth ${down(0)}`);
+  }
+}
+register({ Deep });
+"#;
+
+// M9-API-921
+#[test]
+fn a_stack_overflow_in_compiled_code_saves_a_report_with_the_recursion() {
+    let dir = std::env::temp_dir().join(format!("platypus-crash-overflow-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let game = dir.join("main.ts");
+    std::fs::write(&game, RECURSES).unwrap();
+    let log = dir.join("run.log");
+    let status = Command::new(env!("CARGO_BIN_EXE_platypus-app"))
+        .arg(&game)
+        .args([
+            "--bench", "--warmup", "0", "--frames", "20", "--size", "320x200",
+        ])
+        .env("PLATYPUS_LOG_FILE", &log)
+        .status()
+        .unwrap();
+    let log_text = std::fs::read_to_string(&log).unwrap_or_default();
+    assert!(
+        !status.success(),
+        "the game should have crashed: {log_text}"
+    );
+    let saved = log_text
+        .lines()
+        .find_map(|l| l.split("crash report saved to ").nth(1))
+        .unwrap_or_else(|| panic!("no report saved: {log_text}"))
+        .trim()
+        .to_string();
+    let report = std::fs::read_to_string(&saved).unwrap();
+    assert!(report.contains("Stack overflow"), "{report}");
+    assert!(report.contains("call stack:"), "{report}");
+    // The recursion is one counted run, not thousands of lines.
+    assert!(report.contains("down at"), "{report}");
+    assert!(report.contains("(x"), "{report}");
+    assert!(
+        report.lines().count() < 120,
+        "{} lines",
+        report.lines().count()
+    );
+    let _ = std::fs::remove_file(&saved);
+    let _ = std::fs::remove_dir_all(&dir);
+}

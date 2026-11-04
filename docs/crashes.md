@@ -122,6 +122,13 @@ build/release/platypus-app.exe --crash-report "C:\Users\you\AppData\Roaming\<com
 - **A fault outside the game's code** (an access violation in a graphics driver, say): it is logged, but no report or
   dialog follows, because the driver may handle it and carry on. If the process does die from it, the log has the details.
 
+## A stack overflow
+
+Endless recursion ends the thread's stack, and a thread with no stack left cannot run the normal report. The handler writes the
+report from a new thread with a big stack, from the faulting thread's registers and its stack (which stays as it is while the
+handler waits): the reason (`Stack overflow at ... near down+0x10 (endless recursion?)`), and the call stack with the repeated
+frames counted, for example `3 (down at src/main.ts:2) (x20000)`. Windows x64.
+
 ## A panic that aborts the process
 
 A call from compiled TypeScript into the host cannot unwind a Rust panic: Rust prints "panic in a function that cannot

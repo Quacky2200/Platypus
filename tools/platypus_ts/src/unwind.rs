@@ -43,13 +43,25 @@ pub unsafe fn stack_words(rsp: usize) -> Vec<usize> {
     let (mut low, mut high) = (0usize, 0usize);
     // SAFETY: fills two integers.
     unsafe { GetCurrentThreadStackLimits(&mut low, &mut high) };
+    // SAFETY: the limits are this thread's own.
+    unsafe { stack_words_in(low, high, rsp) }
+}
+
+/// [`stack_words`] for a stack with the given limits (`GetCurrentThreadStackLimits` of its
+/// thread), read from another thread: a thread that overflowed its stack has none left to
+/// report with.
+///
+/// # Safety
+/// `low..high` is a committed-or-reserved stack of a live thread that is not running, and
+/// `rsp` was its stack pointer.
+pub unsafe fn stack_words_in(low: usize, high: usize, rsp: usize) -> Vec<usize> {
     let from = rsp.max(low).next_multiple_of(8);
     // A bound keeps the report quick: a megabyte is far deeper than a game's call stack.
     let to = high.min(from + (1 << 20));
     let mut out = Vec::new();
     let mut at = from;
     while at + 8 <= to {
-        // SAFETY: between the thread's stack limits, committed stack below `high`.
+        // SAFETY: between the thread's stack limits; below `high` it is committed stack.
         out.push(unsafe { *(at as *const usize) });
         at += 8;
     }
