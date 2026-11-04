@@ -87,10 +87,18 @@ toggles it, off by default). The editor mounts the panel as a dock tab ("UI") an
 
 ### Editor
 
-The editor is a game compiled by the same tool, so it is built with `--add-ui-inspector` for development of the
-editor itself; for inspecting a project's UI the Game panel's UI tree must be inspected, not the editor's own. That needs the
-`UiInspector` calls to name a tree (`screen`, a panel, an editor-hosted game UI); the editor already hosts the
-project's UI in a panel (`docs/editor.md`), so `UiInspector.trees()` lists them and every call takes a tree id.
+Done (first version): a dock tab "UI" (`editor/src/UiInspectorPanel.tsx`, test `M3-INS-10`). The editor is a game
+compiled by the same tool, so `platypus-build build editor --add-ui-inspector` makes it inspect its own screen UI: the
+tab shows the elements as the editor's `TreeView` (open rows ask the host to publish their children), the picked node's
+styles (`UiInspStyles`, from `tools/platypus_build/inspector/shared.tsx`, which the overlay appends and the editor
+imports; a program that already has it does not get it twice) and an Edit toggle. A node picked in the tree is pinned, so
+the overlay (F12) outlines it. Without the flag the tab says how to turn the inspector on.
+
+Not done: inspecting the *project's* UI rather than the editor's own (the Game panel's tree) needs the `UiInspector`
+calls to name a tree (`screen`, a panel, an editor-hosted game UI) and every call to take a tree id; and the panel
+could open in its own window (`Window.create`, `createRoot(win)`: the panel is a plain component, and the pointer
+would then not be over the UI being inspected; the window API has not run on a real display yet, see
+`docs/windows.md`).
 
 ## Editing live
 

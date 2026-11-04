@@ -13,7 +13,7 @@
 use platypus_build::{Options, build, package::find_host};
 use std::path::Path;
 use std::process::Command;
-use std::sync::Mutex;
+use std::sync::{Mutex, RwLock};
 
 /// Clicks spaced so each one's work (and the Project browser's listing) lands before the next.
 const SPEC: &str = r#"{ "warmup": 30, "segments": [
@@ -48,6 +48,31 @@ const TABS_SPEC: &str = r#"{ "warmup": 30, "segments": [
   { "name": "game", "frames": 30, "input": [ { "frame": 0, "kind": "clickText", "text": "Game" } ] },
   { "name": "scene", "frames": 30, "input": [ { "frame": 0, "kind": "clickText", "text": "Scene" } ] }
 ] }"#;
+
+/// The "UI" tab of an editor built with the inspector shows the UI tree (its `root` row) and
+/// takes F9 (pinning the node under the pointer) without a fault.
+const UI_TAB_SPEC: &str = r#"{ "warmup": 30, "segments": [
+  { "name": "ui", "frames": 60, "input": [
+    { "frame": 0, "kind": "clickText", "text": "UI" },
+    { "frame": 20, "kind": "moveToText", "text": "root" },
+    { "frame": 30, "kind": "key", "code": "F9" },
+    { "frame": 45, "kind": "moveToText", "text": "root" }
+  ] }
+] }"#;
+
+// M3-INS-10
+#[test]
+fn the_ui_tab_shows_the_editors_own_ui_tree_when_built_with_the_inspector() {
+    let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let run = run_editor_with(
+        "ui-tab",
+        UI_TAB_SPEC,
+        false,
+        &repo.join("examples/arcade"),
+        true,
+    );
+    let _ = std::fs::remove_dir_all(&run);
+}
 
 /// Pixels of `a` and `b` inside the Scene view (default layout at 1600x900, clear of the
 /// toolbar, the axis gizmo and the panel edges) that differ by more than a little.
@@ -862,8 +887,31 @@ fn run_editor(name: &str, spec: &str, shots: bool) -> std::path::PathBuf {
 
 /// [`run_editor`] on another project folder.
 fn run_editor_on(name: &str, spec: &str, shots: bool, project: &Path) -> std::path::PathBuf {
-    // The tests run in parallel; one at a time builds `editor/build`.
+    run_editor_with(name, spec, shots, project, false)
+}
+
+/// [`run_editor_on`], the editor built with the UI inspector (`--add-ui-inspector`) when
+/// `inspector` is set.
+fn run_editor_with(
+    name: &str,
+    spec: &str,
+    shots: bool,
+    project: &Path,
+    inspector: bool,
+) -> std::path::PathBuf {
+    // The tests share `editor/build`. Runs without the inspector build the same bundle one at a
+    // time and then run side by side (a read lock); the one with the inspector waits for them all
+    // and runs alone (a write lock), so its bundle is never swapped under another run.
     static BUILD: Mutex<()> = Mutex::new(());
+    static RUNNING: RwLock<()> = RwLock::new(());
+    let (_shared, _alone);
+    if inspector {
+        _alone = Some(RUNNING.write().unwrap_or_else(|e| e.into_inner()));
+        _shared = None;
+    } else {
+        _shared = Some(RUNNING.read().unwrap_or_else(|e| e.into_inner()));
+        _alone = None;
+    }
     let repo = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let editor = repo.join("editor");
     let host = {
@@ -872,6 +920,7 @@ fn run_editor_on(name: &str, spec: &str, shots: bool, project: &Path) -> std::pa
             &editor,
             &Options {
                 no_tsc: true,
+                ui_inspector: inspector,
                 ..Default::default()
             },
         )

@@ -79,11 +79,12 @@ import { SceneView, visibleObjects } from "./SceneView.tsx";
 import { useScreenSize } from "./screen.ts";
 import { emptyTreeState, type TreeNode, type TreeState } from "./tree.ts";
 import { TreeView } from "./TreeView.tsx";
+import { UiInspectorPanel } from "./UiInspectorPanel.tsx";
 import { buildDemoScene } from "./demo-scene.ts";
 
 const MENUBAR = 26;
 const STATUS = 22;
-const PANELS = ["hierarchy", "scene", "game", "inspector", "console", "project"];
+const PANELS = ["hierarchy", "scene", "game", "inspector", "ui", "console", "project"];
 const LAYOUT_KEY = "editor.layout";
 
 // The scene's undo history and the objects copied (snapshots).
@@ -108,7 +109,7 @@ const LIGHTS: { label: string; type: "directional" | "point" | "spot" }[] = [
 
 const defaultLayout = (): DockNode =>
   split("root", "column", [
-    split("top", "row", [group("left", ["hierarchy"]), group("center", ["scene", "game"]), group("right", ["inspector"])], [0.2, 0.58, 0.22]),
+    split("top", "row", [group("left", ["hierarchy"]), group("center", ["scene", "game"]), group("right", ["inspector", "ui"], "inspector")], [0.2, 0.58, 0.22]),
     group("bottom", ["console", "project"]),
   ], [0.7, 0.3]);
 
@@ -772,6 +773,7 @@ function App() {
         title: TITLES.inspector!,
         render: (s) => <Inspector objects={selectedObjects} width={s.width} height={s.height} exec={exec} />,
       },
+      ui: { title: TITLES.ui!, render: (s) => <UiInspectorPanel width={s.width} height={s.height} /> },
       console: { title: TITLES.console!, render: (s) => <Console {...s} /> },
     }),
     [roots, tree, showGrid, showGizmos],
@@ -798,6 +800,7 @@ const TITLES: Record<string, string> = {
   scene: "Scene",
   game: "Game",
   inspector: "Inspector",
+  ui: "UI",
   console: "Console",
 };
 

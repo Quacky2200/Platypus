@@ -275,19 +275,27 @@ pub struct Options {
 /// The UI inspector's overlay (TSX, `inspector/overlay.tsx`): appended to the program, which
 /// mounts it in its own root (`createRoot(9000001)`, the host's inspector target).
 const INSPECTOR_OVERLAY: &str = include_str!("../inspector/overlay.tsx");
-const INSPECTOR_OVERLAY_NAME: &str = "<ui-inspector>/overlay.tsx";
+/// What the overlay and the editor's "UI" panel share (`inspector/shared.tsx`). A program that
+/// imports it itself (the editor does) already has it, so it is not appended twice.
+const INSPECTOR_SHARED: &str = include_str!("../inspector/shared.tsx");
+const INSPECTOR_SHARED_MARKER: &str = "function UiInspField(";
 
 /// Adds the inspector to a bundled program (`--add-ui-inspector`).
 fn add_ui_inspector(bundle: &mut platypus_ts::modules::Bundle) {
-    if !bundle.source.ends_with('\n') {
-        bundle.source.push('\n');
+    let mut parts = vec![("<ui-inspector>/overlay.tsx", INSPECTOR_OVERLAY)];
+    if !bundle.source.contains(INSPECTOR_SHARED_MARKER) {
+        parts.insert(0, ("<ui-inspector>/shared.tsx", INSPECTOR_SHARED));
     }
-    // Lines of the appended text are told apart from the game's in error messages.
-    let start = bundle.source.matches('\n').count();
-    bundle.source.push_str(INSPECTOR_OVERLAY);
-    bundle
-        .starts
-        .push((start, INSPECTOR_OVERLAY_NAME.to_string()));
+    for (name, text) in parts {
+        if !bundle.source.ends_with('\n') {
+            bundle.source.push('\n');
+        }
+        // Lines of the appended text are told apart from the game's in error messages.
+        let start = bundle.source.matches('\n').count();
+        // The program's own exports stay its exports: the appended text exports nothing.
+        bundle.source.push_str(&text.replace("\nexport ", "\n"));
+        bundle.starts.push((start, name.to_string()));
+    }
 }
 
 /// How `tsc` went.
