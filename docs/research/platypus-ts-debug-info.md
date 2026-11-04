@@ -74,9 +74,18 @@ Columns: not in v1 (`SourceLoc` is 32 bits; line is enough). A later version can
   at start-up. About 1 start-up in 5 of the current host crashes (60 runs: 10 to 14 crashes), with GC off or on and with the
   unwind tables and unwind info switched off, so not the collector and not this work. The original host (before the debug
   work) crashed 1 in 40 on the same game, one of them heap corruption (0xC0000374).
-- The faults land all over the host at start-up, right after the window is created: a null `Arc` clone in the window code,
-  winit's `in_event_loop_thread`, a hashbrown bucket, `vkDestroyPipelineLayout`, an atomic compare-exchange. That is memory
-  corruption, not one bad line. Not found yet (open item in TODO.md).
+- The faults landed all over the host at start-up, right after the window is created (a null `Arc` clone, winit's
+  `in_event_loop_thread`, a hashbrown bucket, `vkDestroyPipelineLayout`).
+- **Cause found (2026-11-04): no stack probes in JIT code.** Other examples never crashed (0 in 160 runs); Zombie Horders did
+  (4 in 40) with textures, UI and the Arena all stubbed out, and with any `project.json`. What it has is a huge top-level
+  `init` (map and wall tables): a 37 KB frame, because every pointer local is mirrored in the frame. Cranelift's
+  `enable_probestack` is off by default, so the frame was allocated in one step. Windows grows the main thread's stack one guard
+  page at a time, so a frame that jumps past the guard page leaves the pages in between uncommitted: whatever touches them (the
+  game's own frame, later deep host calls) faults or, on an unlucky layout, corrupts memory. A synthetic game with a 6000-row
+  table (a 48 KB frame) died 40 times in 40 with exit code 0xC0000005 and nothing in the log: with no stack left to dispatch
+  on, the vectored handler never ran. Frames of 0 to 33 KB did not crash, 40 KB crashed 4 in 15.
+- Fix: `enable_probestack` with the inline strategy (`codegen.rs` `host_isa`). The 48 KB game: 0 in 20; Zombie Horders: 0 in 60.
+  `M9-TS-3392` (a 6000-row table run on a fresh thread) dies with an access violation without the flag.
 - A panic in a host function called from compiled code aborted the process with no report and no dialog: fixed
   (`crash::note_panic`, `M9-API-920`).
 

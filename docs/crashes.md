@@ -162,6 +162,10 @@ CARGO_PROFILE_RELEASE_DEBUG=line-tables-only cargo build --release -p platypus_a
 
 ### Chasing a crash that only happens sometimes
 
+- A process that exits with `0xC0000005` and writes nothing at all (no `crash:` line, no report) has no stack left to run the
+  handler on: a stack overflow, or a frame that skipped the guard page. The first line the handler prints is `crash: exception
+  <code> at <address>`, before anything heavy.
+
 - Run the same start many times with `--screenshot out.png --frames 5` and count the reports in the temp folder.
 - `PLATYPUS_TS_GC=stress` collects garbage at every allocation, so a missing GC root crashes at once instead of now and then.
 - Forced hot reloads during a screenshot run: `PLATYPUS_RELOAD_AT_FRAME=N`.

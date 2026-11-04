@@ -413,6 +413,9 @@ unsafe extern "system" fn report(
         return CONTINUE_SEARCH;
     }
     let at = rec.ExceptionAddress as usize;
+    // First the bare facts: the rest allocates and walks the stack, and a handler that faults
+    // itself (a corrupt heap or stack) would otherwise end the process without a word.
+    eprintln!("crash: exception {code:#010x} at {at:#x}");
     // Executing a bad address means the code at `at` is not there to read either.
     let code_readable = !(code == ACCESS_VIOLATION
         && rec.NumberParameters >= 2

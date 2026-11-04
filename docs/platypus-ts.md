@@ -1396,6 +1396,11 @@ tests: `stress` collects at every allocation and poisons freed memory, `off` nev
 running game. After each compile, `native.rs` also gives the game's exported functions to the crash reporter
 ([platform.md](platform.md#crash-report-windows)).
 
+**Stack probes.** `host_isa` turns on Cranelift's `enable_probestack` (inline strategy). A function whose frame is more than a page
+(a big top-level `init`: every pointer local is mirrored in the frame, so a table of thousands of rows makes tens of kilobytes) now
+touches the pages it passes, so Windows can grow the stack through its guard page. Without it such a frame crashed the process
+at start-up on some runs, or died silently with no report (`M9-TS-3392`).
+
 **Debug info** (design and plan: [research/platypus-ts-debug-info.md](research/platypus-ts-debug-info.md)). The lowering puts
 `Stmt::Line(n)` (a line of the bundled source) before each statement; codegen turns it into a Cranelift source location, and
 `Game::line_table()` gives the JIT's `(start, end, line)` ranges by address, which the crash reporter maps to a line. Every

@@ -2208,6 +2208,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3413 | Unit | `platypus-build build` writes `build/game.pdebug` (format, hash of the bundled source, where each file starts) and the host reads it: bundle lines map to `file:line` (`crash.rs`). |
 | M9-TS-3390 | Integration | On Windows the JIT registers x64 unwind tables for compiled functions (`platypus_ts::unwind`), so the system can walk a stack through them: `is_registered` (`lang/debug_lines.rs`). The call stack a crash report prints from it (`crash.rs` `game_stack`) is not tested automatically. |
 | M9-TS-3391 | Integration | A scan of the stack from inside an engine call (`unwind::stack_words`) finds the return addresses of the compiled game frames in call order (`lang/game_stack.rs`, Windows x64). Checked by hand end to end too: a null dereference in a game gives `src/main.ts` lines 7, 11, 15 and 20 in the crash report. |
+| M9-TS-3392 | Integration | A compiled function with a frame of tens of kilobytes (a 6000-row top-level table) probes the stack pages it passes (`enable_probestack`, inline), so it runs on a fresh thread stack; without probes it jumped Windows' guard page and crashed Zombie Horders at start-up about one run in five (`lang/big_frame.rs`). |
 
 ## M9 — One host: the renderer chosen from what the game uses
 

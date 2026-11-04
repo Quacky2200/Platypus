@@ -12,6 +12,7 @@ mod cases;
 
 mod arraylib;
 mod arrays2;
+mod big_frame;
 mod bigint;
 mod classes;
 mod closures;

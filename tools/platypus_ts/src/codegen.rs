@@ -131,6 +131,16 @@ pub(crate) fn host_isa(
     flags
         .set("unwind_info", if native { "true" } else { "false" })
         .map_err(|e| e.to_string())?;
+    // A frame bigger than a page (a big `init` with thousands of mirrored locals) must touch the
+    // pages it passes: Windows grows the stack one guard page at a time, so a frame that jumps
+    // past the guard page crashes (a stack dispatch with no stack left: no handler runs, no log).
+    // Off by default in Cranelift. Inline probes need no libcall in the JIT.
+    flags
+        .set("enable_probestack", "true")
+        .map_err(|e| e.to_string())?;
+    flags
+        .set("probestack_strategy", "inline")
+        .map_err(|e| e.to_string())?;
     let flags = settings::Flags::new(flags);
     if native {
         let b = cranelift_native::builder().map_err(|e| e.to_string())?;
