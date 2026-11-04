@@ -100,33 +100,64 @@ function UiInspHighlights() {
 
 // --- Toolbar and help ------------------------------------------------------------------------------
 
-/** What the keys and mouse do, for the `?` panel. */
-const UiInspHelp = [
-  ["F12", "turn the inspector on or off"],
-  ["Ctrl+Shift+C  /  F7", "inspect: click an element to edit it (Esc cancels), as in Chrome"],
-  ["drag a title bar", "move the toolbar or the card"],
-  ["Enter / Esc", "commit / revert the value you are typing"],
-  ["Up / Down", "add or take 1 in a number (Shift: 10, Alt: 0.1)"],
-  ["Tab", "take the first completion"],
-  ["swatch / curve / stops", "colour picker / timing curve / gradient editor"],
-  ["flexbox", "a layout editor for a flex container"],
-  ["class links", "click to take a class off, again to put it back; + adds one"],
-  [":hover :active ...", "force a state on the element"],
-  ["hover a rule", "outline the elements it matches"],
-  ["hover margin / padding", "show the box model over the element"],
-  ["NEW RULE", "type .a:hover { color: red } to add a real rule"],
+/** The keys, for the `?` panel: what to press, what it does. */
+const UiInspKeys = [
+  ["F12", "Turn the inspector on or off"],
+  ["Ctrl+Shift+C  or  F7", "Inspect: click an element to edit it, as in Chrome"],
+  ["Esc", "Stop inspecting"],
+  ["Enter", "Commit what you typed; in a new property, the value after the name"],
+  ["Esc  (in a field)", "Put the old value back"],
+  [":  (in a new property)", "Check the name and go to the value"],
+  ["Tab", "Take the first completion"],
+  ["Up / Down", "Add or take 1 in a number (Shift: 10, Alt: 0.1)"],
+  ["Backspace  (empty field)", "Go back to the name, then remove the property"],
 ];
+
+/** What the pieces of the card do, for the `?` panel: the thing, what it does. */
+const UiInspThings = [
+  ["Inspect (toolbar)", "Pick an element on the page and edit its styles"],
+  ["Title bar, grip", "Drag to move the toolbar or the card"],
+  ["Colour swatch", "Open a colour picker (hex, rgb or hsl)"],
+  ["curve, stops", "Edit a timing curve or a gradient"],
+  ["flexbox", "A layout editor for a flex container"],
+  ["Classes", "Click one to take it off (again to put it back); + adds one"],
+  [":hover  :active …", "Force a state on the element"],
+  ["A rule { … }", "Hover it to outline the elements it matches"],
+  ["margin, padding …", "Hover the line to see the box model"],
+  ["NEW RULE", "Type  .a:hover { color: red }  to add a real rule"],
+  ["Menu (three bars)", "Copy styles, choose the card's colour scheme"],
+];
+
+/** A table for the help: a heading, then rows of two columns that line up. */
+function UiInspHelpTable(props: { title: string; left: string; right: string; rows: string[][] }) {
+  return (
+    <box style={{ flexDirection: "column", gap: 5 }}>
+      <text className="uii-section">{props.title}</text>
+      <box className="uii-help-grid">
+        <text className="uii-dim">{props.left}</text>
+        <text className="uii-dim">{props.right}</text>
+        {props.rows.map((row) => (
+          <Fragment key={row[0]}>
+            <text className="uii-help-key">{row[0]}</text>
+            <text className="uii-text">{row[1]}</text>
+          </Fragment>
+        ))}
+      </box>
+    </box>
+  );
+}
 
 // --- Icons ---------------------------------------------------------------------------------------------
 
-const UiInspIconColor = "#e8eef9";
+// The icons take their colours from the theme through classes (`.uii-ico-*` in inspector.css), so the
+// toolbar follows the system theme, the toolbar's pill and a card's own scheme alike.
 
 /** A box with a cursor over its corner: pick an element. */
 function UiInspIconInspect() {
   return (
     <svg viewBox="0 0 20 20" style={{ width: 17, height: 17 }}>
-      <path d="M3.5 9 V3.5 H14.5 V9 M3.5 9 V14.5 H9" fill="none" stroke={UiInspIconColor} strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M9.2 8.6 V18.2 L11.6 15.9 L13.4 19.2 L15.1 18.4 L13.3 15.1 L16.6 14.9 Z" fill={UiInspIconColor} stroke="#1b2029" strokeWidth={0.9} strokeLinejoin="round" />
+      <path className="uii-ico-s" d="M3.5 9 V3.5 H14.5 V9 M3.5 9 V14.5 H9" strokeWidth={1.3} strokeLinecap="round" strokeLinejoin="round" />
+      <path className="uii-ico-cursor" d="M9.2 8.6 V18.2 L11.6 15.9 L13.4 19.2 L15.1 18.4 L13.3 15.1 L16.6 14.9 Z" strokeWidth={0.9} strokeLinejoin="round" />
     </svg>
   );
 }
@@ -135,9 +166,9 @@ function UiInspIconInspect() {
 function UiInspIconHelp() {
   return (
     <svg viewBox="0 0 20 20" style={{ width: 17, height: 17 }}>
-      <circle cx={10} cy={10} r={7.3} fill="none" stroke={UiInspIconColor} strokeWidth={1.3} />
-      <path d="M7.7 8.2 C7.7 6.1 12.3 6.1 12.3 8.3 C12.3 9.9 10 9.9 10 11.8" fill="none" stroke={UiInspIconColor} strokeWidth={1.3} strokeLinecap="round" />
-      <circle cx={10} cy={14.3} r={0.95} fill={UiInspIconColor} />
+      <circle className="uii-ico-s" cx={10} cy={10} r={7.3} strokeWidth={1.3} />
+      <path className="uii-ico-s" d="M7.7 8.2 C7.7 6.1 12.3 6.1 12.3 8.3 C12.3 9.9 10 9.9 10 11.8" strokeWidth={1.3} strokeLinecap="round" />
+      <circle className="uii-ico-f" cx={10} cy={14.3} r={0.95} />
     </svg>
   );
 }
@@ -146,8 +177,8 @@ function UiInspIconHelp() {
 function UiInspIconTheme() {
   return (
     <svg viewBox="0 0 20 20" style={{ width: 17, height: 17 }}>
-      <circle cx={10} cy={10} r={6.8} fill="none" stroke={UiInspIconColor} strokeWidth={1.3} />
-      <path d="M10 3.2 A6.8 6.8 0 0 0 10 16.8 Z" fill={UiInspIconColor} />
+      <circle className="uii-ico-s" cx={10} cy={10} r={6.8} strokeWidth={1.3} />
+      <path className="uii-ico-f" d="M10 3.2 A6.8 6.8 0 0 0 10 16.8 Z" />
     </svg>
   );
 }
@@ -156,7 +187,7 @@ function UiInspIconTheme() {
 function UiInspIconClose() {
   return (
     <svg viewBox="0 0 20 20" style={{ width: 17, height: 17 }}>
-      <path d="M5.2 5.2 L14.8 14.8 M14.8 5.2 L5.2 14.8" fill="none" stroke="#ffffff" strokeWidth={1.1} strokeLinecap="round" />
+      <path className="uii-ico-s" d="M5.2 5.2 L14.8 14.8 M14.8 5.2 L5.2 14.8" strokeWidth={1.1} strokeLinecap="round" />
     </svg>
   );
 }
@@ -165,12 +196,12 @@ function UiInspIconClose() {
 function UiInspIconGrip() {
   return (
     <svg viewBox="0 0 10 18" style={{ width: 9, height: 16 }}>
-      <circle cx={3} cy={4} r={1.15} fill="#8a94a3" />
-      <circle cx={7} cy={4} r={1.15} fill="#8a94a3" />
-      <circle cx={3} cy={9} r={1.15} fill="#8a94a3" />
-      <circle cx={7} cy={9} r={1.15} fill="#8a94a3" />
-      <circle cx={3} cy={14} r={1.15} fill="#8a94a3" />
-      <circle cx={7} cy={14} r={1.15} fill="#8a94a3" />
+      <circle className="uii-ico-d" cx={3} cy={4} r={1.15} />
+      <circle className="uii-ico-d" cx={7} cy={4} r={1.15} />
+      <circle className="uii-ico-d" cx={3} cy={9} r={1.15} />
+      <circle className="uii-ico-d" cx={7} cy={9} r={1.15} />
+      <circle className="uii-ico-d" cx={3} cy={14} r={1.15} />
+      <circle className="uii-ico-d" cx={7} cy={14} r={1.15} />
     </svg>
   );
 }
@@ -259,13 +290,9 @@ function UiInspToolbar(props: { picking: boolean; help: boolean; theme: string; 
           </UiInspTool>
         </box>
         {props.help ? (
-          <box className="uii-card" style={{ padding: 10, flexDirection: "column", gap: 3, maxWidth: 420, pointerEvents: "auto" }}>
-            {UiInspHelp.map((row) => (
-              <box key={row[0]} style={{ flexDirection: "row", gap: 8, alignItems: "flex-start" }}>
-                <text className="uii-prop" style={{ width: 130 }}>{row[0]}</text>
-                <text className="uii-text" style={{ maxWidth: 270 }}>{row[1]}</text>
-              </box>
-            ))}
+          <box className="uii-card" style={{ padding: 12, flexDirection: "column", gap: 10, width: 500, pointerEvents: "auto" }}>
+            <UiInspHelpTable title="KEYBOARD" left="Press" right="What it does" rows={UiInspKeys} />
+            <UiInspHelpTable title="THE INSPECTOR" left="Part" right="What it does" rows={UiInspThings} />
           </box>
         ) : null}
       </box>
@@ -277,8 +304,8 @@ function UiInspToolbar(props: { picking: boolean; help: boolean; theme: string; 
 function UiInspIconCopy() {
   return (
     <svg viewBox="0 0 20 20" style={{ width: 15, height: 15 }}>
-      <rect x={7.2} y={7.2} width={9} height={9.6} rx={1.6} fill="none" stroke="#8a94a3" strokeWidth={1.3} />
-      <path d="M5 12.8 V5.2 A1.6 1.6 0 0 1 6.6 3.6 H12.8" fill="none" stroke="#8a94a3" strokeWidth={1.3} strokeLinecap="round" />
+      <rect className="uii-ico-sd" x={7.2} y={7.2} width={9} height={9.6} rx={1.6} strokeWidth={1.3} />
+      <path className="uii-ico-sd" d="M5 12.8 V5.2 A1.6 1.6 0 0 1 6.6 3.6 H12.8" strokeWidth={1.3} strokeLinecap="round" />
     </svg>
   );
 }
@@ -287,7 +314,7 @@ function UiInspIconCopy() {
 function UiInspIconMenu() {
   return (
     <svg viewBox="0 0 20 20" style={{ width: 15, height: 15 }}>
-      <path d="M4 6 H16 M4 10 H16 M4 14 H16" fill="none" stroke="#8a94a3" strokeWidth={1.4} strokeLinecap="round" />
+      <path className="uii-ico-sd" d="M4 6 H16 M4 10 H16 M4 14 H16" strokeWidth={1.4} strokeLinecap="round" />
     </svg>
   );
 }

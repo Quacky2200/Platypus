@@ -72,20 +72,20 @@
   --uii-shadow: rgba(20, 30, 50, 0.25);
 }
 
-/* The toolbar: always dark (white icons), whatever the theme. A grip on the left drags it. */
+/* The toolbar follows the theme like everything else. A grip on the left drags it. */
 .uii-bar {
   flex-direction: row;
   align-items: center;
   gap: 2px;
   padding: 3px 6px 3px 2px;
-  background-color: #1b2029;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  background-color: var(--uii-bg);
+  border: 1px solid var(--uii-line);
   border-radius: 9px;
-  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 8px 26px var(--uii-shadow);
 }
 .uii-grip { padding: 4px 6px; border-radius: 6px; cursor: move; }
-.uii-grip:hover { background-color: rgba(255, 255, 255, 0.08); }
-.uii-grip.drag { cursor: grabbing; background-color: rgba(255, 255, 255, 0.12); }
+.uii-grip:hover { background-color: var(--uii-hover); }
+.uii-grip.drag { cursor: grabbing; background-color: var(--uii-accent-bg); }
 .uii-tool {
   position: relative;
   width: 28px;
@@ -96,19 +96,30 @@
   cursor: pointer;
   transition: background-color 0.12s;
 }
-.uii-tool:hover { background-color: rgba(255, 255, 255, 0.12); }
-.uii-tool.on { background-color: rgba(108, 182, 255, 0.35); }
-.uii-tool.close:hover { background-color: rgba(224, 122, 122, 0.35); }
+.uii-tool:hover { background-color: var(--uii-hover); }
+.uii-tool.on { background-color: var(--uii-accent-bg); }
+.uii-tool.close:hover { background-color: rgba(224, 122, 122, 0.3); }
 /* Names show under a tool when the pointer rests on it. */
 .uii-tool-tip {
   z-index: 100;
-  background-color: #0e1117;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background-color: var(--uii-bg2);
+  border: 1px solid var(--uii-line);
   border-radius: 5px;
   padding: 2px 8px;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 14px var(--uii-shadow);
 }
-.uii-tool-tip-text { color: #e8eef9; font-size: 11px; white-space: nowrap; }
+.uii-tool-tip-text { color: var(--uii-text); font-size: 11px; white-space: nowrap; }
+
+/* Icons draw in the theme's colours: stroke, fill, dim, and the cursor (filled, outlined in the background). */
+.uii-ico-s { fill: none; stroke: var(--uii-text); }
+.uii-ico-f { fill: var(--uii-text); }
+.uii-ico-d { fill: var(--uii-dim); }
+.uii-ico-sd { fill: none; stroke: var(--uii-dim); }
+.uii-ico-cursor { fill: var(--uii-text); stroke: var(--uii-bg); }
+
+/* The help: two columns of equal width in every row, a table for the keys and one for the rest. */
+.uii-help-grid { display: grid; grid-template-columns: 172px 1fr; column-gap: 14px; row-gap: 5px; }
+.uii-help-key { color: var(--uii-prop); font-size: 12px; }
 /* Controls are not text to select: dragging a bar or clicking a link must not highlight it. */
 .uii-bar, .uii-grip, .uii-tool, .uii-title-bar, .uii-chip, .uii-link, .uii-x, .uii-sugg-item { user-select: none; }
 /* A card's title bar drags it too. */
