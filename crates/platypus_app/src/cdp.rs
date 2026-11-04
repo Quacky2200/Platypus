@@ -320,20 +320,28 @@ fn file_of_url(url: &str) -> String {
 
 /// A debugger value as a CDP `RemoteObject`.
 fn remote(v: &Variable) -> Value {
-    if v.handle != 0 {
-        return json!({"type": "object", "className": v.ty, "description": v.value, "objectId": format!("h:{}", v.handle)});
-    }
     match v.ty.as_str() {
         "number" => match v.value.parse::<f64>() {
             Ok(n) if n.is_finite() => json!({"type": "number", "value": n, "description": v.value}),
             _ => json!({"type": "number", "unserializableValue": v.value, "description": v.value}),
         },
         "boolean" => json!({"type": "boolean", "value": v.value == "true"}),
+        "string" => json!({"type": "string", "value": v.value.trim_matches('"')}),
         "null" => {
             json!({"type": "object", "subtype": "null", "value": null, "description": "null"})
         }
         "undefined" => json!({"type": "undefined"}),
-        _ => json!({"type": "string", "value": v.value.trim_matches('"')}),
+        // Objects and arrays, even empty ones (no handle: nothing to open).
+        ty => {
+            let mut o = json!({"type": "object", "className": if ty == "array" { "Array" } else { ty }, "description": v.value});
+            if ty == "array" {
+                o["subtype"] = json!("array");
+            }
+            if v.handle != 0 {
+                o["objectId"] = json!(format!("h:{}", v.handle));
+            }
+            o
+        }
     }
 }
 
