@@ -68,6 +68,18 @@ Columns: not in v1 (`SourceLoc` is 32 bits; line is enough). A later version can
   resumed ~125 times in screenshot runs, also with `PLATYPUS_TS_GC=stress`. The old crashes were not reproduced, so this
   gave no debug information about them.
 
+## Zombie Horders crashes (2026-11-04)
+
+- Menu start-up plus ~125 pause toggles (and returns to the menu, hot reload, stress GC) in 20 screenshot runs: one crash,
+  at start-up. About 1 start-up in 5 of the current host crashes (60 runs: 10 to 14 crashes), with GC off or on and with the
+  unwind tables and unwind info switched off, so not the collector and not this work. The original host (before the debug
+  work) crashed 1 in 40 on the same game, one of them heap corruption (0xC0000374).
+- The faults land all over the host at start-up, right after the window is created: a null `Arc` clone in the window code,
+  winit's `in_event_loop_thread`, a hashbrown bucket, `vkDestroyPipelineLayout`, an atomic compare-exchange. That is memory
+  corruption, not one bad line. Not found yet (open item in TODO.md).
+- A panic in a host function called from compiled code aborted the process with no report and no dialog: fixed
+  (`crash::note_panic`, `M9-API-920`).
+
 ## Debugger (later)
 
 Built on the same tables plus:

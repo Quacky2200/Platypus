@@ -108,6 +108,9 @@ pub fn init(file: Option<PathBuf>) -> Option<PathBuf> {
     let default_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         tracing::error!("panic: {info}");
+        // A panic in a function that cannot unwind ends the process without any exception the
+        // crash reporter could see: it hears of it here.
+        crate::crash::note_panic(&info.to_string());
         default_hook(info);
     }));
     opened.map(|(p, _)| p)

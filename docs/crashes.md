@@ -122,6 +122,14 @@ build/release/platypus-app.exe --crash-report "C:\Users\you\AppData\Roaming\<com
 - **A fault outside the game's code** (an access violation in a graphics driver, say): it is logged, but no report or
   dialog follows, because the driver may handle it and carry on. If the process does die from it, the log has the details.
 
+## A panic that aborts the process
+
+A call from compiled TypeScript into the host cannot unwind a Rust panic: Rust prints "panic in a function that cannot
+unwind" and aborts. No exception handler sees that, so the game used to vanish with only log lines (the panic's own line
+and the abort's). The panic hook (`logging.rs`) now hands each panic to `crash::note_panic`; the abort's panic saves the
+report and shows the dialog, with the first panic's message, location and backtrace as the reason and details. Example: a
+game that adds a component of a class it never registered.
+
 ## Reading a report
 
 - **Reason**: what went wrong and where. *in the game's program* means the exe (Platypus's Rust code). *in compiled

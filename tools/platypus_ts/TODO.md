@@ -255,6 +255,9 @@ performance, cross targets and CI.
 - [x] 3. Unwind info for JIT frames; the crash report's call stack (a stack scan, `unwind::stack_words`).
 - [ ] 3b. `RtlVirtualUnwind` over the host's frames faulted inside ntdll (a read of -1) for some builds of a test exe, from `walk_pcs`
   (removed): find out why (a JIT unwind-info detail such as the `mov rsp, rbp` epilogue, or a host frame?) before relying on the system unwinder.
+- [ ] 3c. Start-up memory corruption in `platypus-app` (about 1 start-up in 5, any GC mode, also in the original host at 1 in 40):
+  random faults in the host right after the window is created. Next: Windows page heap (needs admin, ask first), `--renderer`
+  variants, thread race checks. See the research doc, "Zombie Horders crashes".
 - [ ] 4. Debug build mode (spilled locals, break hook): pause, resume, step, breakpoints that survive hot reload.
 - [ ] 5. A debugger: Debug Adapter Protocol server (VS Code, then the editor).
 - [ ] Per-compile cost of the line info (every run pays it, sidecar or not): measure `Stmt::Line` markers against compile time and

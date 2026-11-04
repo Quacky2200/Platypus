@@ -211,6 +211,44 @@ fn save_and_show(reason: &str, details: &str, plain: bool) {
     }
 }
 
+/// The last panic's message, location and backtrace, kept in case the next panic is the abort.
+static LAST_PANIC: Mutex<String> = Mutex::new(String::new());
+
+/// Called from the panic hook with the panic's text. A panic inside an `extern "C"` function
+/// (every call between compiled game code and the host is one) cannot unwind: Rust prints
+/// "panic in a function that cannot unwind" and aborts, which no exception handler sees and which
+/// used to end the game with only a log line. This keeps the first panic's text and backtrace and,
+/// when that second panic comes, saves the report and shows the dialog.
+pub fn note_panic(text: &str) {
+    const ABORT: &str = "panic in a function that cannot unwind";
+    let Ok(mut last) = LAST_PANIC.lock() else {
+        return;
+    };
+    if !text.contains(ABORT) {
+        *last = format!(
+            "{text}
+
+{}",
+            std::backtrace::Backtrace::force_capture()
+        );
+        return;
+    }
+    let first = last.lines().next().unwrap_or_default().to_string();
+    let reason = if first.is_empty() {
+        "A panic in code that cannot unwind (the process aborts)".to_string()
+    } else {
+        format!("A panic in code that cannot unwind (the process aborts): {first}")
+    };
+    let details = format!(
+        "{reason}
+
+{}",
+        *last
+    );
+    drop(last);
+    save_and_show(&reason, &details, false);
+}
+
 /// `Application.crash(message, plain)`: a report and the dialog, as for an unexpected error, then
 /// the process ends with [`EXIT_CRASH`].
 fn script_crash(message: &str, plain: bool) {

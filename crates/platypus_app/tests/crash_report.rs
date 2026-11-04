@@ -65,6 +65,51 @@ fn a_fault_in_a_local_compiled_function_saves_a_report_naming_it() {
     let report = std::fs::read_to_string(&saved).unwrap();
     assert!(report.starts_with("Platypus crash report"), "{report}");
     assert!(report.contains("crashHere"), "{report}");
+    // The call stack lists the compiled frames: the faulting function and its caller's hook.
+    assert!(report.contains("call stack:"), "{report}");
+    assert!(report.contains("Crasher.onUpdate"), "{report}");
+    let _ = std::fs::remove_file(&saved);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+const PANICS: &str = r#"
+class Late extends Component {}
+// Adding a component of a class that was never registered panics in the host, inside the
+// function the compiled code called: it cannot unwind, so the process aborts.
+new GameObject("x").addComponent(Late);
+"#;
+
+// M9-API-920
+#[test]
+fn a_panic_that_aborts_the_process_saves_a_report_with_the_panic() {
+    let dir = std::env::temp_dir().join(format!("platypus-crash-abort-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let game = dir.join("main.ts");
+    std::fs::write(&game, PANICS).unwrap();
+    let log = dir.join("run.log");
+    let status = Command::new(env!("CARGO_BIN_EXE_platypus-app"))
+        .arg(&game)
+        .args([
+            "--bench", "--warmup", "0", "--frames", "20", "--size", "320x200",
+        ])
+        .env("PLATYPUS_LOG_FILE", &log)
+        .status()
+        .unwrap();
+    let log_text = std::fs::read_to_string(&log).unwrap_or_default();
+    assert!(
+        !status.success(),
+        "the game should have aborted: {log_text}"
+    );
+    let saved = log_text
+        .lines()
+        .find_map(|l| l.split("crash report saved to ").nth(1))
+        .unwrap_or_else(|| panic!("no report saved: {log_text}"))
+        .trim()
+        .to_string();
+    let report = std::fs::read_to_string(&saved).unwrap();
+    assert!(report.contains("cannot unwind"), "{report}");
+    assert!(report.contains("addComponent"), "{report}");
     let _ = std::fs::remove_file(&saved);
     let _ = std::fs::remove_dir_all(&dir);
 }
