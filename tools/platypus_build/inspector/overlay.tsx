@@ -383,13 +383,15 @@ function UiInspCard(props: { id: number; onClose: () => void }) {
   // "" matches the toolbar's theme; "light" and "dark" are the card's own.
   const [scheme, setScheme] = useState("");
   const [copied, setCopied] = useState(false);
+  const [copyMenu, setCopyMenu] = useState(false);
   const move = (dx: number, dy: number): void => {
     at.current = [at.current[0]! + dx, at.current[1]! + dy];
     setPos(at.current);
   };
-  const copy = (): void => {
-    UiInspector.copy(UiInspCssText(id));
+  const copy = (jsx: boolean): void => {
+    UiInspector.copy(jsx ? UiInspJsxText(id) : UiInspCssText(id));
     setCopied(true);
+    setCopyMenu(false);
     setTimeout(() => setCopied(false), 1400);
   };
   const cls = "uii-card" + (scheme === "" ? "" : " uii-scheme-" + scheme);
@@ -416,22 +418,25 @@ function UiInspCard(props: { id: number; onClose: () => void }) {
         <UiInspGrip className="uii-title-bar" onMove={move}>
           <text className="uii-title">{UiInspName(id)}</text>
         </UiInspGrip>
-        <UiInspMini tip={copied ? "Copied" : "Copy styles"} on={copied} onClick={copy}>
+        <UiInspMini tip={copied ? "Copied" : "Copy styles"} on={copied || copyMenu} onClick={() => setCopyMenu(!copyMenu)}>
           <UiInspIconCopy />
         </UiInspMini>
         <UiInspMini tip="Menu" on={menu} onClick={() => setMenu(!menu)}>
           <UiInspIconMenu />
         </UiInspMini>
-        <UiInspX onClick={props.onClose} />
+        <UiInspMini tip="Close" onClick={props.onClose}>
+          <UiInspIconClose />
+        </UiInspMini>
+        {copyMenu ? (
+          <box className="uii-menu" style={{ position: "absolute", top: 30, right: 56, flexDirection: "column", pointerEvents: "auto" }}>
+            <UiInspMenuItem label="Copy CSS" hint="element.style, rules" onClick={() => copy(false)} />
+            <UiInspMenuItem label="Copy JSX" hint="style={{ … }}" onClick={() => copy(true)} />
+          </box>
+        ) : null}
         {menu ? (
           <box className="uii-menu" style={{ position: "absolute", top: 30, right: 0, flexDirection: "column", pointerEvents: "auto" }}>
-            <UiInspMenuItem
-              label="Copy styles"
-              onClick={() => {
-                copy();
-                setMenu(false);
-              }}
-            />
+            <UiInspMenuItem label="Copy CSS" onClick={() => { copy(false); setMenu(false); }} />
+            <UiInspMenuItem label="Copy JSX" onClick={() => { copy(true); setMenu(false); }} />
             <UiInspMenuItem label="Colour scheme" chevron={schemeOpen} onClick={() => setSchemeOpen(!schemeOpen)} />
             {schemeOpen ? (
               <box style={{ flexDirection: "column" }}>

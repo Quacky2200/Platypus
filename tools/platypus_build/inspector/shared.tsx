@@ -21,6 +21,7 @@ import {
   uiValFormatColor,
   uiValFormatEasing,
   uiValFormatGradient,
+  uiValFormatNumber,
   uiValFromHsv,
   uiValGradientAngle,
   uiValKebab,
@@ -637,7 +638,7 @@ function UiInspPropError(text: string): string {
   const t = text.trim();
   if (t === "") return "Type a property name first.";
   const guess = uiValSuggest(uiValCamel(t), UiInspector.styleProps(), 1);
-  return "`" + t + "` is not a style property here" + (guess.length > 0 ? ". Did you mean " + guess[0] + "?" : ".");
+  return "`" + t + "` is not a style property here" + (guess.length > 0 ? ". Did you mean " + uiValKebab(guess[0]!) + "?" : ".");
 }
 
 /** A small error balloon under a field; it floats, so nothing below it moves. */
@@ -669,7 +670,7 @@ function UiInspKeyField(props: { value: string; inputRef: RefObject<PlatypusElem
     }
     setErr("");
     editing.current = false;
-    if (name !== props.value) props.onRename(name);
+    if (name !== UiInspProp(props.value)) props.onRename(name);
     return true;
   };
   return (
@@ -745,7 +746,7 @@ function UiInspLine(props: { id: number; prop: string; value: string; override: 
   if (!edit) {
     return (
       <text className={applied ? "uii-text" : "uii-text uii-off"} style={{ paddingLeft: 12 }}>
-        {prop + ": " + value + props.suffix + (shownComputed !== "" ? "   " + shownComputed : "")}
+        {uiValKebab(prop) + ": " + value + props.suffix + (shownComputed !== "" ? "   " + shownComputed : "")}
       </text>
     );
   }
@@ -755,7 +756,7 @@ function UiInspLine(props: { id: number; prop: string; value: string; override: 
       style={{ flexDirection: "column", marginBottom: 1, position: "relative" }}
       onMouseEnter={() => {
         // The property's doc goes to the strip at the foot of the card.
-        uiInspDoc = UiInspector.styleDoc(prop) === "" ? "" : prop + " — " + UiInspector.styleDoc(prop);
+        uiInspDoc = UiInspector.styleDoc(prop) === "" ? "" : uiValKebab(prop) + " — " + UiInspector.styleDoc(prop);
         uiInspDocOwner = id + ":" + prop;
         // A line about the box shows the box model over the node, while the pointer is on it.
         if (UiInspBoxProp(prop)) UiInspector.showBox(id);
@@ -772,7 +773,7 @@ function UiInspLine(props: { id: number; prop: string; value: string; override: 
         {props.removable ? (
           // A line of element.style: the name is editable, and Backspace through the value, then the name, removes it.
           <UiInspKeyField
-            value={prop}
+            value={uiValKebab(prop)}
             inputRef={keyBox}
             onRename={(name) => {
               UiInspector.setStyle(id, prop, "");
@@ -782,7 +783,7 @@ function UiInspLine(props: { id: number; prop: string; value: string; override: 
             onRemove={() => UiInspector.setStyle(id, prop, "")}
           />
         ) : (
-          <text className={applied || edited ? "uii-prop" : "uii-prop uii-off"}>{prop + ":"}</text>
+          <text className={applied || edited ? "uii-prop" : "uii-prop uii-off"}>{uiValKebab(prop) + ":"}</text>
         )}
         {kind === "color" ? (
           <box className="uii-swatch" style={{ width: 18, height: 18, marginTop: 1, marginLeft: 6, backgroundColor: value }} onClick={() => setOpen(!open)} />
@@ -1225,6 +1226,45 @@ export function UiInspCssText(id: number): string {
     }
   }
   return out.trim() + "\n";
+}
+
+/** A value as a JSX literal: a bare number stays one, anything else is a quoted string. */
+function uiInspJsxValue(v: string): string {
+  const n = uiValNumbers(v);
+  if (n.length === 1 && n[0]!.unit === "" && uiValFormatNumber(n[0]!.num) === v) return v;
+  return "\"" + v.split("\\").join("\\\\").split("\"").join("\\\"") + "\"";
+}
+
+/**
+ * A node's styles as a JSX `style` prop: what is in effect on the element itself (rules lowest priority
+ * first, then `element.style`; pseudo-element rules and overridden declarations left out).
+ */
+export function UiInspJsxText(id: number): string {
+  const names: string[] = [];
+  const values: string[] = [];
+  const put = (prop: string, value: string): void => {
+    const at = names.indexOf(prop);
+    if (at >= 0) values[at] = value;
+    else {
+      names.push(prop);
+      values.push(value);
+    }
+  };
+  for (let r = 0; r < UiInspector.ruleCount(id); r++) {
+    if (UiInspector.rulePseudo(id, r) !== "") continue;
+    for (let d = 0; d < UiInspector.declCount(id, r); d++) {
+      if (UiInspector.declApplied(id, r, d)) put(UiInspector.declProp(id, r, d), UiInspector.declValue(id, r, d));
+    }
+  }
+  for (let i = 0; i < UiInspector.inlineCount(id); i++) {
+    if (UiInspector.inlineApplied(id, i)) put(UiInspector.inlineProp(id, i), UiInspector.inlineValue(id, i));
+  }
+  let out = "style={{\n";
+  for (let i = 0; i < names.length; i++) {
+    const key = names[i]!.startsWith("--") ? "\"" + names[i] + "\"" : names[i]!;
+    out += "  " + key + ": " + uiInspJsxValue(values[i]!) + ",\n";
+  }
+  return out + "}}\n";
 }
 
 /**
