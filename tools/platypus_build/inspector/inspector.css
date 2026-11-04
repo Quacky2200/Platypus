@@ -70,6 +70,47 @@
   --uii-shadow: rgba(20, 30, 50, 0.25);
 }
 
+/* The toolbar: always dark (white icons), whatever the theme. A grip on the left drags it. */
+.uii-bar {
+  flex-direction: row;
+  align-items: center;
+  gap: 2px;
+  padding: 3px 6px 3px 2px;
+  background-color: #1b2029;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 9px;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.5);
+}
+.uii-grip { padding: 4px 6px; border-radius: 6px; cursor: move; }
+.uii-grip:hover { background-color: rgba(255, 255, 255, 0.08); }
+.uii-grip.drag { cursor: grabbing; background-color: rgba(255, 255, 255, 0.12); }
+.uii-tool {
+  position: relative;
+  width: 28px;
+  height: 26px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background-color 0.12s;
+}
+.uii-tool:hover { background-color: rgba(255, 255, 255, 0.12); }
+.uii-tool.on { background-color: rgba(108, 182, 255, 0.35); }
+.uii-tool.close:hover { background-color: rgba(224, 122, 122, 0.35); }
+/* Names show under a tool when the pointer rests on it. */
+.uii-tool-tip {
+  background-color: #0e1117;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 5px;
+  padding: 2px 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+.uii-tool-tip-text { color: #e8eef9; font-size: 11px; white-space: nowrap; }
+/* Controls are not text to select: dragging a bar or clicking a link must not highlight it. */
+.uii-bar, .uii-grip, .uii-tool, .uii-title-bar, .uii-chip, .uii-link, .uii-x, .uii-sugg-item { user-select: none; }
+/* A card's title bar drags it too. */
+.uii-title-bar { flex-direction: row; align-items: center; gap: 8px; flex-grow: 1; cursor: move; }
+
 /* Cards, headings and text */
 .uii-card {
   background-color: var(--uii-bg);
