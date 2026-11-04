@@ -275,6 +275,10 @@ impl Native {
         env();
         let host = {
             let _scope = platypus_scene::api::enter(scene);
+            if crate::debugger::take_first_statement_break() {
+                platypus_ts::debug::pause();
+                tracing::info!("debugger: stopping at the program's first statement (--inspect-brk)");
+            }
             game.init().map_err(|e| anyhow!("{e}"))?;
             NativeHost::new(game.classes().map_err(|e| anyhow!("{e}"))?)
         };

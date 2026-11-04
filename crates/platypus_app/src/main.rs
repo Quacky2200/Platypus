@@ -120,6 +120,9 @@ struct Args {
     /// `--dap-port <port>`: the same, speaking the Debug Adapter Protocol (`dap.rs`); the game waits
     /// for the debugger's `configurationDone`.
     dap_port: Option<u16>,
+    /// `--inspect-brk`: the controller (port 9229 unless `--debug-port` / `--dap-port` says) and a stop
+    /// before the program's first statement.
+    inspect_brk: bool,
 }
 
 impl Args {
@@ -185,6 +188,7 @@ games are built with `platypus-build build`; arguments after -- reach scripts as
         project: None,
         debug_port: None,
         dap_port: None,
+        inspect_brk: false,
     };
     let mut frames_given = false;
     while let Some(arg) = args.next() {
@@ -198,6 +202,7 @@ games are built with `platypus-build build`; arguments after -- reach scripts as
             Some("--project") => parsed.project = Some(args.next().context(usage)?.into()),
             Some("--screenshot") => parsed.screenshot = Some(args.next().context(usage)?.into()),
             Some("--cook") => parsed.cook = true,
+            Some("--inspect-brk") => parsed.inspect_brk = true,
             Some("--dap-port") => {
                 parsed.dap_port = Some(
                     args.next()
@@ -308,7 +313,7 @@ fn editor_asset_root(project: &Path) -> PathBuf {
 }
 
 fn run() -> Result<()> {
-    let args = match parse_args() {
+    let mut args = match parse_args() {
         Ok(a) => a,
         Err(e) => {
             logging::init(None);
@@ -340,6 +345,12 @@ fn run() -> Result<()> {
     let log = logging::init(logging::log_path(settings.as_deref()));
     if let Some(log) = &log {
         tracing::info!("log: {}", log.display());
+    }
+    if args.inspect_brk {
+        debugger::break_at_start();
+        if args.debug_port.is_none() && args.dap_port.is_none() {
+            args.debug_port = Some(9229);
+        }
     }
     if let Some(port) = args.debug_port {
         match debugger::enable(port) {

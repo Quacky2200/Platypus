@@ -59,6 +59,18 @@ pub fn test_lock() -> std::sync::MutexGuard<'static, ()> {
     LOCK.lock().unwrap_or_else(|e| e.into_inner())
 }
 
+static BREAK_AT_START: AtomicBool = AtomicBool::new(false);
+
+/// `--inspect-brk`: the game stops before the program's first statement (its top level, then `onAwake` and the first update follow by stepping or `continue`).
+pub fn break_at_start() {
+    BREAK_AT_START.store(true, Ordering::Relaxed);
+}
+
+/// True once, when `--inspect-brk` asked for the stop and the program is about to start.
+pub fn take_first_statement_break() -> bool {
+    BREAK_AT_START.swap(false, Ordering::Relaxed)
+}
+
 /// Is this run a debug build?
 pub fn enabled() -> bool {
     ENABLED.load(Ordering::Relaxed)

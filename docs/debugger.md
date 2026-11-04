@@ -5,6 +5,10 @@
 ([DAP](#editors-the-debug-adapter-protocol)).
 Design and plan: [research/platypus-ts-debug-info.md](research/platypus-ts-debug-info.md).
 
+`--inspect-brk` is `--debug-port 9229` that also stops before the program's first statement (the top level of the first module; `onAwake`
+and the first update come after, so set a breakpoint and `continue`). It combines with `--dap-port`. The port speaks this document's
+protocols, **not** Node's inspector protocol (CDP), so Node's auto-attach and `chrome://inspect` do not see it.
+
 ## What a debug build is
 
 The compiler puts a line marker before every statement (`Stmt::Line`, also in normal builds, for crash reports). A debug build
