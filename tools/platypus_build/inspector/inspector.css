@@ -192,6 +192,11 @@
 .uii-chip-text { color: var(--uii-text); font-size: 11px; }
 .uii-chip-dim { color: var(--uii-dim); }
 
+/* The revert arrow of an edited rule line, in the line's left gutter. */
+.uii-revert { cursor: pointer; padding: 0 3px; border-radius: 4px; user-select: none; }
+.uii-revert:hover { background-color: var(--uii-hover); }
+.uii-revert-text { color: var(--uii-accent); font-size: 13px; }
+
 .uii-x { cursor: pointer; padding: 0 5px; border-radius: 4px; }
 .uii-x:hover { background-color: var(--uii-hover); }
 .uii-x-text { color: var(--uii-warn); font-size: 13px; }

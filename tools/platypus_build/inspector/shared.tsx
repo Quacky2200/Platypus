@@ -106,7 +106,7 @@ function UiInspX(props: { onClick: () => void }) {
  * its own place on screen (`probe`) when the pointer first enters it, so its children must not take
  * pointer events (`pointerEvents: "none"`).
  */
-function UiInspPad(props: { width: number; height: number; onPick: (fx: number, fy: number) => void; children?: ReactNode }) {
+function UiInspPad(props: { width: number; height: number; onPick: (fx: number, fy: number) => void; onRelease?: () => void; children?: ReactNode }) {
   const node = useRef(0);
   const down = useRef(false);
   const pick = (e: PlatypusPointerEvent): void => {
@@ -134,6 +134,7 @@ function UiInspPad(props: { width: number; height: number; onPick: (fx: number, 
       onPointerUp={(e: PlatypusPointerEvent) => {
         down.current = false;
         e.currentTarget.releasePointerCapture(e.pointerId);
+        props.onRelease?.();
       }}
     >
       {props.children}
@@ -261,7 +262,9 @@ function UiInspValueField(props: {
   // only a field held at its largest width, or one set narrower than its value, wraps.
   const natural = props.value.length * 6.4 + 16;
   const wrapped = natural > props.width + 2;
-  const rows = Math.max(2, Math.ceil((props.value.length * 6.9) / (props.width - 14)));
+  // Lines the text takes at about 5.8px a character (what the 13px UI font measures to), a little under a
+  // whole line rounded down, so a short last line does not reserve an empty one.
+  const rows = Math.max(2, Math.ceil((props.value.length * 5.8) / (props.width - 14) - 0.15));
   const onChangeText = (e: PlatypusInputEvent): void => {
     editing.current = true;
     setText(e.value);
@@ -428,7 +431,9 @@ const UiInspCurveSpan = 2;
 /** The easing graph with two draggable handles, and the keyword presets. */
 function UiInspEasingEditor(props: { curve: number[]; onChange: (curve: number[]) => void }) {
   const c = props.curve;
-  const [grab, setGrab] = useState(0);
+  // The handle being dragged (1 or 2, 0 for none): chosen by the press and let go on release, so the next
+  // press picks the nearest handle again.
+  const grab = useRef(0);
   const px = (x: number): number => x * UiInspCurveSize;
   const py = (y: number): number => (1 - (y - UiInspCurveLo) / UiInspCurveSpan) * UiInspCurveSize;
   const dots: ReactNode[] = [];
@@ -442,16 +447,19 @@ function UiInspEasingEditor(props: { curve: number[]; onChange: (curve: number[]
       <UiInspPad
         width={UiInspCurveSize}
         height={UiInspCurveSize}
+        onRelease={() => {
+          grab.current = 0;
+        }}
         onPick={(fx, fy) => {
           const y = Math.round((UiInspCurveLo + (1 - fy) * UiInspCurveSpan) * 100) / 100;
           const x = Math.round(fx * 100) / 100;
           // The press moves the handle nearest the pointer and keeps moving it while held.
-          let which = grab;
+          let which = grab.current;
           if (which === 0) {
             const d1 = (x - c[0]!) * (x - c[0]!) + (y - c[1]!) * (y - c[1]!);
             const d2 = (x - c[2]!) * (x - c[2]!) + (y - c[3]!) * (y - c[3]!);
             which = d1 <= d2 ? 1 : 2;
-            setGrab(which);
+            grab.current = which;
           }
           props.onChange(which === 1 ? [x, y, c[2]!, c[3]!] : [c[0]!, c[1]!, x, y]);
         }}
@@ -472,7 +480,7 @@ function UiInspEasingEditor(props: { curve: number[]; onChange: (curve: number[]
             label={e.name}
             on={uiValFormatEasing(c) === e.name}
             onClick={() => {
-              setGrab(0);
+              grab.current = 0;
               props.onChange(e.curve);
             }}
           />
@@ -849,7 +857,12 @@ function UiInspLine(props: { id: number; prop: string; value: string; override: 
         {/* What the value comes to, right beside it; it is read again every frame, so it follows the layout. */}
         {shownComputed !== "" ? <text className="uii-computed">{shownComputed}</text> : null}
         {kind === "easing" || kind === "gradient" ? <UiInspChip label={kind === "easing" ? "curve" : "stops"} on={open} onClick={() => setOpen(!open)} /> : null}
-        {edited ? <UiInspChip label="edited  ↺" on={true} onClick={() => UiInspector.setStyle(id, prop, "")} /> : null}
+        {/* Reverting an edited rule line: a small arrow in the gutter, out of the flow so editing never moves the lines. */}
+        {edited ? (
+          <box className="uii-revert" style={{ position: "absolute", left: 3, top: 3 }} onMouseDown={(e) => e.stopPropagation()} onClick={() => UiInspector.setStyle(id, prop, "")}>
+            <text className="uii-revert-text">↺</text>
+          </box>
+        ) : null}
       </box>
       {open ? (
         <box ref={pop} style={{ flexDirection: "column", alignSelf: "flex-start" }} onMouseDown={(e) => e.stopPropagation()}>
@@ -1353,6 +1366,9 @@ export function UiInspStyles(props: { id: number; edit: boolean }) {
   }
   const inline: ReactNode[] = [];
   for (let i = 0; i < UiInspector.inlineCount(id); i++) {
+    // An override a rule's line stands for shows there (edited, with its revert), not here too: editing a rule's
+    // value would otherwise add a line to this block and push everything below it, the widget under the pointer too.
+    if (edit && claimed.indexOf(UiInspector.inlineProp(id, i)) >= 0) continue;
     inline.push(
       <UiInspLine
         key={i}
