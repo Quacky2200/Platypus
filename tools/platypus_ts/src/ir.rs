@@ -572,6 +572,9 @@ pub struct Module {
     /// Engine names the compiled code uses without an extern call (`renderer::COMPONENT`), for
     /// the renderer tier.
     pub uses: Vec<String>,
+    /// Debug builds: the address of the byte that arms the per-statement hook (`debug.rs`); 0 =
+    /// no hook code at all.
+    pub debug_armed: usize,
 }
 
 impl Module {

@@ -2209,6 +2209,11 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3390 | Integration | On Windows the JIT registers x64 unwind tables for compiled functions (`platypus_ts::unwind`), so the system can walk a stack through them: `is_registered` (`lang/debug_lines.rs`). The call stack a crash report prints from it (`crash.rs` `game_stack`) is not tested automatically. |
 | M9-TS-3391 | Integration | A scan of the stack from inside an engine call (`unwind::stack_words`) finds the return addresses of the compiled game frames in call order (`lang/game_stack.rs`, Windows x64). Checked by hand end to end too: a null dereference in a game gives `src/main.ts` lines 7, 11, 15 and 20 in the crash report. |
 | M9-TS-3392 | Integration | A compiled function with a frame of tens of kilobytes (a 6000-row top-level table) probes the stack pages it passes (`enable_probestack`, inline), so it runs on a fresh thread stack; without probes it jumped Windows' guard page and crashed Zombie Horders at start-up about one run in five (`lang/big_frame.rs`). |
+| M9-TS-3393 | Integration | A debug build stops at a breakpoint's line, reports it, and runs to the end after `continue` (`lang/debugger.rs`). |
+| M9-TS-3394 | Integration | Step over runs a call through, step in enters it, step out returns to the caller's next statement (stack-pointer comparison). |
+| M9-TS-3395 | Integration | `pause` stops a running loop at one of its lines, and `detach` lets it finish. |
+| M9-TS-3396 | Integration | A debug build nobody is debugging runs to its result without stopping. |
+| M9-TS-3397 | Unit | The host's debugger answers malformed or out-of-state commands with an `error` line; `DebugInfo::bundle_line` maps a file and line to the bundle (`debugger.rs`, `crash.rs`). Checked live too: break, over, in, out, continue, detach over a socket, and breakpoints after a hot reload. |
 
 ## M9 — One host: the renderer chosen from what the game uses
 

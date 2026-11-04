@@ -35,6 +35,9 @@ pub struct JitOptions<'a> {
     pub manifests: &'a [String],
     /// More symbols (name, address) imports may name.
     pub symbols: Vec<(&'static str, usize)>,
+    /// A debug build: a check before every statement that calls the debugger's hook
+    /// (`crate::debug`) while a breakpoint, pause or step is set. Slower; for debugging only.
+    pub debug: bool,
 }
 
 /// A compiled and loaded program.
@@ -164,6 +167,9 @@ pub fn compile_and_load(src: &str, options: &JitOptions) -> Result<Game, String>
                 let mut m = crate::lower::lower_source_with(src, options.manifests)?;
                 m.prefix = options.prefix.to_string();
                 m.struct_base = options.struct_base;
+                if options.debug {
+                    m.debug_armed = crate::debug::armed_addr();
+                }
                 let mut lap = crate::timing::Lap::start();
                 sroa::run(&mut m);
                 lap.mark("IR passes (sroa)");
@@ -180,6 +186,9 @@ pub fn compile_and_load(src: &str, options: &JitOptions) -> Result<Game, String>
     known.extend(libcalls());
     known.extend(platypus_ts_rt::symbols());
     known.extend(options.symbols.iter().copied());
+    if options.debug {
+        known.insert("ts_dbg_line", crate::debug::hook_addr());
+    }
     let missing = missing_symbols(&module, &known);
     if !missing.is_empty() {
         return Err(format!(

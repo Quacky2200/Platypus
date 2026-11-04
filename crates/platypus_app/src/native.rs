@@ -325,6 +325,7 @@ impl Native {
                 struct_base: generation * 100_000,
                 manifests: &manifests,
                 symbols: platypus_ts_ui::symbols(),
+                debug: super::debugger::enabled(),
                 ..Default::default()
             },
         )
@@ -340,6 +341,9 @@ impl Native {
                 .map_or_else(|| sym.clone(), str::to_string);
             (name, a)
         }));
+        super::crash::note_jit_lines(game.line_table());
+        // A reload moves lines: the debugger's breakpoints are placed again.
+        super::debugger::resolve_breakpoints();
         Ok(game)
     }
 

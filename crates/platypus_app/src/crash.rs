@@ -96,7 +96,7 @@ pub fn note_game_dir(dir: &Path) {
 }
 
 /// `game.pdebug`: where each file starts in the bundled source (`platypus-build` writes it).
-struct DebugInfo {
+pub(crate) struct DebugInfo {
     hash: String,
     /// (0-based line of the bundle where the file starts, path).
     starts: Vec<(usize, String)>,
@@ -116,8 +116,14 @@ impl DebugInfo {
         })
     }
 
+    /// The line of the bundled source for `line` (1-based) of `file`.
+    pub(crate) fn bundle_line(&self, file: &str, line: u32) -> Option<u32> {
+        let (start, _) = self.starts.iter().find(|(_, f)| f == file)?;
+        Some(*start as u32 + line)
+    }
+
     /// The file and line (1-based) that line `line` (1-based) of the bundled source came from.
-    fn locate(&self, line: u32) -> Option<(&str, usize)> {
+    pub(crate) fn locate(&self, line: u32) -> Option<(&str, usize)> {
         let at = (line as usize).checked_sub(1)?;
         let (start, file) = self.starts.iter().rev().find(|(s, _)| *s <= at)?;
         Some((file, at - start + 1))
@@ -125,7 +131,7 @@ impl DebugInfo {
 }
 
 /// The sidecar beside the exe (`<exe>.pdebug`), else the game folder's `build/game.pdebug`.
-fn load_debug_info() -> Option<DebugInfo> {
+pub(crate) fn load_debug_info() -> Option<DebugInfo> {
     let beside = std::env::current_exe()
         .ok()
         .map(|e| e.with_extension("pdebug"));
@@ -494,5 +500,9 @@ mod tests {
         assert_eq!(info.locate(11), Some(("src/main.ts", 1)));
         assert_eq!(info.locate(0), None);
         assert!(DebugInfo::parse("not json").is_none());
+        // The other way, for the debugger: a breakpoint's file and line to a line of the bundle.
+        assert_eq!(info.bundle_line("src/main.ts", 1), Some(11));
+        assert_eq!(info.bundle_line("src/a.ts", 3), Some(3));
+        assert_eq!(info.bundle_line("src/none.ts", 1), None);
     }
 }

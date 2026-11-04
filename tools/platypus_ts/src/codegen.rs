@@ -573,6 +573,21 @@ impl<M: ClifModule> Cg<'_, '_, M> {
         self.b.inst_results(call).first().copied()
     }
 
+    /// A debug build's check before a statement: when the debugger's armed byte is set, call its
+    /// hook with the line.
+    fn debug_check(&mut self, line: u32) {
+        let at = self.b.ins().iconst(types::I64, self.m.debug_armed as i64);
+        let armed = self.b.ins().uload8(types::I64, self.mf_t, at, 0);
+        let hook = self.b.create_block();
+        let go_on = self.b.create_block();
+        self.b.ins().brif(armed, hook, &[], go_on, &[]);
+        self.b.switch_to_block(hook);
+        let l = self.b.ins().iconst(types::I32, i64::from(line));
+        self.rt("ts_dbg_line", &[types::I32], None, &[l]);
+        self.b.ins().jump(go_on, &[]);
+        self.b.switch_to_block(go_on);
+    }
+
     fn cvt_i64(&mut self, v: Value) -> Value {
         self.b.ins().fcvt_to_sint_sat(types::I64, v)
     }
@@ -939,7 +954,12 @@ impl<M: ClifModule> Cg<'_, '_, M> {
             Stmt::Eval(e) => {
                 self.expr(e)?;
             }
-            Stmt::Line(n) => self.b.set_srcloc(SourceLoc::new(*n)),
+            Stmt::Line(n) => {
+                self.b.set_srcloc(SourceLoc::new(*n));
+                if self.m.debug_armed != 0 {
+                    self.debug_check(*n);
+                }
+            }
             Stmt::Throw(e) => {
                 let v = self.expr(e)?;
                 self.rt("ts_rt_throw", &[types::I64], None, &[v]);

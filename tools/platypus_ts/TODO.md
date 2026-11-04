@@ -258,7 +258,9 @@ performance, cross targets and CI.
 - [x] 3c. Zombie Horders start-up crashes (about 1 start-up in 5): the JIT did not probe big stack frames; fixed with Cranelift
   inline stack probes (research doc, "Zombie Horders crashes"). Left: report a real stack overflow (0xC00000FD) in the crash
   handler; a thread with no stack left cannot run it, so it needs a reserved-stack guarantee or a watchdog process.
-- [ ] 4. Debug build mode (spilled locals, break hook): pause, resume, step, breakpoints that survive hot reload.
+- [x] 4. Debug build mode (`JitOptions::debug`, `platypus_ts::debug`, host `--debug-port`, `docs/debugger.md`): pause, resume, step, breakpoints that survive hot reload.
+- [ ] 4b. Locals and the call stack at a stop: spill every local at each marker in a debug build, name them (a per-function table of
+  local, name, type, slot); the call stack by the stack scan from the stop's stack pointer. Keep the window responsive while stopped.
 - [ ] 5. A debugger: Debug Adapter Protocol server (VS Code, then the editor).
 - [ ] Per-compile cost of the line info (every run pays it, sidecar or not): measure `Stmt::Line` markers against compile time and
   memory (`PLATYPUS_TS_TIMING`, md-reader), then cut: one marker per statement only where the line changes, store ranges as

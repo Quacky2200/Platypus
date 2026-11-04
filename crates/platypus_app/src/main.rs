@@ -23,6 +23,7 @@ mod cpu_gfx;
 mod crash;
 mod crash_dialog;
 mod cursor;
+mod debugger;
 mod display;
 mod file_drop;
 mod fps;
@@ -112,6 +113,9 @@ struct Args {
     /// `--project <folder>`: the game is the editor (`editor/`), working on this project
     /// (`Editor.*`, `Application.isEditor`).
     project: Option<PathBuf>,
+    /// `--debug-port <port>`: a debug build of the game with a controller on this local port
+    /// (`debugger.rs`).
+    debug_port: Option<u16>,
 }
 
 impl Args {
@@ -175,6 +179,7 @@ games are built with `platypus-build build`; arguments after -- reach scripts as
         video_dialog: false,
         renderer: platypus_core::project::Renderer::Auto,
         project: None,
+        debug_port: None,
     };
     let mut frames_given = false;
     while let Some(arg) = args.next() {
@@ -188,6 +193,15 @@ games are built with `platypus-build build`; arguments after -- reach scripts as
             Some("--project") => parsed.project = Some(args.next().context(usage)?.into()),
             Some("--screenshot") => parsed.screenshot = Some(args.next().context(usage)?.into()),
             Some("--cook") => parsed.cook = true,
+            Some("--debug-port") => {
+                parsed.debug_port = Some(
+                    args.next()
+                        .context(usage)?
+                        .to_str()
+                        .context(usage)?
+                        .parse()?,
+                )
+            }
             Some(crash_dialog::DIALOG_FLAG) => {
                 parsed.crash_dialog = true;
                 game = Some(args.next().context(usage)?.into());
@@ -312,6 +326,12 @@ fn run() -> Result<()> {
     let log = logging::init(logging::log_path(settings.as_deref()));
     if let Some(log) = &log {
         tracing::info!("log: {}", log.display());
+    }
+    if let Some(port) = args.debug_port {
+        match debugger::enable(port) {
+            Ok(p) => eprintln!("debugger: listening on 127.0.0.1:{p}"),
+            Err(e) => tracing::error!("debugger: cannot listen on port {port}: {e}"),
+        }
     }
     if let Some(root) = &manifest_dir {
         crash::note_game_dir(root);

@@ -330,6 +330,9 @@ pub struct Lowerer<'a> {
     pub(crate) regex_info: HashMap<String, Vec<Option<String>>>,
     /// Lines of prelude source in front of the program (skipped in messages).
     pub(crate) prelude_lines: usize,
+    /// Lines of the program as given: what the compiler appends (hook wrappers, facade members)
+    /// comes after and gets no line markers, so a debugger never stops in it.
+    pub(crate) user_lines: usize,
     /// The next closure's return type comes from its body, not from the expected type.
     pub(crate) infer_ret: bool,
     /// Top-level `const NAME = init` without an annotation, for guessing field types from syntax.
@@ -411,6 +414,7 @@ pub fn lower_source_with(src: &str, manifests: &[String]) -> R<Module> {
 /// are otherwise skipped (`platypus-build build --check-unused`).
 pub fn lower_source_opts(src: &str, manifests: &[String], check_unused: bool) -> R<Module> {
     let mut lap = crate::timing::Lap::start();
+    let user_lines = src.matches('\n').count() + 1;
     let mut manifest = crate::manifest::Manifest::default();
     for m in manifests {
         manifest.add_json(m)?;
@@ -605,6 +609,7 @@ pub fn lower_source_opts(src: &str, manifests: &[String], check_unused: bool) ->
         wrappers: HashMap::new(),
         regex_info: HashMap::new(),
         prelude_lines,
+        user_lines,
         infer_ret: false,
         const_inits: HashMap::new(),
         cb_skip: 0,

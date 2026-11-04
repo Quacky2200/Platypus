@@ -8,6 +8,7 @@ pub mod assetpaths;
 pub mod builtins;
 pub mod classmeta;
 pub mod codegen;
+pub mod debug;
 pub mod frames;
 pub mod ir;
 pub mod jit;
