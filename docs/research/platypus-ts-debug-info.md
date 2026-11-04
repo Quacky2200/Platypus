@@ -113,7 +113,7 @@ Built on the same tables plus:
 2. `game.pdebug` sidecar (build, package `--debug-info`), report prints `file:line`, source excerpt.
 3. Unwind info for JIT frames, TypeScript call stack in reports.
 4. Debug build mode with spills and the break hook; pause / resume / step.
-5. DAP server; editor integration.
+5. DAP server; editor integration. (DAP server and VS Code attach: done 2026-11-05, `dap.rs`; the editor's UI is left.)
 
 Open questions: whether packaged builds should keep tables in memory when no sidecar exists (cheap,
 yes for now); column support; macOS/Linux fault handlers (`crash.rs` is Windows only).

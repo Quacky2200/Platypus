@@ -116,6 +116,11 @@ impl DebugInfo {
         })
     }
 
+    /// The files of the program, as the sidecar names them.
+    pub(crate) fn files(&self) -> impl Iterator<Item = &str> {
+        self.starts.iter().map(|(_, f)| f.as_str())
+    }
+
     /// The line of the bundled source for `line` (1-based) of `file`.
     pub(crate) fn bundle_line(&self, file: &str, line: u32) -> Option<u32> {
         let (start, _) = self.starts.iter().find(|(_, f)| f == file)?;
@@ -131,6 +136,11 @@ impl DebugInfo {
 }
 
 /// The sidecar beside the exe (`<exe>.pdebug`), else the game folder's `build/game.pdebug`.
+/// The game folder, when it is known (a debugger maps files to paths with it).
+pub(crate) fn game_dir() -> Option<&'static Path> {
+    GAME_DIR.get().map(PathBuf::as_path)
+}
+
 pub(crate) fn load_debug_info() -> Option<DebugInfo> {
     let beside = std::env::current_exe()
         .ok()

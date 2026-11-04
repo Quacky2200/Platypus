@@ -1,0 +1,39 @@
+{
+  "name": "platypus-debug",
+  "displayName": "Platypus Debugger",
+  "description": "Attach VS Code to a Platypus game started with platypus-app --dap-port.",
+  "version": "0.1.0",
+  "publisher": "platypus",
+  "license": "Apache-2.0",
+  "engines": { "vscode": "^1.80.0" },
+  "categories": ["Debuggers"],
+  "activationEvents": ["onDebug"],
+  "contributes": {
+    "breakpoints": [{ "language": "typescript" }, { "language": "typescriptreact" }],
+    "debuggers": [
+      {
+        "type": "platypus",
+        "label": "Platypus",
+        "languages": ["typescript", "typescriptreact"],
+        "configurationAttributes": {
+          "attach": {
+            "properties": {
+              "debugServer": {
+                "type": "number",
+                "description": "The port given to platypus-app --dap-port."
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "platypus",
+            "request": "attach",
+            "name": "Attach to Platypus game",
+            "debugServer": 4711
+          }
+        ]
+      }
+    ]
+  }
+}

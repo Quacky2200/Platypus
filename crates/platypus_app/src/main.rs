@@ -23,6 +23,7 @@ mod cpu_gfx;
 mod crash;
 mod crash_dialog;
 mod cursor;
+mod dap;
 mod debugger;
 mod display;
 mod file_drop;
@@ -116,6 +117,9 @@ struct Args {
     /// `--debug-port <port>`: a debug build of the game with a controller on this local port
     /// (`debugger.rs`).
     debug_port: Option<u16>,
+    /// `--dap-port <port>`: the same, speaking the Debug Adapter Protocol (`dap.rs`); the game waits
+    /// for the debugger's `configurationDone`.
+    dap_port: Option<u16>,
 }
 
 impl Args {
@@ -180,6 +184,7 @@ games are built with `platypus-build build`; arguments after -- reach scripts as
         renderer: platypus_core::project::Renderer::Auto,
         project: None,
         debug_port: None,
+        dap_port: None,
     };
     let mut frames_given = false;
     while let Some(arg) = args.next() {
@@ -193,6 +198,15 @@ games are built with `platypus-build build`; arguments after -- reach scripts as
             Some("--project") => parsed.project = Some(args.next().context(usage)?.into()),
             Some("--screenshot") => parsed.screenshot = Some(args.next().context(usage)?.into()),
             Some("--cook") => parsed.cook = true,
+            Some("--dap-port") => {
+                parsed.dap_port = Some(
+                    args.next()
+                        .context(usage)?
+                        .to_str()
+                        .context(usage)?
+                        .parse()?,
+                )
+            }
             Some("--debug-port") => {
                 parsed.debug_port = Some(
                     args.next()
@@ -335,6 +349,23 @@ fn run() -> Result<()> {
     }
     if let Some(root) = &manifest_dir {
         crash::note_game_dir(root);
+    }
+    // A source file run directly is its own bundle: no sidecar to map lines through.
+    if args.game.is_file()
+        && let Some(name) = args.game.file_name().and_then(|n| n.to_str())
+        && (name.ends_with(".ts") || name.ends_with(".tsx"))
+    {
+        debugger::note_single_file(name);
+    }
+    if let Some(port) = args.dap_port {
+        match dap::enable(port) {
+            Ok(p) => {
+                eprintln!("debugger: DAP server listening on 127.0.0.1:{p}");
+                // Breakpoints are on their way: the game starts when the editor is ready.
+                debugger::wait_for_configuration();
+            }
+            Err(e) => tracing::error!("debugger: cannot listen on port {port}: {e}"),
+        }
     }
     // Crash reports go beside the log (the temp folder without one); no dialog without a player.
     crash::set_reports(

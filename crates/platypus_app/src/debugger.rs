@@ -37,17 +37,29 @@ static ENABLED: AtomicBool = AtomicBool::new(false);
 /// The breakpoints as the debugger gave them: (file, line of that file).
 static BREAKPOINTS: Mutex<Vec<(String, u32)>> = Mutex::new(Vec::new());
 
+/// Tests share the process-wide debugger state: one at a time.
+#[cfg(test)]
+pub fn test_lock() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: Mutex<()> = Mutex::new(());
+    LOCK.lock().unwrap_or_else(|e| e.into_inner())
+}
+
 /// Is this run a debug build?
 pub fn enabled() -> bool {
     ENABLED.load(Ordering::Relaxed)
 }
 
-/// Starts the controller on `port` (0 picks one) and makes every compile a debug build.
+/// Makes every compile a debug build.
+pub fn turn_on() {
+    ENABLED.store(true, Ordering::Relaxed);
+}
+
+/// Starts the text controller on `port` (0 picks one) and makes every compile a debug build.
 /// Returns the port.
 pub fn enable(port: u16) -> std::io::Result<u16> {
     let listener = TcpListener::bind(("127.0.0.1", port))?;
     let port = listener.local_addr()?.port();
-    ENABLED.store(true, Ordering::Relaxed);
+    turn_on();
     tracing::info!("debugger: listening on 127.0.0.1:{port}");
     std::thread::Builder::new()
         .name("debugger".into())
@@ -61,6 +73,82 @@ pub fn enable(port: u16) -> std::io::Result<u16> {
     Ok(port)
 }
 
+/// A bare `.ts` run directly has no `game.pdebug`: its one file is the whole bundle, so lines are
+/// the bundle's. Holds that file's name.
+static SINGLE_FILE: Mutex<Option<String>> = Mutex::new(None);
+
+/// Notes that the game is one source file with this name (no sidecar needed).
+pub fn note_single_file(name: &str) {
+    if let Ok(mut s) = SINGLE_FILE.lock() {
+        *s = Some(name.to_string());
+    }
+}
+
+fn single_file() -> Option<String> {
+    SINGLE_FILE.lock().ok()?.clone()
+}
+
+/// The bundled line of a file's line: through the sidecar, or as is for a one-file game.
+fn bundle_line_of(file: &str, line: u32) -> Option<u32> {
+    match super::crash::load_debug_info() {
+        Some(i) => i.bundle_line(file, line),
+        None => single_file().filter(|f| f == file).map(|_| line),
+    }
+}
+
+/// Replaces the breakpoints of one file (a debugger sends each file's whole list). Returns,
+/// per line, whether it could be placed (`game.pdebug` knows the file).
+pub fn set_file_breakpoints(file: &str, lines: &[u32]) -> Vec<bool> {
+    if let Ok(mut b) = BREAKPOINTS.lock() {
+        b.retain(|(f, _)| f != file);
+        b.extend(lines.iter().map(|l| (file.to_string(), *l)));
+    }
+    resolve_breakpoints();
+    lines
+        .iter()
+        .map(|l| bundle_line_of(file, *l).is_some())
+        .collect()
+}
+
+/// The file and line of a line of the bundled source.
+pub fn locate(line: u32) -> Option<(String, u32)> {
+    match super::crash::load_debug_info() {
+        Some(i) => i.locate(line).map(|(f, l)| (f.to_string(), l as u32)),
+        None => single_file().map(|f| (f, line)),
+    }
+}
+
+/// The program's files, as the sidecar names them.
+pub fn files() -> Vec<String> {
+    match super::crash::load_debug_info() {
+        Some(i) => i.files().map(str::to_string).collect(),
+        None => single_file().into_iter().collect(),
+    }
+}
+
+/// Set when a debugger has said it is done configuring (breakpoints sent): the game may start.
+static CONFIGURED: (Mutex<bool>, std::sync::Condvar) =
+    (Mutex::new(false), std::sync::Condvar::new());
+
+/// Lets a game that waits (`wait_for_configuration`) go on.
+pub fn configured() {
+    if let Ok(mut c) = CONFIGURED.0.lock() {
+        *c = true;
+        CONFIGURED.1.notify_all();
+    }
+}
+
+/// Blocks until a debugger is configured, so the game does not run past a breakpoint that is
+/// still on its way (the `--inspect-brk` idea).
+pub fn wait_for_configuration() {
+    let Ok(mut c) = CONFIGURED.0.lock() else {
+        return;
+    };
+    while !*c {
+        c = CONFIGURED.1.wait(c).unwrap_or_else(|e| e.into_inner());
+    }
+}
+
 /// Resolves the breakpoints against the code just compiled (the bundled lines moved if the
 /// source did): called after every compile.
 pub fn resolve_breakpoints() {
@@ -68,13 +156,9 @@ pub fn resolve_breakpoints() {
         return;
     }
     let wanted = BREAKPOINTS.lock().map(|b| b.clone()).unwrap_or_default();
-    let info = super::crash::load_debug_info();
     let lines: Vec<u32> = wanted
         .iter()
-        .filter_map(|(file, line)| match &info {
-            Some(i) => i.bundle_line(file, *line),
-            None => None,
-        })
+        .filter_map(|(file, line)| bundle_line_of(file, *line))
         .collect();
     if lines.len() < wanted.len() {
         tracing::warn!(
@@ -88,8 +172,8 @@ pub fn resolve_breakpoints() {
 
 /// `file:line` of a line of the bundled source, for messages.
 fn describe(line: u32) -> String {
-    super::crash::load_debug_info()
-        .and_then(|i| i.locate(line).map(|(f, l)| format!("{f}:{l}")))
+    locate(line)
+        .map(|(f, l)| format!("{f}:{l}"))
         .unwrap_or_else(|| format!("line {line}"))
 }
 
@@ -200,6 +284,7 @@ mod tests {
     // M9-TS-3397
     #[test]
     fn bad_commands_are_answered_with_an_error_line() {
+        let _serial = super::test_lock();
         assert!(command("").starts_with("error"));
         assert!(command("bogus").starts_with("error: unknown command"));
         assert!(command("break nolinenumber").starts_with("error"));

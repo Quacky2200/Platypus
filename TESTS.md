@@ -2214,6 +2214,8 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3395 | Integration | `pause` stops a running loop at one of its lines, and `detach` lets it finish. |
 | M9-TS-3396 | Integration | A debug build nobody is debugging runs to its result without stopping. |
 | M9-TS-3397 | Unit | The host's debugger answers malformed or out-of-state commands with an `error` line; `DebugInfo::bundle_line` maps a file and line to the bundle (`debugger.rs`, `crash.rs`). Checked live too: break, over, in, out, continue, detach over a socket, and breakpoints after a hot reload. |
+| M9-TS-3398 | Unit | A DAP session over in-memory streams: `initialize` (and the `initialized` event), `attach`, `setBreakpoints` for an unknown file (answered, not verified), `configurationDone`, `threads`, `stackTrace` with nothing stopped, an unsupported request (`success: false`), `disconnect` ends the session (`dap.rs`). |
+| M9-TS-3399 | Integration | A DAP client against the real host (windowless bench run): the game waits for `configurationDone`, stops at the breakpoint, `stackTrace` gives its line, `next` and `stepIn` step, `disconnect` lets the game finish and exit cleanly (`tests/dap_session.rs`, Windows). |
 
 ## M9 — One host: the renderer chosen from what the game uses
 
