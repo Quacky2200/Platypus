@@ -102,10 +102,10 @@ pub struct DrawStep<'a> {
     pub size: (u32, u32),
 }
 
-/// Rows per band of a draw.
-const BAND: u32 = 32;
-/// Below this many pixels a draw runs on the calling thread: handing out bands costs more.
-const PARALLEL_PIXELS: u64 = 16_384;
+/// Rows per band of a draw: small, so a draw of a few hundred rows still spreads over the pool.
+pub const BAND: u32 = 16;
+/// Below this many pixels a step runs on the calling thread: waking the pool (tens of microseconds) costs more.
+pub const PARALLEL_PIXELS: u64 = 4_096;
 
 impl<'a> DrawStep<'a> {
     fn prepare(&self, inst: &'a Instance) -> Option<Prepared<'a>> {
@@ -178,7 +178,7 @@ impl<'a> DrawStep<'a> {
         } else {
             debug_assert_eq!(kind, KIND_QUAD);
             Route::Box {
-                span: inst.params[2] < 0.0 && clip_is_convex(self.frame.clips, clip),
+                span: clip_is_convex(self.frame.clips, clip),
             }
         };
         // A clip that holds every pixel the instance draws needn't be computed per pixel.
@@ -292,11 +292,26 @@ impl<'a> DrawStep<'a> {
             }
             right -= 1;
         }
-        if fills {
-            // A box's inside is its background colour (`fill::quad`).
+        if !fills {
+            return;
+        }
+        // A box's inside is its background (`fill::quad`): one colour, or its gradient per pixel without the shape.
+        if p.inst.params[2] < 0.0 {
             spans::over(
                 &mut row[left as usize * 4..right as usize * 4],
                 p.inst.color0,
+                space,
+            );
+            return;
+        }
+        let s = self.frame.scale;
+        for x in left..right {
+            let world = [(x as f32 + 0.5) / s, (y as f32 + 0.5) / s];
+            let local = p.plane.as_ref().map_or(world, |plane| plane.local(world));
+            let at = x as usize * 4;
+            blend_over(
+                &mut row[at..at + 4],
+                fill::background(self.frame, p.inst, local),
                 space,
             );
         }

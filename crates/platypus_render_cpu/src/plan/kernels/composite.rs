@@ -15,7 +15,7 @@ use platypus_ui::{ColorMatrix, MaskMode};
 
 use super::super::canvas::{Canvas, Rows, Space, blend_over};
 use super::super::color::{encode, srgb_to_linear};
-use super::super::geometry::{Frame, clip_coverage, clip_holds};
+use super::super::geometry::{Frame, clip_coverage, clip_holds, clip_is_convex};
 use super::spans;
 
 /// What one composite pass reads.
@@ -34,9 +34,19 @@ pub struct Composite<'a> {
     pub shift: [f32; 2],
 }
 
+/// How a composite's rows are drawn.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Path {
+    /// A scaled source-over of the layer, a run at a time.
+    Plain,
+    /// The same inside a convex clip: the clip's edge pixel by pixel, the run inside it at a time.
+    PlainClipped,
+    /// Everything per pixel (tint, shift, matrix, mask, blend modes, polygon clips).
+    General,
+}
+
 impl Composite<'_> {
-    /// Whether it is a plain scaled source-over of the layer.
-    fn plain(&self) -> bool {
+    fn path(&self) -> Path {
         let s = self.frame.scale;
         let a = self.area;
         let logical = [
@@ -45,12 +55,31 @@ impl Composite<'_> {
             (a.x + a.w) as f32 / s,
             (a.y + a.h) as f32 / s,
         ];
-        self.blend.is_none()
+        let plain = self.blend.is_none()
             && self.mask.is_none()
             && self.matrix.is_none()
             && self.tint.is_none()
-            && self.shift == [0.0, 0.0]
-            && (self.clip == 0 || clip_holds(self.frame.clips, self.clip, logical, s))
+            && self.shift == [0.0, 0.0];
+        if !plain {
+            Path::General
+        } else if self.clip == 0 || clip_holds(self.frame.clips, self.clip, logical, s) {
+            Path::Plain
+        } else if clip_is_convex(self.frame.clips, self.clip) {
+            Path::PlainClipped
+        } else {
+            Path::General
+        }
+    }
+
+    /// The clip's coverage at pixel (`x`, `y`).
+    #[inline]
+    fn clip_at(&self, x: u32, y: u32) -> f32 {
+        let s = self.frame.scale;
+        clip_coverage(
+            self.frame,
+            [(x as f32 + 0.5) / s, (y as f32 + 0.5) / s],
+            self.clip,
+        )
     }
 
     /// Composites the area's rows `y0..y1` into `dst`.
@@ -59,21 +88,33 @@ impl Composite<'_> {
     /// No other thread may touch `dst`'s rows `y0..y1` meanwhile (the bands are disjoint).
     pub unsafe fn rows(&self, dst: Rows, y0: u32, y1: u32) {
         let a = self.area;
-        let plain = self.plain();
+        let path = self.path();
         for y in y0..y1 {
             // SAFETY: this band's own row (the caller's contract).
             let row = unsafe { dst.row(y) };
-            let span = &mut row[a.x as usize * 4..(a.x + a.w) as usize * 4];
-            if plain {
-                let src_row = &self.src.px
-                    [(y as usize * self.src.width as usize + a.x as usize) * 4..]
-                    [..a.w as usize * 4];
-                spans::over_scaled(span, src_row, self.opacity, self.space);
+            let src_row = &self.src.px[(y as usize * self.src.width as usize) * 4..]
+                [..self.src.width as usize * 4];
+            let (mut left, mut right) = (a.x, a.x + a.w);
+            if path == Path::PlainClipped {
+                // In from both ends to the run the clip covers whole (one run: the clip is convex).
+                while left < right && self.clip_at(left, y) < 1.0 {
+                    let at = left as usize * 4;
+                    self.pixel(&mut row[at..at + 4], left, y);
+                    left += 1;
+                }
+                while right > left && self.clip_at(right - 1, y) < 1.0 {
+                    let at = (right - 1) as usize * 4;
+                    self.pixel(&mut row[at..at + 4], right - 1, y);
+                    right -= 1;
+                }
+            }
+            let (l, r) = (left as usize * 4, right as usize * 4);
+            if path != Path::General {
+                spans::over_scaled(&mut row[l..r], &src_row[l..r], self.opacity, self.space);
                 continue;
             }
-            for (k, px) in span.as_chunks_mut::<4>().0.iter_mut().enumerate() {
-                let x = a.x + k as u32;
-                self.pixel(px, x, y);
+            for (k, px) in row[l..r].as_chunks_mut::<4>().0.iter_mut().enumerate() {
+                self.pixel(px, left + k as u32, y);
             }
         }
     }
@@ -82,6 +123,10 @@ impl Composite<'_> {
         let f = self.frame;
         let frag = [x as f32 + 0.5, y as f32 + 0.5];
         let clip = clip_coverage(f, [frag[0] / f.scale, frag[1] / f.scale], self.clip);
+        if clip <= 0.0 && self.blend.is_none() {
+            // Source-over of nothing.
+            return;
+        }
         let s = self
             .filtered(frag)
             .map(|c| c * self.opacity * self.mask_at(x, y));

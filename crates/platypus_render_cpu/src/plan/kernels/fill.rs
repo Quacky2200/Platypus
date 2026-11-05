@@ -52,7 +52,7 @@ fn scaled(c: [f32; 4], k: f32) -> [f32; 4] {
 }
 
 /// A box (`KIND_QUAD`) at `p` (its plane, logical px): the colour, and whether `p` is fully inside
-/// its inner edge, where the colour is just the background (`color0`) when there is no gradient.
+/// its inner edge, where the colour is just its background ([`background`]).
 #[inline]
 pub fn quad(f: &Frame, i: &Instance, p: [f32; 2]) -> ([f32; 4], bool) {
     let s = f.scale;
@@ -69,6 +69,18 @@ pub fn quad(f: &Frame, i: &Instance, p: [f32; 2]) -> ([f32; 4], bool) {
         s,
     )
     .min(outer);
+    let fill = background(f, i, p);
+    // CSS backgrounds extend under the border (background-clip: border-box).
+    let base = scaled(fill, outer);
+    let border = scaled(i.color1, outer - inner);
+    let out = std::array::from_fn(|k| border[k] + base[k] * (1.0 - border[3]));
+    (out, inner >= 1.0)
+}
+
+/// A box's background at `p`: its colour (`color0`), under its gradient layer if it has one. Inside the
+/// inner edge this is the whole of [`quad`]'s colour, without the shape's distances.
+#[inline]
+pub fn background(f: &Frame, i: &Instance, p: [f32; 2]) -> [f32; 4] {
     let mut fill = i.color0;
     let gradient = i.params[2];
     if gradient >= 0.0 {
@@ -98,11 +110,7 @@ pub fn quad(f: &Frame, i: &Instance, p: [f32; 2]) -> ([f32; 4], bool) {
             fill = std::array::from_fn(|k| g[k] + fill[k] * (1.0 - g[3]));
         }
     }
-    // CSS backgrounds extend under the border (background-clip: border-box).
-    let base = scaled(fill, outer);
-    let border = scaled(i.color1, outer - inner);
-    let out = std::array::from_fn(|k| border[k] + base[k] * (1.0 - border[3]));
-    (out, inner >= 1.0 && gradient < 0.0)
+    fill
 }
 
 /// A styled border (`KIND_BORDER`): `p0` the widths, gradient entry `params.z` the side colours and
