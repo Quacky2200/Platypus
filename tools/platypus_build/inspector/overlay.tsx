@@ -1,3 +1,6 @@
+// Copyright 2026 The Platypus Authors
+// SPDX-License-Identifier: Apache-2.0
+
 // The UI inspector's overlay: added to a program by `platypus-build build --add-ui-inspector`
 // (appended to the bundle after `values.ts` and `shared.tsx`, mounted in its own root by
 // `createRoot(9000001)`, the host's inspector target). Names start with `UiInsp` so they never meet a game's.

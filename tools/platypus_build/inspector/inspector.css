@@ -1,3 +1,6 @@
+/* Copyright 2026 The Platypus Authors */
+/* SPDX-License-Identifier: Apache-2.0 */
+
 /*
  * The UI inspector's look. `platypus-build build --add-ui-inspector` adds this file to the game's
  * `game.css`; without the flag it is not part of the build. Colour variables for a dark and a light theme:

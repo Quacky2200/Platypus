@@ -1,3 +1,6 @@
+// Copyright 2026 The Platypus Authors
+// SPDX-License-Identifier: Apache-2.0
+
 // The UI inspector's parts that both the overlay (`overlay.tsx`, appended to a program by
 // `platypus-build build --add-ui-inspector`) and the editor's "UI" panel
 // (`editor/src/UiInspectorPanel.tsx`, which imports this file) draw: names, the style editor and its

@@ -1,3 +1,6 @@
+// Copyright 2026 The Platypus Authors
+// SPDX-License-Identifier: Apache-2.0
+
 // The UI inspector's value logic, as plain functions: stepping a number in a style value, reading and
 // writing colours, cubic-bezier curves and gradients, and filtering autocomplete words. The widgets in
 // `shared.tsx` draw them; the tests are `editor/test/ui-values.test.ts`. Nothing here touches the engine.

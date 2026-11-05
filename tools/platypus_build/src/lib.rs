@@ -1328,7 +1328,8 @@ export function lerp(a: number, b: number, t: number): number { return a + (b - 
             assert_eq!(proj.license, "private");
             assert!(!proj.title.is_empty());
         }
-        assert_eq!(games, 55);
+        // The newest is `alpha-probe` (2026-10-30).
+        assert_eq!(games, 56);
     }
 
     // M9-TS-2307

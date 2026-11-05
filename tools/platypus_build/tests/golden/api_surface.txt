@@ -3097,6 +3097,8 @@ interface PlatypusKeyboardEvent extends PlatypusEvent :: readonly ctrlKey: boole
 interface PlatypusKeyboardEvent extends PlatypusEvent :: readonly key: string;
 interface PlatypusKeyboardEvent extends PlatypusEvent :: readonly metaKey: boolean;
 interface PlatypusKeyboardEvent extends PlatypusEvent :: readonly repeat: boolean;
+interface PlatypusKeyboardEvent extends PlatypusEvent :: readonly selectionEnd: number;
+interface PlatypusKeyboardEvent extends PlatypusEvent :: readonly selectionStart: number;
 interface PlatypusKeyboardEvent extends PlatypusEvent :: readonly shiftKey: boolean;
 interface PlatypusPointerEvent extends PlatypusEvent
 interface PlatypusPointerEvent extends PlatypusEvent :: readonly altKey: boolean;
@@ -3132,6 +3134,10 @@ interface PlatypusProps :: fontWeight?: number | string;
 interface PlatypusProps :: height?: number | string;
 interface PlatypusProps :: id?: string;
 interface PlatypusProps :: key?: string | number;
+interface PlatypusProps :: max?: number | string;
+interface PlatypusProps :: maxLength?: number;
+interface PlatypusProps :: min?: number | string;
+interface PlatypusProps :: minLength?: number;
 interface PlatypusProps :: modal?: boolean;
 interface PlatypusProps :: onAnimationCancel?: (e: PlatypusAnimationEvent) => void;
 interface PlatypusProps :: onAnimationEnd?: (e: PlatypusAnimationEvent) => void;
@@ -3175,15 +3181,18 @@ interface PlatypusProps :: onTransitionStart?: (e: PlatypusTransitionEvent) => v
 interface PlatypusProps :: onWheel?: (e: PlatypusWheelEvent) => void;
 interface PlatypusProps :: opacity?: number | string;
 interface PlatypusProps :: open?: boolean;
+interface PlatypusProps :: pattern?: string;
 interface PlatypusProps :: placeholder?: string;
 interface PlatypusProps :: points?: string;
 interface PlatypusProps :: r?: number | string;
 interface PlatypusProps :: readOnly?: boolean;
 interface PlatypusProps :: ref?: Ref<PlatypusElement | null> | ((el: PlatypusElement | null) => void);
+interface PlatypusProps :: required?: boolean;
 interface PlatypusProps :: rows?: number;
 interface PlatypusProps :: rx?: number | string;
 interface PlatypusProps :: ry?: number | string;
 interface PlatypusProps :: src?: string;
+interface PlatypusProps :: step?: number | string;
 interface PlatypusProps :: stroke?: string;
 interface PlatypusProps :: strokeLinecap?: string;
 interface PlatypusProps :: strokeLinejoin?: string;
