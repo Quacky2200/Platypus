@@ -1,12 +1,13 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Compiled components driven by `platypus_ts_rt::NativeHost` over the real scene
+//! Compiled components driven by `platypus_components::NativeHost` over the real scene
 //! (`bench/components.ts`): `class X extends Component` + `register(X)` and the component
 //! lifecycle, no script engine. IDs are in TESTS.md (M9-TS-556..).
+use platypus_components::NativeHost;
 use platypus_scene::Scene;
 use platypus_scene::api::scene_api as api;
-use platypus_ts_rt::{NativeHost, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
+use platypus_ts_rt::{link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::cmp::*;
 use std::sync::Mutex;
 use ts_api::Handle;
@@ -43,7 +44,15 @@ fn the_bindings_list_the_registered_classes_and_their_hooks() {
     let classes = classes();
     let names: Vec<_> = classes.iter().map(|c| c.name).collect();
     assert_eq!(names, ["Mover", "Fast", "Faulty", "Physics"]);
-    let have = |c: usize| -> Vec<bool> { classes[c].hooks.iter().map(|h| h.is_some()).collect() };
+    // The table follows the host's hook list (`platypus_components::HOOK_LIST`): the nine
+    // lifecycle hooks, then the six contact hooks, which none of these classes has.
+    assert!(
+        classes
+            .iter()
+            .all(|c| c.hooks.len() == 15 && c.hooks[9..].iter().all(Option::is_none))
+    );
+    let have =
+        |c: usize| -> Vec<bool> { classes[c].hooks[..9].iter().map(|h| h.is_some()).collect() };
     // onAwake onStart onUpdate onLateUpdate onFixedUpdate onPreRender onDestroy onApplicationFocus onApplicationPause
     assert_eq!(
         have(0),

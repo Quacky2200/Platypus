@@ -396,12 +396,9 @@ impl Game {
         &self.meta
     }
 
-    /// The class table for `platypus_ts_rt::NativeHost`: the run-time form of the bindings' `classes()`.
+    /// The host classes of the program: the run-time form of the bindings' `classes()`.
     /// The strings and tables are leaked (a few hundred bytes per class per load).
-    pub fn classes(&self) -> Result<Vec<platypus_ts_rt::NativeClass>, String> {
-        type Create = unsafe extern "C" fn(f64, u64) -> *mut u8;
-        type Hook = unsafe extern "C" fn(*mut u8, f64);
-        type Contact = unsafe extern "C" fn(*mut u8, u64, u64);
+    pub fn classes(&self) -> Result<Vec<platypus_ts_rt::HostClass>, String> {
         let addr = |sym: &str| {
             self.funcs
                 .get(sym)
@@ -410,21 +407,11 @@ impl Game {
         };
         let mut out = Vec::new();
         for c in &self.meta {
-            let mut hooks: [Option<Hook>; 9] = [None; 9];
-            for (i, h) in c.hooks.iter().enumerate() {
-                if let Some(h) = h {
-                    // SAFETY: the compiled hook takes (this, dt).
-                    hooks[i] = Some(unsafe { std::mem::transmute::<usize, Hook>(addr(h)?) });
-                }
-            }
-            let mut contact_hooks: [Option<Contact>; 6] = [None; 6];
-            for (i, h) in c.contact_hooks.iter().enumerate() {
-                if let Some(h) = h {
-                    // SAFETY: the compiled hook takes (this, collision, collider).
-                    contact_hooks[i] =
-                        Some(unsafe { std::mem::transmute::<usize, Contact>(addr(h)?) });
-                }
-            }
+            let hooks = c
+                .hooks
+                .iter()
+                .map(|h| h.as_deref().map(addr).transpose())
+                .collect::<Result<Vec<Option<usize>>, String>>()?;
             let props: Vec<(&'static str, usize, &'static str)> = c
                 .props
                 .iter()
@@ -436,15 +423,16 @@ impl Game {
                     )
                 })
                 .collect();
-            out.push(platypus_ts_rt::NativeClass {
+            out.push(platypus_ts_rt::HostClass {
                 name: Box::leak(c.name.clone().into_boxed_str()),
                 sid: c.sid,
                 bases: Box::leak(c.bases.clone().into_boxed_slice()),
                 // SAFETY: the constructor takes (id, object) and ignores the object when the class
                 // does not use one (the extra register argument is harmless in the C ABI).
-                create: unsafe { std::mem::transmute::<usize, Create>(addr(&c.create)?) },
-                hooks,
-                contact_hooks,
+                create: unsafe {
+                    std::mem::transmute::<usize, platypus_ts_rt::HostCreate>(addr(&c.create)?)
+                },
+                hooks: Box::leak(hooks.into_boxed_slice()),
                 props: Box::leak(props.into_boxed_slice()),
             });
         }

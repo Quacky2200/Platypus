@@ -158,17 +158,6 @@ pub fn rust_bindings(m: &Module) -> String {
 /// The class table of `register(Class)`: wrappers that erase the object type, and `classes()`.
 /// Built from the exports `components.rs` generated (`platypus_new_X`, `platypus_hook_X_onUpdate`).
 fn component_table(m: &Module) -> String {
-    const HOOKS: [&str; 9] = [
-        "onAwake",
-        "onStart",
-        "onUpdate",
-        "onLateUpdate",
-        "onFixedUpdate",
-        "onPreRender",
-        "onDestroy",
-        "onApplicationFocus",
-        "onApplicationPause",
-    ];
     let mut out = String::new();
     let mut entries = Vec::new();
     for f in m.funcs.iter().filter(|f| f.exported) {
@@ -185,40 +174,29 @@ fn component_table(m: &Module) -> String {
         out += &format!(
             "unsafe extern \"C\" fn create_{class}(id: f64{go_param}) -> *mut u8 {{ unsafe {{ {sym}(id{go_arg}) as *mut u8 }} }}\n"
         );
+        // Hook thunks take (this, dt) or, for contacts, (this, the Collision handle, the other
+        // Collider handle); the table holds their addresses in the host's order.
         let mut hooks = Vec::new();
-        for h in HOOKS {
+        for h in crate::classmeta::hook_list() {
             let name = format!("platypus_hook_{class}_{h}");
-            if let Some(hf) = m.funcs.iter().find(|g| g.exported && g.name == name) {
-                let hs = format!("ts_{}{}", m.prefix, hf.name);
-                let ty = rust_ty(m, &hf.locals[hf.params[0] as usize], false);
-                out += &format!(
-                    "unsafe extern \"C\" fn hook_{class}_{h}(c: *mut u8, dt: f64) {{ unsafe {{ {hs}(c as {ty}, dt) }} }}\n"
-                );
-                hooks.push(format!(
-                    "Some(hook_{class}_{h} as unsafe extern \"C\" fn(*mut u8, f64))"
-                ));
-            } else {
+            let Some(hf) = m.funcs.iter().find(|g| g.exported && g.name == name) else {
                 hooks.push("None".to_string());
-            }
-        }
-        // Contact hooks take (this, the Collision handle, the other Collider handle).
-        let mut contact_hooks = Vec::new();
-        for h in crate::lower::components::CONTACT_HOOKS {
-            let name = format!("platypus_hook_{class}_{h}");
-            if let Some(hf) = m.funcs.iter().find(|g| g.exported && g.name == name) {
-                let hs = format!("ts_{}{}", m.prefix, hf.name);
-                let ty = rust_ty(m, &hf.locals[hf.params[0] as usize], false);
+                continue;
+            };
+            let hs = format!("ts_{}{}", m.prefix, hf.name);
+            let ty = rust_ty(m, &hf.locals[hf.params[0] as usize], false);
+            if hf.params.len() == 3 {
                 let t1 = rust_ty(m, &hf.locals[hf.params[1] as usize], false);
                 let t2 = rust_ty(m, &hf.locals[hf.params[2] as usize], false);
                 out += &format!(
                     "unsafe extern \"C\" fn hook_{class}_{h}(c: *mut u8, collision: u64, collider: u64) {{ unsafe {{ {hs}(c as {ty}, collision as {t1}, collider as {t2}) }} }}\n"
                 );
-                contact_hooks.push(format!(
-                    "Some(hook_{class}_{h} as unsafe extern \"C\" fn(*mut u8, u64, u64))"
-                ));
             } else {
-                contact_hooks.push("None".to_string());
+                out += &format!(
+                    "unsafe extern \"C\" fn hook_{class}_{h}(c: *mut u8, dt: f64) {{ unsafe {{ {hs}(c as {ty}, dt) }} }}\n"
+                );
             }
+            hooks.push(format!("Some(hook_{class}_{h} as *const () as usize)"));
         }
         // `create` has one signature in the table: (id, object).
         out += &format!(
@@ -247,16 +225,15 @@ fn component_table(m: &Module) -> String {
             .map(|(_, b)| b.iter().map(|x| format!("{x}")).collect())
             .unwrap_or_default();
         entries.push(format!(
-            "        platypus_ts_rt::NativeClass {{ name: \"{class}\", sid: {sid}, bases: &[{}], create: create_{class}_any, hooks: [{}], contact_hooks: [{}], props: {props} }},\n",
+            "        platypus_ts_rt::HostClass {{ name: \"{class}\", sid: {sid}, bases: &[{}], create: create_{class}_any, hooks: Box::leak(vec![{}].into_boxed_slice()), props: {props} }},\n",
             bases.join(", "),
             hooks.join(", "),
-            contact_hooks.join(", ")
         ));
     }
     if entries.is_empty() {
         return out;
     }
-    out += "/// The component classes of the program, for `platypus_ts_rt::NativeHost`.\npub fn classes() -> Vec<platypus_ts_rt::NativeClass> {\n    vec![\n";
+    out += "/// The host classes of the program (`platypus_ts_rt::HostClass`).\npub fn classes() -> Vec<platypus_ts_rt::HostClass> {\n    vec![\n";
     for e in entries {
         out += &e;
     }

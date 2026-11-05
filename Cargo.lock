@@ -4171,6 +4171,7 @@ dependencies = [
  "notify",
  "platypus_animation",
  "platypus_audio",
+ "platypus_components",
  "platypus_core",
  "platypus_engine_api",
  "platypus_kinds",
@@ -4208,6 +4209,17 @@ dependencies = [
  "platypus_core",
  "symphonia",
  "tracing",
+]
+
+[[package]]
+name = "platypus_components"
+version = "0.1.0"
+dependencies = [
+ "platypus_kinds",
+ "platypus_physics_api",
+ "platypus_ts_rt",
+ "serde_json",
+ "ts_api",
 ]
 
 [[package]]
@@ -4429,8 +4441,6 @@ dependencies = [
  "num-bigint 0.4.8",
  "num-integer",
  "num-traits",
- "platypus_kinds",
- "platypus_physics_api",
  "regress",
  "serde_json",
  "ts_api",

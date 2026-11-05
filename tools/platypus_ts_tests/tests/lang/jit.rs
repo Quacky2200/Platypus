@@ -3,10 +3,11 @@
 
 //! The JIT: the same code generation as the object writer, into the running process
 //! (`platypus_ts::jit`). IDs are in TESTS.md (M9-TS-1900.., M9-API-600..).
+use platypus_components::NativeHost;
 use platypus_scene::Scene;
 use platypus_scene::api::scene_api as api;
 use platypus_ts::jit::{JitOptions, compile_and_load};
-use platypus_ts_rt::{NativeHost, link_anchor};
+use platypus_ts_rt::link_anchor;
 use ts_api::Handle;
 
 /// Compiled programs share the thread's heap and globals: one test at a time.
@@ -171,6 +172,7 @@ fn every_manifest_function_symbol_resolves_after_reading_the_manifests() {
     all.extend(platypus_scenes::manifests());
     all.extend(platypus_physics_api::manifests());
     all.extend(platypus_render_api::manifests());
+    all.extend(platypus_components::manifests());
     let mut missing = Vec::new();
     let mut n = 0;
     for m in &all {

@@ -12,6 +12,7 @@ build = "build.rs"
 [dependencies]
 platypus_ts = { path = "../platypus_ts" }
 platypus_ts_rt = { path = "../platypus_ts_rt" }
+platypus_components = { path = "../../crates/platypus_components" }
 platypus_demo_api = { path = "../platypus_demo_api" }
 platypus_scene = { path = "../../crates/platypus_scene" }
 platypus_scenes = { path = "../../crates/platypus_scenes" }
@@ -42,3 +43,4 @@ platypus_scene = { path = "../../crates/platypus_scene" }
 platypus_scenes = { path = "../../crates/platypus_scenes" }
 platypus_physics_api = { path = "../../crates/platypus_physics_api" }
 platypus_render_api = { path = "../../crates/platypus_render_api" }
+platypus_components = { path = "../../crates/platypus_components" }

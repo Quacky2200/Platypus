@@ -27,12 +27,11 @@
 //! `preventDefault()` stops default actions.
 
 use anyhow::{Context, Result, anyhow, bail};
+use platypus_components::NativeHost;
 use platypus_scene::Scene;
 use platypus_ts::jit::{Game, JitOptions, compile_and_load};
 use platypus_ts::renderer::Tier;
-use platypus_ts_rt::{
-    NativeHost, StartupState, startup_state, ts_rt_microtasks_run, ts_rt_timers_advance,
-};
+use platypus_ts_rt::{StartupState, startup_state, ts_rt_microtasks_run, ts_rt_timers_advance};
 use platypus_ui::{UiEvent, UiTree};
 use platypus_ui_native::{Event, RootId, Runtime};
 use std::path::Path;
@@ -145,6 +144,7 @@ fn manifests() -> Vec<String> {
     all.extend(platypus_scenes::manifests());
     all.extend(platypus_physics_api::manifests());
     all.extend(platypus_render_api::manifests());
+    all.extend(platypus_components::manifests());
     all.push(platypus_ts_ui::manifest_json());
     all.push(platypus_ts_ui::root_manifest_json());
     all
@@ -235,7 +235,7 @@ fn active(o: u64) -> bool {
     platypus_scene::api::scene_api::active(platypus_scene::ObjectId::from_raw(o))
 }
 
-fn log_faults(faults: Vec<platypus_ts_rt::Fault>) {
+fn log_faults(faults: Vec<platypus_components::Fault>) {
     for f in faults {
         tracing::error!(target: "script", "{}.{} threw; the component is disabled", f.class, f.hook);
     }

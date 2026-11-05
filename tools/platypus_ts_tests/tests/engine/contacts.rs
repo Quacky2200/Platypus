@@ -4,11 +4,10 @@
 //! Contact hooks on compiled components (`bench/contacts.ts`): the physics step queues contacts
 //! and `NativeHost::dispatch_physics` calls `onCollisionEnter` and friends by name. IDs are in
 //! TESTS.md (M9-TS-1000..).
+use platypus_components::{ContactEvent, NativeHost};
 use platypus_scene::Scene;
 use platypus_scene::api::scene_api as api;
-use platypus_ts_rt::{
-    ContactEvent, NativeHost, Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress,
-};
+use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::contacts_t::*;
 use ts_api::Handle;
 

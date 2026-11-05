@@ -6,10 +6,11 @@
 //! platypus_ts and driven by the Rust host against the declared engine API: a camera is made, the
 //! curve is drawn as gizmo lines, keys change the formula and pause the demo, the music is asked
 //! for. IDs are in TESTS.md (M9-TS-596..).
+use platypus_components::NativeHost;
 use platypus_engine_api::audio::{self, AudioCommand};
 use platypus_engine_api::{camera, gizmos, input};
 use platypus_scene::Scene;
-use platypus_ts_rt::{NativeHost, link_anchor};
+use platypus_ts_rt::link_anchor;
 use platypus_ts_tests::sdf;
 
 fn all(_: u64) -> bool {

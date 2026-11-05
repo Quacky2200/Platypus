@@ -1085,7 +1085,7 @@ mod bigint;
 mod coro;
 mod date;
 mod event;
-mod host;
+mod host_class;
 mod intl;
 mod intl_date;
 mod intl_locale;
@@ -1108,7 +1108,7 @@ pub use bigint::*;
 pub use coro::*;
 pub use date::*;
 pub use event::*;
-pub use host::*;
+pub use host_class::*;
 pub use intl::*;
 pub use intl_date::*;
 pub use intl_locale::*;
@@ -1247,8 +1247,6 @@ pub fn link_anchor() -> usize {
         ts_rt_random as *const () as usize,
         ts_rt_random_seed as *const () as usize,
         ts_rt_arr_set_len as *const () as usize,
-        host::ts_rt_component_get as *const () as usize,
-        host::ts_rt_component_add_gc as *const () as usize,
         ts_rt_arr_insert as *const () as usize,
         ts_rt_arr_drop as *const () as usize,
         ts_rt_arr_splice as *const () as usize,

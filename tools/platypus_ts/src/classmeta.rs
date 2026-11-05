@@ -17,25 +17,19 @@ pub struct ClassMeta {
     /// The struct ids of the class's ancestors.
     pub bases: Vec<u64>,
     pub create: String,
-    /// The nine hooks of `platypus_ts_rt::NativeHost` (awake, start, update, ...), in its order.
-    pub hooks: [Option<String>; 9],
-    /// `onCollisionEnter/Exit/Stay` and `onTriggerEnter/Exit/Stay`.
-    pub contact_hooks: [Option<String>; 6],
+    /// The hook thunks in the order of the host's hook list (`hook_list`), `None` where the class
+    /// has none.
+    pub hooks: Vec<Option<String>>,
     /// The `@property` table: name, byte offset, type name.
     pub props: Vec<(String, usize, String)>,
 }
 
-const HOOKS: [&str; 9] = [
-    "onAwake",
-    "onStart",
-    "onUpdate",
-    "onLateUpdate",
-    "onFixedUpdate",
-    "onPreRender",
-    "onDestroy",
-    "onApplicationFocus",
-    "onApplicationPause",
-];
+/// The host's hook list: the lifecycle hooks, then the contact hooks.
+pub fn hook_list() -> impl Iterator<Item = &'static str> {
+    crate::lower::components::HOOKS
+        .into_iter()
+        .chain(crate::lower::components::CONTACT_HOOKS)
+}
 
 /// The table `layout::component_table` writes as Rust text, as data.
 pub fn class_meta(m: &Module) -> Vec<ClassMeta> {
@@ -52,14 +46,7 @@ pub fn class_meta(m: &Module) -> Vec<ClassMeta> {
                 .any(|g| g.exported && g.name == name)
                 .then(|| sym(&name))
         };
-        let mut hooks: [Option<String>; 9] = Default::default();
-        for (i, h) in HOOKS.iter().enumerate() {
-            hooks[i] = find(h);
-        }
-        let mut contact_hooks: [Option<String>; 6] = Default::default();
-        for (i, h) in crate::lower::components::CONTACT_HOOKS.iter().enumerate() {
-            contact_hooks[i] = find(h);
-        }
+        let hooks = hook_list().map(find).collect();
         let sid = match f.ret.strip() {
             Ty::Obj(sid) => *sid,
             _ => 0,
@@ -89,7 +76,6 @@ pub fn class_meta(m: &Module) -> Vec<ClassMeta> {
             bases,
             create: sym(&f.name),
             hooks,
-            contact_hooks,
             props,
         });
     }

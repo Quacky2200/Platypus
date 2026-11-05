@@ -61,3 +61,6 @@ fn main() {
     }
     println!("{:>18} {:>11}", "ops applied", ops);
 }
+
+// The `ts_rt_component_*` functions the linked programs call.
+use platypus_components as _;

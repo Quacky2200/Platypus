@@ -10,7 +10,7 @@
 //! disabled or inactive-object components skipped, a component that throws is reported and
 //! disabled. After every hook the microtask queue runs (the event-loop contract of `event.rs`).
 
-use super::*;
+use platypus_ts_rt::*;
 
 pub const HOOK_AWAKE: usize = 0;
 pub const HOOK_START: usize = 1;
@@ -68,6 +68,52 @@ pub struct NativeClass {
     pub contact_hooks: [Option<ContactHook>; 6],
     /// The `@property` table: name, byte offset in the object, type name (`PROPS_<Class>`).
     pub props: &'static [(&'static str, usize, &'static str)],
+}
+
+/// The host's hook list, the order of [`HostClass::hooks`]: the lifecycle hooks, then the contact
+/// hooks. The compiler is told the same list (`hostClasses.hooks` in the manifest).
+pub const HOOK_LIST: [&str; 15] = [
+    HOOK_NAMES[0],
+    HOOK_NAMES[1],
+    HOOK_NAMES[2],
+    HOOK_NAMES[3],
+    HOOK_NAMES[4],
+    HOOK_NAMES[5],
+    HOOK_NAMES[6],
+    HOOK_NAMES[7],
+    HOOK_NAMES[8],
+    CONTACT_NAMES[0],
+    CONTACT_NAMES[1],
+    CONTACT_NAMES[2],
+    CONTACT_NAMES[3],
+    CONTACT_NAMES[4],
+    CONTACT_NAMES[5],
+];
+
+impl NativeClass {
+    /// Types the hook addresses of a host class by their place in [`HOOK_LIST`], once at load.
+    pub fn from_host(c: &HostClass) -> Self {
+        let at = |i: usize| c.hooks.get(i).copied().flatten();
+        let mut hooks: [Option<Hook>; 9] = [None; 9];
+        for (i, h) in hooks.iter_mut().enumerate() {
+            // SAFETY: a lifecycle hook thunk takes (this, dt).
+            *h = at(i).map(|a| unsafe { std::mem::transmute::<usize, Hook>(a) });
+        }
+        let mut contact_hooks: [Option<ContactHook>; 6] = [None; 6];
+        for (i, h) in contact_hooks.iter_mut().enumerate() {
+            // SAFETY: a contact hook thunk takes (this, collision, collider).
+            *h = at(9 + i).map(|a| unsafe { std::mem::transmute::<usize, ContactHook>(a) });
+        }
+        NativeClass {
+            name: c.name,
+            sid: c.sid,
+            bases: c.bases,
+            create: c.create,
+            hooks,
+            contact_hooks,
+            props: c.props,
+        }
+    }
 }
 
 /// A `@property` value as the engine sees it (scene files, the editor).
@@ -349,7 +395,12 @@ impl Drop for NativeHost {
 }
 
 impl NativeHost {
-    pub fn new(classes: Vec<NativeClass>) -> Self {
+    /// The host over a program's host classes (`Game::host_classes`, or the AOT `classes()`).
+    pub fn new(classes: Vec<HostClass>) -> Self {
+        Self::with_classes(classes.iter().map(NativeClass::from_host).collect())
+    }
+
+    pub fn with_classes(classes: Vec<NativeClass>) -> Self {
         REG.with(|r| {
             let mut r = r.borrow_mut();
             r.creators = classes

@@ -103,7 +103,7 @@ pub(crate) fn blockers() -> Vec<(ObjectId, &'static str)> {
     platypus_render_api::for_each_particle_system(|_, d| out.push((d.object, "ParticleSystem")));
     platypus_render_api::for_each_light(|_, d| out.push((d.object, "Light")));
     out.extend(
-        platypus_ts_rt::live_components()
+        platypus_components::live_components()
             .into_iter()
             .filter(|&(o, _)| o != 0)
             .map(|(o, class)| (ObjectId::from_raw(o), class)),

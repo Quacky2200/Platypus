@@ -3,8 +3,9 @@
 
 //! The component / GameObject surface of scene.ts from compiled code (`bench/comp_api.ts`). IDs
 //! are in TESTS.md (M9-TS-1010..).
+use platypus_components::NativeHost;
 use platypus_scene::Scene;
-use platypus_ts_rt::{NativeHost, Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
+use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::comp_api_t::*;
 
 fn in_every_gc_mode(f: impl Fn()) {

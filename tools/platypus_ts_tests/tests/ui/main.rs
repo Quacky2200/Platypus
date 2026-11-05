@@ -7,3 +7,6 @@
 mod editor_models;
 mod ui;
 mod windows;
+
+// The `ts_rt_component_*` functions the linked programs call.
+use platypus_components as _;

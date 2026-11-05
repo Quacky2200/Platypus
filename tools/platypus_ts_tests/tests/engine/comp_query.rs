@@ -21,18 +21,18 @@ fn in_every_gc_mode(f: impl Fn()) {
     assert_ne!(platypus_ts_tests::engine_api_anchor(), 0);
     unsafe { ts_cqy_init() };
     // Every mode starts with a new host (the registry of live components) and scene.
-    let mut host = platypus_ts_rt::NativeHost::new(classes());
+    let mut host = platypus_components::NativeHost::new(classes());
     reset();
     f();
     ts_rt_gc_stress(true);
     drop(host);
-    host = platypus_ts_rt::NativeHost::new(classes());
+    host = platypus_components::NativeHost::new(classes());
     reset();
     f();
     ts_rt_gc_stress(false);
     ts_rt_gc_enable(false);
     drop(host);
-    host = platypus_ts_rt::NativeHost::new(classes());
+    host = platypus_components::NativeHost::new(classes());
     reset();
     f();
     ts_rt_gc_enable(true);

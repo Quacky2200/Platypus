@@ -84,6 +84,48 @@ pub struct Manifest {
     pub object_args: Vec<(String, String, bool, bool)>,
     /// Namespace functions that are also globals (`#[global]`): (namespace, name).
     pub globals: Vec<(String, String)>,
+    /// The host's script classes, if a manifest declares them (`{"hostClasses": {..}}`).
+    pub host_classes: Option<HostClasses>,
+}
+
+/// Script classes the host makes instances of and calls hooks on (Platypus: `class Player extends
+/// Component`). A manifest declares them:
+///
+/// ```json
+/// {"hostClasses":{"base":"Component","object":"GameObject","hooks":["onAwake","onUpdate"]}}
+/// ```
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct HostClasses {
+    /// The base class scripts extend.
+    pub base: String,
+    /// The handle class instances are attached to, if any (`GameObject`).
+    pub object: Option<String>,
+    /// The hooks the host calls, in the order of its table (`HostClass::hooks`).
+    pub hooks: Vec<String>,
+}
+
+impl HostClasses {
+    fn from_json(v: &serde_json::Value) -> Result<Self, String> {
+        let base = v["base"]
+            .as_str()
+            .ok_or("manifest: hostClasses needs a `base`")?
+            .to_string();
+        let hooks = v["hooks"]
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|h| {
+                h.as_str()
+                    .map(str::to_string)
+                    .ok_or("manifest: a hook is a name")
+            })
+            .collect::<Result<_, _>>()?;
+        Ok(HostClasses {
+            base,
+            object: v["object"].as_str().map(str::to_string),
+            hooks,
+        })
+    }
 }
 
 /// An enum of the engine API.
@@ -253,6 +295,13 @@ impl Manifest {
     pub fn add_json(&mut self, json: &str) -> Result<(), String> {
         let v: serde_json::Value =
             serde_json::from_str(json).map_err(|e| format!("manifest: {e}"))?;
+        if v.get("hostClasses").is_some() {
+            if self.host_classes.is_some() {
+                return Err("manifest: two manifests declare hostClasses".to_string());
+            }
+            self.host_classes = Some(HostClasses::from_json(&v["hostClasses"])?);
+            return Ok(());
+        }
         let ns = v["namespace"]
             .as_str()
             .ok_or("manifest: missing `namespace`")?

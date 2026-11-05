@@ -15,6 +15,7 @@ fn manifests() -> Vec<String> {
     all.extend(platypus_scenes::manifests());
     all.extend(platypus_physics_api::manifests());
     all.extend(platypus_render_api::manifests());
+    all.extend(platypus_components::manifests());
     all
 }
 

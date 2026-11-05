@@ -99,3 +99,6 @@ fn main() {
         g.live_bytes as f64 / 1024.0
     );
 }
+
+// The `ts_rt_component_*` functions the linked programs call.
+use platypus_components as _;

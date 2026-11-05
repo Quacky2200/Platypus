@@ -3,11 +3,10 @@
 
 //! Scene files, `instantiate`, prefabs and `SceneManager` for compiled programs
 //! (`bench/scenes.ts`, `platypus_scenes`). IDs are in TESTS.md (M9-TS-712..).
+use platypus_components::NativeHost;
 use platypus_scene::api::scene_api as api;
 use platypus_scene::{ObjectId, Scene};
-use platypus_ts_rt::{
-    NativeHost, Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress, ts_rt_str_new,
-};
+use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress, ts_rt_str_new};
 use platypus_ts_tests::scenes_t::*;
 use serde_json::{Value, json};
 use ts_api::Handle;

@@ -59,3 +59,6 @@ mod tuples;
 mod unions;
 mod utility;
 mod weak;
+
+// The `ts_rt_component_*` functions the linked programs call.
+use platypus_components as _;

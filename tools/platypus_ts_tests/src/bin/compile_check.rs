@@ -18,6 +18,7 @@ fn main() {
     manifests.extend(platypus_scenes::manifests());
     manifests.extend(platypus_physics_api::manifests());
     manifests.extend(platypus_render_api::manifests());
+    manifests.extend(platypus_components::manifests());
 
     // Lowering and code generation both (set PLATYPUS_TS_TRACE=1 to see each function as it is built).
     match platypus_ts::compile_with_manifests(&src, "speed", "chk_", 40000, &manifests) {
@@ -28,3 +29,6 @@ fn main() {
         }
     }
 }
+
+// The `ts_rt_component_*` functions the linked programs call.
+use platypus_components as _;

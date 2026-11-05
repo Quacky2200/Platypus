@@ -1,0 +1,16 @@
+# Copyright 2026 The Platypus Authors
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "platypus_components"
+version.workspace = true
+edition.workspace = true
+publish = false
+license.workspace = true
+
+[dependencies]
+ts_api = { path = "../ts_api", default-features = false }
+platypus_kinds = { path = "../platypus_kinds" }
+platypus_physics_api = { path = "../platypus_physics_api" }
+platypus_ts_rt = { path = "../../tools/platypus_ts_rt" }
+serde_json = "1"

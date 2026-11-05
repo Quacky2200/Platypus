@@ -15,6 +15,7 @@ fn main() {
     manifests.extend(platypus_scenes::manifests());
     manifests.extend(platypus_physics_api::manifests());
     manifests.extend(platypus_render_api::manifests());
+    manifests.extend(platypus_components::manifests());
     let mut lines = Vec::new();
     for m in &manifests {
         let v: serde_json::Value = serde_json::from_str(m).expect("manifest json");
@@ -60,3 +61,6 @@ fn main() {
         println!("{l}");
     }
 }
+
+// The `ts_rt_component_*` functions the linked programs call.
+use platypus_components as _;

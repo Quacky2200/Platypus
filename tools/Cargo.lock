@@ -1974,6 +1974,7 @@ dependencies = [
  "oxc_ast",
  "oxc_parser",
  "oxc_span",
+ "platypus_components",
  "platypus_core",
  "platypus_engine_api",
  "platypus_pack",
@@ -1984,6 +1985,17 @@ dependencies = [
  "platypus_ts",
  "platypus_ts_ui",
  "serde_json",
+]
+
+[[package]]
+name = "platypus_components"
+version = "0.1.0"
+dependencies = [
+ "platypus_kinds",
+ "platypus_physics_api",
+ "platypus_ts_rt",
+ "serde_json",
+ "ts_api",
 ]
 
 [[package]]
@@ -2159,8 +2171,6 @@ dependencies = [
  "num-bigint 0.4.8",
  "num-integer",
  "num-traits",
- "platypus_kinds",
- "platypus_physics_api",
  "regress",
  "serde_json",
  "ts_api",
@@ -2173,6 +2183,7 @@ version = "0.1.0"
 dependencies = [
  "glam 0.34.1",
  "platypus_animation",
+ "platypus_components",
  "platypus_core",
  "platypus_demo_api",
  "platypus_engine_api",
