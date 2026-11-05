@@ -378,7 +378,7 @@ script writes it for the generated components, and `kind_fields.rs` of `platypus
 or current state), with the shared asset kinds `AnimationController` and `AnimationClip` (the `toJson` text, the controller's
 clips inline: one `assets` entry however many components use it; a prefab or copy keeps the live one; fields a file lacks keep
 their defaults, `M5-ANI-16`); a compiled
-program's `NativeHost` registers one kind per class it has (properties go through the `PROPS` table: numbers, booleans, strings,
+program's `NativeHost` (`crates/platypus_components`) registers one kind per class it has (properties go through the `PROPS` table: numbers, booleans, strings,
 component and `GameObject` references, and the value classes `Vector2/3/4`, `Quaternion`, `Color`, `Rect`, ... written in
 place). A component whose kind is not registered (a game's script class, in the editor, which has not compiled the game's code) is kept
 with a warning (`take_warnings()`) as an `Opaque` component of its object: its JSON data with references turned into
@@ -583,9 +583,11 @@ bundle (`build/game.js`) is refused.
   "assets":[..]}`. `Bundle::read` / `Bundle::parse`. The stylesheet is still `build/game.css`, loaded by `load_game_css`.
 - **Compile.** Manifests: each engine crate's `manifests()` (all engine namespaces, which also registers their shim addresses in
   `ts_api::symbol`) plus `platypus_ts_ui::manifest_json()` and `root_manifest_json()`; extra symbols: `platypus_ts_ui::symbols()`; the
-  runtime's come from `platypus_ts_rt::symbols()` (a build script lists its `#[no_mangle]` exports). Each reload gets a new
+  runtime's come from `platypus_ts_rt::symbols()` (a build script lists its `#[no_mangle]` exports); the component functions
+  (`ts_rt_host_*`) come from `platypus_components::symbols()`, and `platypus_components::manifests()` is one of the manifests
+  (it also installs Platypus's compiler extension). Each reload gets a new
   `struct_base` (100,000 apart).
-- **Per frame and event** (`Native`): `fixed_tick` (`NativeHost::fixed_update`, `platypus_physics_api::step`, `dispatch_physics`),
+- **Per frame and event** (`Native`): `fixed_tick` (`platypus_components::NativeHost::fixed_update`, `platypus_physics_api::step`, `dispatch_physics`),
   `frame` (`Time` via `platypus_engine_api::time::advance`, `ts_rt_timers_advance(now_ms)`, microtasks, `NativeHost::update`),
   `pre_render`, `ui_events` (a `UiEvent` becomes a `platypus_ui_native::Event` for `Runtime::dispatch`), and after each of them the
   mounts (`platypus_ts_ui::take_mounts`, `UiRoot.mount(target, element)`), `Runtime::flush`, script faults and UI errors to the log.

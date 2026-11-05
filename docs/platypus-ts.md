@@ -1175,15 +1175,39 @@ To add a test module:
 ## Components for the host
 
 `class Player extends Component { onUpdate(dt: number) { .. } }` plus `register(Player)` at the top level
-([components.rs](../tools/platypus_ts/src/lower/components.rs)). `Component` is a prelude class with `id` and, when
-the manifest has the `GameObject` handle, `gameObject: GameObject | null`. `register(X)` becomes a run-time call
+([components.rs](../tools/platypus_ts/src/lower/components.rs), the generic `register()` desugaring only). The compiler
+knows nothing of Platypus here: a manifest says which classes are host classes (below). `Component` is a prelude class
+(the manifest's `prelude` text) with `id` and, when the manifest has the `GameObject` handle, `gameObject: GameObject | null`.
+`register(X)` becomes a run-time call
 (`__registerClass("X", spawn)`, wherever it is written) and exported functions are appended for every component class of the
 program, registered or not: `host_new_X(id, gameObject)` and one `host_hook_X_<hook>(this, dt)`
-for each hook the class or an ancestor defines (`onAwake`, `onStart`, `onUpdate`, `onLateUpdate`,
-`onFixedUpdate`, `onPreRender`, `onDestroy`; all take `dt` so the host calls them alike).
+for each hook the class or an ancestor defines (the manifest's `hooks`: `onAwake`, `onStart`, `onUpdate`, `onLateUpdate`,
+`onFixedUpdate`, `onPreRender`, `onDestroy`, ...; all take `dt` so the host calls them alike).
 
-The generated bindings add `classes() -> Vec<platypus_ts_rt::NativeClass>` (name, create thunk, hooks as
-`Option<fn>`). `platypus_ts_rt::NativeHost` ([host.rs](../tools/platypus_ts_rt/src/host.rs)) is the engine side with no
+**Host classes from a manifest.** A host tells the compiler about its base class with a manifest entry
+`{"hostClasses": {extension, base, object, objectField, prelude, methods, hooks}, "declarations": [..]}`
+(`HostClasses` in [manifest.rs](../tools/platypus_ts/src/manifest.rs)): `base` is the class programs extend (`Component`),
+`object` and `objectField` the handle class it sits on and the field that holds it (`GameObject`, `gameObject`), `methods` the
+names of the lookup members (`getComponent`, `addComponent`, ...), `hooks` the ordered hook list, `extension` the name of a
+compiler extension to use. `declarations` are extra built-ins for `types/platypus.d.ts` (see `Builtins` in
+[builtins.rs](../tools/platypus_ts/src/builtins.rs), which combines its static table with every manifest's declarations).
+Platypus's manifest is `platypus_components::manifests()`; a host adds it to the manifests it compiles with. A host with no
+`hostClasses` entry gets no `Component` and no `register`.
+
+**Compiler extensions** ([lower/ext.rs](../tools/platypus_ts/src/lower/ext.rs)). An `Extension` is a set of lowering hooks a
+host installs once per process (`ext::install(name, &ext)`); a compile uses the one its manifest names (`ext::find`), so other
+hosts' programs never see it. Hooks run while lowering (they get the `Lowerer`; `OptionArg` reads an options object, `HookThunk`
+describes a hook thunk) and return `None` to leave a construct to the compiler. They add no run-time work. Platypus's extension
+is [platypus_components/src/compile.rs](../crates/platypus_components/src/compile.rs): the `GameObject` conveniences
+(`createPrimitive`, `instantiate` options, `children` / `roots` / `components` / `scene`), the hierarchy searches, the contact
+thunks and the `Component` declarations.
+
+The generated bindings add `classes() -> Vec<platypus_ts_rt::HostClass>` (name, struct id, bases, create thunk, hooks as
+`Option<usize>` in the manifest's hook order, `@property` table). `platypus_ts_rt` only holds that generic `HostClass`
+([host_class.rs](../tools/platypus_ts_rt/src/host_class.rs)); the `ts_rt_host_*` functions compiled code calls (were
+`ts_rt_component_*`) and the engine side are in the crate `crates/platypus_components`. Its `NativeHost`
+([host.rs](../crates/platypus_components/src/host.rs)) turns each `HostClass` into a `NativeClass` (hooks typed, contact hooks
+split out) and has no
 script engine: `spawn(class, object)` (roots the instance, runs `onAwake`), `update(dt, active)` (`onStart` once,
 all `onUpdate`, then all `onLateUpdate`), `fixed_update`, `pre_render`, `destroy`, `destroy_on_objects`. It runs
 `ts_rt_microtasks_run()` after every hook and disables a component whose hook left an exception pending
@@ -1193,7 +1217,7 @@ Tests `M9-TS-556..561`.
 
 **Startup (the host's side of `register` and top-level `await`).** Which classes are registered is not in the class table: it is
 what the `register(..)` calls did when they ran, in call order, with their `spawn` option (`platypus_ts_rt::registered_classes()`,
-`NativeHost::registered_class_names()`; `Game::init` clears it before the top level runs, so a reload registers again). The
+`NativeHost::registered_class_names()` in `platypus_components`; `Game::init` clears it before the top level runs, so a reload registers again). The
 host waits for `platypus_ts_rt::startup_state()` to be `Done` before it spawns the registered classes, loads `platypus.startScene` or
 runs a component hook (`Native::advance_startup` in `crates/platypus_app/src/native.rs`); frames, timers, microtasks and the UI the
 top level mounted run while it waits, so `createRoot().render(<Loading />)` before the first `await` shows and updates. A module
@@ -1346,7 +1370,7 @@ Tests `M9-TS-593..600`.
 
 ## Component properties and lookups
 
-The host edits components without a script running. `platypus_ts_rt::NativeHost` has `properties(id)`, `get_property` / `set_property`
+The host edits components without a script running. `platypus_components::NativeHost` has `properties(id)`, `get_property` / `set_property`
 (`PropValue`: null, number, boolean, string, component id), `save_properties` and `load_properties`, all through the generated
 `PROPS_<Class>` table that each `NativeClass` carries (offsets are checked against the type name: `number`, `number?`, `boolean`,
 `string`, `object:Class?`; other kinds are not saved yet).
@@ -1382,7 +1406,7 @@ unchanged, byte for byte, `M9-TS-1900`) into a `cranelift-jit` module with the C
 from `platypus_ts_rt::symbols()` (generated by `platypus_ts_rt/build.rs` from its exports; `tools/symbols_build.rs`, also used by
 `platypus_ts_ui`), `ts_api::symbol` (filled when a manifest is read) and `JitOptions::symbols`; a missing one is an error before any
 code runs. `Game::function("name")`, `Game::init()`, `Game::class_meta()` (the data form of the bindings' `classes()`,
-`classmeta.rs`) and `Game::classes()` (`NativeClass` values for `NativeHost`). Memory of a `Game` is never freed.
+`classmeta.rs`) and `Game::classes()` (`HostClass` values for `platypus_components::NativeHost`). Memory of a `Game` is never freed.
 
 `codegen::generate(module, m, far_refs)` takes a `far_refs` flag: the JIT passes `true`, the object writer `false`. With it,
 `Cg::data_addr` and `Cg::func_addr` declare the module's own data and functions non-colocated, so they compile to 64-bit

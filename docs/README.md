@@ -54,7 +54,7 @@ Where the code differs from DESIGN.md the pages say so ("Difference from DESIGN.
 ## Crate map
 
 ```
-platypus_core      Value, ids, Commit/Op, asset path safety          (no deps on other Platypus crates)
+platypus_core      Value, ids, Commit/Op, asset path safety, the renderer tier table (renderer.rs)   (no deps on other Platypus crates)
 platypus_platform  winit window + event loop, InputEvent (keys, pointer, IME, gamepads), gilrs,
                    window modes and resolutions (display.rs, see platform.md)
 platypus_scene     GameObject hierarchy (Scene), ScriptScene (the scene as the game sees it)
@@ -66,7 +66,8 @@ platypus_render_gles  GLES 3 executor of platypus_render's UI FramePlan, through
 platypus_render_cpu   CPU renderers of the UI: `plan::PlanRenderer`, a third executor of the FramePlan (seven AOT kernels, no GPU or driver), and the vello renderer (feature `vello`: vello_cpu + softbuffer, `platypus-app`'s `renderer: "cpu"`)
 platypus_app       the host `platypus-app` (every game; renderer chosen per game: GLES for UI-only programs, wgpu with the world otherwise) that wires everything together (world_view, particles, models, physics_sync, cloth_sync, lifecycle, asset_db, cook, info)
 platypus_ui_native  the native React-style reconciler (the only UI runtime)
-platypus_engine_api / platypus_render_api / platypus_physics_api / platypus_math  the script API (#[ts_api])
+platypus_engine_api / platypus_render_api / platypus_physics_api / platypus_math  the script API (#[ts_api], from the crates ts_api / ts_api_macros)
+platypus_components  NativeHost (component lifecycle, contacts, @property values), the ts_rt_host_* functions and Platypus's compiler extension; its manifest (platypus_components::manifests()) tells the compiler about host classes
 editor/            the native editor (a game built by platypus-build: MenuBar, Dock, Scene view, ...; run as `platypus-app editor --project <folder>`, see editor.md)
 ```
 

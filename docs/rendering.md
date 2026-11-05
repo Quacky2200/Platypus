@@ -60,7 +60,7 @@ Supported`); at run time such a window shows a black screen with red "3D Not Sup
 world (a camera or a mesh or texture upload: `WorldViews::needs_world`), the safety net for a wrong choice. The
 light paths' wgpu fallback builds the world renderer on first use instead (`lazy_world.rs`), so there the world draws.
 
-**The tiers** (`tools/platypus_ts/src/renderer.rs`) are one table keyed on the API's class and namespace names:
+**The tiers** (`crates/platypus_core/src/renderer.rs`, `platypus_core::renderer`) are one table keyed on the API's class and namespace names:
 `world2d` for the scene itself (`GameObject`, `Transform`, `Scene`, `SceneManager`, `Prefab`, and the prelude class
 `Component`: a component class, registered or not, or a `register(..)` call that runs), cameras (`Camera`,
 `Cameras`, `CameraFollow`), sprites (`Sprite`, `SpriteRenderer`, `Texture`), 2D lines and shapes (`LineRenderer2D`,

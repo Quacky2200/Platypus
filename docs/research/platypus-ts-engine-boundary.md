@@ -524,6 +524,7 @@ the compiler is now complete (see [platypus-ts-strings.md](platypus-ts-strings.m
 Section 5 built in its smallest form: `Component` is a prelude class, `register(X)` becomes exported
 constructor and hook thunks, the bindings carry a class table and `platypus_ts_rt::NativeHost` runs the
 lifecycle over it with the same rules as `ComponentHost` (see `docs/platypus-ts.md`, "Components for the
-host"). The host lives in `platypus_ts_rt` so the engine depends on one crate; `platypus_app` wiring (enter the
+host"). The host first lived in `platypus_ts_rt` so the engine depended on one crate; it has since moved to
+`crates/platypus_components` (the runtime keeps a generic `HostClass`, see `docs/research/web-ui-split.md`). `platypus_app` wiring (enter the
 scene, call `update`/`fixed_update`/`pre_render`, call `ts_rt_timers_advance(now_ms)` once per frame) is
 the contract for the session that owns it. Tests `M9-TS-556..561`.

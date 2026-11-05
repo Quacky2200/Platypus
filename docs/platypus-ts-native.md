@@ -47,6 +47,10 @@ measured before that and are kept as the record of the move.
   `extern "C"` shims for compiled code (it also generated QuickJS bindings until they were removed). Math (`platypus_math`), engine services
   (`platypus_engine_api`), scenes (`platypus_scenes`), physics (`platypus_physics_api`) and rendering data (`platypus_render_api`) are
   declared this way. See [platypus-api.md](platypus-api.md).
+- **Components live outside the runtime.** `crates/platypus_components` holds `NativeHost` (the Unity-order lifecycle, contacts,
+  `@property` values), the `ts_rt_host_*` functions compiled code calls and Platypus's compiler extension. The runtime only
+  has the generic `HostClass`; the compiler learns about host classes from a `hostClasses` manifest
+  (`platypus_components::manifests()`). See [platypus-ts.md](platypus-ts.md) "Components for the host".
 - **No hand-written `.d.ts`.** `platypus-build types` writes `types/platypus.d.ts` from the manifests, the UI tables and the
   compiler's built-ins. The hand-written `engine_ts.d.ts` and the TypeScript `facade.ts` that bridged gaps are gone; what
   the compiler itself declares is the table `tools/platypus_ts/src/builtins.rs`. Guard tests fail if a hand-written

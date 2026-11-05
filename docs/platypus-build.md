@@ -363,16 +363,18 @@ The file (`platypus_ts::types_dts`, one deterministic file, about 3000 lines) is
    same tables write the compiled side (`StyleValue`, `StyleEntry`, the `UiEvent` class whose fields read the event slots of
    `UiEvent::script_args`) and decide which event type an `on*` prop listens to (`onChange` is `input`, `onFocus` is `focusin`).
 3. **The compiler built-ins** (`tools/platypus_ts/src/builtins.rs`): one entry per declaration the compiler itself gives a program, with
-   its signature and doc and the code that lowers it named next to it: the `Component` base class (written from the hooks the host
-   calls, `components::HOOKS` / `hook_param`), `register`, `property`, `ComponentClass`, `ClassOf`, the timers (`setTimeout`,
-   `setInterval`, `clearTimeout`, `clearInterval`, `queueMicrotask`), `GameObjectOptions` / `InstantiateObjectOptions` and the
-   generic `GameObject` members (`addComponent`, `getComponent`, `findObjectOfType`, `instantiate`, `createPrimitive`, ...), the typed
+   its signature and doc and the code that lowers it named next to it: the timers (`setTimeout`,
+   `setInterval`, `clearTimeout`, `clearInterval`, `queueMicrotask`), the typed
    window messages (`postMessage<T>`, `request<R>`, `emit` / `on` / `ask<R>` / `answer`, `Window.broadcast` / `emitAll`),
    `Random.pick<T>`, `NumberList`, and the members whose script type is wider than the native one (`MeshRenderer.mesh` takes a
    primitive's name, `AudioSource.playOneShot` a path: `coerce_ext` calls the handle's `fromString`; `Color`'s optional alpha). A
    member goes into the generated class or namespace of its owner and replaces a native member of the same name (a static of a
    namespace is a `function` / `const`); a constructor replaces the generated ones. The `<Value>Like` types (`Vector3Like`, ...)
    are written for the value classes the declarations name.
+   The static table is combined with every manifest's `"declarations"` (a `Builtins` value, `Builtins::from_manifests`). The
+   `Component` class, `register`, `property`, `ComponentClass`, `ClassOf`, `GameObjectOptions` / `InstantiateObjectOptions` and the
+   `GameObject` conveniences (`addComponent`, `getComponent`, `findObjectOfType`, `instantiate`, `createPrimitive`, ...) are
+   Platypus's own and come from `platypus_components::manifests()` (`compile::declarations()`), not from the compiler's table.
    No `.d.ts`, no `include_str!` of one and no Python file under `tools/` is written by hand: the guard `M9-TS-3100`
    (`tools/platypus_build/tests/generated_dts.rs`) is strict, and `M9-TS-3101` checks that no built-in declares an engine name again and
    that every class a built-in member belongs to exists.

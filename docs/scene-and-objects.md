@@ -150,7 +150,7 @@ functions (`Vector3.zero`) yet.
 
 ## Components and the lifecycle
 
-`NativeHost` ([native.rs](../crates/platypus_app/src/native.rs), `platypus_ts_rt`) keeps the registered classes and
+`NativeHost` ([host.rs](../crates/platypus_components/src/host.rs), driven by [native.rs](../crates/platypus_app/src/native.rs)) keeps the registered classes and
 the live component instances; the hooks of a class are known from its compiled form, so a missing hook costs nothing.
 Components on inactive objects are skipped. A component that throws is logged and disabled; the others keep running.
 (The QuickJS `ComponentHost` with `__platypus_create` / `__platypus_hooks` / `__platypus_run` and the batched
