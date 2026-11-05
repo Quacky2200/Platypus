@@ -195,8 +195,11 @@ time with the plan's state as arguments (no variant per state):
   draws every instance that crosses it, in plan order, and never writes another band's rows, so the order per pixel is
   the plan's. One pool per process draws the bands (at most 4 threads, fewer on fewer cores, none on one core;
   several renderers share it). `PLATYPUS_CPU_THREADS` sets the count.
-- **Spans.** A convex inside goes a run at a time: a box's background is one span fill, and a shadow skips the inside it
-  does not draw.
+- **Spans.** A convex inside goes a run at a time: a box's background is one span fill (its gradient per pixel there,
+  without the shape's distances), a shadow skips the inside it does not draw, and a plain layer composite inside a
+  convex clip draws only the clip's edge pixel by pixel. A step under 4,096 pixels runs on the calling thread.
+- **Profile.** `PLATYPUS_CPU_PROFILE=1` logs, every 120 frames, the milliseconds a frame spends in clears and copies,
+  draws, blurs and composites, and how many steps of each.
 - **SIMD.** The kernels are plain Rust, vectorised per target. On x86-64 the band loop is built twice (SSE2, and AVX2 with
   FMA) and the second is picked at run time where the processor has it. arm64 always has NEON and armv7 has it when built
   with `+neon`, so their one build is already vectorised. `PLATYPUS_CPU_SIMD=off` forces the baseline build, to compare.
@@ -205,8 +208,8 @@ time with the plan's state as arguments (no variant per state):
 - **Accuracy.** `tests/vs_gles.rs` (`M2-KRN-01..12`) draws the `vs_wgpu` scenes through this executor and through GLES
   on llvmpipe: within 2/255 everywhere, and the box-pass blurs within 4/255. The test is skipped without EGL.
 - **Not done.** `render_over` (a canvas seeded from the target, for backdrop filters over a compositor's windows) is not
-  implemented; a window that draws only itself does not need it. No host chooses this executor yet: `platypus-app` is
-  unchanged.
+  implemented; a window that draws only itself does not need it. `platypus-app` does not choose this executor (it is
+  unchanged); Fluid's `fluid-app` does with `FLUID_APP_RENDERER=cpu`.
 
 ### The vello renderer (`crates/platypus_render_cpu`, feature `vello`)
 

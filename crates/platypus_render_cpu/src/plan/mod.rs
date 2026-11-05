@@ -20,8 +20,10 @@ mod geometry;
 mod gradient;
 pub mod kernels;
 mod pool;
+mod profile;
 
 use std::path::PathBuf;
+use std::time::Instant;
 
 pub use platypus_render::Blending;
 use platypus_render::glyphs::{COLOR_SIZE, GlyphCache, GlyphEntry, MASK_SIZE};
@@ -49,6 +51,8 @@ pub struct PlanRenderer {
     canvas_space: Space,
     blending: Blending,
     linear_blur: bool,
+    /// `PLATYPUS_CPU_PROFILE`.
+    profile: profile::Profile,
 }
 
 /// What planning asks of this renderer: glyphs and images from the shared caches.
@@ -102,6 +106,7 @@ impl PlanRenderer {
             canvas_space: Space::Srgb,
             blending: Blending::default(),
             linear_blur: false,
+            profile: profile::Profile::default(),
         }
     }
 
@@ -260,7 +265,9 @@ impl PlanRenderer {
         };
         let pool = pool::shared();
         let mut pending: Vec<Option<Color>> = vec![None; self.canvases.len()];
+        let started = Instant::now();
         for step in &frame.steps {
+            let step_started = Instant::now();
             match step {
                 Step::Clear { target, color } => pending[*target] = Some(*color),
                 Step::Draw {
@@ -407,11 +414,19 @@ impl PlanRenderer {
                     stats.passes += 1;
                 }
             }
+            if profile::on() {
+                self.profile.add(profile::kind(step), step_started);
+            }
         }
+        let finishing = Instant::now();
         // A canvas nothing drew into still shows its clear.
         settle(&mut self.canvases, &mut pending, 0, space, &mut stats);
         if space == Space::Linear {
             finish_linear(&mut self.canvases[0]);
+        }
+        if profile::on() {
+            self.profile.add(profile::FINISH, finishing);
+            self.profile.frame(started);
         }
         stats.passes += 1;
         stats
@@ -446,9 +461,9 @@ fn pair(canvases: &mut [Canvas], read: usize, write: usize) -> (&Canvas, &mut Ca
 
 /// Runs `f(y0, y1)` over `area`'s rows in bands on the pool (one band when the area is small).
 fn bands(pool: &pool::Pool, area: PxRect, f: impl Fn(u32, u32) + Sync) {
-    const BAND: u32 = 32;
+    use kernels::{BAND, PARALLEL_PIXELS};
     let (top, bottom) = (area.y, area.y + area.h);
-    if u64::from(area.w) * u64::from(area.h) < 16_384 || pool.threads() == 1 {
+    if u64::from(area.w) * u64::from(area.h) < PARALLEL_PIXELS || pool.threads() == 1 {
         f(top, bottom);
         return;
     }
