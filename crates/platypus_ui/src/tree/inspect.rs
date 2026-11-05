@@ -18,7 +18,7 @@ use crate::draw::Rect;
 use crate::layout::LayoutEngine;
 use crate::opcodes::Op;
 use crate::units::{UnitContext, needs_resolution_for, resolve};
-use platypus_core::{NodeId, Value};
+use web_ui_core::{NodeId, Value};
 
 /// One declaration of a matched rule, and whether it decides the property for the node.
 #[derive(Clone, Debug, PartialEq)]

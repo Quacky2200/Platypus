@@ -5,12 +5,12 @@
 //! content with attributes and computed CSS presentation properties, restyle and
 //! transition like other elements, and are hit as one box.
 
-mod common;
+use crate::common;
 
 use common::{Dom, n, op};
-use platypus_core::{Commit, NodeId, Value};
 use platypus_ui::opcodes::{SET_ATTRS, SET_STYLE};
 use platypus_ui::{BackgroundImage, DrawCmd, ElementState, UiTree};
+use web_ui_core::{Commit, NodeId, Value};
 
 fn attrs(d: &mut Dom, id: u32, pairs: &[(&str, Value)]) {
     let mut a = vec![n(id)];

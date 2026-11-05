@@ -3,10 +3,10 @@
 
 //! CSS gradients drawn by the CPU renderer.
 
-use platypus_core::{Commit, Value};
 use platypus_render_cpu::CpuRenderer;
 use platypus_ui::opcodes::*;
 use platypus_ui::{Rgba, UiTree};
+use web_ui_core::{Commit, Value};
 
 fn n(v: f64) -> Value {
     Value::Number(v)

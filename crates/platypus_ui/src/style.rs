@@ -9,12 +9,12 @@
 
 use std::str::FromStr;
 
-use platypus_core::Value;
 use taffy::{
     AlignContent, AlignItems, Dimension, Display, FlexDirection, FlexWrap, GridAutoFlow,
     GridPlacement, GridTemplateComponent, GridTemplateTracks, LengthPercentage,
     LengthPercentageAuto, Line, Position, Rect, Size, Style,
 };
+use web_ui_core::Value;
 
 use std::sync::Arc;
 

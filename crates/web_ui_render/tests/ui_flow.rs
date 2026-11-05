@@ -6,11 +6,11 @@
 //! Flow layout drawn by the UI renderer (M3-FLT-20..): floats with text wrapping around
 //! them, checked by golden images (and by eye when they change).
 
-use platypus_core::{Commit, Value};
-use platypus_render::testing::{assert_golden, shared_gpu};
-use platypus_render::{Color, OffscreenTarget, RenderTarget, UiRenderer, wgpu};
 use platypus_ui::UiTree;
 use platypus_ui::opcodes::*;
+use web_ui_core::{Commit, Value};
+use web_ui_render::testing::{assert_golden, shared_gpu};
+use web_ui_render::{Color, OffscreenTarget, RenderTarget, UiRenderer, wgpu};
 
 const TOLERANCE: u8 = 3;
 
@@ -97,7 +97,7 @@ fn render(scene: Scene, size: (u32, u32)) -> Vec<u8> {
         OffscreenTarget::with_format(&gpu, size.0, size.1, wgpu::TextureFormat::Rgba8UnormSrgb);
     // The goldens were made in linear light.
     let mut ui = UiRenderer::new(&gpu);
-    ui.set_blending(platypus_render::Blending::Linear);
+    ui.set_blending(web_ui_render::Blending::Linear);
     let cmds = tree.draw_list();
     let view = target.view().unwrap();
     ui.render(

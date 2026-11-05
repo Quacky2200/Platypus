@@ -3,9 +3,9 @@
 
 //! What the UI inspector asks of a tree (M3-INS-01..03).
 
-use platypus_core::{NodeId, Value};
 use platypus_ui::opcodes::Op;
 use platypus_ui::{ROOT, UiTree};
+use web_ui_core::{NodeId, Value};
 
 fn card(css: &str) -> UiTree {
     let mut tree = UiTree::new(400.0, 300.0);

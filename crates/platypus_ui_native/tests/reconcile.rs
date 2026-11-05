@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! The native reconciler against a real `UiTree`. IDs are in TESTS.md (M2-NAT-*).
-use platypus_core::{NodeId, Value};
 use platypus_ui::{ROOT, UiTree};
 use platypus_ui_native::{Context, Dep, Element, Event, HostProps, NodeRef, Runtime};
 use std::cell::RefCell;
 use std::rc::Rc;
+use web_ui_core::{NodeId, Value};
 
 const FIRST: u32 = 1 << 30;
 

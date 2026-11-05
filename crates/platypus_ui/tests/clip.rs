@@ -5,11 +5,11 @@
 //! inner radii, `clipPath` / `clip` clip the element itself, the draw list brackets
 //! the right commands with `PushClip` / `PopClip`, and hit testing matches.
 
-mod common;
+use crate::common;
 
 use common::{Dom, px};
-use platypus_core::{NodeId, Value};
 use platypus_ui::{ClipShape, DrawCmd, Rect, UiTree};
+use web_ui_core::{NodeId, Value};
 
 /// Clips and quads in order, e.g. `["clip 100x100", "quad 50", "unclip"]`.
 fn shape(tree: &mut UiTree) -> Vec<String> {
@@ -195,7 +195,7 @@ fn invalid_clip_values_are_rejected() {
         let mut d = Dom::new();
         d.add(0, "box", &[]);
         let mut tree = d.build("");
-        let errors = tree.apply_commit(&platypus_core::Commit {
+        let errors = tree.apply_commit(&web_ui_core::Commit {
             ops: vec![common::op(
                 platypus_ui::opcodes::SET_STYLE,
                 &[common::n(1), "clipPath".into(), value.into()],

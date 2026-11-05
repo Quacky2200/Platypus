@@ -1,9 +1,9 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-use platypus_core::{Commit, NodeId, Value};
 use platypus_ui::opcodes::*;
 use platypus_ui::{DrawCmd, Quad, ROOT, Rect, Rgba, UiTree};
+use web_ui_core::{Commit, NodeId, Value};
 
 fn op(code: u32, args: &[Value]) -> Value {
     let mut v = vec![Value::Number(code.into())];

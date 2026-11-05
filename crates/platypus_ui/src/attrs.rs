@@ -3,7 +3,7 @@
 
 //! Element attributes and interaction state, as seen by CSS selectors.
 
-use platypus_core::Value;
+use web_ui_core::Value;
 
 use crate::text_style::Direction;
 

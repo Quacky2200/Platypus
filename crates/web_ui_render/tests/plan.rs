@@ -1,21 +1,21 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The backend-neutral frame plan (`platypus_render::plan`): draw lists from the real `UiTree`,
+//! The backend-neutral frame plan (`web_ui_render::plan`): draw lists from the real `UiTree`,
 //! planned with fake resources: no GPU, no wgpu device, the same plan any renderer executes
 //! (M2-PLN-01..06).
 
 use std::collections::HashMap;
 
-use platypus_core::{Commit, Value};
-use platypus_render::Color;
-use platypus_render::glyphs::{GlyphCache, GlyphEntry};
-use platypus_render::plan::{
+use platypus_ui::opcodes::*;
+use platypus_ui::{DrawCmd, UiTree};
+use web_ui_core::{Commit, Value};
+use web_ui_render::Color;
+use web_ui_render::glyphs::{GlyphCache, GlyphEntry};
+use web_ui_render::plan::{
     Blending, FramePlan, ImageInfo, KIND_GLYPH, PlanParams, PlanResources, Step, needs_backdrop,
     plan,
 };
-use platypus_ui::opcodes::*;
-use platypus_ui::{DrawCmd, UiTree};
 
 /// Resources with no GPU behind them: a real glyph cache (swash and packing run; the pixels
 /// are queued, nobody writes them), images of fixed sizes, no SVG.

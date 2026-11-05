@@ -10,7 +10,7 @@
 //!
 //! An affine transform (no perspective row) maps with two multiply-adds per coordinate and no divide.
 
-use platypus_render::plan::GpuClip;
+use web_ui_render::plan::GpuClip;
 
 use super::super::geometry::{xf_apply, xf_unapply};
 

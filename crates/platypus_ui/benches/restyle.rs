@@ -7,9 +7,9 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
-use platypus_core::{Commit, NodeId, Value};
 use platypus_ui::opcodes::*;
 use platypus_ui::{ElementState, UiTree};
+use web_ui_core::{Commit, NodeId, Value};
 
 pub const STYLESHEET: &str = r#"
 :root { --accent: #3fa9f5; --row-h: 22px; --pad: 8px }

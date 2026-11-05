@@ -10,7 +10,7 @@
 
 use std::ops::{Deref, DerefMut};
 
-use platypus_core::NodeId;
+use web_ui_core::NodeId;
 
 use super::{ROOT, UiTree};
 use crate::draw::{DrawCmd, Rect};

@@ -2003,12 +2003,11 @@ dependencies = [
 name = "platypus_core"
 version = "0.1.0"
 dependencies = [
- "base64",
  "crc32fast",
  "flate2",
  "glam 0.34.1",
  "serde_json",
- "tracing",
+ "web_ui_core",
 ]
 
 [[package]]
@@ -2207,13 +2206,13 @@ dependencies = [
 name = "platypus_ts_ui"
 version = "0.1.0"
 dependencies = [
- "platypus_core",
  "platypus_ts",
  "platypus_ts_rt",
  "platypus_ui",
  "platypus_ui_native",
  "serde_json",
  "ts_api",
+ "web_ui_core",
 ]
 
 [[package]]
@@ -2222,7 +2221,6 @@ version = "0.1.0"
 dependencies = [
  "cssparser 0.38.0",
  "parley",
- "platypus_core",
  "precomputed-hash",
  "regex-lite",
  "rustc-hash",
@@ -2230,6 +2228,7 @@ dependencies = [
  "taffy",
  "thiserror",
  "tracing",
+ "web_ui_core",
  "wuff",
 ]
 
@@ -2237,8 +2236,8 @@ dependencies = [
 name = "platypus_ui_native"
 version = "0.1.0"
 dependencies = [
- "platypus_core",
  "platypus_ui",
+ "web_ui_core",
 ]
 
 [[package]]
@@ -2873,6 +2872,14 @@ dependencies = [
  "libc",
  "wasmtime-internal-core",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "web_ui_core"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "tracing",
 ]
 
 [[package]]

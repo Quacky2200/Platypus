@@ -10,6 +10,7 @@ license.workspace = true
 # `platypus-app`, the host of every game, picks its renderer per game (`host.rs`).
 default-run = "platypus-app"
 autobins = false
+autotests = false
 
 [dependencies]
 anyhow = "1.0.104"
@@ -68,3 +69,7 @@ windows-sys = { version = "0.61.2", features = ["Win32_System_Console", "Win32_F
 [[bin]]
 name = "platypus-app"
 path = "src/main.rs"
+
+[[test]]
+name = "integration"
+path = "tests/main.rs"

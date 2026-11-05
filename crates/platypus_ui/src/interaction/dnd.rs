@@ -11,7 +11,7 @@
 //! dragged element. The data being dragged lives in the scripts (`dataTransfer`);
 //! the engine only carries the file paths.
 
-use platypus_core::NodeId;
+use web_ui_core::NodeId;
 
 use super::{Input, Interaction, send};
 use crate::events::{EventKind, UiEvent};

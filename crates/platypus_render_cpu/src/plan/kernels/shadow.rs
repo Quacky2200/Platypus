@@ -10,7 +10,7 @@
 //! (inset) nothing shows, so [`outer`] and [`inset`] say so and the raster loop skips that run of
 //! the row. Only the blurred ring is computed per pixel.
 
-use platypus_render::plan::Instance;
+use web_ui_render::plan::Instance;
 
 use super::super::geometry::{Frame, corner_radius, shape_coverage};
 

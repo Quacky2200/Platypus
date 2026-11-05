@@ -5,13 +5,13 @@
 //! the common ancestor, double clicks, wheel and cursors (M3-EVT-02, M3-EVT-03; the
 //! script side is in `react_quickjs.rs` and `js/react/test/events.test.tsx`).
 
-mod common;
+use crate::common;
 
 use common::{Dom, n, op, px};
-use platypus_core::{Commit, NodeId, Value};
 use platypus_ui::events::Modifiers;
 use platypus_ui::opcodes::{SET_ATTRS, SET_STYLE};
 use platypus_ui::{Pointer, Rgba, UiEvent, UiTree};
+use web_ui_core::{Commit, NodeId, Value};
 
 /// `a` (200x200 at 0,0, padding 20) holds `b` (100x100 at 20,20); `c` (100x100) is
 /// below `a` at (0,200).

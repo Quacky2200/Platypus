@@ -10,8 +10,8 @@
 //! The fast path is the plain opacity group: no shift, tint, matrix or mask and a clip that holds the
 //! whole area, which is one scaled source-over per pixel (`spans::over_scaled`).
 
-use platypus_render::plan::PxRect;
 use platypus_ui::{ColorMatrix, MaskMode};
+use web_ui_render::plan::PxRect;
 
 use super::super::canvas::{Canvas, Rows, Space, blend_over};
 use super::super::color::{encode, srgb_to_linear};

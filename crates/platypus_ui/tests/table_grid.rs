@@ -6,11 +6,11 @@
 //! Tables built from a grid whose rows are `display: contents` boxes (`examples/table`):
 //! the existing layout covers what a table needs, so there are no table elements.
 
-mod common;
+use crate::common;
 
 use common::{Dom, px};
-use platypus_core::NodeId;
 use platypus_ui::{Rect, UiTree};
+use web_ui_core::NodeId;
 
 /// The stylesheet of `examples/table`.
 const CSS: &str = include_str!("../../../examples/table/src/ui.css");

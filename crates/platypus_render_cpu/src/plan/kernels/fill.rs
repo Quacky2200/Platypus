@@ -11,7 +11,7 @@
 //! background colour, so [`quad`] says so and the raster loop fills that run of the row in one go
 //! (`spans::over`); only the anti-aliased edge and the border are shaded pixel by pixel.
 
-use platypus_render::plan::Instance;
+use web_ui_render::plan::Instance;
 
 use super::super::geometry::{Frame, coverage, shape_coverage};
 use super::super::gradient::gradient_color;

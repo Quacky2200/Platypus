@@ -11,7 +11,7 @@
 //! for a canvas that holds sRGB. Decoded images stay straight-alpha sRGB bytes as `ImageCache` made
 //! them, so an image costs its pixels once, as the GLES texture did.
 
-use platypus_render::plan::Instance;
+use web_ui_render::plan::Instance;
 
 use super::super::color::{decode_table, encode};
 use super::super::geometry::{Frame, clip_coverage, shape_coverage};

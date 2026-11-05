@@ -4,10 +4,10 @@
 //! The CPU renderer blends translucent colours on sRGB values, like browsers (`vello_cpu` works
 //! on 8-bit sRGB): `examples/alpha-probe`'s six probes over a `#3060c0` field.
 
-use platypus_core::{Commit, Value};
 use platypus_render_cpu::CpuRenderer;
 use platypus_ui::opcodes::*;
 use platypus_ui::{Rgba, UiTree};
+use web_ui_core::{Commit, Value};
 
 fn n(v: f64) -> Value {
     Value::Number(v)

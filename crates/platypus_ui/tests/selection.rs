@@ -4,12 +4,12 @@
 //! Selecting static text (M3-SEL-01): presses, double and triple clicks, drags,
 //! `user-select`, Ctrl+C; `::selection` and `::placeholder` styles (M3-SEL-02).
 
-mod common;
+use crate::common;
 
 use common::{Dom, px};
-use platypus_core::Value;
 use platypus_ui::events::Modifiers;
 use platypus_ui::{Clipboard, DrawCmd, Input, Interaction, Rgba, UiTree};
+use web_ui_core::Value;
 
 struct Page {
     tree: UiTree,
@@ -117,7 +117,7 @@ fn double_click_selects_a_word_and_triple_click_a_line() {
         "",
     );
     // Somewhere in "beta" (the second word on the first line).
-    let x = p.tree.rect(platypus_core::NodeId(2)).unwrap().x;
+    let x = p.tree.rect(web_ui_core::NodeId(2)).unwrap().x;
     let beta_x = x + 75.0;
     p.click(beta_x, 10.0, 0.0);
     p.click(beta_x, 10.0, 100.0);
@@ -142,7 +142,7 @@ fn user_select_none_and_all() {
     p.input(Input::PointerMove { x: 300.0, y: 10.0 });
     p.release();
     assert_eq!(p.selected(), None, "user-select: none");
-    let y = p.tree.rect(platypus_core::NodeId(4)).unwrap().y + 10.0;
+    let y = p.tree.rect(web_ui_core::NodeId(4)).unwrap().y + 10.0;
     p.click(30.0, y, 1000.0);
     assert_eq!(
         p.selected().as_deref(),
@@ -150,8 +150,8 @@ fn user_select_none_and_all() {
         "one click takes all"
     );
     // `none` text shows the arrow, selectable text the I-beam.
-    assert_eq!(p.tree.cursor(Some(platypus_core::NodeId(2))), "default");
-    assert_eq!(p.tree.cursor(Some(platypus_core::NodeId(4))), "text");
+    assert_eq!(p.tree.cursor(Some(web_ui_core::NodeId(2))), "default");
+    assert_eq!(p.tree.cursor(Some(web_ui_core::NodeId(4))), "text");
 }
 
 // M3-SEL-01

@@ -5,10 +5,10 @@
 //! the previous tree.
 
 use crate::hooks::{Ctx, Dep};
-use platypus_core::{NodeId, Value};
 use std::any::Any;
 use std::cell::Cell;
 use std::rc::Rc;
+use web_ui_core::{NodeId, Value};
 
 /// An event handler. Capture handlers are registered under the name `"<kind>:capture"`.
 pub type Handler = Rc<dyn Fn(&mut Event)>;

@@ -4,13 +4,13 @@
 //! Right-to-left text (M3-TXT-09): CSS `direction`, the `dir` attribute, `text-align`
 //! start/end, and mixed-direction lines.
 
-mod common;
+use crate::common;
 
 use common::{Dom, n, op, px};
 use parley::PositionedLayoutItem;
-use platypus_core::{Commit, NodeId, Value};
 use platypus_ui::UiTree;
 use platypus_ui::opcodes::SET_ATTRS;
+use web_ui_core::{Commit, NodeId, Value};
 
 /// A 200px-wide text block holding `text`, with inline `style` and optional `dir`.
 fn block(text: &str, style: &[(&str, Value)], dir: Option<&str>, css: &str) -> (UiTree, NodeId) {

@@ -4,12 +4,12 @@
 //! Transitions (M3-ANI-02): started by stylesheet and inline changes, timed with
 //! delays and easing, reversed mid-way, cancelled, and reported to scripts.
 
-mod common;
+use crate::common;
 
 use common::{Dom, n, op, px};
-use platypus_core::{Commit, NodeId, Value};
 use platypus_ui::opcodes::SET_STYLE;
 use platypus_ui::{ElementState, Input, Interaction, Rgba, UiEvent, UiTree};
+use web_ui_core::{Commit, NodeId, Value};
 
 fn set_style(tree: &mut UiTree, id: u32, prop: &str, value: Value) {
     let errors = tree.apply_commit(&Commit {

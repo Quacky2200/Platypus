@@ -5,15 +5,15 @@
 //! agree), the wheel, keys and focus scroll the right container, scrollbars show,
 //! drag and page, and scripts get `scroll` events.
 
-mod common;
+use crate::common;
 
 use common::{Dom, n, op, px};
-use platypus_core::{Commit, NodeId};
 use platypus_ui::events::Modifiers;
 use platypus_ui::opcodes::{REMOVE_CHILD, SET_ATTRS};
 use platypus_ui::{
     DrawCmd, Input, Interaction, Rect, ScrollAlign, ScrollBehavior, UiEvent, UiTree,
 };
+use web_ui_core::{Commit, NodeId};
 
 struct Rec {
     events: Vec<UiEvent>,
@@ -759,7 +759,7 @@ fn content_scrolled_out_of_view_is_not_drawn() {
         &[("flexDirection", "column".into()), ("flexShrink", px(0.0))],
     );
     for i in 0..60 {
-        let style: &[(&str, platypus_core::Value)] = if i == 40 {
+        let style: &[(&str, web_ui_core::Value)] = if i == 40 {
             // Far below the view, but a shadow could reach anywhere: the row is drawn.
             &[("height", px(20.0)), ("boxShadow", "0 0 4px black".into())]
         } else {

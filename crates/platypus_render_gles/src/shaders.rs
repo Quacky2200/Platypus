@@ -1,7 +1,7 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! GLSL ES 3.00 ports of the UI shaders (`platypus_render/src/ui/quad.wgsl`, `effects.wgsl`).
+//! GLSL ES 3.00 ports of the UI shaders (`web_ui_render/src/ui/quad.wgsl`, `effects.wgsl`).
 //!
 //! GLES 3.0 has no storage buffers, so the gradient and clip tables the wgpu shaders read as
 //! arrays are float data textures here: one table entry per row, `u_grads` 12 texels wide and

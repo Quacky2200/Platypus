@@ -8,7 +8,7 @@
 //! strictly inherited in CSS, but it visually propagates to descendants, which is
 //! the same thing for us).
 
-use platypus_core::Value;
+use web_ui_core::Value;
 
 use crate::Rgba;
 use crate::paint::{Shadow, parse_shadows};

@@ -7,12 +7,13 @@ version.workspace = true
 edition.workspace = true
 publish.workspace = true
 license.workspace = true
+autotests = false
 
 [dependencies]
 bytemuck = "1.25.2"
-platypus_core = { version = "0.1.0", path = "../platypus_core" }
+web_ui_core = { version = "0.1.0", path = "../web_ui_core" }
 # The frame plan, the glyph and image caches the plan executor shares with the GPU executors.
-platypus_render = { version = "0.1.0", path = "../platypus_render" }
+web_ui_render = { version = "0.1.0", path = "../web_ui_render" }
 platypus_ui = { version = "0.1.0", path = "../platypus_ui" }
 tracing = "0.1.44"
 # The vello renderer's own.
@@ -31,18 +32,15 @@ vello_cpu = { version = "0.3.0", features = ["multithreading"], optional = true 
 default = ["vello"]
 vello = ["dep:image", "dep:raw-window-handle", "dep:resvg", "dep:softbuffer", "dep:vello_common", "dep:vello_cpu"]
 
-# The vello renderer's own tests.
-[[test]]
-name = "gradients"
-required-features = ["vello"]
-
-[[test]]
-name = "blending"
-required-features = ["vello"]
-
 [dev-dependencies]
 image = { version = "0.25.10", default-features = false, features = ["png"] }
-platypus_core = { path = "../platypus_core" }
+web_ui_core = { path = "../web_ui_core" }
 # The plan executor is tested against the GLES one (`tests/vs_gles.rs`), skipped without EGL.
 glow = "0.16"
 platypus_render_gles = { path = "../platypus_render_gles", default-features = false }
+
+# Every integration test in one executable; the vello renderer's own modules (`blending`,
+# `gradients`) need the `vello` feature (`tests/main.rs`).
+[[test]]
+name = "integration"
+path = "tests/main.rs"

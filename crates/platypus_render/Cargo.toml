@@ -7,23 +7,24 @@ version.workspace = true
 edition.workspace = true
 publish.workspace = true
 license.workspace = true
+autotests = false
 
 [dependencies]
 bytemuck = { version = "1.25.2", features = ["derive"] }
-etagere = "0.3.0"
-image = { version = "0.25.10", default-features = false, features = ["png", "jpeg"] }
 platypus_core = { version = "0.1.0", path = "../platypus_core" }
-platypus_ui = { version = "0.1.0", path = "../platypus_ui" }
-png = "0.18.1"
-resvg = { version = "0.48.1", default-features = false, features = ["text"] }
+# The UI renderer, GPU and surfaces; re-exported whole.
+web_ui_render = { version = "0.1.0", path = "../web_ui_render" }
 pollster = "1.0.1"
-swash = "0.2.10"
-thiserror = "2.0.21"
 tracing = "0.1.44"
 wgpu = "30.0.1"
 lyon_tessellation = "1.0.22"
 
 [dev-dependencies]
 platypus_core = { path = "../platypus_core" }
+platypus_ui = { path = "../platypus_ui" }
 # The built-in post-process effects (their WGSL and parameters) live there.
 platypus_render_api = { path = "../platypus_render_api" }
+
+[[test]]
+name = "integration"
+path = "tests/main.rs"

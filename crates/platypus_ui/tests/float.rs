@@ -5,12 +5,12 @@
 
 //! CSS floats: `float` and `clear` on blocks, and text lines that wrap around them.
 
-mod common;
+use crate::common;
 
 use common::{Dom, n, op, px};
-use platypus_core::{Commit, NodeId, Value};
 use platypus_ui::opcodes::SET_STYLE;
 use platypus_ui::{DrawCmd, Rect, UiTree};
+use web_ui_core::{Commit, NodeId, Value};
 
 const WORDS: &str = "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi \
     omicron pi rho sigma tau upsilon phi chi psi omega alpha beta gamma delta epsilon zeta";

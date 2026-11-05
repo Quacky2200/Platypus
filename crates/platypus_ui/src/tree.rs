@@ -6,8 +6,8 @@ use std::fmt;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use platypus_core::{Commit, NodeId, Value};
 use taffy::{Dimension, Display, Position, Size, Style};
+use web_ui_core::{Commit, NodeId, Value};
 
 use crate::Rgba;
 use crate::attrs::{Attrs, ElementState};

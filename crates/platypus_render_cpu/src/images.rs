@@ -109,7 +109,7 @@ impl Images {
 
     fn bytes(&self, url: &str) -> Option<Vec<u8>> {
         if url.trim_start().starts_with("data:") {
-            let bytes = platypus_core::decode_data_url(url);
+            let bytes = web_ui_core::decode_data_url(url);
             if bytes.is_none() {
                 tracing::warn!("image data URL couldn't be decoded");
             }
@@ -119,7 +119,7 @@ impl Images {
             tracing::warn!("image `{url}` ignored: no asset folder set");
             return None;
         };
-        platypus_core::read_asset(root, url)
+        web_ui_core::read_asset(root, url)
             .inspect_err(|e| tracing::warn!("image `{url}`: {e}"))
             .ok()
     }

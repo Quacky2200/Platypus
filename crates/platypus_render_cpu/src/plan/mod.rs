@@ -1,7 +1,7 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! A CPU executor of `platypus_render`'s frame plan: the third beside wgpu (`UiRenderer`) and GLES
+//! A CPU executor of `web_ui_render`'s frame plan: the third beside wgpu (`UiRenderer`) and GLES
 //! (`platypus_render_gles`), and the same plan, glyph cache and image cache as those, so it draws what
 //! they draw. [`PlanRenderer`] plans a draw list and runs its steps as the GLES executor does
 //! (`Clear` when something first reads or draws on a canvas, `Draw`, `Copy`, `Blur` in two passes,
@@ -25,12 +25,12 @@ mod profile;
 use std::path::PathBuf;
 use std::time::Instant;
 
-pub use platypus_render::Blending;
-use platypus_render::glyphs::{COLOR_SIZE, GlyphCache, GlyphEntry, MASK_SIZE};
-use platypus_render::image_cache::{ImageCache, ImageUpload};
-use platypus_render::plan::{self, FramePlan, ImageInfo, PlanParams, PlanResources, PxRect, Step};
-use platypus_render::{Color, RenderStats};
 use platypus_ui::DrawCmd;
+pub use web_ui_render::Blending;
+use web_ui_render::glyphs::{COLOR_SIZE, GlyphCache, GlyphEntry, MASK_SIZE};
+use web_ui_render::image_cache::{ImageCache, ImageUpload};
+use web_ui_render::plan::{self, FramePlan, ImageInfo, PlanParams, PlanResources, PxRect, Step};
+use web_ui_render::{Color, RenderStats};
 
 use canvas::{Canvas, Space};
 use geometry::Frame;

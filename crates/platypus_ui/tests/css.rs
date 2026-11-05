@@ -4,9 +4,9 @@
 //! Stylesheets applied to the UI tree: selectors, cascade and restyle
 //! (M3-CSS-02, -03, -04, -08, -09, -10, -11).
 
-use platypus_core::{Commit, NodeId, Value};
 use platypus_ui::opcodes::*;
 use platypus_ui::{ElementState, Rgba, UiTree};
+use web_ui_core::{Commit, NodeId, Value};
 
 fn n(id: u32) -> Value {
     Value::Number(id.into())

@@ -5,11 +5,11 @@
 //! reaches an absolute descendant only when the clipping element is its containing block or
 //! lies between them, as in CSS. Drawing, hit testing and scrolling all follow that.
 
-mod common;
+use crate::common;
 
 use common::{Dom, px};
-use platypus_core::{NodeId, Value};
 use platypus_ui::{DrawCmd, Input, Interaction, UiTree};
+use web_ui_core::{NodeId, Value};
 
 /// What is open around the first quad `width` wide, outermost first: `clip WxH`, `layer`,
 /// `transform`.

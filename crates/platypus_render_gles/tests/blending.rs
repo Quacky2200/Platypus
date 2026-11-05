@@ -10,13 +10,13 @@
 use std::path::{Path, PathBuf};
 
 use glow::HasContext;
-use platypus_core::{Commit, Value};
-use platypus_render::testing::shared_gpu;
-use platypus_render::{Blending, Color, OffscreenTarget, RenderTarget, UiRenderer, wgpu};
 use platypus_render_gles::egl::EglContext;
 use platypus_render_gles::{GlesRenderer, Target};
 use platypus_ui::opcodes::*;
 use platypus_ui::{DrawCmd, UiTree};
+use web_ui_core::{Commit, Value};
+use web_ui_render::testing::shared_gpu;
+use web_ui_render::{Blending, Color, OffscreenTarget, RenderTarget, UiRenderer, wgpu};
 
 const SIZE: (u32, u32) = (800, 200);
 const FIELD: [u8; 3] = [48, 96, 192];
@@ -133,9 +133,8 @@ fn gles_pixels_with(
     srgb_target: bool,
     linear_blur: bool,
 ) -> Option<Vec<u8>> {
-    // One context at a time: ANGLE asserted with several made and dropped on parallel threads.
-    static ONE: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    let _one = ONE.lock().unwrap_or_else(|e| e.into_inner());
+    // One context at a time in the process (`common`).
+    let _one = crate::common::one();
     let dir = std::env::var_os("PLATYPUS_ANGLE_DIR").map(PathBuf::from);
     let cx = match EglContext::headless(dir.as_deref()) {
         Ok(c) => c,
@@ -153,7 +152,7 @@ fn gles_pixels_with(
     };
     renderer.set_blending(blending);
     renderer.set_linear_blur(linear_blur);
-    platypus_render::UiBackend::set_asset_root(&mut renderer, assets());
+    web_ui_render::UiBackend::set_asset_root(&mut renderer, assets());
     let gl = cx.gl();
     unsafe {
         let texture = gl.create_texture().unwrap();

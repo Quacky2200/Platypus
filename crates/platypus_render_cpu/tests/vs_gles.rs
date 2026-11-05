@@ -10,13 +10,13 @@
 use std::path::{Path, PathBuf};
 
 use glow::HasContext;
-use platypus_core::{Commit, Value};
-use platypus_render::{Color, UiBackend};
 use platypus_render_cpu::plan::PlanRenderer;
 use platypus_render_gles::egl::EglContext;
 use platypus_render_gles::{GlesRenderer, Target};
 use platypus_ui::UiTree;
 use platypus_ui::opcodes::*;
+use web_ui_core::{Commit, Value};
+use web_ui_render::{Color, UiBackend};
 
 const CLEAR: Color = Color::rgb(0.02, 0.03, 0.05);
 

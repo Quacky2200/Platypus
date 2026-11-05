@@ -9,9 +9,8 @@ publish.workspace = true
 license.workspace = true
 
 [dependencies]
-base64 = "0.23.1"
+web_ui_core = { path = "../web_ui_core" }
 glam = "0.34.1"
-tracing = "0.1.44"
 flate2 = "1.1.10"
 crc32fast = "1.5.3"
 serde_json = "1"

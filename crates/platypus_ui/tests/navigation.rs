@@ -4,12 +4,12 @@
 //! Gamepad-style UI navigation (M3-PAD-01, UI side): the d-pad moves focus to the
 //! nearest focusable element in a direction, and Activate clicks the focused one.
 
-mod common;
+use crate::common;
 
 use common::{Dom, n, op, px};
-use platypus_core::NodeId;
 use platypus_ui::opcodes::SET_ATTRS;
 use platypus_ui::{Direction, Input, Interaction, UiTree};
+use web_ui_core::NodeId;
 
 /// A 3 x 2 grid of 50x30 focusable buttons, 10px apart:
 /// ```text

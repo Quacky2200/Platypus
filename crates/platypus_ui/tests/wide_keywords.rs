@@ -4,12 +4,12 @@
 //! CSS-wide keywords (M3d step 1): `initial`, `inherit`, `unset` and `revert` on any
 //! property, inline or from stylesheets, for inherited and non-inherited properties.
 
-mod common;
+use crate::common;
 
 use common::{Dom, n, op, px};
-use platypus_core::{NodeId, Value};
 use platypus_ui::opcodes::SET_ATTRS;
 use platypus_ui::{DrawCmd, Rgba, UiTree};
+use web_ui_core::{NodeId, Value};
 
 fn rgb(s: &str) -> Rgba {
     Rgba::parse(s).unwrap()

@@ -3,12 +3,12 @@
 
 //! `image` elements: natural size from the app, `objectFit` / `objectPosition`.
 
-mod common;
+use crate::common;
 
 use common::{Dom, n, op, px};
-use platypus_core::{Commit, NodeId, Value};
 use platypus_ui::opcodes::{SET_ATTRS, SET_STYLE};
 use platypus_ui::{BackgroundSize, DrawCmd, Len, Rect, UiTree};
+use web_ui_core::{Commit, NodeId, Value};
 
 /// A start-aligned column holding one image per entry of `styles`, all showing `src`.
 fn images(src: &str, styles: &[&[(&str, Value)]]) -> (UiTree, Vec<u32>) {

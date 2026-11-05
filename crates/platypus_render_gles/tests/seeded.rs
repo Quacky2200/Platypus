@@ -5,14 +5,11 @@
 //! with the canvas seeded from them so `backdrop-filter` blurs them. Needs an EGL driver; skipped
 //! without one.
 
-use std::path::PathBuf;
-
 use glow::HasContext;
-use platypus_core::{Commit, Value};
-use platypus_render_gles::egl::EglContext;
 use platypus_render_gles::{GlesRenderer, Target};
 use platypus_ui::UiTree;
 use platypus_ui::opcodes::*;
+use web_ui_core::{Commit, Value};
 
 const W: u32 = 40;
 const H: u32 = 20;
@@ -94,16 +91,7 @@ unsafe fn pixel(gl: &glow::Context, fbo: glow::Framebuffer, x: i32, y: i32) -> [
     p
 }
 
-fn context() -> Option<EglContext> {
-    let dir = std::env::var_os("PLATYPUS_ANGLE_DIR").map(PathBuf::from);
-    match EglContext::headless(dir.as_deref()) {
-        Ok(c) => Some(c),
-        Err(e) => {
-            eprintln!("skipped: {e}");
-            None
-        }
-    }
-}
+use crate::common::headless as context;
 
 // M2-GLES-14
 #[test]

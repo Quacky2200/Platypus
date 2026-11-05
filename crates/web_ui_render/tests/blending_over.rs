@@ -5,11 +5,11 @@
 //! seeds an sRGB canvas with the world, encoded, so a translucent fill over it gives the browser's
 //! value; `render_overlay` onto an sRGB target is the hardware's blend, in linear light.
 
-use platypus_core::{Commit, Value};
-use platypus_render::testing::shared_gpu;
-use platypus_render::{Blending, Color, OffscreenTarget, RenderTarget, UiRenderer, wgpu};
 use platypus_ui::opcodes::*;
 use platypus_ui::{DrawCmd, UiTree};
+use web_ui_core::{Commit, Value};
+use web_ui_render::testing::shared_gpu;
+use web_ui_render::{Blending, Color, OffscreenTarget, RenderTarget, UiRenderer, wgpu};
 
 const SIZE: (u32, u32) = (64, 32);
 const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8UnormSrgb;

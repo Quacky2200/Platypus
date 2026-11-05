@@ -10,7 +10,7 @@
 //! into view), the wheel and scrolling keys scroll the nearest scroll container that
 //! can move, and scrollbars can be dragged.
 
-use platypus_core::NodeId;
+use web_ui_core::NodeId;
 
 use crate::attrs::ClosedBy;
 use crate::editor::PointerSelect;

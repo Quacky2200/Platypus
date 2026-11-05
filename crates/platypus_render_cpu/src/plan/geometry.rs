@@ -5,7 +5,7 @@
 //! distances, one-physical-pixel anti-aliasing, the clip table (rounded boxes and polygons chained to
 //! their parents) and the transforms it holds. Points are in logical pixels, y down.
 
-use platypus_render::plan::GpuClip;
+use web_ui_render::plan::GpuClip;
 
 /// What a frame's kernels read besides the instance: the scale and the tables.
 pub struct Frame<'a> {
@@ -14,7 +14,7 @@ pub struct Frame<'a> {
     /// The canvases hold sRGB values (`Blending::Srgb`).
     pub srgb: bool,
     pub clips: &'a [GpuClip],
-    pub gradients: &'a [platypus_render::plan::GpuGradient],
+    pub gradients: &'a [web_ui_render::plan::GpuGradient],
 }
 
 /// Picks the corner radius for the quadrant of `q` (relative to the centre, y down).

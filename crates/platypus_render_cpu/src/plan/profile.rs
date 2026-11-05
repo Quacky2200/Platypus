@@ -7,7 +7,7 @@
 use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
-use platypus_render::plan::Step;
+use web_ui_render::plan::Step;
 
 /// Frames between reports.
 const EVERY: u32 = 120;

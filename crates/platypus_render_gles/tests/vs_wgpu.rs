@@ -9,13 +9,12 @@
 use std::path::{Path, PathBuf};
 
 use glow::HasContext;
-use platypus_core::{Commit, Value};
-use platypus_render::testing::shared_gpu;
-use platypus_render::{Color, Gpu, OffscreenTarget, RenderTarget, UiBackend, UiRenderer, wgpu};
-use platypus_render_gles::egl::EglContext;
 use platypus_render_gles::{GlesRenderer, Target};
 use platypus_ui::UiTree;
 use platypus_ui::opcodes::*;
+use web_ui_core::{Commit, Value};
+use web_ui_render::testing::shared_gpu;
+use web_ui_render::{Color, Gpu, OffscreenTarget, RenderTarget, UiBackend, UiRenderer, wgpu};
 
 const CLEAR: Color = Color::rgb(0.02, 0.03, 0.05);
 
@@ -95,18 +94,12 @@ struct Gles {
     // Declared first: the renderer goes before the context it draws with.
     renderer: GlesRenderer,
     gl: std::rc::Rc<glow::Context>,
-    _cx: EglContext,
+    /// The context and the process-wide GL lock (`common`), released last.
+    _cx: crate::common::Headless,
 }
 
 fn gles() -> Option<Gles> {
-    let dir = std::env::var_os("PLATYPUS_ANGLE_DIR").map(PathBuf::from);
-    let cx = match EglContext::headless(dir.as_deref()) {
-        Ok(c) => c,
-        Err(e) => {
-            eprintln!("skipped: {e}");
-            return None;
-        }
-    };
+    let cx = crate::common::headless()?;
     let renderer = match GlesRenderer::new(cx.gl()) {
         Ok(r) => r,
         Err(e) => {

@@ -5,12 +5,12 @@
 //! containing block, modal ones go in the top layer over a `::backdrop`, trap focus
 //! and close on Escape or backdrop clicks (`cancel`, then `close`).
 
-mod common;
+use crate::common;
 
 use common::{Dom, n, op, px};
-use platypus_core::{Commit, NodeId, Value};
 use platypus_ui::opcodes::{SET_ATTRS, SET_STYLE};
 use platypus_ui::{DrawCmd, Input, Interaction, Rgba, UiEvent, UiTree};
+use web_ui_core::{Commit, NodeId, Value};
 
 /// Page: a focusable `opener` box at the top-left, a `fixed` box with a huge
 /// `zIndex`, and a 100x60 dialog (closed) holding two focusable boxes.

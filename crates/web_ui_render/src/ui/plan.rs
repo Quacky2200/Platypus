@@ -25,7 +25,7 @@ use super::glyphs::{GlyphEntry, SUBPIXEL_BINS};
 use super::gradient;
 pub use super::gradient::GpuGradient;
 use crate::Color;
-pub use platypus_core::project::Blending;
+pub use web_ui_core::Blending;
 
 pub const KIND_QUAD: f32 = 0.0;
 pub const KIND_OUTER_SHADOW: f32 = 1.0;

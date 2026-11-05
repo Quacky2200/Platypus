@@ -1,0 +1,13 @@
+# Copyright 2026 The Platypus Authors
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "web_ui_core"
+version.workspace = true
+edition.workspace = true
+publish = false
+license.workspace = true
+
+[dependencies]
+base64 = "0.23.1"
+tracing = "0.1.44"

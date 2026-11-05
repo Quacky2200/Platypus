@@ -1,7 +1,7 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! A GLES 3 executor for the UI frame plan (`platypus_render::plan`), for `platypus-app`: the same
+//! A GLES 3 executor for the UI frame plan (`web_ui_render::plan`), for `platypus-app`: the same
 //! draw list and plan as the wgpu renderer, drawn with GLES through EGL (ANGLE on Windows).
 //!
 //! [`GlesRenderer`] plans a draw list with `plan::plan`, then runs the plan: the instances go
@@ -27,14 +27,14 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use glow::HasContext;
-pub use platypus_render::Blending;
-use platypus_render::glyphs::{COLOR_SIZE, GlyphCache, GlyphEntry, MASK_SIZE};
-use platypus_render::image_cache::{ImageCache, ImageUpload};
-use platypus_render::plan::{
+use platypus_ui::DrawCmd;
+pub use web_ui_render::Blending;
+use web_ui_render::glyphs::{COLOR_SIZE, GlyphCache, GlyphEntry, MASK_SIZE};
+use web_ui_render::image_cache::{ImageCache, ImageUpload};
+use web_ui_render::plan::{
     self, FramePlan, ImageInfo, Instance, PlanParams, PlanResources, PxRect, Step,
 };
-use platypus_render::{Color, RenderStats, UiBackend};
-use platypus_ui::DrawCmd;
+use web_ui_render::{Color, RenderStats, UiBackend};
 
 /// Floats per gradient table entry (`GpuGradient`: 12 `vec4`s) and per clip table entry
 /// (`GpuClip`: 5), as texels of the data textures.
@@ -813,7 +813,7 @@ impl GlesRenderer {
                 bytemuck::cast_slice(&frame.instances),
                 glow::DYNAMIC_DRAW,
             );
-            let default_gradient = [platypus_render::plan::GpuGradient::default()];
+            let default_gradient = [web_ui_render::plan::GpuGradient::default()];
             let gradients: &[_] = if frame.gradients.is_empty() {
                 &default_gradient
             } else {
@@ -832,7 +832,7 @@ impl GlesRenderer {
                 glow::FLOAT,
                 glow::PixelUnpackData::Slice(Some(bytemuck::cast_slice(gradients))),
             );
-            let default_clip = [platypus_render::plan::GpuClip::default()];
+            let default_clip = [web_ui_render::plan::GpuClip::default()];
             let clips: &[_] = if frame.clips.is_empty() {
                 &default_clip
             } else {

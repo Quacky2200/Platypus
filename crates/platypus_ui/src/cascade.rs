@@ -7,7 +7,6 @@ use std::fmt;
 
 use rustc_hash::{FxHashMap as HashMap, FxHashSet as HashSet};
 
-use platypus_core::{NodeId, Value};
 use selectors::attr::{AttrSelectorOperation, CaseSensitivity, NamespaceConstraint};
 use selectors::bloom::BloomFilter;
 use selectors::context::{
@@ -17,6 +16,7 @@ use selectors::context::{
 use selectors::matching::{ElementSelectorFlags, matches_selector};
 use selectors::parser::{Combinator, Component, Selector};
 use selectors::{Element, OpaqueElement};
+use web_ui_core::{NodeId, Value};
 
 use crate::attrs::Attrs;
 use crate::css::{CssString, PlatypusSelectors, PseudoClass, PseudoElement, Stylesheet};

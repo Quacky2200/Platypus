@@ -5,12 +5,12 @@
 //! `calc()` / `min()` / `max()` / `clamp()` resolve at restyle, from inline styles and
 //! stylesheets, and update when the font size or the window size changes.
 
-mod common;
+use crate::common;
 
 use common::{Dom, n, op, px};
-use platypus_core::{Commit, NodeId, Value};
 use platypus_ui::UiTree;
 use platypus_ui::opcodes::SET_STYLE;
+use web_ui_core::{Commit, NodeId, Value};
 
 fn width(tree: &mut UiTree, id: u32) -> f32 {
     tree.layout_if_needed();

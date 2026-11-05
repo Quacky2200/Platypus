@@ -14,7 +14,7 @@
 //! filtering"), each a running sum, so the cost per pixel is the same at any radius. The result is a
 //! Gaussian to within a few percent at the tails, which a frosted backdrop doesn't show.
 
-use platypus_render::plan::PxRect;
+use web_ui_render::plan::PxRect;
 
 use super::super::canvas::{Canvas, Rows, Space};
 use super::super::color::{decode, encode};

@@ -5,12 +5,12 @@
 //! accepting drops by preventing `dragover`, cancelling, the drag image, and files
 //! dragged in from the system. The script side is in `js/react/test/events.test.tsx`.
 
-mod common;
+use crate::common;
 
 use common::{Dom, n, op, px};
-use platypus_core::{NodeId, Value};
 use platypus_ui::opcodes::SET_ATTRS;
 use platypus_ui::{DrawCmd, Input, Interaction, UiEvent, UiTree};
+use web_ui_core::{NodeId, Value};
 
 /// Records dispatched events as `(type, target)`; `prevent` lists the types whose
 /// default the "script" prevents.

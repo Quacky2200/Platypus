@@ -11,8 +11,8 @@
 //! canvas nothing touched costs nothing, and clearing one a layer used costs the layer's area: the
 //! GLES executor clears whole frame-sized textures.
 
-use platypus_render::Color;
-use platypus_render::plan::PxRect;
+use web_ui_render::Color;
+use web_ui_render::plan::PxRect;
 
 use super::color::{decode_table, encode, to_byte};
 

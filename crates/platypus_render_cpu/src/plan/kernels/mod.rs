@@ -39,7 +39,7 @@ pub mod transform;
 
 use std::collections::HashMap;
 
-use platypus_render::plan::{
+use web_ui_render::plan::{
     Instance, KIND_BORDER, KIND_GLYPH, KIND_GRADIENT_PIECE, KIND_INSET_SHADOW, KIND_OUTER_SHADOW,
     KIND_QUAD, KIND_WAVY, PxRect,
 };

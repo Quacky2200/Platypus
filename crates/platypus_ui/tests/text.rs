@@ -3,9 +3,9 @@
 
 //! Text layout through the UI tree (M3-TXT-02, M3-TXT-03, M3-FNT-01, M3-FNT-02).
 
-use platypus_core::{Commit, NodeId, Value};
 use platypus_ui::opcodes::*;
 use platypus_ui::{ROOT, UiTree};
+use web_ui_core::{Commit, NodeId, Value};
 
 const INTER: &[u8] = include_bytes!("../fonts/InterVariable.ttf");
 const INTER_ITALIC: &[u8] = include_bytes!("../fonts/InterVariable-Italic.ttf");

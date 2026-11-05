@@ -6,7 +6,7 @@
 
 use std::borrow::Cow;
 
-use platypus_core::NodeId;
+use web_ui_core::NodeId;
 
 use parley::fontique::{
     Blob, Collection, CollectionOptions, FontInfoOverride, GenericFamily, SourceCache,

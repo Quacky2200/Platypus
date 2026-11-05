@@ -9,7 +9,7 @@
 //! reinserts a removed instance (moves use `APPEND_CHILD`/`INSERT_BEFORE` directly).
 
 use crate::tree::UiError;
-use platypus_core::{NodeId, Value};
+use web_ui_core::{NodeId, Value};
 
 /// `[CREATE, id, type]`: creates a detached node of element `type` (e.g. `"box"`).
 pub const CREATE: u32 = 0;

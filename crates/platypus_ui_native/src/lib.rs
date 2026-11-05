@@ -18,12 +18,12 @@ pub use element::{Cleanup, Element, Event, Handler, HostProps, NodeRef, RenderFn
 pub use hooks::{Context, Ctx, Dep, EffectFn, Scheduler, Setter};
 
 use hooks::{Shared, Slot};
-use platypus_core::{NodeId, Value};
 use platypus_ui::opcodes::Op;
 use platypus_ui::{UiError, UiTree};
 use std::any::Any;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
+use web_ui_core::{NodeId, Value};
 
 /// Updates a flush may chain before it gives up (an effect that always sets state).
 const MAX_PASSES: usize = 100;

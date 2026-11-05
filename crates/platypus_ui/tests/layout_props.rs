@@ -5,11 +5,11 @@
 //! (`grid-template-areas`, `grid-area`, `grid-template`, auto tracks, line
 //! longhands) and logical properties.
 
-mod common;
+use crate::common;
 
 use common::{Dom, px};
-use platypus_core::{NodeId, Value};
 use platypus_ui::{Rect, UiTree};
+use web_ui_core::{NodeId, Value};
 
 fn rect(tree: &mut UiTree, id: u32) -> Rect {
     tree.layout_if_needed();
@@ -154,7 +154,7 @@ fn bad_grid_values_are_rejected() {
         ("placeItems", "center start end"),
         ("marginInline", "1px 2px 3px"),
     ] {
-        let errors = tree.apply_commit(&platypus_core::Commit {
+        let errors = tree.apply_commit(&web_ui_core::Commit {
             ops: vec![common::op(
                 platypus_ui::opcodes::SET_STYLE,
                 &[common::n(a), prop.into(), value.into()],
@@ -212,7 +212,7 @@ fn row(children: &[&[(&str, Value)]]) -> (UiTree, Vec<u32>) {
 }
 
 fn set_style(tree: &mut UiTree, id: u32, prop: &str, value: Value) {
-    let errors = tree.apply_commit(&platypus_core::Commit {
+    let errors = tree.apply_commit(&web_ui_core::Commit {
         ops: vec![common::op(
             platypus_ui::opcodes::SET_STYLE,
             &[common::n(id), prop.into(), value],
@@ -303,7 +303,7 @@ fn order_props_accept_and_reject_values() {
         ("zIndex", Value::from("high")),
         ("isolation", Value::from("separate")),
     ] {
-        let errors = tree.apply_commit(&platypus_core::Commit {
+        let errors = tree.apply_commit(&web_ui_core::Commit {
             ops: vec![common::op(
                 platypus_ui::opcodes::SET_STYLE,
                 &[common::n(k[0]), prop.into(), value.clone()],
@@ -535,7 +535,7 @@ fn transform_properties_parse_and_reset() {
         ("transformStyle", "3d"),
         ("perspective", "-1px"),
     ] {
-        let errors = tree.apply_commit(&platypus_core::Commit {
+        let errors = tree.apply_commit(&web_ui_core::Commit {
             ops: vec![common::op(
                 platypus_ui::opcodes::SET_STYLE,
                 &[common::n(k[0]), prop.into(), value.into()],

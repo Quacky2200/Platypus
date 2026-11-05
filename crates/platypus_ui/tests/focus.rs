@@ -6,14 +6,14 @@
 //! `:focus-within`. The script side is in `events_quickjs.rs` and
 //! `js/react/test/events.test.tsx`.
 
-mod common;
+use crate::common;
 
 use common::{Dom, n, op, px};
-use platypus_core::{Commit, NodeId, Value};
 use platypus_ui::events::Modifiers;
 use platypus_ui::interaction::tab_order;
 use platypus_ui::opcodes::{REMOVE_CHILD, SET_ATTRS, SET_STYLE};
 use platypus_ui::{Input, Interaction, Rgba, UiEvent, UiTree};
+use web_ui_core::{Commit, NodeId, Value};
 
 fn attrs(d: &mut Dom, id: u32, attrs: &[(&str, Value)]) {
     let mut a = vec![n(id)];

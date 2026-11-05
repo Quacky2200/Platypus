@@ -4,7 +4,7 @@
 //! Gradient colours from the plan's gradient table, as the shaders' `gradient_color`: linear, radial
 //! and conic, repeating or not, stops interpolated in premultiplied sRGB like CSS.
 
-use platypus_render::plan::GpuGradient;
+use web_ui_render::plan::GpuGradient;
 
 use super::color::srgb_to_linear;
 

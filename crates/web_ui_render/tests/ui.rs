@@ -5,11 +5,11 @@
 //! from styles, rendered offscreen, and checked with pixel assertions that
 //! encode the CSS behaviour, plus golden images for regressions.
 
-use platypus_core::{Commit, Value};
-use platypus_render::testing::{assert_golden, shared_gpu};
-use platypus_render::{Blending, Color, OffscreenTarget, RenderStats, RenderTarget, UiRenderer};
 use platypus_ui::UiTree;
 use platypus_ui::opcodes::*;
+use web_ui_core::{Commit, Value};
+use web_ui_render::testing::{assert_golden, shared_gpu};
+use web_ui_render::{Blending, Color, OffscreenTarget, RenderStats, RenderTarget, UiRenderer};
 
 /// Golden comparisons allow small differences between GPUs and drivers.
 const TOLERANCE: u8 = 3;
@@ -211,7 +211,7 @@ fn render_blended(
     }
 }
 
-use platypus_render::wgpu;
+use web_ui_render::wgpu;
 
 const BLACK: Color = Color::rgb(0.0, 0.0, 0.0);
 
@@ -1580,7 +1580,7 @@ fn text_selection_and_placeholder_styles() {
     let empty = s.element(0, "input", &field_style(76.0));
     s.attrs(empty, &[("placeholder", "Player name".into())]);
     s.prepare = Some(Box::new(move |tree: &mut UiTree| {
-        let id = platypus_core::NodeId;
+        let id = web_ui_core::NodeId;
         tree.set_state(
             id(filled),
             platypus_ui::ElementState {
@@ -2924,9 +2924,9 @@ fn scrolled_content_and_scrollbars() {
     let errors = tree.apply_commit(&Commit { ops: s.ops });
     assert!(errors.is_empty(), "{errors:?}");
     tree.layout_if_needed();
-    let scroller = platypus_core::NodeId(scroller);
+    let scroller = web_ui_core::NodeId(scroller);
     assert!(tree.scroll_to(scroller, 20.0, 45.0, true));
-    assert!(tree.scroll_to(platypus_core::NodeId(thin), 0.0, 65.0, true));
+    assert!(tree.scroll_to(web_ui_core::NodeId(thin), 0.0, 65.0, true));
     let cmds = tree.draw_list();
     let target = OffscreenTarget::with_format(&gpu, 160, 80, wgpu::TextureFormat::Rgba8UnormSrgb);
     let view = target.view().unwrap();
@@ -3040,7 +3040,7 @@ fn text_fields() {
     let mut ui = Interaction::new();
     ui.handle(
         &mut tree,
-        Input::Focus(platypus_core::NodeId(focused)),
+        Input::Focus(web_ui_core::NodeId(focused)),
         &mut |_| false,
     );
     ui.handle(

@@ -7,7 +7,7 @@
 //! [`UiEvent::script_args`] are the arguments for `__platypus_ui_event`, which
 //! `@platypus/react` runs through capture and bubble phases.
 
-use platypus_core::{NodeId, Value};
+use web_ui_core::{NodeId, Value};
 
 use crate::attrs::ElementState;
 use crate::tree::UiTree;

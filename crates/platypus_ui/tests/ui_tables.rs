@@ -5,10 +5,9 @@
 //! element and event the tables declare (and so the compiler writes into `types/platypus.d.ts`) is
 //! handled, and what the code handles is declared.
 
-mod common;
+use crate::common;
 
 use common::Dom;
-use platypus_core::Value;
 use platypus_ui::events::Modifiers;
 use platypus_ui::tables::attrs::{ATTRS, Scope};
 use platypus_ui::tables::elements::{ELEMENTS, SVG_KINDS, tag_of_component};
@@ -20,6 +19,7 @@ use platypus_ui::tables::style::{
 };
 use platypus_ui::{Attrs, EventKind, LayoutStyle, StyleError, UiEvent, Visual, apply_style};
 use std::collections::BTreeSet;
+use web_ui_core::Value;
 
 fn apply(prop: &str, v: Value) -> Result<(), StyleError> {
     let mut s = LayoutStyle::default();
@@ -260,7 +260,7 @@ fn attributes_in_the_table_are_handled_as_their_scope_says() {
             let svg = d.add(0, "svg", &[]);
             let shape = d.add(svg, "rect", &[]);
             let mut tree = d.build("");
-            let errors = tree.apply_commit(&platypus_core::Commit {
+            let errors = tree.apply_commit(&web_ui_core::Commit {
                 ops: vec![common::op(
                     platypus_ui::opcodes::SET_ATTRS,
                     &[common::n(shape), a.name.into(), sample.clone()],
@@ -313,7 +313,7 @@ fn elements_in_the_table_can_be_created() {
 fn event_fields_read_the_slots_script_args_fills() {
     let mut e = UiEvent::new(
         EventKind::KeyDown,
-        vec![platypus_core::NodeId(7)],
+        vec![web_ui_core::NodeId(7)],
         Modifiers {
             shift: true,
             ctrl: false,
@@ -397,7 +397,7 @@ fn event_fields_read_the_slots_script_args_fills() {
     // An input event carries its text in string slot 0.
     let mut input = UiEvent::new(
         EventKind::Input,
-        vec![platypus_core::NodeId(1)],
+        vec![web_ui_core::NodeId(1)],
         Modifiers::default(),
     );
     input.value = Some("hello".into());
@@ -542,7 +542,7 @@ fn motion_focus_and_drag_fields_read_their_slots() {
     let slot = |name: &str| EVENT_FIELDS.iter().find(|f| f.name == name).unwrap().init;
     let mut t = UiEvent::new(
         EventKind::TransitionEnd,
-        vec![platypus_core::NodeId(1)],
+        vec![web_ui_core::NodeId(1)],
         Modifiers::default(),
     );
     t.value = Some("background-color".into());
@@ -561,10 +561,10 @@ fn motion_focus_and_drag_fields_read_their_slots() {
     assert_eq!(data[i].as_f64(), Some(1.5));
     let mut f = UiEvent::new(
         EventKind::FocusIn,
-        vec![platypus_core::NodeId(1)],
+        vec![web_ui_core::NodeId(1)],
         Modifiers::default(),
     );
-    f.related = Some(platypus_core::NodeId(9));
+    f.related = Some(web_ui_core::NodeId(9));
     assert!(matches!(slot("relatedTarget"), Init::Related));
     let Value::Array(data) = &f.script_args()[2] else {
         panic!()
@@ -572,7 +572,7 @@ fn motion_focus_and_drag_fields_read_their_slots() {
     assert_eq!(data[9].as_f64(), Some(9.0), "relatedTarget reads data[9]");
     let mut d = UiEvent::new(
         EventKind::DragEnd,
-        vec![platypus_core::NodeId(1)],
+        vec![web_ui_core::NodeId(1)],
         Modifiers::default(),
     );
     d.detail = 1;

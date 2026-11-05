@@ -1,8 +1,8 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-use platypus_render::testing::{assert_golden, shared_gpu};
-use platypus_render::{Color, Gpu, OffscreenTarget};
+use web_ui_render::testing::{assert_golden, shared_gpu};
+use web_ui_render::{Color, Gpu, OffscreenTarget};
 
 fn gpu() -> std::sync::MutexGuard<'static, Gpu> {
     shared_gpu()

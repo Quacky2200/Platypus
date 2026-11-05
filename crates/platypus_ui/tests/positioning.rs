@@ -4,11 +4,11 @@
 //! Containing blocks of absolutely positioned boxes and flex sizing inside `overflow: hidden`
 //! clips, checked against CSS (the cases the Fluid desktop reported, `examples/paint-repro`).
 
-mod common;
+use crate::common;
 
 use common::{Dom, px};
-use platypus_core::{NodeId, Value};
 use platypus_ui::{Rect, UiTree};
+use web_ui_core::{NodeId, Value};
 
 fn rect(tree: &mut UiTree, id: u32) -> Rect {
     tree.layout_if_needed();
@@ -262,8 +262,8 @@ fn transforms_filters_and_containment_make_a_containing_block() {
 #[test]
 fn a_transform_added_or_removed_later_moves_the_absolute_child() {
     use common::{n, op};
-    use platypus_core::Commit;
     use platypus_ui::opcodes::{SET_ATTRS, SET_STYLE};
+    use web_ui_core::Commit;
     let (mut t, parent, child) = corner_box(&[]);
     t.add_stylesheet(".turned { transform: rotate(0deg); } .lifted { will-change: transform; }");
     let commit = |t: &mut UiTree, ops: Vec<Value>| {

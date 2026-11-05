@@ -9,10 +9,10 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use platypus_core::{Commit, NodeId, Value};
 use platypus_ui::opcodes::*;
 use platypus_ui::{LayoutEngine, ROOT, TaffyLayout, UiTree};
 use serde_json::Value as Json;
+use web_ui_core::{Commit, NodeId, Value};
 
 fn fixtures_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../tests/layout")

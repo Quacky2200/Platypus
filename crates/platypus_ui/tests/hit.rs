@@ -4,11 +4,11 @@
 //! Hit testing (M3-EVT-01): the topmost element under a point, respecting paint
 //! order, rounded corners, `pointerEvents` and `display: none`.
 
-mod common;
+use crate::common;
 
 use common::{Dom, px};
-use platypus_core::NodeId;
 use platypus_ui::UiTree;
+use web_ui_core::NodeId;
 
 fn hit(tree: &mut UiTree, x: f32, y: f32) -> Option<u32> {
     tree.hit_test(x, y).map(|id| id.0)

@@ -4,11 +4,11 @@
 //! Text properties from M3d group 4: `text-transform`, `text-overflow`, wrapping,
 //! fonts, decorations and strokes.
 
-mod common;
+use crate::common;
 
 use common::{Dom, px};
-use platypus_core::Value;
 use platypus_ui::{DrawCmd, TextCmd, UiTree};
+use web_ui_core::Value;
 
 /// The text command of the only text block in the tree.
 fn text_cmd(tree: &mut UiTree) -> TextCmd {
@@ -121,7 +121,7 @@ fn height(text: &str, width: f64, style: &[(&str, Value)]) -> f32 {
     d.text(t, text);
     let mut tree = d.build("");
     tree.layout_if_needed();
-    tree.rect(platypus_core::NodeId(t)).unwrap().height
+    tree.rect(web_ui_core::NodeId(t)).unwrap().height
 }
 
 // M3-TXT-11
@@ -162,7 +162,7 @@ fn pre_line_keeps_newlines_but_collapses_spaces() {
         d.text(t, "a      b");
         let mut tree = d.build("");
         tree.layout_if_needed();
-        tree.rect(platypus_core::NodeId(t)).unwrap().width
+        tree.rect(web_ui_core::NodeId(t)).unwrap().width
     };
     assert!(
         wide("pre-line") < wide("break-spaces"),
@@ -178,7 +178,7 @@ fn width(text: &str, style: &[(&str, Value)]) -> f32 {
     d.text(t, text);
     let mut tree = d.build("");
     tree.layout_if_needed();
-    tree.rect(platypus_core::NodeId(t)).unwrap().width
+    tree.rect(web_ui_core::NodeId(t)).unwrap().width
 }
 
 // M3-TXT-12
@@ -203,7 +203,7 @@ fn markers(tree: &mut UiTree, items: &[u32]) -> Vec<String> {
     items
         .iter()
         .filter_map(|i| {
-            let marker = *tree.children(platypus_core::NodeId(*i)).first()?;
+            let marker = *tree.children(web_ui_core::NodeId(*i)).first()?;
             let text = *tree.children(marker).first()?;
             Some(tree.text(text)?.to_owned())
         })
@@ -222,7 +222,7 @@ fn list_items_get_numbered_markers() {
     assert_eq!(markers(&mut tree, &items), vec!["1.", "2.", "3."]);
 
     // Removing the first renumbers the rest.
-    tree.apply_commit(&platypus_core::Commit {
+    tree.apply_commit(&web_ui_core::Commit {
         ops: vec![common::op(
             platypus_ui::opcodes::REMOVE_CHILD,
             &[common::n(list), common::n(items[0])],
@@ -237,7 +237,7 @@ fn list_items_get_numbered_markers() {
         ("disc", "\u{2022}"),
         ("'-'", "-"),
     ] {
-        let errors = tree.apply_commit(&platypus_core::Commit {
+        let errors = tree.apply_commit(&web_ui_core::Commit {
             ops: vec![common::op(
                 platypus_ui::opcodes::SET_STYLE,
                 &[common::n(list), "listStyleType".into(), kind.into()],
@@ -250,7 +250,7 @@ fn list_items_get_numbered_markers() {
             "{kind}"
         );
     }
-    tree.apply_commit(&platypus_core::Commit {
+    tree.apply_commit(&web_ui_core::Commit {
         ops: vec![common::op(
             platypus_ui::opcodes::SET_STYLE,
             &[common::n(list), "listStyle".into(), "none".into()],
@@ -258,7 +258,7 @@ fn list_items_get_numbered_markers() {
     });
     tree.layout_if_needed();
     assert!(
-        tree.children(platypus_core::NodeId(items[1])).is_empty(),
+        tree.children(web_ui_core::NodeId(items[1])).is_empty(),
         "no marker"
     );
 }
@@ -273,11 +273,11 @@ fn outside_markers_hang_left_and_inside_ones_take_space() {
         let child = d.add(item, "box", &[("width", px(10.0)), ("height", px(10.0))]);
         let mut tree = d.build("");
         tree.layout_if_needed();
-        let marker = tree.children(platypus_core::NodeId(item))[0];
+        let marker = tree.children(web_ui_core::NodeId(item))[0];
         (
-            tree.rect(platypus_core::NodeId(item)).unwrap(),
+            tree.rect(web_ui_core::NodeId(item)).unwrap(),
             tree.rect(marker).unwrap(),
-            tree.rect(platypus_core::NodeId(child)).unwrap(),
+            tree.rect(web_ui_core::NodeId(child)).unwrap(),
         )
     };
     let (item, marker, child) = build("outside");
@@ -303,7 +303,7 @@ fn marker_rules_style_the_marker() {
     d.set_class(item, "item");
     let mut tree = d.build(".item::marker { color: red; font-size: 30px }");
     tree.layout_if_needed();
-    let marker = tree.children(platypus_core::NodeId(item))[0];
+    let marker = tree.children(web_ui_core::NodeId(item))[0];
     let text = tree.computed_text(marker);
     assert_eq!(text.color, platypus_ui::Rgba::new(1.0, 0.0, 0.0, 1.0));
     assert_eq!(text.font_size, 30.0);
@@ -320,7 +320,7 @@ fn lists_without_markers_have_no_indent() {
         tree.layout_if_needed();
         (tree, list, item)
     };
-    let x = |t: &(UiTree, u32, u32)| t.0.rect(platypus_core::NodeId(t.2)).unwrap().x;
+    let x = |t: &(UiTree, u32, u32)| t.0.rect(web_ui_core::NodeId(t.2)).unwrap().x;
     assert_eq!(x(&item_x(&[])), 24.0, "markers: indented");
     assert_eq!(
         x(&item_x(&[("listStyle", "none".into())])),
@@ -347,7 +347,7 @@ fn lists_without_markers_have_no_indent() {
     );
     // Switching at runtime updates the indent.
     let (mut tree, list, item) = item_x(&[]);
-    let errors = tree.apply_commit(&platypus_core::Commit {
+    let errors = tree.apply_commit(&web_ui_core::Commit {
         ops: vec![common::op(
             platypus_ui::opcodes::SET_STYLE,
             &[common::n(list), "listStyleType".into(), "none".into()],
@@ -355,7 +355,7 @@ fn lists_without_markers_have_no_indent() {
     });
     assert!(errors.is_empty(), "{errors:?}");
     tree.layout_if_needed();
-    assert_eq!(tree.rect(platypus_core::NodeId(item)).unwrap().x, 0.0);
+    assert_eq!(tree.rect(web_ui_core::NodeId(item)).unwrap().x, 0.0);
     // And from a stylesheet.
     let mut d = Dom::new();
     let list = d.add(0, "list", &[]);
@@ -363,5 +363,5 @@ fn lists_without_markers_have_no_indent() {
     d.set_class(list, "plain");
     let mut tree = d.build(".plain { list-style: none }");
     tree.layout_if_needed();
-    assert_eq!(tree.rect(platypus_core::NodeId(item)).unwrap().x, 0.0);
+    assert_eq!(tree.rect(web_ui_core::NodeId(item)).unwrap().x, 0.0);
 }

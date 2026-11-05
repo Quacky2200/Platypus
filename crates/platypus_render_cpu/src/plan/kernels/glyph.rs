@@ -11,7 +11,7 @@
 //! were rasterised once on the CPU (`GlyphCache`, swash) for both executors; here they are read where
 //! they are, with no upload.
 
-use platypus_render::plan::Instance;
+use web_ui_render::plan::Instance;
 
 use super::super::geometry::Frame;
 use super::super::gradient::gradient_color;
@@ -51,7 +51,7 @@ pub fn glyph(f: &Frame, t: &Textures, i: &Instance, p: [f32; 2]) -> Option<[f32;
         // Colour glyph: straight sRGB on the colour page (the GLES texture decodes and the shader
         // re-encodes, which cancels on an sRGB canvas).
         let page = t.glyph_color.as_deref()?;
-        let at = (ty * platypus_render::glyphs::COLOR_SIZE as usize + tx) * 4;
+        let at = (ty * web_ui_render::glyphs::COLOR_SIZE as usize + tx) * 4;
         let c = &page[at..at + 4];
         let a = f32::from(c[3]) / 255.0;
         let rgb = |v: u8| {
@@ -70,7 +70,7 @@ pub fn glyph(f: &Frame, t: &Textures, i: &Instance, p: [f32; 2]) -> Option<[f32;
             a * k,
         ]);
     }
-    let a = f32::from(t.glyph_mask[ty * platypus_render::glyphs::MASK_SIZE as usize + tx]) / 255.0;
+    let a = f32::from(t.glyph_mask[ty * web_ui_render::glyphs::MASK_SIZE as usize + tx]) / 255.0;
     if kind > 1.5 {
         // `font-smooth: never`: hard edges, no coverage boost.
         let crisp = if a >= 0.5 { 1.0 } else { 0.0 };

@@ -5,13 +5,13 @@
 //! and editing keys, selection by keyboard and pointer, controlled `value`,
 //! `readOnly` / `disabled`, clipboard requests, drawing and keeping the caret in view.
 
-mod common;
+use crate::common;
 
 use common::{Dom, n, op, px};
-use platypus_core::{Commit, NodeId, Value};
 use platypus_ui::events::Modifiers;
 use platypus_ui::opcodes::SET_ATTRS;
 use platypus_ui::{Clipboard, DrawCmd, Input, Interaction, Rect, UiEvent, UiTree};
+use web_ui_core::{Commit, NodeId, Value};
 
 struct Field {
     tree: UiTree,

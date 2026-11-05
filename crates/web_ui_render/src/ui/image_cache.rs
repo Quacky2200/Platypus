@@ -169,10 +169,10 @@ impl ImageCache {
         let data = if inline {
             Some(text.as_bytes().to_vec())
         } else if text.trim_start().starts_with("data:") {
-            platypus_core::decode_data_url(text)
+            web_ui_core::decode_data_url(text)
         } else {
             self.root.as_ref().and_then(|root| {
-                platypus_core::read_asset(root, text)
+                web_ui_core::read_asset(root, text)
                     .inspect_err(|e| tracing::warn!("{e}"))
                     .ok()
             })
@@ -232,7 +232,7 @@ impl ImageCache {
         }
         let decoded = if url.trim_start().starts_with("data:") {
             // Inlined by the bundler (small images referenced from CSS).
-            let Some(bytes) = platypus_core::decode_data_url(url) else {
+            let Some(bytes) = web_ui_core::decode_data_url(url) else {
                 tracing::warn!("background image data URL couldn't be decoded");
                 return None;
             };
@@ -242,7 +242,7 @@ impl ImageCache {
                 tracing::warn!("background image `{url}` ignored: no asset folder set");
                 return None;
             };
-            let bytes = match platypus_core::read_asset(root, url) {
+            let bytes = match web_ui_core::read_asset(root, url) {
                 Ok(b) => b,
                 Err(e) => {
                     tracing::warn!("background image `{url}`: {e}");
@@ -321,7 +321,7 @@ mod tests {
 
     struct MapFs(HashMap<String, Vec<u8>>);
 
-    impl platypus_core::AssetFs for MapFs {
+    impl web_ui_core::AssetFs for MapFs {
         fn read(&self, path: &str) -> std::io::Result<Vec<u8>> {
             self.0.get(path).cloned().ok_or_else(|| {
                 std::io::Error::new(
@@ -330,7 +330,7 @@ mod tests {
                 )
             })
         }
-        fn open_range(&self, _: &str) -> std::io::Result<Arc<dyn platypus_core::RangeRead>> {
+        fn open_range(&self, _: &str) -> std::io::Result<Arc<dyn web_ui_core::RangeRead>> {
             Err(std::io::ErrorKind::Unsupported.into())
         }
         fn exists(&self, path: &str) -> bool {
@@ -351,7 +351,7 @@ mod tests {
         let fs = MapFs(HashMap::from([("assets/a.svg".to_owned(), svg.to_vec())]));
         let mut cache = ImageCache::default();
         cache.set_root(PathBuf::from("no-such-folder"));
-        platypus_core::with_asset_fs(Arc::new(fs), || {
+        web_ui_core::with_asset_fs(Arc::new(fs), || {
             let tree = cache
                 .svg_tree("assets/a.svg", "assets/a.svg", false)
                 .unwrap();

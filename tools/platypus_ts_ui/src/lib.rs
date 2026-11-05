@@ -434,7 +434,7 @@ pub extern "C" fn ts_ui_on(h: u64, kind: *const u8, f: *mut Closure) -> u64 {
     h
 }
 
-fn style_value(h: u64, k: *const u8, v: platypus_core::Value) -> u64 {
+fn style_value(h: u64, k: *const u8, v: web_ui_core::Value) -> u64 {
     let k = text(k);
     with_built(h, |b| {
         if let Built::Host { props, .. } = b {
@@ -445,7 +445,7 @@ fn style_value(h: u64, k: *const u8, v: platypus_core::Value) -> u64 {
     h
 }
 
-fn attr_value(h: u64, k: *const u8, v: platypus_core::Value) -> u64 {
+fn attr_value(h: u64, k: *const u8, v: web_ui_core::Value) -> u64 {
     let k = text(k);
     with_built(h, |b| {
         if let Built::Host { props, .. } = b {
@@ -458,27 +458,27 @@ fn attr_value(h: u64, k: *const u8, v: platypus_core::Value) -> u64 {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn ts_ui_style_num(h: u64, k: *const u8, v: f64) -> u64 {
-    style_value(h, k, platypus_core::Value::Number(v))
+    style_value(h, k, web_ui_core::Value::Number(v))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn ts_ui_style_str(h: u64, k: *const u8, v: *const u8) -> u64 {
-    style_value(h, k, platypus_core::Value::String(text(v)))
+    style_value(h, k, web_ui_core::Value::String(text(v)))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn ts_ui_attr_num(h: u64, k: *const u8, v: f64) -> u64 {
-    attr_value(h, k, platypus_core::Value::Number(v))
+    attr_value(h, k, web_ui_core::Value::Number(v))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn ts_ui_attr_str(h: u64, k: *const u8, v: *const u8) -> u64 {
-    attr_value(h, k, platypus_core::Value::String(text(v)))
+    attr_value(h, k, web_ui_core::Value::String(text(v)))
 }
 
 #[unsafe(no_mangle)]
 pub extern "C" fn ts_ui_attr_bool(h: u64, k: *const u8, v: bool) -> u64 {
-    attr_value(h, k, platypus_core::Value::Bool(v))
+    attr_value(h, k, web_ui_core::Value::Bool(v))
 }
 
 fn push_child(h: u64, child: u64) -> u64 {

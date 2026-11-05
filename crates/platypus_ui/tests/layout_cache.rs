@@ -4,11 +4,11 @@
 //! Incremental layout (M2-LAY-07): appending to a long column lays out the new child,
 //! not every sibling again, so streaming content in stays cheap as it grows.
 
-mod common;
+use crate::common;
 
 use common::Dom;
-use platypus_core::Commit;
 use platypus_ui::UiTree;
+use web_ui_core::Commit;
 
 const CSS: &str = ".row { flex-direction: row; width: 100%; height: 100% }
     .side { width: 120px }

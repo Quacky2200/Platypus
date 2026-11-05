@@ -3,7 +3,7 @@
 
 //! CPU renderers for the UI draw list: no GPU API, no GPU driver, no shader compiler.
 //!
-//! - [`plan`]: a third executor of `platypus_render`'s frame plan (beside the wgpu and GLES ones),
+//! - [`plan`]: a third executor of `web_ui_render`'s frame plan (beside the wgpu and GLES ones),
 //!   drawing it with seven kernel families compiled ahead of time (`plan::kernels`). It draws what
 //!   the GLES executor draws, the same way, so a host can choose it instead of GLES on a machine
 //!   whose GL is a software rasteriser (llvmpipe, softpipe), without loading Mesa.

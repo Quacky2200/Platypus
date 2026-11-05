@@ -8,9 +8,9 @@
 use std::hint::black_box;
 
 use criterion::{BatchSize, Criterion, criterion_group, criterion_main};
-use platypus_core::{Commit, Value};
 use platypus_ui::UiTree;
 use platypus_ui::opcodes::*;
+use web_ui_core::{Commit, Value};
 
 struct Builder {
     ops: Vec<Value>,
