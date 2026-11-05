@@ -324,6 +324,16 @@ fn boxes_borders_and_gradients_match_gles() {
             ("borderColor", "red lime blue yellow"),
         ],
     );
+    // A radial gradient about its own centre (`at`), sized to the far corner.
+    s.at(
+        0,
+        "box",
+        [100.0, 124.0, 60.0, 30.0],
+        &[(
+            "backgroundImage",
+            "radial-gradient(circle at 100% 0, white, #204060)",
+        )],
+    );
     same("shapes", s, None, (240, 156), 1.0, 6, 0.002);
 }
 

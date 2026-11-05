@@ -25,7 +25,9 @@ pub fn gradient_color(g: &GpuGradient, p: [f32; 2], rect: [f32; 4], srgb: bool) 
     let mut t = if info[0] < 0.5 {
         ((p[0] - center[0]) * info[2] + (p[1] - center[1]) * info[3]) / info2[0] + 0.5
     } else if info[0] < 1.5 {
-        let (dx, dy) = ((p[0] - center[0]) / info[2], (p[1] - center[1]) / info[3]);
+        // Radial: about its own centre (`info2.yz`, relative to the box), as the shaders.
+        let c = [rect[0] + info2[1], rect[1] + info2[2]];
+        let (dx, dy) = ((p[0] - c[0]) / info[2], (p[1] - c[1]) / info[3]);
         (dx * dx + dy * dy).sqrt()
     } else {
         // Clockwise from up, from the `from` angle, as a fraction of a turn.
