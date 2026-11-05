@@ -121,15 +121,36 @@ pub struct Compiled {
     pub object: Vec<u8>,
 }
 
+/// What an object file is built for (the JIT always runs on the host CPU).
+#[derive(Clone, Debug, Default)]
+pub struct ObjectTarget {
+    /// A target triple (`x86_64-unknown-linux-musl`); `None` is the host's. The build machine can
+    /// write objects for another target: Cranelift needs no toolchain for it.
+    pub triple: Option<String>,
+    /// Position-independent code (calls through the PLT, data through the GOT): what linking into
+    /// a position-independent executable (Rust's default on Linux) or a shared library needs.
+    pub pic: bool,
+}
+
 /// The host's instruction set with the settings both back ends share. `native` asks the CPU for
 /// its features (the JIT runs here; an object file must run on any machine of the triple).
 pub(crate) fn host_isa(
     opt: &str,
     native: bool,
 ) -> R<std::sync::Arc<dyn cranelift_codegen::isa::TargetIsa>> {
+    isa_for(opt, native, &ObjectTarget::default())
+}
+
+fn isa_for(
+    opt: &str,
+    native: bool,
+    target: &ObjectTarget,
+) -> R<std::sync::Arc<dyn cranelift_codegen::isa::TargetIsa>> {
     let mut flags = settings::builder();
     flags.set("opt_level", opt).map_err(|e| e.to_string())?;
-    flags.set("is_pic", "false").map_err(|e| e.to_string())?;
+    flags
+        .set("is_pic", if target.pic { "true" } else { "false" })
+        .map_err(|e| e.to_string())?;
     // Only the JIT registers unwind info (`unwind.rs`); an object file has no use for it here.
     flags
         .set("unwind_info", if native { "true" } else { "false" })
@@ -149,7 +170,13 @@ pub(crate) fn host_isa(
         let b = cranelift_native::builder().map_err(|e| e.to_string())?;
         return b.finish(flags).map_err(|e| e.to_string());
     }
-    cranelift_codegen::isa::lookup(target_lexicon::Triple::host())
+    let triple = match &target.triple {
+        Some(t) => t
+            .parse::<target_lexicon::Triple>()
+            .map_err(|e| format!("target {t}: {e}"))?,
+        None => target_lexicon::Triple::host(),
+    };
+    cranelift_codegen::isa::lookup(triple)
         .map_err(|e| e.to_string())?
         .finish(flags)
         .map_err(|e| e.to_string())
@@ -157,7 +184,12 @@ pub(crate) fn host_isa(
 
 /// Compiles a module. `opt` is Cranelift's `opt_level`: "none", "speed" or "speed_and_size".
 pub fn compile(m: &Module, opt: &str) -> R<Compiled> {
-    let isa = host_isa(opt, false)?;
+    compile_for(m, opt, &ObjectTarget::default())
+}
+
+/// Like `compile`, for `target`.
+pub fn compile_for(m: &Module, opt: &str, target: &ObjectTarget) -> R<Compiled> {
+    let isa = isa_for(opt, false, target)?;
     let mut module = ObjectModule::new(
         ObjectBuilder::new(isa, "platypus_ts", default_libcall_names())
             .map_err(|e| e.to_string())?,

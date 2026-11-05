@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 
 const USAGE: &str = "usage:
   platypus-build build <game> [--no-tsc] [--aot] [--cook] [--no-prebuild] [--check-unused] [--add-ui-inspector]   build <game>/build
+        [--manifest api.json]... [--target triple] [--pic]   a host's own namespaces; the --aot object's target, PIC
   platypus-build types [<game>] [--out file]                write types/platypus.d.ts (default <game>/types/platypus.d.ts)
   platypus-build assets <folder>... [--prune]               write .meta files
   platypus-build dev <game> [--no-tsc]                      rebuild on change, signal the app (build/.platypus-reload)
@@ -18,8 +19,31 @@ const USAGE: &str = "usage:
   platypus-build check <examples folder> [--tsc] [--full] [--check-unused]   build every game in it and print a table
   platypus-build bench <examples folder> [--only a,b] ...   time every game (see: platypus-build bench --help)";
 
+/// The values of every `flag value` pair (`--manifest a.json --manifest b.json`).
+fn values<'a>(args: &'a [String], flag: &str) -> Vec<&'a String> {
+    args.windows(2)
+        .filter(|w| w[0] == flag)
+        .map(|w| &w[1])
+        .collect()
+}
+
+/// The flags that take a value (`positional` skips it).
+const VALUE_FLAGS: [&str; 3] = ["--out", "--manifest", "--target"];
+
 fn options(args: &[String]) -> Options {
+    let manifests = values(args, "--manifest")
+        .into_iter()
+        .map(|p| {
+            std::fs::read_to_string(p).unwrap_or_else(|e| {
+                eprintln!("error: --manifest {p}: {e}");
+                std::process::exit(2);
+            })
+        })
+        .collect();
     Options {
+        manifests,
+        target: values(args, "--target").first().map(|t| t.to_string()),
+        pic: args.iter().any(|a| a == "--pic"),
         no_tsc: args.iter().any(|a| a == "--no-tsc")
             || (args.first().is_some_and(|c| c == "check") && !args.iter().any(|a| a == "--tsc")),
         aot: args.iter().any(|a| a == "--aot"),
@@ -37,7 +61,7 @@ fn positional(args: &[String]) -> Vec<&String> {
     for a in &args[1..] {
         if skip {
             skip = false;
-        } else if a == "--out" {
+        } else if VALUE_FLAGS.contains(&a.as_str()) {
             skip = true;
         } else if !a.starts_with("--") {
             out.push(a);

@@ -270,6 +270,23 @@ pub struct Options {
     /// Off, the bundle has no trace of it and the host takes the fast path
     /// (`docs/research/platypus-ui-inspector.md`).
     pub ui_inspector: bool,
+    /// More API manifests (the JSON a host's own `#[platypus_api]` namespaces write, `--manifest
+    /// file.json`): a host that adds namespaces (Fluid's `Fluid`) builds its programs with them.
+    pub manifests: Vec<String>,
+    /// The `--aot` object's target triple (`--target`); `None` is the build machine's.
+    pub target: Option<String>,
+    /// Position-independent `--aot` code (`--pic`), for linking into a PIE executable (Rust's
+    /// default on Linux) or a shared library.
+    pub pic: bool,
+}
+
+impl Options {
+    /// The engine manifests and the extra ones.
+    fn all_manifests(&self) -> Vec<String> {
+        let mut all = manifests();
+        all.extend(self.manifests.iter().cloned());
+        all
+    }
 }
 
 /// The UI inspector's overlay (TSX, `inspector/overlay.tsx`): appended to the program, which
@@ -587,7 +604,12 @@ pub fn build(root: &Path, opts: &Options) -> Result<Report, String> {
     let out_dir = root.join("build");
     let entry = root.join(&config.entry);
     // The engine's global names stay the engine's: a module's own `class Random` is renamed.
-    let reserved = platypus_ts::modules::global_names(&types_dts()?);
+    let all_manifests = opts.all_manifests();
+    let mut dts = types_dts()?;
+    if !opts.manifests.is_empty() {
+        dts += &platypus_ts::types_dts::generate(&opts.manifests)?;
+    }
+    let reserved = platypus_ts::modules::global_names(&dts);
     let mut bundle = platypus_ts::modules::bundle_reserving(&entry, &reserved)?;
     if opts.ui_inspector {
         add_ui_inspector(&mut bundle);
@@ -605,14 +627,24 @@ pub fn build(root: &Path, opts: &Options) -> Result<Report, String> {
     }
 
     if opts.check_unused {
-        platypus_ts::check_unused(&bundle.source, &manifests())
+        platypus_ts::check_unused(&bundle.source, &all_manifests)
             .map_err(|e| format!("{}: {}", config.name, bundle.locate_in(&e)))?;
     }
     let mut object_bytes = 0;
     let externs = if !opts.no_compile {
-        let out =
-            platypus_ts::compile_with_manifests(&bundle.source, "speed", "game_", 0, &manifests())
-                .map_err(|e| format!("{}: {}", config.name, bundle.locate_in(&e)))?;
+        let target = platypus_ts::codegen::ObjectTarget {
+            triple: opts.target.clone(),
+            pic: opts.pic,
+        };
+        let out = platypus_ts::compile_for_target(
+            &bundle.source,
+            "speed",
+            "game_",
+            0,
+            &all_manifests,
+            &target,
+        )
+        .map_err(|e| format!("{}: {}", config.name, bundle.locate_in(&e)))?;
         object_bytes = out.object.len();
         if opts.aot {
             write_atomic(&out_dir.join("game.o"), &out.object).map_err(|e| e.to_string())?;
@@ -623,7 +655,7 @@ pub fn build(root: &Path, opts: &Options) -> Result<Report, String> {
     } else {
         // Not compiled, but the bundle still says what the program needs: lowering alone finds
         // it (a program lowering can't handle leaves it unknown, which the host takes as 3D).
-        platypus_ts::extern_symbols(&bundle.source, &manifests()).ok()
+        platypus_ts::extern_symbols(&bundle.source, &all_manifests).ok()
     };
 
     // Stylesheets, in import order; the inspector's (`inspector/inspector.css`) comes with the flag.
@@ -721,7 +753,7 @@ pub fn build(root: &Path, opts: &Options) -> Result<Report, String> {
     plan.extend(copied.iter().map(|c| format!("build/{c}")));
     plan.sort();
     plan.dedup();
-    let usage = externs.map(|(e, u)| usage_of(&e, &u, &manifests(), root, &plan));
+    let usage = externs.map(|(e, u)| usage_of(&e, &u, &all_manifests, root, &plan));
     if let Some(w) = renderer_warning(config.renderer, &usage) {
         warnings.push(w);
     }

@@ -10,7 +10,7 @@ cargo run -p platypus_build -- build ../examples/hello
 
 | Command | What |
 |---|---|
-| `build <game> [--no-tsc] [--aot] [--cook] [--no-compile] [--no-prebuild] [--check-unused]` | Builds `<game>/build`. `--check-unused` also lowers the program's own functions nothing calls (a build skips them), so their errors show. The editor (`editor/`) builds like any game. |
+| `build <game> [--no-tsc] [--aot] [--cook] [--no-compile] [--no-prebuild] [--check-unused] [--manifest api.json]... [--target triple] [--pic]` | Builds `<game>/build`. `--check-unused` also lowers the program's own functions nothing calls (a build skips them), so their errors show. `--manifest` adds a host's own `#[platypus_api]` namespace (the JSON its `MANIFEST.to_json()` writes) to the engine's, for a host that is not `platypus-app` (Fluid's `Fluid`). `--target` writes the `--aot` object for another triple (Cranelift needs no toolchain for it: `x86_64-unknown-linux-musl` from a glibc machine), `--pic` as position-independent code, which a Linux executable (PIE, Rust's default) or a shared library needs (see "Linking an `--aot` object"). The editor (`editor/`) builds like any game. |
 | `types [<game>] [--out file]` | Writes `<game>/types/platypus.d.ts` (type declarations for `tsc`). |
 | `assets <folder>... [--prune]` | Writes `.meta` GUID files (it replaced the Bun `scripts/assets.ts`, which is deleted). |
 | `dev <game> [--no-tsc]` | Rebuilds on every change and signals the running app. |
@@ -607,6 +607,27 @@ ignores case (Windows, macOS) a loose load of `assets/SFX/Boom.wav` still works 
 **Not done** (also in `tools/platypus_ts/TODO.md`): macOS `.app` bundle with `Info.plist` and `.icns`, Linux `.desktop` file and icon
 theme entry, the X11/Wayland window class (winit's default is used), the Windows `AppUserModelID` for taskbar grouping, a Windows
 application manifest (DPI awareness, long paths), cooked assets (`.platypus/cooked`) in the payload, an optional in-memory file system.
+
+### Linking an `--aot` object
+
+`build/game.o` is the whole program (the game, the parts of the prelude it uses, its string literals, type tables and
+method tables) as an ELF / COFF / Mach-O object of the target. A host that links it needs no compiler: not `platypus_ts`,
+oxc or Cranelift, only the runtime `platypus_ts_rt`, the UI bridge `platypus_ts_ui` when it has UI, and the crates whose
+namespaces the manifests named. Fluid links its apps this way (Fluid's `docs/native-apps.md`, measured there: 34.9 MB
+against 52.0 MB stripped for the same host with the JIT).
+
+- **Symbols.** The program exports `ts_<prefix><name>` (`platypus-build` uses the prefix `game_`; `ts_game_init` runs the top
+  level). Everything else is local. Its imports are the runtime's and the namespaces' `#[unsafe(no_mangle)]` shims, by the same
+  names the JIT resolves, so the linker resolves them from the rlibs. Several programs link into one executable when each has its
+  own prefix (`platypus_ts::compile_for_target`).
+- **Starting it.** `platypus_ts_rt::startup_reset()`, then the program's `init`, as `jit::Game::init` does. A component game
+  also takes `classes()` from `build/game_bindings.rs` (the table `Game::classes` builds at run time for the JIT).
+- **Struct ids.** The object's struct headers are numbered from the `struct_base` it was compiled with (0 for `platypus-build`).
+  The runtime's struct table is dense, so programs that run in the same process need disjoint ranges, and a program alone in
+  its process can use 0. A process that also JIT-compiles needs the JIT's ranges (`JitOptions::struct_base`) apart from it.
+- **PIC.** Without `--pic` the code uses absolute addresses (`R_X86_64_64` in `.text`), which a PIE link refuses; with it,
+  calls go through the PLT and data through the GOT (relaxed by the linker), which every Linux link accepts.
+- **What it doesn't have:** hot reload (`platypus-build dev` swaps JIT code) and anything compiled at run time.
 
 ### The same bundle on iOS and Android (plan only)
 

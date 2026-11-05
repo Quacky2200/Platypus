@@ -85,12 +85,32 @@ pub fn compile_with_manifests(
     struct_base: u32,
     manifests: &[String],
 ) -> Result<Output, String> {
+    compile_for_target(
+        src,
+        opt,
+        prefix,
+        struct_base,
+        manifests,
+        &codegen::ObjectTarget::default(),
+    )
+}
+
+/// Like `compile_with_manifests`, writing the object for `target` (another triple, or
+/// position-independent code for linking into a Linux executable).
+pub fn compile_for_target(
+    src: &str,
+    opt: &str,
+    prefix: &str,
+    struct_base: u32,
+    manifests: &[String],
+    target: &codegen::ObjectTarget,
+) -> Result<Output, String> {
     // Lowering recurses with the source's nesting; the main thread's 1 MiB is too little on Windows.
     std::thread::scope(|s| {
         std::thread::Builder::new()
             .stack_size(64 << 20)
             .spawn_scoped(s, || {
-                compile_inner(src, opt, prefix, struct_base, manifests)
+                compile_inner(src, opt, prefix, struct_base, manifests, target)
             })
             .map_err(|e| e.to_string())?
             .join()
@@ -140,6 +160,7 @@ fn compile_inner(
     prefix: &str,
     struct_base: u32,
     manifests: &[String],
+    target: &codegen::ObjectTarget,
 ) -> Result<Output, String> {
     let t0 = std::time::Instant::now();
     let mut module = lower::lower_source_with(src, manifests)?;
@@ -148,7 +169,7 @@ fn compile_inner(
     sroa::run(&mut module);
     let lower_time = t0.elapsed();
     let t1 = std::time::Instant::now();
-    let compiled = codegen::compile(&module, opt)?;
+    let compiled = codegen::compile_for(&module, opt, target)?;
     let codegen_time = t1.elapsed();
     Ok(Output {
         object: compiled.object,
@@ -185,6 +206,41 @@ mod tests {
             .filter(|f| f.name.starts_with("__then") && f.body.len() > 1)
             .count();
         assert!(lowered < 20, "{lowered} `then` copies lowered");
+    }
+
+    // M9-TS-3534
+    #[test]
+    fn an_object_can_be_position_independent_and_for_another_triple() {
+        let src = "let n = 0; export function bump(): number { n = n + 1; return n; }";
+        let object = |triple: Option<&str>, pic: bool| {
+            let target = codegen::ObjectTarget {
+                triple: triple.map(str::to_string),
+                pic,
+            };
+            compile_for_target(src, "speed", "t_", 0, &[], &target)
+                .unwrap()
+                .object
+        };
+        let plain = object(None, false);
+        let pic = object(None, true);
+        assert_ne!(plain, pic);
+        assert!(pic.windows(10).any(|w| w == b"ts_t_bump\0"));
+        // musl differs from glibc only in the libc a host links: the same code on x86-64.
+        if cfg!(all(target_arch = "x86_64", target_os = "linux")) {
+            assert_eq!(object(Some("x86_64-unknown-linux-musl"), true), pic);
+        }
+        let bad = compile_for_target(
+            src,
+            "speed",
+            "t_",
+            0,
+            &[],
+            &codegen::ObjectTarget {
+                triple: Some("not-a-triple".into()),
+                pic: true,
+            },
+        );
+        assert!(bad.is_err());
     }
 
     // M9-TS-14
