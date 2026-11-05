@@ -171,6 +171,7 @@ See [DESIGN.md](DESIGN.md) for the architecture these tests check.
 | M2-KRN-10 | Integration | The fifteen `mix-blend-mode`s match the GLES executor. |
 | M2-KRN-11 | Integration | Backdrop blur and grayscale, and Fluid's stacked menu glass (no bleed between the boxes), match the GLES executor. |
 | M2-KRN-12 | Integration | Alpha and luminance masks, a tiled mask and a translucent layer in a rounded clip match the GLES executor. |
+| M2-KRN-13 | Unit | Two threads running jobs on one pool at once both finish, every band of each run once (the second caller draws its bands itself while the first's job runs). |
 | M2-BLEND-01 | Unit | `project.json` `blending` is `srgb` when left out (and isn't written back), `linear` and `srgb` are kept, an unknown value warns and means `srgb`. |
 | M2-BLEND-02 | Unit | The plan premultiplies colours in the frame's blending space (`rgba(128,128,128,0.5)`: 0.251 in sRGB, 0.108 in linear light) and encodes the clear colour for an sRGB canvas; `FramePlan::blending` says which. |
 | M2-BLEND-03 | Integration | `examples/alpha-probe` (25% white fill and borders, square and rounded, 50% red, a 25% black border over it, glass over a backdrop blur, over `#3060c0`) gives the browser's values (100,136,208; 152,48,96; 114,36,72; the field inside borders) within 1 on wgpu and on GLES into sRGB and plain targets, by default. |
