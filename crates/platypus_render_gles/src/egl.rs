@@ -229,7 +229,9 @@ fn default_display(egl: &Instance) -> Result<egl::Display, String> {
         .ok_or_else(|| "EGL: no default display".into())
 }
 
-// ANGLE's `EGL_ANGLE_platform_angle` attributes (`eglext_angle.h`).
+// ANGLE's `EGL_ANGLE_platform_angle` attributes (`eglext_angle.h`). The platform itself is only asked
+// for on Windows (`display_for`).
+#[cfg(windows)]
 const PLATFORM_ANGLE_ANGLE: u32 = 0x3202;
 const PLATFORM_ANGLE_TYPE_ANGLE: egl::Int = 0x3203;
 const PLATFORM_ANGLE_TYPE_D3D11_ANGLE: egl::Int = 0x3208;
