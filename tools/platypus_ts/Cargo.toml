@@ -10,7 +10,7 @@ license.workspace = true
 
 [dependencies]
 platypus_ts_rt = { path = "../platypus_ts_rt" }
-platypus_api = { path = "../../crates/platypus_api", default-features = false }
+ts_api = { path = "../../crates/ts_api", default-features = false }
 platypus_ui = { path = "../../crates/platypus_ui" }
 cranelift-codegen = "0.136.3"
 cranelift-frontend = "0.136.3"

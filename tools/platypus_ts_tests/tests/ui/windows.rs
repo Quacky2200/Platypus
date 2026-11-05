@@ -135,7 +135,7 @@ fn window_listeners_from_compiled_closures_run_and_cancel() {
         window::closed(w);
         window::closed(w);
         assert_eq!(text(ts_win_counts()), "1|1|2|300x350");
-        assert_eq!(platypus_api::callback::take_errors().len(), 0);
+        assert_eq!(ts_api::callback::take_errors().len(), 0);
     });
 }
 
@@ -185,8 +185,8 @@ fn create_root_of_a_window_queues_a_window_mount() {
 fn capture(w: WindowRef) -> std::rc::Rc<std::cell::RefCell<Vec<String>>> {
     let log: std::rc::Rc<std::cell::RefCell<Vec<String>>> = Default::default();
     let l = log.clone();
-    w.on_message_json(platypus_api::Callback::from_fn(
-        move |(from, text): (platypus_api::callback::HandleArg<WindowRef>, String)| {
+    w.on_message_json(ts_api::Callback::from_fn(
+        move |(from, text): (ts_api::callback::HandleArg<WindowRef>, String)| {
             l.borrow_mut().push(format!("{}:{text}", from.0.0))
         },
     ));
@@ -201,8 +201,8 @@ fn capture_events(w: WindowRef, names: &[&str]) -> std::rc::Rc<std::cell::RefCel
         let n = name.to_string();
         w.on_event_json(
             name,
-            platypus_api::Callback::from_fn(
-                move |(from, body): (platypus_api::callback::HandleArg<WindowRef>, String)| {
+            ts_api::Callback::from_fn(
+                move |(from, body): (ts_api::callback::HandleArg<WindowRef>, String)| {
                     l.borrow_mut().push(format!("{n}:{}:{body}", from.0.0))
                 },
             ),
@@ -243,7 +243,7 @@ fn on_message_parses_into_the_declared_type() {
         let w = WindowRef(h as u32);
         ts_win_listenSelect(h);
         ts_win_listenInferred(h);
-        let _ = platypus_api::callback::take_errors();
+        let _ = ts_api::callback::take_errors();
         assert!(w.post_message_json(
             "{\"kind\":\"select\",\"p\":[1,2.5,3],\"ids\":[4,5,6],\"name\":\"N\"}"
         ));
@@ -260,7 +260,7 @@ fn on_message_parses_into_the_declared_type() {
             text(ts_win_receivedMessages()),
             "1:select|2.5|3|N;inferred 3;"
         );
-        assert!(!platypus_api::callback::take_errors().is_empty());
+        assert!(!ts_api::callback::take_errors().is_empty());
     });
 }
 
@@ -549,7 +549,7 @@ fn emit_reaches_on_by_name_with_the_handlers_declared_type() {
         let wire = capture_events(w, &["ping", "tags"]);
         ts_win_listenEvents(h);
         ts_win_eventLogClear();
-        let _ = platypus_api::callback::take_errors();
+        let _ = ts_api::callback::take_errors();
         assert!(ts_win_emitStats(h));
         assert!(ts_win_emitPing(h));
         assert!(ts_win_emitTags(h));
@@ -561,7 +561,7 @@ fn emit_reaches_on_by_name_with_the_handlers_declared_type() {
             text(ts_win_eventLogText()),
             "stats 3|a,b|2.5|from 1;ping;tags 3;"
         );
-        assert!(platypus_api::callback::take_errors().is_empty());
+        assert!(ts_api::callback::take_errors().is_empty());
         // The raw listener sees the raw message only, never an event envelope (M9-TS-2864).
         assert_eq!(*log.borrow(), ["1:{\"kind\":5}"]);
         // The payload text reaches the event listeners ("" without one).
@@ -584,7 +584,7 @@ fn ask_resolves_with_the_answer_of_the_named_handler() {
         let w = WindowRef(h as u32);
         ts_win_answerEvents(h);
         ts_win_eventLogClear();
-        let _ = platypus_api::callback::take_errors();
+        let _ = ts_api::callback::take_errors();
         let p = ts_win_askEvents(h);
         assert!(!p.is_null());
         for i in 0..4 {
@@ -594,7 +594,7 @@ fn ask_resolves_with_the_answer_of_the_named_handler() {
             text(ts_win_eventLogText()),
             "ask stats 3|abc|true;ask pair 42|twice;ask count 4;ask whoami inspector;"
         );
-        assert!(platypus_api::callback::take_errors().is_empty());
+        assert!(ts_api::callback::take_errors().is_empty());
     });
 }
 
@@ -720,7 +720,7 @@ fn an_async_answer_handler_replies_when_its_promise_resolves_and_a_rejection_fai
         let w = WindowRef(h as u32);
         ts_win_answerAsync(h);
         ts_win_eventLogClear();
-        let _ = platypus_api::callback::take_errors();
+        let _ = ts_api::callback::take_errors();
         let p = ts_win_askAsync(h);
         assert!(!p.is_null());
         for i in 0..12 {
@@ -730,7 +730,7 @@ fn an_async_answer_handler_replies_when_its_promise_resolves_and_a_rejection_fai
             text(ts_win_eventLogText()),
             "double 42;label async-label;stats 4|abcd;boom error boom 5;"
         );
-        assert!(platypus_api::callback::take_errors().is_empty());
+        assert!(ts_api::callback::take_errors().is_empty());
     });
 }
 
@@ -742,7 +742,7 @@ fn an_async_raw_request_handler_can_reply_later_and_its_rejection_fails_the_requ
         let w = WindowRef(h as u32);
         ts_win_serveAsync(h);
         ts_win_eventLogClear();
-        let _ = platypus_api::callback::take_errors();
+        let _ = ts_api::callback::take_errors();
         let p = ts_win_requestAsync(h);
         assert!(!p.is_null());
         for i in 0..12 {
@@ -752,6 +752,6 @@ fn an_async_raw_request_handler_can_reply_later_and_its_rejection_fails_the_requ
             text(ts_win_eventLogText()),
             "request 42;request error negative -3;"
         );
-        assert!(platypus_api::callback::take_errors().is_empty());
+        assert!(ts_api::callback::take_errors().is_empty());
     });
 }

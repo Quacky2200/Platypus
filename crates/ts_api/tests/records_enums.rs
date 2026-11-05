@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Enums, records, lists, rest parameters, option objects after a parameter, doc comments and `like`
-//! in `#[platypus_api]` (docs/platypus-api.md, "Enums, records and lists"). IDs are in TESTS.md (M9-API-16xx).
-use platypus_api::{Handle, Ty, ValueType, platypus_api};
+//! in `#[ts_api]` (docs/platypus-api.md, "Enums, records and lists"). IDs are in TESTS.md (M9-API-16xx).
+use ts_api::{Handle, Ty, ValueType, ts_api};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct P2 {
@@ -50,7 +50,7 @@ impl Handle for Thing {
 }
 
 /// Things that exist.
-#[platypus_api(
+#[ts_api(
     namespace = "Rec", like,
     handles(Thing = Thing),
     values(Point = P2 [x: f64, y: f64]),
@@ -217,7 +217,7 @@ fn enum_helpers_convert_names_and_indexes_both_ways() {
 // M9-API-1612
 #[test]
 fn list_and_record_results_come_back_flat_through_the_result_buffer() {
-    let r = |i: u32| platypus_api::platypus_api_result(i);
+    let r = |i: u32| ts_api::ts_api_result(i);
     // Two points in, four spots out: at.x, at.y, weight, hard, fill (an index), per spot.
     let points = [P2 { x: 1.0, y: 2.0 }, P2 { x: 3.0, y: 4.0 }];
     #[repr(C)]
@@ -262,9 +262,9 @@ fn list_and_record_results_come_back_flat_through_the_result_buffer() {
     let p = unsafe { rec_api::platypus_FillMode_name(7, &mut len) };
     assert_eq!((p.is_null(), len), (false, 0));
     rec_api::MANIFEST.to_json();
-    assert!(platypus_api::symbol("platypus_FillMode_name").is_some());
-    assert!(platypus_api::symbol("platypus_FillMode_parse").is_some());
-    assert!(platypus_api::symbol("platypus_api_result").is_some());
+    assert!(ts_api::symbol("platypus_FillMode_name").is_some());
+    assert!(ts_api::symbol("platypus_FillMode_parse").is_some());
+    assert!(ts_api::symbol("ts_api_result").is_some());
 }
 
 // M9-API-1614
@@ -303,7 +303,7 @@ fn a_vec_of_strings_comes_back_through_the_string_list() {
     let mut len = 0i64;
     let mut got = Vec::new();
     for i in 0..4 {
-        let p = unsafe { platypus_api::platypus_api_result_str(i, &mut len) };
+        let p = unsafe { ts_api::ts_api_result_str(i, &mut len) };
         got.push(
             String::from_utf8(unsafe { std::slice::from_raw_parts(p, len as usize) }.to_vec())
                 .unwrap(),
@@ -317,7 +317,7 @@ fn a_vec_of_strings_comes_back_through_the_string_list() {
     // The manifest says `list:string`.
     let json = rec_api::MANIFEST.to_json();
     assert!(json.contains(r#""returns":"list:string""#), "{json}");
-    assert!(platypus_api::symbol("platypus_api_result_str").is_some());
+    assert!(ts_api::symbol("ts_api_result_str").is_some());
 }
 
 /// A script string object as the compiled code makes them: a 48 byte header, then the bytes.

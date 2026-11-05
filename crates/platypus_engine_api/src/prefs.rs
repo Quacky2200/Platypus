@@ -5,9 +5,9 @@
 //! ([`load`]) and applies what scripts changed ([`take_changes`]) to the file; keys starting with
 //! `platypus.` are the engine's own (window mode, quality level).
 
-use platypus_api::platypus_api;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
+use ts_api::ts_api;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Pref {
@@ -84,7 +84,7 @@ fn number(key: &str) -> Option<f64> {
     }
 }
 
-#[platypus_api(namespace = "PlayerPrefs")]
+#[ts_api(namespace = "PlayerPrefs")]
 pub mod prefs_api {
     use super::{Change, Pref, STATE, get, number, set};
 

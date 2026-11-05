@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Compiled scripts calling the engine API directly (`bench/engine.ts`). The API is
-//! `platypus_demo_api`, written with `#[platypus_api]`: the compiler reads its JSON manifest, a call
+//! `platypus_demo_api`, written with `#[ts_api]`: the compiler reads its JSON manifest, a call
 //! `Demo.scale(3, 4)` becomes a call of the shim `platypus_Demo_scale`, and handles are plain ids.
 //! Every test runs normally, with a collection at every allocation, and with collection off.
 //! IDs are in TESTS.md (M9-TS-142..).

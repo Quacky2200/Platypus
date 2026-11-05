@@ -22,7 +22,7 @@ Constraints that shape the design:
   window.
 - **Rust owns the world, JS owns behaviour.** Scripts hold `Window` handles (numbers inside); the OS windows, surfaces and UI
   trees live in Rust.
-- **One API for both runtimes.** Declared once with `#[platypus_api(namespace = "Window", quickjs, handles(Window = WindowRef))]`
+- **One API for both runtimes.** Declared once with `#[ts_api(namespace = "Window", quickjs, handles(Window = WindowRef))]`
   in `platypus_engine_api`, like `Screen` and `Cursor`; compiled games (`platypus_ts`) and QuickJS both get it.
 
 ## 2. Findings: what the stack gives us
@@ -414,7 +414,7 @@ inspector.run(() => {
 - **Transparent windows** are out of scope for now (`with_transparent` plus a non-opaque `alpha_mode` on the surface); the
   option is not in `WindowOptions` until built (D4).
 
-## 5. The Rust `#[platypus_api]` shape (`crates/platypus_engine_api/src/window.rs`)
+## 5. The Rust `#[ts_api]` shape (`crates/platypus_engine_api/src/window.rs`)
 
 Per-thread state with host functions, like `screen.rs`. No winit types: the app translates.
 
@@ -505,7 +505,7 @@ pub fn deliver(d: DomainId, now_ms: f64);
 pub fn pending(d: DomainId) -> usize;
 pub const MAX_MESSAGE_BYTES: usize = 1 << 20;
 
-#[platypus_api(namespace = "Window", quickjs, handles(Window = WindowRef))]
+#[ts_api(namespace = "Window", quickjs, handles(Window = WindowRef))]
 pub mod window_api {
     use super::*;
     impl WindowRef {
@@ -601,7 +601,7 @@ Notes:
   `[1, 16384]`; a `parent` that is closed or the window itself is ignored; `child` set after creation is ignored.
 - **Closed windows.** Getters read the last state; setters and `focus` do nothing; `on*` returns 0.
 - **Events are synchronous** from the host's calls, emitted after the state borrow is released from a snapshot
-  (`platypus_api::callback::{Listeners, emit}`), so listeners may call the API, open windows or close them.
+  (`ts_api::callback::{Listeners, emit}`), so listeners may call the API, open windows or close them.
 - **Cross-family changes.** Every setter, `focus`, `close`, `center` and `on*` checks `domain_of(self) ==
   current_domain()` (main-domain code may change any window of the main family; nobody changes another family's windows):
   otherwise a warning and no effect (`on*` returns 0).
@@ -620,7 +620,7 @@ Notes:
 | Messages | `postMessage(data)` / `request(data)` / `broadcast(data)` lower to `JSON.stringify` of the static type (handles are a compile error) plus `postMessageJson` / `postRequestJson` / `broadcastJson`; `onMessage<T>(f)` / `onRequest<T, R>(f)` wrap `f` in a closure that `JSON.parse`s as `T` (and `R` for `reply`); `request` returns a `Promise<R>` from the prelude (`facade.ts`), settled by `onReplyJson` | A JS prelude installed with the class defines `postMessage`, `request`, `onMessage`, `onRequest`, `broadcast` on `Window` / its prototype over the `...Json` natives with `JSON.stringify` (a replacer rejecting handle objects and functions) and `JSON.parse` |
 | `Window.create({..})` | `call_ext_args` maps a trailing object literal onto the optional parameters by name, honouring the manifest defaults | New `#[options]` attribute (plan step 3): a single plain object at the first optional position is read by camelCase name |
 | `createRoot(win)` | `UiRoot.mount(win, el)`: a third overload `ts_ui_mount_window(window: handle:Window, element)` into its own queue, `platypus_ts_ui::take_window_mounts()` | `@platypus/react` `createRoot(target)`: a `Window` object (it has `handle`) becomes the target id `platypus_core::WINDOW_TARGET \| handle`; the main window is target 0 |
-| Callbacks | `Callback<..>` from compiled closures | `Callback<..>` from JS functions (`platypus_api::qjs::keep_function`) |
+| Callbacks | `Callback<..>` from compiled closures | `Callback<..>` from JS functions (`ts_api::qjs::keep_function`) |
 | Hot reload | `Native::reload` | QuickJS reload in `reload_scripts` |
 
 QuickJS games run the `@platypus/engine` path and the app does not install `platypus_native` there. The plan installs **only**

@@ -3,8 +3,8 @@
 
 //! Static properties of handle classes: `Demo.current` is a getter on the class in the manifest
 //! (`Window.main`). IDs are in TESTS.md (M9-API-*).
-use platypus_api::{FnKind, Handle, Ty, platypus_api};
 use std::cell::Cell;
+use ts_api::{FnKind, Handle, Ty, ts_api};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DemoId(pub u64);
@@ -23,7 +23,7 @@ thread_local! {
     static READS: Cell<u32> = const { Cell::new(0) };
 }
 
-#[platypus_api(namespace = "Demo", handles(Demo = DemoId))]
+#[ts_api(namespace = "Demo", handles(Demo = DemoId))]
 pub mod demo {
     use super::{CURRENT, DemoId, LEVEL, READS};
 

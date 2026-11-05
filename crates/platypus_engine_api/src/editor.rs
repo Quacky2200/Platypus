@@ -15,11 +15,11 @@ pub mod files;
 mod open;
 pub mod project;
 
-use platypus_api::platypus_api;
 use std::collections::{BTreeSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Instant;
+use ts_api::ts_api;
 
 /// The most log records kept; older ones drop off.
 pub const LOG_LIMIT: usize = 5000;
@@ -226,7 +226,7 @@ fn warn(text: &str) {
 
 // The shim of a call returning one record (`stat`) writes through the caller's pointer.
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[platypus_api(
+#[ts_api(
     namespace = "Editor",
     records(
         /// One record of the engine's log: engine lines and the scripts' `console.*` (target `script`) in order.

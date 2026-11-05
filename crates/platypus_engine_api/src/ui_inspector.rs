@@ -11,9 +11,9 @@
 //! dropped, so a game that was built without the inspector pays for none of it.
 //! Design: `docs/research/platypus-ui-inspector.md`.
 
-use platypus_api::platypus_api;
 use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
+use ts_api::ts_api;
 
 /// One declaration of a rule that matches a node.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -307,7 +307,7 @@ fn decl(id: f64, i: f64, j: f64) -> Option<DeclSnapshot> {
 /// the pointer is over, a node's boxes, classes, inline styles and the stylesheet rules that match
 /// it (and which of their declarations win), and live style edits. Node ids are the UI tree's;
 /// an unknown id (or an inspector that is off) answers 0, `""` or `false`.
-#[platypus_api(namespace = "UiInspector")]
+#[ts_api(namespace = "UiInspector")]
 pub mod ui_inspector_api {
     use super::{STATE, StyleEdit, decl, index, node, rule};
 

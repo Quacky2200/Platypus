@@ -4,11 +4,11 @@
 //! The lifecycle of components script adds and removes (`bench/comp_life.ts`): `onAwake` and
 //! `onDestroy` when the calling hook returns, `destroy()` on a component, the focus and pause hooks,
 //! and objects destroyed through the scene API. IDs are in TESTS.md (M9-TS-707..).
-use platypus_api::Handle;
 use platypus_scene::Scene;
 use platypus_scene::api::scene_api as api;
 use platypus_ts_rt::{NativeHost, Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::comp_life_t::*;
+use ts_api::Handle;
 
 fn all(_: u64) -> bool {
     true

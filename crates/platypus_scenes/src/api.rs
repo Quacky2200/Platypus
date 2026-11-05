@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! The script API of scenes: `SceneManager`, `Scene` and `Prefab`, declared once with
-//! `#[platypus_api]` for compiled scripts. `GameObject.instantiate(..)` and `dontDestroyOnLoad` are
+//! `#[ts_api]` for compiled scripts. `GameObject.instantiate(..)` and `dontDestroyOnLoad` are
 //! lowered by the compiler onto `SceneManager.instantiate` / `dontDestroyOnLoad`.
 
 use crate::manager::{self, PrefabRef, SceneRef};
-use platypus_api::callback::HandleArg;
-use platypus_api::{Callback, Handle, platypus_api};
 use platypus_scene::ObjectId;
+use ts_api::callback::HandleArg;
+use ts_api::{Callback, Handle, ts_api};
 
 fn some_object(o: ObjectId) -> Option<ObjectId> {
     // A handle of 0 is "no object".
@@ -55,7 +55,7 @@ pub enum LoadMode {
     Additive,
 }
 
-#[platypus_api(
+#[ts_api(
     namespace = "SceneManager",
     handles(Scene = SceneRef, Prefab = PrefabRef, GameObject = ObjectId),
     enums(

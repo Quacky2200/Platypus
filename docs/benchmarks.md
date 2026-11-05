@@ -76,7 +76,7 @@ No build or run failed and no run logged errors.
 - css's original needs the Charm font, which is kept out of git; the runner copies it in from the checkout's `Charm/`
   folder.
 - **Like-for-like script time:** a QuickJS game's **script** column holds the JavaScript, the native API calls it makes
-  (math, scene, rendering data: QuickJS games call the same `#[platypus_api]` functions) and its animation, spline and camera
+  (math, scene, rendering data: QuickJS games call the same `#[ts_api]` functions) and its animation, spline and camera
   follow components; native counts those components under **sync**. `opMarshalMs` and `opsApplyMs` (JSON fields of that time, now removed) stayed at 0.3 ms or less.
 
 ## Stages

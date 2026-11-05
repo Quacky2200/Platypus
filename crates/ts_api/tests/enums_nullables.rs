@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Enums shared between namespaces, optional enum parameters, explicit names, enum lists, nullable
-//! numbers / strings / values, `#[nullable(undefined)]` and aliases in `#[platypus_api]`
+//! numbers / strings / values, `#[nullable(undefined)]` and aliases in `#[ts_api]`
 //! (docs/platypus-api.md, "Enums and nullables"). IDs are in TESTS.md (M9-API-162x).
-use platypus_api::{Handle, Ty, ValueType, platypus_api};
+use ts_api::{Handle, Ty, ValueType, ts_api};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Mode {
@@ -47,7 +47,7 @@ thread_local! {
 }
 
 /// The declaring namespace: `Mode` and its converters.
-#[platypus_api(
+#[ts_api(
     namespace = "Kinds", enums(
         /// How hard.
         Hardness = Mode [Soft, Hard]
@@ -63,7 +63,7 @@ pub mod kinds_api {
 }
 
 /// Uses `Hardness` without declaring it again.
-#[platypus_api(
+#[ts_api(
     namespace = "Things", handles(Item = Item),
     values(Rgb = Rgb [r: f64, g: f64]),
     enums(
@@ -258,8 +258,8 @@ fn an_extern_enum_adds_no_second_set_of_symbols_and_the_manifest_lists_it_once()
         .map(|e| e["name"].as_str().unwrap().to_string())
         .collect();
     assert_eq!(names, ["Shout"]);
-    assert!(platypus_api::symbol("platypus_Hardness_name").is_some());
-    assert!(platypus_api::symbol("platypus_Shout_parse").is_some());
+    assert!(ts_api::symbol("platypus_Hardness_name").is_some());
+    assert!(ts_api::symbol("platypus_Shout_parse").is_some());
 }
 
 // M9-API-1623
@@ -290,14 +290,14 @@ fn nullable_numbers_values_and_strings_use_nan_and_the_none_flag_on_the_abi() {
         unsafe { std::slice::from_raw_parts(p, len as usize) },
         b"hard"
     );
-    assert!(!platypus_api::platypus_api_result_none());
+    assert!(!ts_api::ts_api_result_none());
     let p = unsafe { things_api::platypus_Things_note(0, &mut len) };
     assert_eq!(
         (unsafe { std::slice::from_raw_parts(p, len as usize) }, len),
         (&b""[..], 0)
     );
-    assert!(platypus_api::platypus_api_result_none());
-    assert!(platypus_api::symbol("platypus_api_result_none").is_some());
+    assert!(ts_api::ts_api_result_none());
+    assert!(ts_api::symbol("ts_api_result_none").is_some());
     // The manifest and the declarations.
     let json = things_api::MANIFEST.to_json();
     assert!(json.contains(r#""returns":"opt:f64""#), "{json}");
@@ -322,10 +322,7 @@ fn an_optional_enum_parameter_is_none_for_a_left_out_or_unknown_name_and_a_list_
     let n = things_api::platypus_Things_modes();
     assert_eq!(n, 2);
     assert_eq!(
-        (
-            platypus_api::platypus_api_result(0),
-            platypus_api::platypus_api_result(1)
-        ),
+        (ts_api::ts_api_result(0), ts_api::ts_api_result(1)),
         (1.0, 0.0)
     );
     // The converters of the declaring namespace and the explicit names.
@@ -360,10 +357,10 @@ fn nullable_undefined_is_in_the_manifest_json() {
 // M9-API-1630
 #[test]
 fn a_record_with_a_string_field_keeps_the_text_in_the_string_list_in_field_order() {
-    let r = |i: u32| platypus_api::platypus_api_result(i);
+    let r = |i: u32| ts_api::ts_api_result(i);
     let str_at = |i: u32| {
         let mut len = 0i64;
-        let p = unsafe { platypus_api::platypus_api_result_str(i, &mut len) };
+        let p = unsafe { ts_api::ts_api_result_str(i, &mut len) };
         String::from_utf8(unsafe { std::slice::from_raw_parts(p, len as usize) }.to_vec()).unwrap()
     };
     things_api::platypus_Things_label(7.0);

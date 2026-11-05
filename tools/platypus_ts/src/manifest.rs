@@ -1,7 +1,7 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The engine API as the compiler sees it: the JSON manifest `platypus_api` generates
+//! The engine API as the compiler sees it: the JSON manifest `ts_api` generates
 //! (`Namespace::to_json`), read into a table of functions the TypeScript can call directly.
 //!
 //! ```json
@@ -105,7 +105,7 @@ pub enum RecField {
     Value(String),
     /// An enum: the index.
     Enum(String),
-    /// A string: it comes through `platypus_api_result_str`, not the number buffer.
+    /// A string: it comes through `ts_api_result_str`, not the number buffer.
     Str,
     /// An optional key (`Option<T>`): a nullable field. Only records that travel as JSON have it.
     Opt(Box<RecField>),

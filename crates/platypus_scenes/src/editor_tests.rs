@@ -5,10 +5,10 @@
 
 use crate::editor_api::{editor_scene_api as api, scene_name_of};
 use crate::manager;
-use platypus_api::Handle;
 use platypus_scene::ObjectId;
 use platypus_scene::api::with_scene;
 use serde_json::Value;
+use ts_api::Handle;
 
 const SCENE: &str = r#"{"format":"platypus.scene","version":1,"name":"Room","objects":[
   {"id":1,"name":"A"},

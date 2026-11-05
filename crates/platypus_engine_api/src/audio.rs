@@ -16,11 +16,11 @@
 //! [`crate::audio_components`].
 
 use crate::assets;
-use platypus_api::{Callback, Handle, platypus_api};
 use platypus_math::{Q, V3};
 use serde_json::{Value, json};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use ts_api::{Callback, Handle, ts_api};
 
 macro_rules! numbered_handle {
     ($(#[$m:meta])* $name:ident) => {
@@ -492,7 +492,7 @@ fn arr3(v: V3) -> [f64; 3] {
     [v.x, v.y, v.z]
 }
 
-#[platypus_api(
+#[ts_api(
     namespace = "audio", handles(Sound = SoundRef, Playback = PlaybackRef, Bus = BusRef, Emitter = EmitterRef),
     values(Vector3 = V3 [x: f64, y: f64, z: f64], Quaternion = Q [x: f64, y: f64, z: f64, w: f64])
 )]

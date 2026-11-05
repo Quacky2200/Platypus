@@ -5,7 +5,6 @@
 //! `Animator`. Other engine components register their own as they are ported.
 
 use platypus_animation::{ClipId, ControllerId};
-use platypus_api::Handle;
 use platypus_engine_api::animation::{AnimationRef, ClipRef, animation_component_api};
 use platypus_engine_api::animator::{AnimatorRef, ControllerRef, animator_api};
 use platypus_engine_api::camera::{self, CameraRef};
@@ -13,6 +12,7 @@ use platypus_engine_api::color::Rgba;
 use platypus_kinds::{AssetKind, Kind};
 use platypus_scene::ObjectId;
 use serde_json::{Map, Value, json};
+use ts_api::Handle;
 
 fn number(v: &Value) -> Option<f32> {
     v.as_f64().map(|x| x as f32)

@@ -6,11 +6,11 @@
 //! `platypus_scene::Scene` object); an object with no tag belongs to the active scene.
 
 use crate::data::{Saver, load_objects, sc, warn};
-use platypus_api::Handle;
-use platypus_api::callback::{HandleArg, Listeners, emit};
 use platypus_scene::ObjectId;
 use serde_json::{Map, Value, json};
 use std::cell::RefCell;
+use ts_api::Handle;
+use ts_api::callback::{HandleArg, Listeners, emit};
 
 /// The tag of objects kept across scene loads (`dontDestroyOnLoad`).
 const KEEP: u32 = u32::MAX;
@@ -241,27 +241,25 @@ pub fn dispatch() {
 }
 
 /// Calls `f(scene, mode)` after a scene loads (`"single"` or `"additive"`); the token is for [`off`].
-pub fn on_loaded(f: platypus_api::Callback<(HandleArg<SceneRef>, String)>) -> u32 {
+pub fn on_loaded(f: ts_api::Callback<(HandleArg<SceneRef>, String)>) -> u32 {
     st(|s| s.on_loaded.add(f))
 }
 
-pub fn on_unloaded(f: platypus_api::Callback<(HandleArg<SceneRef>,)>) -> u32 {
+pub fn on_unloaded(f: ts_api::Callback<(HandleArg<SceneRef>,)>) -> u32 {
     st(|s| s.on_unloaded.add(f))
 }
 
-pub fn on_active_changed(
-    f: platypus_api::Callback<(HandleArg<SceneRef>, HandleArg<SceneRef>)>,
-) -> u32 {
+pub fn on_active_changed(f: ts_api::Callback<(HandleArg<SceneRef>, HandleArg<SceneRef>)>) -> u32 {
     st(|s| s.on_active.add(f))
 }
 
 /// Calls `f(path, error)` when a scene file asked for with [`request_load`] fails to load.
-pub fn on_load_failed(f: platypus_api::Callback<(String, String)>) -> u32 {
+pub fn on_load_failed(f: ts_api::Callback<(String, String)>) -> u32 {
     st(|s| s.on_load_failed.add(f))
 }
 
 /// Calls `f(path, prefab)` when a prefab file asked for with [`request_prefab`] was read.
-pub fn on_prefab_loaded(f: platypus_api::Callback<(String, HandleArg<PrefabRef>)>) -> u32 {
+pub fn on_prefab_loaded(f: ts_api::Callback<(String, HandleArg<PrefabRef>)>) -> u32 {
     st(|s| s.on_prefab_loaded.add(f))
 }
 
@@ -271,12 +269,12 @@ pub fn on_prefab_loaded(f: platypus_api::Callback<(String, HandleArg<PrefabRef>)
 pub fn load_scene_promise(
     path: &str,
     additive: bool,
-    resolve: platypus_api::Callback<(HandleArg<SceneRef>,)>,
-    reject: platypus_api::Callback<(String,)>,
+    resolve: ts_api::Callback<(HandleArg<SceneRef>,)>,
+    reject: ts_api::Callback<(String,)>,
 ) {
     let tokens = std::rc::Rc::new(std::cell::Cell::new((0u32, 0u32)));
     let (want, on_ok) = (path.to_owned(), tokens.clone());
-    let loaded = on_loaded(platypus_api::Callback::from_fn(
+    let loaded = on_loaded(ts_api::Callback::from_fn(
         move |(scene, _mode): (HandleArg<SceneRef>, String)| {
             if info(scene.0.0).and_then(|i| i.path).as_deref() == Some(want.as_str()) {
                 let (a, b) = on_ok.get();
@@ -287,7 +285,7 @@ pub fn load_scene_promise(
         },
     ));
     let (want, on_err) = (path.to_owned(), tokens.clone());
-    let failed = on_load_failed(platypus_api::Callback::from_fn(
+    let failed = on_load_failed(ts_api::Callback::from_fn(
         move |(failed_path, error): (String, String)| {
             if failed_path == want {
                 let (a, b) = on_err.get();
@@ -304,12 +302,12 @@ pub fn load_scene_promise(
 /// [`load_scene_promise`] for a prefab file.
 pub fn load_prefab_promise(
     path: &str,
-    resolve: platypus_api::Callback<(HandleArg<PrefabRef>,)>,
-    reject: platypus_api::Callback<(String,)>,
+    resolve: ts_api::Callback<(HandleArg<PrefabRef>,)>,
+    reject: ts_api::Callback<(String,)>,
 ) {
     let tokens = std::rc::Rc::new(std::cell::Cell::new((0u32, 0u32)));
     let (want, on_ok) = (path.to_owned(), tokens.clone());
-    let loaded = on_prefab_loaded(platypus_api::Callback::from_fn(
+    let loaded = on_prefab_loaded(ts_api::Callback::from_fn(
         move |(loaded_path, prefab): (String, HandleArg<PrefabRef>)| {
             if loaded_path == want {
                 let (a, b) = on_ok.get();
@@ -320,7 +318,7 @@ pub fn load_prefab_promise(
         },
     ));
     let (want, on_err) = (path.to_owned(), tokens.clone());
-    let failed = on_load_failed(platypus_api::Callback::from_fn(
+    let failed = on_load_failed(ts_api::Callback::from_fn(
         move |(failed_path, error): (String, String)| {
             if failed_path == want {
                 let (a, b) = on_err.get();

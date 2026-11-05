@@ -3,11 +3,11 @@
 
 //! Native physics from compiled programs (`bench/physics.ts`, `platypus_physics_api`). IDs are in
 //! TESTS.md (M9-TS-727..).
-use platypus_api::Handle;
 use platypus_scene::Scene;
 use platypus_scene::api::scene_api as api;
 use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::physics_t::*;
+use ts_api::Handle;
 
 fn in_every_gc_mode(f: impl Fn()) {
     let _serial = platypus_ts_tests::serial();

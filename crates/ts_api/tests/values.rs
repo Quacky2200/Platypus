@@ -1,10 +1,10 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Value classes in `#[platypus_api]`: a few numbers that scripts see as an object, passed across the
+//! Value classes in `#[ts_api]`: a few numbers that scripts see as an object, passed across the
 //! C ABI as one scalar per field (a result through a trailing pointer). IDs are in TESTS.md
 //! (M9-API-*).
-use platypus_api::{Ty, ValueType, platypus_api};
+use ts_api::{Ty, ValueType, ts_api};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Vec3 {
@@ -26,7 +26,7 @@ impl ValueType<3> for Vec3 {
     }
 }
 
-#[platypus_api(namespace = "Vec", values(Vector3 = Vec3 [x: f32, y: f32, z: f32]))]
+#[ts_api(namespace = "Vec", values(Vector3 = Vec3 [x: f32, y: f32, z: f32]))]
 pub mod vec_api {
     use super::Vec3;
 
@@ -99,7 +99,7 @@ fn the_shims_pass_a_value_as_scalars_and_return_one_through_a_pointer() {
     assert_eq!(out, [0.0, 0.0, 1.0]);
 }
 
-#[platypus_api(namespace = "VecMath", values(Vector3 = Vec3 [x: f32, y: f32, z: f32]))]
+#[ts_api(namespace = "VecMath", values(Vector3 = Vec3 [x: f32, y: f32, z: f32]))]
 pub mod vec_methods {
     use super::Vec3;
 

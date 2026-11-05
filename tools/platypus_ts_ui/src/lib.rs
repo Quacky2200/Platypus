@@ -18,7 +18,6 @@
 mod mount;
 pub use mount::{INSPECTOR_TARGET, root_manifest_json, take_mounts, take_window_mounts};
 
-use platypus_api::{return_string, script_str};
 use platypus_ts_rt::{
     Array, Closure, ts_rt_exc_pending, ts_rt_exc_take, ts_rt_root_add, ts_rt_root_remove,
 };
@@ -28,6 +27,7 @@ use platypus_ui_native::{
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
+use ts_api::{return_string, script_str};
 
 /// A script closure the host keeps alive: rooted for as long as this value lives.
 struct Rooted {

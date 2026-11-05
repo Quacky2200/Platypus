@@ -9,7 +9,7 @@ publish.workspace = true
 license.workspace = true
 
 [dependencies]
-platypus_api = { path = "../../crates/platypus_api", default-features = false }
+ts_api = { path = "../../crates/ts_api", default-features = false }
 platypus_kinds = { path = "../../crates/platypus_kinds" }
 platypus_physics_api = { path = "../../crates/platypus_physics_api" }
 serde_json = "1"

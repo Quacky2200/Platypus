@@ -3,7 +3,7 @@
 
 //! Strings across the boundary: `&str` parameters read from a script string object, `String`
 //! results handed back through a per-thread buffer. IDs are in TESTS.md (M9-API-*).
-use platypus_api::{Ty, platypus_api};
+use ts_api::{Ty, ts_api};
 
 /// A script string object laid out as the compiled code makes them: a 48 byte header, then bytes.
 fn script_string(bytes: &[u8], well_formed: bool) -> Vec<u8> {
@@ -17,7 +17,7 @@ fn script_string(bytes: &[u8], well_formed: bool) -> Vec<u8> {
     v
 }
 
-#[platypus_api(namespace = "Text")]
+#[ts_api(namespace = "Text")]
 pub mod text_api {
     /// The bytes of a string.
     pub fn byte_len(s: &str) -> u32 {
@@ -66,14 +66,14 @@ fn strings_cross_as_script_string_objects_and_a_returned_buffer() {
 fn a_lone_surrogate_becomes_one_replacement_character() {
     // "a", a lone high surrogate (ED A0 80), "b".
     let s = script_string(&[b'a', 0xED, 0xA0, 0x80, b'b'], false);
-    let got = unsafe { platypus_api::script_str(s.as_ptr()) };
+    let got = unsafe { ts_api::script_str(s.as_ptr()) };
     assert_eq!(got, "a\u{FFFD}b");
     assert!(matches!(got, std::borrow::Cow::Owned(_)));
     // A well formed string is borrowed, not copied; null is empty.
     let ok = script_string(b"plain", true);
     assert!(matches!(
-        unsafe { platypus_api::script_str(ok.as_ptr()) },
+        unsafe { ts_api::script_str(ok.as_ptr()) },
         std::borrow::Cow::Borrowed("plain")
     ));
-    assert_eq!(unsafe { platypus_api::script_str(std::ptr::null()) }, "");
+    assert_eq!(unsafe { ts_api::script_str(std::ptr::null()) }, "");
 }

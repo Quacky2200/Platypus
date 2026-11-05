@@ -5,8 +5,8 @@
 //! its `package.json` (`"platypus": { "layers": { "8": "Player" } }`), which the host passes to
 //! [`set_game_layers`]. Masks are numbers (a bit per layer), like `js/engine/src/layers.ts`.
 
-use platypus_api::platypus_api;
 use std::cell::RefCell;
+use ts_api::ts_api;
 
 const BUILT_IN: [(u32, &str); 5] = [
     (0, "Default"),
@@ -73,7 +73,7 @@ fn to_u32(x: f64) -> u32 {
     (x.trunc().rem_euclid(4_294_967_296.0)) as u32
 }
 
-#[platypus_api(namespace = "LayerMask")]
+#[ts_api(namespace = "LayerMask")]
 pub mod layer_mask_api {
     use super::{names, to_u32};
 

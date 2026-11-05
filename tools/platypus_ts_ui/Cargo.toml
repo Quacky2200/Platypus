@@ -13,7 +13,7 @@ platypus_ts_rt = { path = "../platypus_ts_rt" }
 platypus_ui_native = { path = "../../crates/platypus_ui_native" }
 platypus_ui = { path = "../../crates/platypus_ui" }
 platypus_core = { path = "../../crates/platypus_core" }
-platypus_api = { path = "../../crates/platypus_api" }
+ts_api = { path = "../../crates/ts_api" }
 serde_json = "1"
 
 [dev-dependencies]

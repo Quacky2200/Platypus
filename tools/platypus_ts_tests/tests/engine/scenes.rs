@@ -3,7 +3,6 @@
 
 //! Scene files, `instantiate`, prefabs and `SceneManager` for compiled programs
 //! (`bench/scenes.ts`, `platypus_scenes`). IDs are in TESTS.md (M9-TS-712..).
-use platypus_api::Handle;
 use platypus_scene::api::scene_api as api;
 use platypus_scene::{ObjectId, Scene};
 use platypus_ts_rt::{
@@ -11,6 +10,7 @@ use platypus_ts_rt::{
 };
 use platypus_ts_tests::scenes_t::*;
 use serde_json::{Value, json};
+use ts_api::Handle;
 
 const ARENA: &str = r#"{"format":"platypus.scene","version":1,"name":"Arena","objects":[
  {"id":1,"name":"Cam","position":[0,2,5],"components":[

@@ -7,9 +7,9 @@
 
 use crate::camera::CameraRef;
 use crate::color::Rgba;
-use platypus_api::platypus_api;
 use platypus_math::{M4, V3};
 use std::cell::RefCell;
+use ts_api::ts_api;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct GizmoLine {
@@ -86,7 +86,7 @@ pub fn reset() {
     });
 }
 
-#[platypus_api(
+#[ts_api(
     namespace = "Gizmos",
     handles(Camera = CameraRef),
     values(

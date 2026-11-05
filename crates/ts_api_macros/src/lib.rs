@@ -1,7 +1,7 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! `#[platypus_api]`: see the `platypus_api` crate.
+//! `#[ts_api]`: see the `ts_api` crate.
 
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
@@ -17,7 +17,7 @@ use syn::{
 /// Marks a module whose `pub fn`s are the script API of one namespace.
 ///
 /// ```ignore
-/// #[platypus_api(namespace = "Time", handles(GameObject = ObjectId),
+/// #[ts_api(namespace = "Time", handles(GameObject = ObjectId),
 ///            values(Vector3 = Vec3 [x: f32, y: f32, z: f32]))]
 /// pub mod time_api {
 ///     /// Seconds since the last frame.
@@ -26,11 +26,11 @@ use syn::{
 /// ```
 ///
 /// Arguments: `namespace = "Name"` (required);
-/// `handles(TsName = RustType, ...)` (types that implement `platypus_api::Handle`);
+/// `handles(TsName = RustType, ...)` (types that implement `ts_api::Handle`);
 /// `values(TsName = RustType [field: scalar, ...], ...)` (types that implement
-/// `platypus_api::ValueType<N>`; scripts see a class with those fields).
+/// `ts_api::ValueType<N>`; scripts see a class with those fields).
 #[proc_macro_attribute]
-pub fn platypus_api(attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn ts_api(attr: TokenStream, item: TokenStream) -> TokenStream {
     match expand(attr.into(), item.into()) {
         Ok(t) => t.into(),
         Err(e) => e.to_compile_error().into(),
@@ -506,7 +506,7 @@ fn classify(ty: &Type, args: &Args) -> syn::Result<Kind> {
     let Some(name) = rust_name_of(ty) else {
         return Err(syn::Error::new(
             ty.span(),
-            "unsupported type in a platypus_api function",
+            "unsupported type in a ts_api function",
         ));
     };
     Ok(match name.as_str() {
@@ -561,10 +561,10 @@ fn scalar_ty(name: &str) -> TokenStream2 {
 
 fn scalar_manifest(name: &str) -> TokenStream2 {
     match name {
-        "f32" => quote!(::platypus_api::Ty::F32),
-        "f64" => quote!(::platypus_api::Ty::F64),
-        "i32" => quote!(::platypus_api::Ty::I32),
-        _ => quote!(::platypus_api::Ty::U32),
+        "f32" => quote!(::ts_api::Ty::F32),
+        "f64" => quote!(::ts_api::Ty::F64),
+        "i32" => quote!(::ts_api::Ty::I32),
+        _ => quote!(::ts_api::Ty::U32),
     }
 }
 
@@ -593,20 +593,20 @@ fn pair_ty(k: &Kind, args: &Args) -> String {
 /// The manifest `Ty` as tokens.
 fn manifest_ty(k: &Kind, args: &Args) -> TokenStream2 {
     match k {
-        Kind::Unit => quote!(::platypus_api::Ty::Void),
-        Kind::Bool => quote!(::platypus_api::Ty::Bool),
-        Kind::F64 => quote!(::platypus_api::Ty::F64),
-        Kind::F32 => quote!(::platypus_api::Ty::F32),
-        Kind::I32 => quote!(::platypus_api::Ty::I32),
-        Kind::U32 => quote!(::platypus_api::Ty::U32),
-        Kind::Str(_) => quote!(::platypus_api::Ty::Str),
-        Kind::Handle(ts, _) => quote!(::platypus_api::Ty::Handle(#ts)),
+        Kind::Unit => quote!(::ts_api::Ty::Void),
+        Kind::Bool => quote!(::ts_api::Ty::Bool),
+        Kind::F64 => quote!(::ts_api::Ty::F64),
+        Kind::F32 => quote!(::ts_api::Ty::F32),
+        Kind::I32 => quote!(::ts_api::Ty::I32),
+        Kind::U32 => quote!(::ts_api::Ty::U32),
+        Kind::Str(_) => quote!(::ts_api::Ty::Str),
+        Kind::Handle(ts, _) => quote!(::ts_api::Ty::Handle(#ts)),
         Kind::Value(i) => {
             let ts = &args.values[*i].ts;
-            quote!(::platypus_api::Ty::Value(#ts))
+            quote!(::ts_api::Ty::Value(#ts))
         }
-        Kind::F64s => quote!(::platypus_api::Ty::F64s),
-        Kind::Strs(_) => quote!(::platypus_api::Ty::Strs),
+        Kind::F64s => quote!(::ts_api::Ty::F64s),
+        Kind::Strs(_) => quote!(::ts_api::Ty::Strs),
         Kind::Callback(ks) => {
             let names: Vec<String> = ks
                 .iter()
@@ -632,30 +632,30 @@ fn manifest_ty(k: &Kind, args: &Args) -> TokenStream2 {
                 })
                 .collect();
             let ts = format!("({}) => void", params.join(", "));
-            quote!(::platypus_api::Ty::Callback(#sig, #ts))
+            quote!(::ts_api::Ty::Callback(#sig, #ts))
         }
         Kind::Values(i) => {
             let ts = &args.values[*i].ts;
             let arr = format!("{ts}[]");
-            quote!(::platypus_api::Ty::Values(#ts, #arr))
+            quote!(::ts_api::Ty::Values(#ts, #arr))
         }
         Kind::Handles(ts, _) => {
             let arr = format!("{ts}[]");
-            quote!(::platypus_api::Ty::Handles(#ts, #arr))
+            quote!(::ts_api::Ty::Handles(#ts, #arr))
         }
         Kind::Records(i) => {
             let n = &args.records[*i].ts;
             let arr = format!("{n}[]");
-            quote!(::platypus_api::Ty::Records(#n, #arr))
+            quote!(::ts_api::Ty::Records(#n, #arr))
         }
         Kind::Enum(i) | Kind::OptEnum(i) => {
             let ts = &args.enums[*i].ts;
-            quote!(::platypus_api::Ty::Enum(#ts))
+            quote!(::ts_api::Ty::Enum(#ts))
         }
         Kind::OptRecord(i) => {
             let name = format!("record:{}", args.records[*i].ts);
             let ts = format!("{} | null", args.records[*i].ts);
-            quote!(::platypus_api::Ty::Opt(#name, #ts))
+            quote!(::ts_api::Ty::Opt(#name, #ts))
         }
         Kind::Opt(inner) => {
             let (name, ts) = match &**inner {
@@ -667,11 +667,11 @@ fn manifest_ty(k: &Kind, args: &Args) -> TokenStream2 {
                 ),
                 _ => unreachable!("classify only builds Opt of f64, strings and values"),
             };
-            quote!(::platypus_api::Ty::Opt(#name, #ts))
+            quote!(::ts_api::Ty::Opt(#name, #ts))
         }
         Kind::Record(i) => {
             let ts = &args.records[*i].ts;
-            quote!(::platypus_api::Ty::Record(#ts))
+            quote!(::ts_api::Ty::Record(#ts))
         }
         Kind::List(inner) => {
             let (name, ts) = match &**inner {
@@ -695,7 +695,7 @@ fn manifest_ty(k: &Kind, args: &Args) -> TokenStream2 {
                 }
             };
             let arr = format!("{ts}[]");
-            quote!(::platypus_api::Ty::List(#name, #arr))
+            quote!(::ts_api::Ty::List(#name, #arr))
         }
     }
 }
@@ -733,7 +733,7 @@ fn abi_ty(k: &Kind) -> TokenStream2 {
 /// Turns the ABI value `x` into the Rust parameter type.
 fn from_abi(k: &Kind, x: TokenStream2) -> TokenStream2 {
     match k {
-        Kind::Handle(_, rust) => quote!(<#rust as ::platypus_api::Handle>::from_raw(#x)),
+        Kind::Handle(_, rust) => quote!(<#rust as ::ts_api::Handle>::from_raw(#x)),
         _ => x,
     }
 }
@@ -802,7 +802,7 @@ fn enum_first(e: &EnumDecl) -> TokenStream2 {
 
 fn to_abi(k: &Kind, x: TokenStream2, args: &Args) -> TokenStream2 {
     match k {
-        Kind::Handle(..) => quote!(::platypus_api::Handle::to_raw(#x)),
+        Kind::Handle(..) => quote!(::ts_api::Handle::to_raw(#x)),
         Kind::Enum(i) => {
             let index = enum_fn(&args.enums[*i].ts, "index");
             quote!(#index(#x))
@@ -979,7 +979,7 @@ fn api_of(
     if sig.asyncness.is_some() || !sig.generics.params.is_empty() {
         return Err(syn::Error::new(
             sig.span(),
-            "a platypus_api function cannot be async or generic",
+            "a ts_api function cannot be async or generic",
         ));
     }
     let mut has_receiver = false;
@@ -1354,7 +1354,7 @@ fn shim_param(name: &Ident, k: &Kind, args: &Args) -> (Vec<TokenStream2>, TokenS
             let params = names.iter().map(|p| quote!(#p: #part)).collect();
             let rust = &v.rust;
             let conv = quote! {
-                <#rust as ::platypus_api::ValueType<#n>>::from_parts([ #( #names as f64 ),* ])
+                <#rust as ::ts_api::ValueType<#n>>::from_parts([ #( #names as f64 ),* ])
             };
             (params, conv)
         }
@@ -1376,7 +1376,7 @@ fn shim_param(name: &Ident, k: &Kind, args: &Args) -> (Vec<TokenStream2>, TokenS
             let from = format_ident!("__from_json_{}", args.records[*i].ts);
             (
                 vec![quote!(#name: *const u8)],
-                quote!(unsafe { ::platypus_api::script_json_record(#name, #from) }),
+                quote!(unsafe { ::ts_api::script_json_record(#name, #from) }),
             )
         }
         Kind::Opt(inner) => match &**inner {
@@ -1394,7 +1394,7 @@ fn shim_param(name: &Ident, k: &Kind, args: &Args) -> (Vec<TokenStream2>, TokenS
                             ::std::option::Option::None
                         } else {
                             ::std::option::Option::Some(
-                                <#rust as ::platypus_api::ValueType<#n>>::from_parts(parts)
+                                <#rust as ::ts_api::ValueType<#n>>::from_parts(parts)
                             )
                         }
                     }
@@ -1414,9 +1414,9 @@ fn shim_param(name: &Ident, k: &Kind, args: &Args) -> (Vec<TokenStream2>, TokenS
             // The script string's object; `script_str` reads it (no copy unless it has a lone
             // surrogate).
             let conv = if *owned {
-                quote!(unsafe { ::platypus_api::script_str(#name) }.into_owned())
+                quote!(unsafe { ::ts_api::script_str(#name) }.into_owned())
             } else {
-                quote!(&*unsafe { ::platypus_api::script_str(#name) })
+                quote!(&*unsafe { ::ts_api::script_str(#name) })
             };
             (vec![quote!(#name: *const u8)], conv)
         }
@@ -1424,7 +1424,7 @@ fn shim_param(name: &Ident, k: &Kind, args: &Args) -> (Vec<TokenStream2>, TokenS
             let tys: Vec<TokenStream2> = ks
                 .iter()
                 .map(|k| match k {
-                    Kind::Handle(_, rust) => quote!(::platypus_api::callback::HandleArg<#rust>),
+                    Kind::Handle(_, rust) => quote!(::ts_api::callback::HandleArg<#rust>),
                     Kind::Str(_) => quote!(::std::string::String),
                     Kind::Bool => quote!(bool),
                     Kind::I32 => quote!(i32),
@@ -1434,15 +1434,15 @@ fn shim_param(name: &Ident, k: &Kind, args: &Args) -> (Vec<TokenStream2>, TokenS
                 .collect();
             (
                 vec![quote!(#name: *const u8)],
-                quote!(unsafe { ::platypus_api::Callback::<( #( #tys, )* )>::from_script(#name) }),
+                quote!(unsafe { ::ts_api::Callback::<( #( #tys, )* )>::from_script(#name) }),
             )
         }
         Kind::F64s => (
             vec![quote!(#name: *const u8)],
-            quote!(unsafe { ::platypus_api::script_f64s(#name) }),
+            quote!(unsafe { ::ts_api::script_f64s(#name) }),
         ),
         Kind::Strs(owned) => {
-            let read = quote!(unsafe { ::platypus_api::script_strs(#name) });
+            let read = quote!(unsafe { ::ts_api::script_strs(#name) });
             (
                 vec![quote!(#name: *const u8)],
                 if *owned { read } else { quote!(&#read) },
@@ -1454,22 +1454,22 @@ fn shim_param(name: &Ident, k: &Kind, args: &Args) -> (Vec<TokenStream2>, TokenS
             let rust = &v.rust;
             (
                 vec![quote!(#name: *const u8)],
-                quote!(&unsafe { ::platypus_api::script_values::<#n, #rust>(#name) }),
+                quote!(&unsafe { ::ts_api::script_values::<#n, #rust>(#name) }),
             )
         }
         Kind::Records(i) => {
             let from = format_ident!("__from_json_{}", args.records[*i].ts);
             (
                 vec![quote!(#name: *const u8)],
-                quote!(&unsafe { ::platypus_api::script_json_records(#name, #from) }),
+                quote!(&unsafe { ::ts_api::script_json_records(#name, #from) }),
             )
         }
         Kind::Handles(_, rust) => (
             vec![quote!(#name: *const u8)],
             quote! {
-                &unsafe { ::platypus_api::script_handles(#name) }
+                &unsafe { ::ts_api::script_handles(#name) }
                     .into_iter()
-                    .map(<#rust as ::platypus_api::Handle>::from_raw)
+                    .map(<#rust as ::ts_api::Handle>::from_raw)
                     .collect::<::std::vec::Vec<_>>()
             },
         ),
@@ -1634,47 +1634,47 @@ fn rec_ty_ts(t: &RecTy, args: &Args) -> String {
 /// The manifest `Ty` of a field type.
 fn rec_ty_manifest(t: &RecTy, args: &Args) -> TokenStream2 {
     match t {
-        RecTy::F64 => quote!(::platypus_api::Ty::F64),
-        RecTy::Bool => quote!(::platypus_api::Ty::Bool),
-        RecTy::Str => quote!(::platypus_api::Ty::Str),
+        RecTy::F64 => quote!(::ts_api::Ty::F64),
+        RecTy::Bool => quote!(::ts_api::Ty::Bool),
+        RecTy::Str => quote!(::ts_api::Ty::Str),
         RecTy::Value(i, false) => {
             let n = &args.values[*i].ts;
-            quote!(::platypus_api::Ty::Value(#n))
+            quote!(::ts_api::Ty::Value(#n))
         }
         RecTy::Value(i, true) => {
             let n = &args.values[*i].ts;
             let like = format!("{n}Like");
-            quote!(::platypus_api::Ty::Like(#n, #like))
+            quote!(::ts_api::Ty::Like(#n, #like))
         }
         RecTy::Enum(i) => {
             let n = &args.enums[*i].ts;
-            quote!(::platypus_api::Ty::Enum(#n))
+            quote!(::ts_api::Ty::Enum(#n))
         }
         RecTy::Opt(inner) => {
             let name = rec_ty_name(inner, args);
             let ts = rec_ty_ts(t, args);
-            quote!(::platypus_api::Ty::Opt(#name, #ts))
+            quote!(::ts_api::Ty::Opt(#name, #ts))
         }
-        RecTy::Pairs => quote!(::platypus_api::Ty::List("pair", "[number, number][]")),
-        RecTy::Numbers => quote!(::platypus_api::Ty::List("f64", "number[]")),
+        RecTy::Pairs => quote!(::ts_api::Ty::List("pair", "[number, number][]")),
+        RecTy::Numbers => quote!(::ts_api::Ty::List("f64", "number[]")),
         RecTy::Records(i) => {
             let n = &args.records[*i].ts;
             let arr = format!("{n}[]");
-            quote!(::platypus_api::Ty::Records(#n, #arr))
+            quote!(::ts_api::Ty::Records(#n, #arr))
         }
         RecTy::Record(i) => {
             let n = &args.records[*i].ts;
-            quote!(::platypus_api::Ty::Record(#n))
+            quote!(::ts_api::Ty::Record(#n))
         }
-        RecTy::Dict => quote!(::platypus_api::Ty::Dict("f64", "Record<string, number>")),
+        RecTy::Dict => quote!(::ts_api::Ty::Dict("f64", "Record<string, number>")),
         RecTy::Handle(i) => {
             let n = &args.handles[*i].0;
-            quote!(::platypus_api::Ty::Handle(#n))
+            quote!(::ts_api::Ty::Handle(#n))
         }
         RecTy::Handles(i) => {
             let name = format!("handle:{}", args.handles[*i].0);
             let arr = format!("{}[]", args.handles[*i].0);
-            quote!(::platypus_api::Ty::List(#name, #arr))
+            quote!(::ts_api::Ty::List(#name, #arr))
         }
     }
 }
@@ -1689,7 +1689,7 @@ fn rec_flat_stmt(t: &RecTy, x: TokenStream2, args: &Args) -> TokenStream2 {
         RecTy::Value(i, _) => {
             let v = &args.values[*i];
             let (rust, n) = (&v.rust, v.fields.len());
-            quote!(out.extend_from_slice(&<#rust as ::platypus_api::ValueType<#n>>::to_parts(#x));)
+            quote!(out.extend_from_slice(&<#rust as ::ts_api::ValueType<#n>>::to_parts(#x));)
         }
         RecTy::Enum(i) => {
             let index = enum_fn(&args.enums[*i].ts, "index");
@@ -1711,44 +1711,44 @@ fn rec_flat_stmt(t: &RecTy, x: TokenStream2, args: &Args) -> TokenStream2 {
 /// The JSON value of a field of type `t` held by the reference `x` (not optional).
 fn rec_json_value(t: &RecTy, x: TokenStream2, args: &Args) -> TokenStream2 {
     match t {
-        RecTy::F64 | RecTy::Bool => quote!(::platypus_api::serde_json::json!(*#x)),
-        RecTy::Str => quote!(::platypus_api::serde_json::json!(#x)),
+        RecTy::F64 | RecTy::Bool => quote!(::ts_api::serde_json::json!(*#x)),
+        RecTy::Str => quote!(::ts_api::serde_json::json!(#x)),
         RecTy::Value(i, _) => {
             let v = &args.values[*i];
             let (rust, n) = (&v.rust, v.fields.len());
-            quote!(::platypus_api::serde_json::json!(
-                <#rust as ::platypus_api::ValueType<#n>>::to_parts(*#x).to_vec()
+            quote!(::ts_api::serde_json::json!(
+                <#rust as ::ts_api::ValueType<#n>>::to_parts(*#x).to_vec()
             ))
         }
         RecTy::Enum(i) => {
             let name = enum_fn(&args.enums[*i].ts, "name");
-            quote!(::platypus_api::serde_json::json!(#name(*#x)))
+            quote!(::ts_api::serde_json::json!(#name(*#x)))
         }
-        RecTy::Numbers => quote!(::platypus_api::serde_json::json!(#x.clone())),
+        RecTy::Numbers => quote!(::ts_api::serde_json::json!(#x.clone())),
         RecTy::Records(i) => {
             let to = format_ident!("__to_json_{}", args.records[*i].ts);
-            quote!(::platypus_api::serde_json::Value::Array(#x.iter().map(#to).collect()))
+            quote!(::ts_api::serde_json::Value::Array(#x.iter().map(#to).collect()))
         }
         RecTy::Record(i) => {
             let to = format_ident!("__to_json_{}", args.records[*i].ts);
             quote!(#to(#x))
         }
-        RecTy::Dict => quote!(::platypus_api::serde_json::Value::Array(
+        RecTy::Dict => quote!(::ts_api::serde_json::Value::Array(
             #x.iter()
-                .map(|(k, v)| ::platypus_api::serde_json::json!([k, v]))
+                .map(|(k, v)| ::ts_api::serde_json::json!([k, v]))
                 .collect()
         )),
-        RecTy::Pairs => quote!(::platypus_api::serde_json::Value::Array(
+        RecTy::Pairs => quote!(::ts_api::serde_json::Value::Array(
             #x.iter()
-                .map(|p| ::platypus_api::serde_json::json!([p.0, p.1]))
+                .map(|p| ::ts_api::serde_json::json!([p.0, p.1]))
                 .collect()
         )),
         RecTy::Handle(_) => {
-            quote!(::platypus_api::serde_json::json!(::platypus_api::Handle::to_raw(*#x)))
+            quote!(::ts_api::serde_json::json!(::ts_api::Handle::to_raw(*#x)))
         }
-        RecTy::Handles(_) => quote!(::platypus_api::serde_json::Value::Array(
+        RecTy::Handles(_) => quote!(::ts_api::serde_json::Value::Array(
             #x.iter()
-                .map(|h| ::platypus_api::serde_json::json!(::platypus_api::Handle::to_raw(*h)))
+                .map(|h| ::ts_api::serde_json::json!(::ts_api::Handle::to_raw(*h)))
                 .collect()
         )),
         RecTy::Opt(_) => quote!(compile_error!("nested option")),
@@ -1767,7 +1767,7 @@ fn rec_json_stmt(t: &RecTy, key: &str, x: TokenStream2, args: &Args) -> TokenStr
                             m.insert(#key.to_string(), #v);
                         }
                         ::std::option::Option::Some(::std::option::Option::None) => {
-                            m.insert(#key.to_string(), ::platypus_api::serde_json::Value::Null);
+                            m.insert(#key.to_string(), ::ts_api::serde_json::Value::Null);
                         }
                         ::std::option::Option::None => {}
                     }
@@ -1801,8 +1801,8 @@ fn rec_parse_value(t: &RecTy, key: &str, x: TokenStream2, args: &Args) -> TokenS
             let (rust, n) = (&v.rust, v.fields.len());
             let names: Vec<&String> = v.fields.iter().map(|(n, _)| n).collect();
             quote! {
-                ::platypus_api::json_value_parts::<#n>(#x, [ #( #names ),* ])
-                    .map(<#rust as ::platypus_api::ValueType<#n>>::from_parts)
+                ::ts_api::json_value_parts::<#n>(#x, [ #( #names ),* ])
+                    .map(<#rust as ::ts_api::ValueType<#n>>::from_parts)
                     .ok_or_else(#bad)
             }
         }
@@ -1810,7 +1810,7 @@ fn rec_parse_value(t: &RecTy, key: &str, x: TokenStream2, args: &Args) -> TokenS
             let parse = enum_fn(&args.enums[*i].ts, "parse");
             quote!(#x.as_str().and_then(#parse).ok_or_else(#bad))
         }
-        RecTy::Pairs => quote!(::platypus_api::json_pairs(#x).ok_or_else(#bad)),
+        RecTy::Pairs => quote!(::ts_api::json_pairs(#x).ok_or_else(#bad)),
         RecTy::Record(i) => {
             let from = format_ident!("__from_json_{}", args.records[*i].ts);
             quote!(#from(#x))
@@ -1843,14 +1843,14 @@ fn rec_parse_value(t: &RecTy, key: &str, x: TokenStream2, args: &Args) -> TokenS
             #x.as_array()
                 .and_then(|a| {
                     a.iter()
-                        .map(::platypus_api::serde_json::Value::as_f64)
+                        .map(::ts_api::serde_json::Value::as_f64)
                         .collect::<::std::option::Option<::std::vec::Vec<f64>>>()
                 })
                 .ok_or_else(#bad)
         },
         RecTy::Handle(i) => {
             let rust = format_ident!("{}", args.handles[*i].1);
-            quote!(#x.as_u64().map(<#rust as ::platypus_api::Handle>::from_raw).ok_or_else(#bad))
+            quote!(#x.as_u64().map(<#rust as ::ts_api::Handle>::from_raw).ok_or_else(#bad))
         }
         RecTy::Handles(i) => {
             let rust = format_ident!("{}", args.handles[*i].1);
@@ -1858,7 +1858,7 @@ fn rec_parse_value(t: &RecTy, key: &str, x: TokenStream2, args: &Args) -> TokenS
                 #x.as_array()
                     .and_then(|a| {
                         a.iter()
-                            .map(|y| y.as_u64().map(<#rust as ::platypus_api::Handle>::from_raw))
+                            .map(|y| y.as_u64().map(<#rust as ::ts_api::Handle>::from_raw))
                             .collect::<::std::option::Option<::std::vec::Vec<_>>>()
                     })
                     .ok_or_else(#bad)
@@ -1888,7 +1888,7 @@ fn rec_parse_field(t: &RecTy, key: &str, args: &Args) -> TokenStream2 {
                 let v = rec_parse_value(inner, key, quote!(x), args);
                 quote! {
                     match obj.get(#key) {
-                        ::std::option::Option::None | ::std::option::Option::Some(::platypus_api::serde_json::Value::Null) => {
+                        ::std::option::Option::None | ::std::option::Option::Some(::ts_api::serde_json::Value::Null) => {
                             ::std::result::Result::Ok(::std::option::Option::None)
                         }
                         ::std::option::Option::Some(x) => #v.map(::std::option::Option::Some),
@@ -1912,10 +1912,10 @@ fn rec_parse_field(t: &RecTy, key: &str, args: &Args) -> TokenStream2 {
 
 fn kind_tokens(t: Tag) -> TokenStream2 {
     match t {
-        Tag::Static => quote!(::platypus_api::FnKind::Static),
-        Tag::Method => quote!(::platypus_api::FnKind::Method),
-        Tag::Get => quote!(::platypus_api::FnKind::Get),
-        Tag::Set => quote!(::platypus_api::FnKind::Set),
+        Tag::Static => quote!(::ts_api::FnKind::Static),
+        Tag::Method => quote!(::ts_api::FnKind::Method),
+        Tag::Get => quote!(::ts_api::FnKind::Get),
+        Tag::Set => quote!(::ts_api::FnKind::Set),
     }
 }
 
@@ -1925,7 +1925,7 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
     let Some((_, items)) = &module.content else {
         return Err(syn::Error::new(
             module.span(),
-            "#[platypus_api] needs an inline module: `pub mod name { ... }`",
+            "#[ts_api] needs an inline module: `pub mod name { ... }`",
         ));
     };
     // The module's items as they will be emitted: `#[property]` markers are ours, not Rust's.
@@ -2059,10 +2059,10 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
                 .iter()
                 .map(|(n, t)| {
                     let ty = scalar_manifest(t);
-                    quote!(::platypus_api::ValueField { name: #n, ty: #ty })
+                    quote!(::ts_api::ValueField { name: #n, ty: #ty })
                 })
                 .collect();
-            quote!(::platypus_api::ValueDef { name: #ts, fields: &[ #( #fields ),* ] })
+            quote!(::ts_api::ValueDef { name: #ts, fields: &[ #( #fields ),* ] })
         })
         .collect();
 
@@ -2093,7 +2093,7 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
         if has_receiver {
             let ts = &a.class.as_ref().expect("receiver implies a class").0;
             pnames.push("this".into());
-            ptys.push(quote!(::platypus_api::Ty::Handle(#ts)));
+            ptys.push(quote!(::ts_api::Ty::Handle(#ts)));
         }
         if let Some((_, k)) = &a.value_recv {
             pnames.push("this".into());
@@ -2168,13 +2168,13 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
             None => quote!(::std::option::Option::None),
         };
         let entry = quote! {
-            ::platypus_api::Function {
+            ::ts_api::Function {
                 kind: #kind,
                 name: #js_name,
                 rust_name: #rust_name,
                 symbol: #symbol,
                 doc: #doc,
-                params: &[ #( ::platypus_api::Param { name: #pnames, ty: #ptys, optional: #popts, default: #pdefaults, rest: #prests, doc: #pdocs, ts: #pts } ),* ],
+                params: &[ #( ::ts_api::Param { name: #pnames, ty: #ptys, optional: #popts, default: #pdefaults, rest: #prests, doc: #pdocs, ts: #pts } ),* ],
                 ret: #ret_m,
                 options_after: #options_after,
                 nullable: #nullable,
@@ -2211,7 +2211,7 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
         let receiver = if has_receiver {
             abi_params.push(quote!(this: u64));
             let (_, rust) = a.class.as_ref().expect("receiver implies a class");
-            Some(quote!(<#rust as ::platypus_api::Handle>::from_raw(this)))
+            Some(quote!(<#rust as ::ts_api::Handle>::from_raw(this)))
         } else {
             None
         };
@@ -2242,7 +2242,7 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
                 pub unsafe extern "C" fn #symbol_ident( #( #abi_params, )* out: *mut #part ) {
                     let parts = match #call {
                         ::std::option::Option::Some(v) => {
-                            <#rust as ::platypus_api::ValueType<#n>>::to_parts(v)
+                            <#rust as ::ts_api::ValueType<#n>>::to_parts(v)
                         }
                         ::std::option::Option::None => [f64::NAN; #n],
                     };
@@ -2261,7 +2261,7 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
                 /// `out` points to room for the value's fields.
                 #[unsafe(no_mangle)]
                 pub unsafe extern "C" fn #symbol_ident( #( #abi_params, )* out: *mut #part ) {
-                    let parts = <#rust as ::platypus_api::ValueType<#n>>::to_parts(#call);
+                    let parts = <#rust as ::ts_api::ValueType<#n>>::to_parts(#call);
                     #( unsafe { *out.add(#idx) = parts[#idx] as #part; } )*
                 }
             });
@@ -2276,11 +2276,11 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
                 #[unsafe(no_mangle)]
                 pub unsafe extern "C" fn #symbol_ident( #( #abi_params, )* out_len: *mut i64 ) -> *const u8 {
                     let text = #to(&#call).to_string();
-                    unsafe { ::platypus_api::return_string(text, out_len) }
+                    unsafe { ::ts_api::return_string(text, out_len) }
                 }
             });
         } else if let Kind::Record(i) = &a.ret {
-            // A record result: its numbers stay in `platypus_api`'s per-thread buffer.
+            // A record result: its numbers stay in `ts_api`'s per-thread buffer.
             let flat = format_ident!("__flat_{}", args.records[*i].ts);
             shims.push(quote! {
                 #[unsafe(no_mangle)]
@@ -2289,15 +2289,15 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
                     let mut out = ::std::vec::Vec::new();
                     let mut strs = ::std::vec::Vec::new();
                     #flat(&r, &mut out, &mut strs);
-                    ::platypus_api::return_flat(out);
-                    ::platypus_api::return_strings(strs);
+                    ::ts_api::return_flat(out);
+                    ::ts_api::return_strings(strs);
                 }
             });
         } else if let Kind::List(inner) = &a.ret
             && matches!(**inner, Kind::Str(_))
         {
-            // A list of strings: the strings stay in `platypus_api`'s per-thread list and the caller
-            // reads them with `platypus_api_result_str(i)`; the shim returns how many there are.
+            // A list of strings: the strings stay in `ts_api`'s per-thread list and the caller
+            // reads them with `ts_api_result_str(i)`; the shim returns how many there are.
             let unsafe_kw = if a.params.iter().any(|(_, k)| {
                 matches!(
                     k,
@@ -2322,7 +2322,7 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
                 pub #unsafe_kw extern "C" fn #symbol_ident( #( #abi_params ),* ) -> u32 {
                     let items: ::std::vec::Vec<::std::string::String> = #call;
                     let count = items.len() as u32;
-                    ::platypus_api::return_strings(items);
+                    ::ts_api::return_strings(items);
                     count
                 }
             });
@@ -2334,7 +2334,7 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
                     let v = &args.values[*i];
                     let n = v.fields.len();
                     let rust = &v.rust;
-                    quote!(out.extend_from_slice(&<#rust as ::platypus_api::ValueType<#n>>::to_parts(*item));)
+                    quote!(out.extend_from_slice(&<#rust as ::ts_api::ValueType<#n>>::to_parts(*item));)
                 }
                 Kind::Record(i) => {
                     let flat = format_ident!("__flat_{}", args.records[*i].ts);
@@ -2344,7 +2344,7 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
                     let index = enum_fn(&args.enums[*i].ts, "index");
                     quote!(out.push(#index(*item) as f64);)
                 }
-                Kind::Handle(..) => quote!(ids.push(::platypus_api::Handle::to_raw(*item));),
+                Kind::Handle(..) => quote!(ids.push(::ts_api::Handle::to_raw(*item));),
                 Kind::F64 => quote!(out.push(*item);),
                 _ => unreachable!("classify only builds lists of values, enums and records"),
             };
@@ -2378,9 +2378,9 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
                     for item in &items {
                         #push
                     }
-                    ::platypus_api::return_flat(out);
-                    ::platypus_api::return_strings(strs);
-                    ::platypus_api::return_ids(ids);
+                    ::ts_api::return_flat(out);
+                    ::ts_api::return_strings(strs);
+                    ::ts_api::return_ids(ids);
                     items.len() as u32
                 }
             });
@@ -2393,8 +2393,8 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
                 #[unsafe(no_mangle)]
                 pub unsafe extern "C" fn #symbol_ident( #( #abi_params, )* out_len: *mut i64 ) -> *const u8 {
                     let items = #call;
-                    let text = ::platypus_api::serde_json::Value::Array(items.iter().map(#to).collect()).to_string();
-                    unsafe { ::platypus_api::return_string(text, out_len) }
+                    let text = ::ts_api::serde_json::Value::Array(items.iter().map(#to).collect()).to_string();
+                    unsafe { ::ts_api::return_string(text, out_len) }
                 }
             });
         } else if let Kind::OptRecord(i) = &a.ret {
@@ -2409,7 +2409,7 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
                         ::std::option::Option::Some(r) => #to(&r).to_string(),
                         ::std::option::Option::None => ::std::string::String::from("null"),
                     };
-                    unsafe { ::platypus_api::return_string(text, out_len) }
+                    unsafe { ::ts_api::return_string(text, out_len) }
                 }
             });
         } else if let Kind::Opt(inner) = &a.ret
@@ -2421,18 +2421,18 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
                 /// `out_len` is valid for a write.
                 #[unsafe(no_mangle)]
                 pub unsafe extern "C" fn #symbol_ident( #( #abi_params, )* out_len: *mut i64 ) -> *const u8 {
-                    unsafe { ::platypus_api::return_string_opt(#call, out_len) }
+                    unsafe { ::ts_api::return_string_opt(#call, out_len) }
                 }
             });
         } else if let Kind::Str(_) = &a.ret {
-            // A string result: the text stays in `platypus_api`'s per-thread buffer and the caller
+            // A string result: the text stays in `ts_api`'s per-thread buffer and the caller
             // copies it into a script string at once.
             shims.push(quote! {
                 /// # Safety
                 /// `out_len` is valid for a write.
                 #[unsafe(no_mangle)]
                 pub unsafe extern "C" fn #symbol_ident( #( #abi_params, )* out_len: *mut i64 ) -> *const u8 {
-                    unsafe { ::platypus_api::return_string(#call, out_len) }
+                    unsafe { ::ts_api::return_string(#call, out_len) }
                 }
             });
         } else {
@@ -2492,9 +2492,8 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
         } else {
             e.doc.clone()
         };
-        enum_defs.push(
-            quote!(::platypus_api::EnumDef { name: #ts, doc: #doc, values: &[ #( #names ),* ] }),
-        );
+        enum_defs
+            .push(quote!(::ts_api::EnumDef { name: #ts, doc: #doc, values: &[ #( #names ),* ] }));
         let parse = enum_fn(ts, "parse");
         let name = enum_fn(ts, "name");
         let index = enum_fn(ts, "index");
@@ -2547,7 +2546,7 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
             #[unsafe(no_mangle)]
             pub unsafe extern "C" fn #name_sym(i: i32, out_len: *mut i64) -> *const u8 {
                 let text = #from_index(i).map_or("", #name);
-                unsafe { ::platypus_api::return_string(text, out_len) }
+                unsafe { ::ts_api::return_string(text, out_len) }
             }
 
             /// `TypeName.parse(s)` for compiled code: the index of a script name, or -1.
@@ -2556,7 +2555,7 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
             /// `s` is a live script string (or null).
             #[unsafe(no_mangle)]
             pub unsafe extern "C" fn #parse_sym(s: *const u8) -> i32 {
-                #parse(&unsafe { ::platypus_api::script_str(s) }).map_or(-1, #index)
+                #parse(&unsafe { ::ts_api::script_str(s) }).map_or(-1, #index)
             }
         });
     }
@@ -2614,7 +2613,7 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
                 Err(e) => return Err(syn::Error::new(fname.span(), e)),
             };
             let mty = rec_ty_manifest(&ty, &args);
-            fields.push(quote!(::platypus_api::RecordField { name: #key, ty: #mty, doc: #doc }));
+            fields.push(quote!(::ts_api::RecordField { name: #key, ty: #mty, doc: #doc }));
             flat_ok &= rec_flat(&ty);
             if rec_flat(&ty) {
                 flat_stmts.push(rec_flat_stmt(&ty, quote!(r.#fname), &args));
@@ -2639,7 +2638,7 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
         // The JSON forms: how a record travels as an argument or an optional result.
         record_items.push(quote! {
             #[allow(dead_code, unused_variables)]
-            fn #from_json(v: &::platypus_api::serde_json::Value) -> ::std::result::Result<#rust, ::std::string::String> {
+            fn #from_json(v: &::ts_api::serde_json::Value) -> ::std::result::Result<#rust, ::std::string::String> {
                 let ::std::option::Option::Some(obj) = v.as_object() else {
                     return ::std::result::Result::Err(::std::string::String::from("not an object"));
                 };
@@ -2647,14 +2646,14 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
             }
 
             #[allow(dead_code)]
-            fn #to_json(r: &#rust) -> ::platypus_api::serde_json::Value {
-                let mut m = ::platypus_api::serde_json::Map::new();
+            fn #to_json(r: &#rust) -> ::ts_api::serde_json::Value {
+                let mut m = ::ts_api::serde_json::Map::new();
                 #( #json_stmts )*
-                ::platypus_api::serde_json::Value::Object(m)
+                ::ts_api::serde_json::Value::Object(m)
             }
         });
         record_defs.push(
-            quote!(::platypus_api::RecordDef { name: #ts, doc: #rec_doc, fields: &[ #( #fields ),* ] }),
+            quote!(::ts_api::RecordDef { name: #ts, doc: #rec_doc, fields: &[ #( #fields ),* ] }),
         );
     }
     let module_doc = doc_of(&module.attrs);
@@ -2666,7 +2665,7 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
         .zip(&class_entries)
         .map(|(c, fs)| {
             let doc = class_docs.get(c).cloned().unwrap_or_default();
-            quote!(::platypus_api::ClassDef { name: #c, doc: #doc, functions: &[ #( #fs ),* ] })
+            quote!(::ts_api::ClassDef { name: #c, doc: #doc, functions: &[ #( #fs ),* ] })
         })
         .collect();
 
@@ -2679,8 +2678,8 @@ fn expand(attr: TokenStream2, item: TokenStream2) -> syn::Result<TokenStream2> {
             #(#out_items)*
 
             /// What this namespace exports to scripts.
-            pub const MANIFEST: ::platypus_api::Namespace = ::platypus_api::Namespace {
-                symbols: ::platypus_api::SymbolTable(platypus_symbols),
+            pub const MANIFEST: ::ts_api::Namespace = ::ts_api::Namespace {
+                symbols: ::ts_api::SymbolTable(platypus_symbols),
                 name: #ns,
                 doc: #module_doc,
                 like: #like,

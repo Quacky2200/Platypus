@@ -2013,9 +2013,9 @@ Research and design: [docs/research/networking-and-files.md](docs/research/netwo
           becomes module by module, QuickJS bindings from the same manifest). Answers recorded in its
           section 13 (all as recommended; the whole engine is ported to Rust; generics-as-intrinsics
           still open)
-    - [ ] `#[platypus_api]` + manifest: generate the `.d.ts`, `extern "C"` shims and QuickJS bindings from
+    - [ ] `#[ts_api]` + manifest: generate the `.d.ts`, `extern "C"` shims and QuickJS bindings from
           annotated Rust (replaces `__platypus_op`; speeds up QuickJS too)
-      - [x] First slice: `crates/platypus_api` + `platypus_api_macros`: scalars, bools and handles, manifest, `.d.ts`,
+      - [x] First slice: `crates/ts_api` + `ts_api_macros`: scalars, bools and handles, manifest, `.d.ts`,
             JSON, `extern "C"` shims, typed QuickJS bindings (`M9-API-01..06`); additive
       - [x] Value classes (`Vector3`) scalarised across the boundary (`M9-API-10..11`, `M9-TS-147..150`) and the engine context: a thread-local current world (`M9-API-07..09`)
       - [ ] Strings (done, `M9-API-21..22`), methods on handles (done, `M9-API-16..19`), value-class methods as intrinsics (done, `M9-API-20`), QuickJS bindings for values and strings (done, `M9-API-23..26`; handle classes in QuickJS open)
@@ -2045,7 +2045,7 @@ Research and design: [docs/research/networking-and-files.md](docs/research/netwo
     - [ ] Design note: what of React is used (components, state, effects, events, refs), signals-style
           effects versus a vdom diff, how the library compiles under `platypus_ts` (it must stay inside the
           typed subset), the native UI tree API (`platypus_ui` opcodes today), styles and CSS
-  - [ ] **Nothing left in TypeScript but generated types** (user request 2026-10-19): animation, scenes, math, physics and audio components, app/time/input ported to Rust behind `#[platypus_api]`; games without `node_modules`; plan awaiting review in `docs/research/platypus-native-engine.md` (**STOP**: order and the type-checking question)
+  - [ ] **Nothing left in TypeScript but generated types** (user request 2026-10-19): animation, scenes, math, physics and audio components, app/time/input ported to Rust behind `#[ts_api]`; games without `node_modules`; plan awaiting review in `docs/research/platypus-native-engine.md` (**STOP**: order and the type-checking question)
   - [ ] **Dev loop without Bun**: **STOP, design first.** Hot reload with the compiler as the watcher
     - [ ] Design note: Cranelift JIT in-process for development and AOT for release from the same IR,
           function-level swap, state kept through the `@property` reflection table, type checking via
@@ -2257,7 +2257,7 @@ Design: `docs/research/platypus-ui-inspector.md`. Opt-in at build time (`platypu
 - [x] **Tree queries:** `UiTree::inspect_pick` / `inspect` / `inspect_set_style` (matched rules with winning declarations, computed on demand; `M3-INS-01..03`).
 - [x] **Build flag (flag and bundle field):** `--add-ui-inspector` in `platypus-build` (`Options.ui_inspector`), `"uiInspector": true` in `game.pbundle`, read by `platypus-app`, which enables the API.
 - [ ] **Build flag (the rest):** compile the TSX inspector in only with the flag; warn when `package` is used with it.
-- [x] **`UiInspector` API (screen UI):** `#[platypus_api]` namespace with scalar getters over a per-frame snapshot, `select` / `expand` / `setStyle`; always declared, inert unless the host enables it (`M3-INS-05..06`). Still to do: `setClasses`, a compiled-code test through the facade, and the TypeScript `d.ts` check (`generated_dts`).
+- [x] **`UiInspector` API (screen UI):** `#[ts_api]` namespace with scalar getters over a per-frame snapshot, `select` / `expand` / `setStyle`; always declared, inert unless the host enables it (`M3-INS-05..06`). Still to do: `setClasses`, a compiled-code test through the facade, and the TypeScript `d.ts` check (`generated_dts`).
 - [ ] **Tree ids:** every call names a tree (screen UI, world panels, editor-hosted game UI).
 - [x] **Overlay (first version):** `tools/platypus_build/inspector/overlay.tsx`, appended by `--add-ui-inspector` and mounted in a second screen root (`createRoot(9000001)`, `INSPECTOR_TARGET`); F12 toggles (off by default), F9 pins the hovered node; outline (padding box green, border box blue), label, and a card of matching rules with overridden declarations struck through. `M3-INS-08`. **Not seen in a window yet** (compiles; needs a manual run).
 - [x] **Edit mode (first version):** F8 pins the hovered node and makes the card editable: a field per declaration and per `element.style` line (Enter commits, Escape reverts, empty removes), a `×` to drop an override, and an add-property row. Edits are inline overrides of the pinned node (a stylesheet rule's own text is not changed). Compiles; not seen in a window yet.
@@ -2304,12 +2304,23 @@ Direction: **no JSX / TSX source editing** (too likely to go wrong). What is wan
 - [ ] **Standalone UI editor app** (`ui-editor/`, UI-only, GLES tier): the tree and the style editor over a game built with the inspector (a local socket, or later the canvas UI element).
 - [ ] **VS Code extension for TS execution / debugging:** with the `ts-debugger` session (DAP server and attach exist); not part of this work.
 
+## web-ui: TypeScript and UI as a library (2026-11-05, branch `web-ui-split`)
+
+Design and decisions: `docs/research/web-ui-split.md`. The library lives in `..\web-ui` (its own repo); Platypus becomes a web-ui app.
+
+- [x] **Rename:** `platypus_api` -> `ts_api` (crates `ts_api`, `ts_api_macros`; `#[ts_api(..)]`; `ts_api_result*`).
+- [ ] **Host extension:** `web_ui_ts::Extension` (rewrites, prelude, host classes, build-time facts); the component lowering, the `Component` prelude and the renderer tier become Platypus's extension; `host.rs` leaves the runtime for `platypus_components`.
+- [ ] **Core and render split:** `web_ui_core` from `platypus_core`; `platypus_render` keeps `world/` over `web_ui_render` (`gpu.rs`, `surface.rs`, `offscreen.rs`, `ui/`).
+- [ ] **Move:** the TS and UI crates to `..\web-ui`; Platypus names them once in `[workspace.dependencies]`.
+- [ ] **Facade:** `web_ui::App` (Rust), `web_ui_register` / `web_ui_start` (C, `web_ui.h`), cdylib on Linux and static elsewhere; imported CSS embedded in the bundle; `examples/hello-rust`, `examples/hello-c`.
+- [ ] **Docs, CLAUDE.md, full sweep.**
+
 ## QuickJS removed (2026-10-28; was "deprecated; removal plan", 2026-10-22)
 
 QuickJS is gone from Platypus: `platypus_app` runs only compiled games and refuses a QuickJS bundle with a pointer to
 `platypus-build build` (`--force` no longer exists, `M9-APP-01`, `-02`). Done:
 - [x] Delete `crates/platypus_script` (the QuickJS backend, `ComponentHost`) and the QuickJS paths of `platypus_app` (`load_bundles`, `dev_vendor`, bundle reload, `__platypus_*` pumps; `setUiScale` came back natively as `UiScale`, 2026-10-28).
-- [x] Delete `crates/platypus_native` (`register_quickjs`, `install`) and the `quickjs` flag and `qjs.rs` of `platypus_api`.
+- [x] Delete `crates/platypus_native` (`register_quickjs`, `install`) and the `quickjs` flag and `qjs.rs` of `ts_api`.
 - [x] Delete `js/engine`, `js/react`, the JS fixtures of `tests/fixtures` and the `bun run build*` / `scripts/dev.ts` / `scripts/assets.ts` bun paths (root `package.json` keeps only `typecheck` and `screenshots`).
 - [x] Rust integration tests that used ScriptRuntime/QuickJS as a library: deleted with their crates (the removed test IDs are marked in TESTS.md).
 - [x] The `platypus_editor` binary and its host side (`editor.rs`, `project.rs`, the editor log capture and `editor.*` ops) are removed; `editor/` and `js/editor-ui` sources stay.
@@ -2354,7 +2365,7 @@ Left:
 
 Most of this branch (about 300 commits) was written by agents and checked by tests, ratchets and snapshots, which catch regressions but not design drift. Once `claude/recursing-wright-856ffa` is merged into `main` (the user decides squash or merge as-is), do a human-readable review pass:
 - [ ] **Run `/code-review`** on the merged range (start at `high` effort, then `xhigh` on the compiler and engine crates) and triage the findings into TODO items.
-- [ ] **Read-only review agents per area**, one report each (no edits): `tools/platypus_ts` (the compiler: `lower/expr.rs` is about 5,800 lines, split candidates), `tools/platypus_ts_rt` (GC, maps, JSON: unsafe code and rooting), `crates/platypus_api_macros` (3,900 lines), `crates/platypus_app` (`main.rs` 3,300 lines, `native.rs`, `render_sync.rs`, `windows.rs`), `crates/platypus_ui` / `platypus_ui_native`, `crates/platypus_render_api` (generated registries), packs and the virtual file system, `platypus-build`.
+- [ ] **Read-only review agents per area**, one report each (no edits): `tools/platypus_ts` (the compiler: `lower/expr.rs` is about 5,800 lines, split candidates), `tools/platypus_ts_rt` (GC, maps, JSON: unsafe code and rooting), `crates/ts_api_macros` (3,900 lines), `crates/platypus_app` (`main.rs` 3,300 lines, `native.rs`, `render_sync.rs`, `windows.rs`), `crates/platypus_ui` / `platypus_ui_native`, `crates/platypus_render_api` (generated registries), packs and the virtual file system, `platypus-build`.
 - [ ] **Look for design drift and duplication:** the same logic in the QuickJS and native paths, copies of the same table, helpers that grew into modules, `#[allow]` without a reason, `unsafe` blocks without a safety comment, `TODO`/`FIXME` left in code, dead code left behind by the QuickJS removal.
 - [ ] **Security-minded pass** (`/security-review`): asset path handling (`resolve_asset`, the unsafe-paths design), pack reading (`.ppk`), JSON parsing, the `prebuild` command of `project.json`, anything that runs external commands.
 - [ ] **Split the largest files** the review flags (new modules rather than growing them), and keep the notes in `CLAUDE.md` ("Notes for agents") current.

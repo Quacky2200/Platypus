@@ -54,7 +54,7 @@ written found these differences; the compiler was changed for the first, the oth
    call still needs an annotation.
 2. **`Color`** (`color = Color.white`) is not part of the compiled engine API: only `Scene`'s `Vector3` and `Quaternion` are.
    The bench copy drops that field. For a real swap-out `Color` (and `Gizmos`, `Camera`, `input`, `Time`, `audio`, ...) must be
-   declared with `#[platypus_api]` like `Scene`; until then a component using them does not compile.
+   declared with `#[ts_api]` like `Scene`; until then a component using them does not compile.
 3. **`import ... from "@platypus/engine"`** is accepted and ignored by platypus_ts; the names must exist in the manifest. In QuickJS the
    import is real. (Nothing to change in the source.)
 4. **Value semantics**: `Vector3` is an immutable value class in compiled code (`v.x = 1` would be an error); the engine's
@@ -68,7 +68,7 @@ sequences (not seeded the same), and floating-point formatting (`toString` of nu
 
 ## What to do next for the swap-out
 
-- Declare the engine classes the demos use (`Color`, `Gizmos`, `Camera`, `Time`, `input`) with `#[platypus_api]`, then compile
+- Declare the engine classes the demos use (`Color`, `Gizmos`, `Camera`, `Time`, `input`) with `#[ts_api]`, then compile
   the whole `SineDemo` component (it extends `Component`, uses `@property`, `register`), not just the curve.
 - Run the same component under both backends from one bundle: QuickJS through the typed `register_quickjs` bindings,
   compiled through the shims (the Scene namespace already has both, `M9-API-26`).

@@ -6,9 +6,9 @@
 //! game's code runs; scripts read them, and their few writes (`targetFrameRate`,
 //! `runInBackground`, `quit()`) come back to the host through [`take_requests`].
 
-use platypus_api::platypus_api;
 use std::cell::RefCell;
 use std::sync::OnceLock;
+use ts_api::ts_api;
 
 /// What `Application.crash(message, plain)` runs: the host's crash report and dialog. It ends the
 /// process.
@@ -143,8 +143,8 @@ struct State {
     /// The host's frame counter (the `--fps` overlay's number); 0 before its first window.
     fps: f64,
     requests: Vec<Request>,
-    focus_listeners: platypus_api::callback::Listeners<(bool,)>,
-    video_listeners: platypus_api::callback::Listeners<()>,
+    focus_listeners: ts_api::callback::Listeners<(bool,)>,
+    video_listeners: ts_api::callback::Listeners<()>,
 }
 
 thread_local! {
@@ -188,7 +188,7 @@ pub fn set_focus(focused: bool, paused: bool) -> FocusChange {
         (change, s.focus_listeners.snapshot())
     });
     if change.focus_changed {
-        platypus_api::callback::emit(&cbs, (focused,));
+        ts_api::callback::emit(&cbs, (focused,));
     }
     change
 }
@@ -216,7 +216,7 @@ pub fn reset() {
 /// `onVideoSettingsChanged` listeners.
 pub fn video_settings_changed() {
     let cbs = STATE.with(|s| s.borrow().video_listeners.snapshot());
-    platypus_api::callback::emit(&cbs, ());
+    ts_api::callback::emit(&cbs, ());
 }
 
 fn app<R>(f: impl FnOnce(&AppInfo) -> R) -> R {
@@ -227,7 +227,7 @@ fn sys<R>(f: impl FnOnce(&SystemInfo) -> R) -> R {
     STATE.with(|s| f(&s.borrow().system))
 }
 
-#[platypus_api(namespace = "Application")]
+#[ts_api(namespace = "Application")]
 pub mod application_api {
     use super::{Request, STATE, app, sys};
 
@@ -356,7 +356,7 @@ pub mod application_api {
     /// Calls `f(focused)` when the window gains or loses focus; returns a token for
     /// `offFocusChanged` (the TypeScript returned an unsubscribe function).
     #[subscription(off = "off_focus_changed")]
-    pub fn on_focus_changed(f: platypus_api::Callback<(bool,)>) -> u32 {
+    pub fn on_focus_changed(f: ts_api::Callback<(bool,)>) -> u32 {
         STATE.with(|s| s.borrow_mut().focus_listeners.add(f))
     }
 
@@ -378,7 +378,7 @@ pub mod application_api {
     /// Calls `f()` after the player applied new settings in `showVideoSettings`'s dialog;
     /// returns a token for `offVideoSettingsChanged`.
     #[subscription(off = "off_video_settings_changed")]
-    pub fn on_video_settings_changed(f: platypus_api::Callback<()>) -> u32 {
+    pub fn on_video_settings_changed(f: ts_api::Callback<()>) -> u32 {
         STATE.with(|s| s.borrow_mut().video_listeners.add(f))
     }
 
@@ -422,7 +422,7 @@ pub mod application_api {
 }
 
 /// The machine. GPU and screen details arrive once the window opens.
-#[platypus_api(namespace = "SystemInfo")]
+#[ts_api(namespace = "SystemInfo")]
 pub mod system_info_api {
     use super::sys;
 

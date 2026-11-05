@@ -43,7 +43,7 @@ measured before that and are kept as the record of the move.
 
 ### The engine API, declared once
 
-- **`#[platypus_api]`** on a Rust module (`crates/platypus_api_macros`) generates the manifest, the TypeScript declarations,
+- **`#[ts_api]`** on a Rust module (`crates/ts_api_macros`) generates the manifest, the TypeScript declarations,
   `extern "C"` shims for compiled code (it also generated QuickJS bindings until they were removed). Math (`platypus_math`), engine services
   (`platypus_engine_api`), scenes (`platypus_scenes`), physics (`platypus_physics_api`) and rendering data (`platypus_render_api`) are
   declared this way. See [platypus-api.md](platypus-api.md).

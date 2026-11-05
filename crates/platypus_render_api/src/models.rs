@@ -51,7 +51,7 @@ struct State {
 
 type ModelWaiter = (
     u32,
-    Callback<(platypus_api::callback::HandleArg<ModelRef>,)>,
+    Callback<(ts_api::callback::HandleArg<ModelRef>,)>,
     Callback<(String,)>,
 );
 
@@ -292,7 +292,7 @@ pub fn model_loaded(m: ModelRef, description: Option<&str>) {
     });
     for (_, resolve, reject) in waiting {
         if parsed.is_some() {
-            resolve.call((platypus_api::callback::HandleArg(m),));
+            resolve.call((ts_api::callback::HandleArg(m),));
         } else {
             reject.call(("model failed to load".to_string(),));
         }
@@ -494,7 +494,7 @@ fn build(m: ModelRef, root: ObjectId, colliders: &str) {
     }
 }
 
-#[platypus_api(
+#[ts_api(
     namespace = "Model", handles(Model = ModelRef, GameObject = ObjectId, Mesh = MeshRef, Material = MaterialRef,
         AnimationClip = ClipRef),
     values(Vector3 = V3 [x: f64, y: f64, z: f64], Quaternion = Q [x: f64, y: f64, z: f64, w: f64])
@@ -508,12 +508,12 @@ pub mod model_api {
         #[promise]
         pub fn when_loaded(
             self,
-            resolve: Callback<(platypus_api::callback::HandleArg<ModelRef>,)>,
+            resolve: Callback<(ts_api::callback::HandleArg<ModelRef>,)>,
             reject: Callback<(String,)>,
         ) {
             match with_model(self, |d| (d.loaded, d.failed)) {
                 Some((_, true)) => reject.call(("model failed to load".to_string(),)),
-                Some((true, _)) => resolve.call((platypus_api::callback::HandleArg(self),)),
+                Some((true, _)) => resolve.call((ts_api::callback::HandleArg(self),)),
                 Some(_) => st(|s| s.waiters.push((self.0, resolve, reject))),
                 None => reject.call(("the model was freed".to_string(),)),
             }

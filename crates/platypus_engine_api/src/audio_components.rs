@@ -13,11 +13,11 @@ use crate::audio::{
     self, BusRef, EmitterRef, PlayOptions, PlaybackRef, SoundRef, create_emitter, move_emitter,
     play_sound, remove_track, set_playback,
 };
-use platypus_api::{Handle, platypus_api};
 use platypus_math::V3;
 use platypus_scene::ObjectId;
 use platypus_scene::api::with_scene;
 use std::cell::RefCell;
+use ts_api::{Handle, ts_api};
 
 macro_rules! numbered_handle {
     ($(#[$m:meta])* $name:ident) => {
@@ -420,7 +420,7 @@ fn none_object() -> ObjectId {
     }
 }
 
-#[platypus_api(
+#[ts_api(
     namespace = "AudioSource", handles(
         AudioSource = AudioSourceRef,
         GameObject = ObjectId,
@@ -699,7 +699,7 @@ pub(crate) fn finished_temp(ids: &[PlaybackRef]) {
     });
 }
 
-#[platypus_api(
+#[ts_api(
     namespace = "AudioListener", handles(AudioListener = AudioListenerRef, GameObject = ObjectId)
 )]
 pub mod audio_listener_api {

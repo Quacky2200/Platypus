@@ -1,10 +1,10 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Handle classes in `#[platypus_api]`: methods, properties and statics declared in ordinary `impl`
+//! Handle classes in `#[ts_api]`: methods, properties and statics declared in ordinary `impl`
 //! blocks of the handle's Rust type. IDs are in TESTS.md (M9-API-*).
-use platypus_api::{FnKind, Handle, Ty, platypus_api};
 use std::cell::RefCell;
+use ts_api::{FnKind, Handle, Ty, ts_api};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ThingId(pub u64);
@@ -33,7 +33,7 @@ thread_local! {
     static HP: RefCell<Vec<f64>> = const { RefCell::new(Vec::new()) };
 }
 
-#[platypus_api(namespace = "Things", handles(Thing = ThingId, Part = PartId))]
+#[ts_api(namespace = "Things", handles(Thing = ThingId, Part = PartId))]
 pub mod things {
     use super::{HP, PartId, ThingId};
 

@@ -10,11 +10,11 @@
 use crate::comp::{
     self, ColShape, Data, Jt, RopeD, ShapeTag, with_col, with_comp, with_joint, with_rb, with_rope,
 };
-use platypus_api::Handle;
 use platypus_kinds::{Kind, Props};
 use platypus_math::{V2, V3};
 use platypus_scene::ObjectId;
 use serde_json::{Map, Value, json};
+use ts_api::Handle;
 
 const CLASSES: [&str; 18] = [
     "Rigidbody",

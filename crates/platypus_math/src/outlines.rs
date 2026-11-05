@@ -8,7 +8,7 @@
 
 use crate::jsnum;
 use crate::math::{V2, v2};
-use platypus_api::platypus_api;
+use ts_api::ts_api;
 
 /// Degrees to radians, as `Math.PI / 180` is in JavaScript.
 const DEG: f64 = 0.017453292519943295;
@@ -79,7 +79,7 @@ fn or(n: f64, fallback: f64) -> f64 {
 /// Outlines for `LineRenderer2D.points` and fills: y up, angles in degrees counter-clockwise from
 /// +x (GDI's y points down, so its clockwise angles come out mirrored). Closed shapes do not
 /// repeat their first point: set the renderer's `loop` (a `fillColor` always closes the shape).
-#[platypus_api(namespace = "Shapes", like, values(Vector2 = V2 [x: f64, y: f64]))]
+#[ts_api(namespace = "Shapes", like, values(Vector2 = V2 [x: f64, y: f64]))]
 pub mod shapes_api {
     use super::*;
 

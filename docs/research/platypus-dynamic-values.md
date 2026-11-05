@@ -81,13 +81,13 @@ Per-struct generated dispatch functions in a new `lower/dyn_tables.rs`, register
 - **Strings:** template strings, `String(x)`, `x + ""` -> `ts_rt_dyn_to_str_gc` with JS `ToString` (arrays join with `,`, objects `[object Object]` or their own `toString`, functions fixed text).
 - **JSON:** `JSON.parse(s)` untyped or `as any/unknown` -> `ts_rt_json_parse_dyn_gc` (same JSC-compatible parser, dyn builder); typed contexts keep today's validating parse (Q10). `JSON.stringify(any, replacer?, space)` -> `ts_rt_json_stringify_dyn_gc` (`REC` in JS key order, arrays by elem kind, structs via `dynkeys`+`dynget` with `toJSON` dyncall, undefined/functions skipped; traversal stack rooted in `Heap.temps`). Descriptor code 11 (`any`); desc 7 stringifies a `REC` map as its entries (fixes today's `{}` for `Record<string, V>`).
 - **`instanceof` on `any`:** program classes via `itables`; `Array`/`Map`/`Set`/`RegExp`/`Date`/`Error` header or class checks. `Array.isArray(any)` is a header test.
-- **Exceptions:** `throw v` accepts any type; `catch (e)`, `catch (e: unknown)`, `catch (e: any)` bind `Any` (`stmt.rs:606`); `(e as Error).message` is a checked unbox (1 load + 1 table byte); prelude `__uncaught(e: unknown)` uses `String(e)`. Host paths (`host.rs:700,763`, `platypus_api/src/callback.rs:190`) only take/drop the exception; the app's uncaught logging formats non-Error values with `ts_rt_dyn_to_str`.
+- **Exceptions:** `throw v` accepts any type; `catch (e)`, `catch (e: unknown)`, `catch (e: any)` bind `Any` (`stmt.rs:606`); `(e as Error).message` is a checked unbox (1 load + 1 table byte); prelude `__uncaught(e: unknown)` uses `String(e)`. Host paths (`host.rs:700,763`, `ts_api/src/callback.rs:190`) only take/drop the exception; the app's uncaught logging formats non-Error values with `ts_rt_dyn_to_str`.
 
 ## 3. Interop
 
 - **`any` -> typed parameter/return/field:** checked unbox; mismatch is a `TypeError` at the boundary (TS is unchecked here; unchecked wrong pointer types are memory corruption in native code, Q1). A plain dynamic object passed where an interface goes is copied by name.
 - **Typed -> `any`:** boxing, free for pointers. `T[]` -> `any` aliases; `T[]` -> `any[]` is a boxing copy (Q8); a struct -> `any` aliases.
-- **Native `#[platypus_api]` calls** take only typed parameters; an `any` argument gets a checked unbox to the manifest's script type (`coerce_ext`). No `any` type is added to the manifest. `console.log`/`Debug.log` of `any` use `ts_rt_dyn_inspect_gc` (a bun-like subset).
+- **Native `#[ts_api]` calls** take only typed parameters; an `any` argument gets a checked unbox to the manifest's script type (`coerce_ext`). No `any` type is added to the manifest. `console.log`/`Debug.log` of `any` use `ts_rt_dyn_inspect_gc` (a bun-like subset).
 - **Handles:** boxed in `HDR_HANDLE`; `===` compares ids; dynamic member access uses generated `H$dynget`/`H$dyncall` per boxed handle class (via `call_ext_fn`); unboxing checks the class index.
 - **React/UI:** state slots may hold dyn words. `Record<string, unknown>`/`any` where a `PlatypusStyle` goes gets a prelude conversion `__style_of_dyn(r): PlatypusStyle` written in TS over `__se_num`/`__se_str` (`ui_dts.rs:343`), keeping `examples/arcade` working (Q3).
 
@@ -103,7 +103,7 @@ One agent and one commit group each. Each phase adds `tools/platypus_ts_tests/be
 - **P3 calls:** trampolines, `DynCall`, `dyncall` tables, `any` -> `Fn(S)` adapters, `dynmethods.rs` (push, map, filter, forEach, join, slice, indexOf, includes, split, trim, toFixed, get/set/has, ...), `for..of` over `any`.
 - **P4 operators with JS semantics:** arithmetic, `+` coercion, relational, loose `==`, `ToPrimitive`, `++`/`--`, compound, bitwise; a generated operator x operand-kind table compared to bun.
 - **P5 type-system polish:** user type guards; `object`/`{}`/`Function`; the `PlatypusStyle` conversion; `Promise<any>`/`Generator<any>`; generics with `any`; `noImplicitAny` messages; docs (`docs/platypus-ts.md`, `docs/differences.md`).
-- **P6 handles and natives:** `HDR_HANDLE`, handle-class dyn tables, checked `any` arguments to `#[platypus_api]`, `console.log(any)`, uncaught non-Error reporting in `platypus_app` (`main.rs:1027`, `windows.rs:878`).
+- **P6 handles and natives:** `HDR_HANDLE`, handle-class dyn tables, checked `any` arguments to `#[ts_api]`, `console.log(any)`, uncaught non-Error reporting in `platypus_app` (`main.rs:1027`, `windows.rs:878`).
 - **P7 performance (only if the benchmark asks):** per-site inline caches, per-name dyn vtables for method calls, hidden-class `REC` objects.
 
 ## 5. Cost and performance

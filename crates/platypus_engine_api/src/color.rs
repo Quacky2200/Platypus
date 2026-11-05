@@ -4,7 +4,7 @@
 //! `Color`: linear RGBA, as `js/engine`'s `Color` (same constants, same `hex` with the sRGB to
 //! linear conversion). `Color.white`, `Color.hex("#ff0000")`, `new Color(r, g, b, a)`, `c.lerp(d, t)`.
 
-use platypus_api::{ValueType, platypus_api};
+use ts_api::{ValueType, ts_api};
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Rgba {
@@ -75,7 +75,7 @@ fn channel_hex(v: f64) -> String {
     format!("{:02x}", (v.clamp(0.0, 1.0) * 255.0).round() as u8)
 }
 
-#[platypus_api(namespace = "Color", values(Color = Rgba [r: f64, g: f64, b: f64, a: f64]))]
+#[ts_api(namespace = "Color", values(Color = Rgba [r: f64, g: f64, b: f64, a: f64]))]
 pub mod color_api {
     use super::{Rgba, channel_hex, gamma_to_linear, linear_to_gamma, parse_hex, rgba};
 

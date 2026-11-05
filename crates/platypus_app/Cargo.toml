@@ -30,7 +30,7 @@ platypus_animation = { path = "../platypus_animation" }
 platypus_scenes = { path = "../platypus_scenes" }
 platypus_physics_api = { path = "../platypus_physics_api" }
 platypus_render_api = { path = "../platypus_render_api" }
-platypus_api = { path = "../platypus_api" }
+ts_api = { path = "../ts_api" }
 platypus_kinds = { path = "../platypus_kinds" }
 # The AOT compiler used as a JIT (its own workspace under tools/).
 platypus_ts = { path = "../../tools/platypus_ts" }

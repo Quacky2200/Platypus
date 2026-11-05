@@ -43,7 +43,7 @@ s&box has been in public development for years, and its APIs and engine have bee
 lot. Each rework costs the people building on top of it, and that's a real problem for a new
 engine that wants to be stable itself.
 
-Platypus's script API (`#[platypus_api]`) has stayed the same in our own testing. We want
+Platypus's script API (`#[ts_api]`) has stayed the same in our own testing. We want
 the same stability level that a long-lived Unreal release has, where a version is used for
 years because it doesn't need much change. We keep familiar Unity and s&box API names, which
 helps us avoid the urge to rename things for taste.

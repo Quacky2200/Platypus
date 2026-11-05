@@ -1,10 +1,10 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! `#[platypus_api]`: the manifest, the `.d.ts` and the `extern "C"` shims all come from one
+//! `#[ts_api]`: the manifest, the `.d.ts` and the `extern "C"` shims all come from one
 //! module of ordinary Rust. IDs are in TESTS.md (M9-API-*).
-use platypus_api::{Handle, Ty, platypus_api};
 use std::cell::Cell;
+use ts_api::{Handle, Ty, ts_api};
 
 /// A stand-in for the engine's generational object id.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -24,7 +24,7 @@ thread_local! {
     static LOG: Cell<u32> = const { Cell::new(0) };
 }
 
-#[platypus_api(namespace = "Demo", handles(GameObject = ObjectId))]
+#[ts_api(namespace = "Demo", handles(GameObject = ObjectId))]
 pub mod demo {
     use super::{LOG, ObjectId, SCALE};
 

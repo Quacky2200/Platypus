@@ -3,7 +3,7 @@
 Status: written 2026-10-22; **phases P0 and P1 are built** (see "Progress" at the end), the rest is the plan.
 
 **The rule (from the user):** no hand-written `.d.ts` anywhere. Everything `tsc` sees for a Platypus game is **generated**:
-from the `#[platypus_api]` manifests (`crates/platypus_api_macros` -> `Namespace::to_json` -> `tools/platypus_ts/src/manifest.rs` and
+from the `#[ts_api]` manifests (`crates/ts_api_macros` -> `Namespace::to_json` -> `tools/platypus_ts/src/manifest.rs` and
 `tools/platypus_ts/src/types_dts.rs` -> `types/platypus.d.ts`, written by `platypus-build types` and by every `platypus-build build` into
 `dist/.tsc/platypus.d.ts`), plus **compiler-owned tables in Rust** for the names that cannot be Rust classes (`setTimeout`,
 `register`, `@property`, the React hooks, ...). Engine logic has **one native Rust implementation** that QuickJS and compiled
@@ -30,14 +30,14 @@ Drift that already exists because of the hand-written copies (found while writin
 - `Shapes`, `Spline`, `SplineAnimate`, `Camera.screenToWorldPoint`, `Light.illuminanceAt` exist twice: `facade.ts` (compiled games)
   and `js/engine/src/{shapes,spline,rendering}.ts` (QuickJS games). The js/engine `SplineAnimate` saves its fields with `@property`;
   the facade one does not (TODO.md: "Facade chunk classes are not `@property` aware").
-- The manifests' JSON has **no doc comments** (`function_json` in `crates/platypus_api/src/lib.rs` drops `doc`, although `Function::doc`
+- The manifests' JSON has **no doc comments** (`function_json` in `crates/ts_api/src/lib.rs` drops `doc`, although `Function::doc`
   exists and `Namespace::to_dts` prints it), so every documented declaration today is a hand-written one.
 
 ---
 
 ## 0. Legend: the extensions this plan adds
 
-The inventory refers to these. Each is a feature of `#[platypus_api]` (macro + `platypus_api::Ty` + manifest JSON + `manifest.rs` +
+The inventory refers to these. Each is a feature of `#[ts_api]` (macro + `ts_api::Ty` + manifest JSON + `manifest.rs` +
 `types_dts.rs` + the QuickJS binding), a compiler built-in table, or a UI table. **Section 2** says how each works.
 
 | Code | Extension | Rust side (example) | d.ts it generates |
@@ -53,7 +53,7 @@ The inventory refers to these. Each is a feature of `#[platypus_api]` (macro + `
 | **F-PROMISE** | `Pending<T>` results: Rust resolves or rejects later | `fn load(path: &str) -> Pending<PrefabRef>` | `Promise<Prefab>` |
 | **F-CBRET** | Callbacks with a result and record / handle / reply-closure arguments | `Callback<(HandleArg<WindowRef>, Json<T>), Json<R>>` | `(from: Window, data: T) => R` |
 | **F-JSON** | Generic structured payloads: `Json<T>` with `#[generic(T)]`; the compiler checks the static type (`check_message_types`) and stringifies / parses it | `fn post_message(self, data: Json<T>) -> bool` | `postMessage<T>(data: T): boolean` |
-| **F-EXT** | `extends` between handle classes (`BoxCollider extends Collider`, `SplineAnimate extends Component`), abstract handle classes | `#[platypus_api(.., extends(SplineAnimate = Component))]` | `declare class SplineAnimate extends Component` |
+| **F-EXT** | `extends` between handle classes (`BoxCollider extends Collider`, `SplineAnimate extends Component`), abstract handle classes | `#[ts_api(.., extends(SplineAnimate = Component))]` | `declare class SplineAnimate extends Component` |
 | **F-ALIAS** | Another script name for a class, enum or global | `#[js_alias = "AnimatorController"]` | `type AnimatorController = AnimationController; declare const AnimatorController: typeof AnimationController;` |
 | **F-GLOBAL** | A namespace function that is also a global | `#[global] fn load_font(face: FontFace)` | `declare function loadFont(face: FontFace): void;` |
 | **F-TS** | Escape hatch: the TypeScript text of one param / result / field, written **on the Rust item** (`#[ts(type = "..")]`). Validated by the `tsc` test. Used where no structured form pays off (`NumberList`) | `#[ts(type = "NumberList")] positions: Floats` | as written |
@@ -70,7 +70,7 @@ three hard-coded `&[&str]` lists in `types_dts.rs`).
 
 Columns: **Kind**; **Why it is not native or generated today**; **Target owner** (crate / table, and the extensions from section 0);
 **Size** (S < 100 Rust lines, M 100-400, L > 400, including tests); **Depends on**; **QuickJS impact** (the `js/engine/src` file with the
-same logic, and what happens to it). "Native" means an `#[platypus_api]` item with the `quickjs` flag, so `platypus_native::install` gives QuickJS
+same logic, and what happens to it). "Native" means an `#[ts_api]` item with the `quickjs` flag, so `platypus_native::install` gives QuickJS
 the same function.
 
 ### 1a. `engine_ts.d.ts` (95 top-level declarations, 3 `//@ctor` lines)
@@ -118,7 +118,7 @@ the same function.
 | 39 | `LodLevel` | interface | record with a handle-list field | **F-REC** | S | F-REC, F-LIST | `rendering.ts` |
 | 40 | `interface LODGroup` (`setLODs`) | method | facade loop over `clearLods` / `addLod` / `addLodRenderer` | native `set_lods(&[LodLevel])` | S | F-REC, F-LIST | `rendering.ts` |
 | 41 | `interface LineRenderer2D` (`points`, `fillColor`) | members | list property; `fillColor` is a facade over `hasFill` + `fillValue` | `gen_components.py` field types `v2[]` (exists as `points`) and a new nullable `color?` (**F-NULL**) | S | F-NULL | `lines.ts` |
-| 42 | `Shapes` | class of statics + logic | Written in TypeScript (`facade.ts` 882-1019) because the manifest has no array results or rest params | native namespace `Shapes` in `platypus_math::shapes` (maths) declared by `#[platypus_api]` (**F-LIST** results, `#[rest]` for `polygon`) | M | F-LIST | `shapes.ts` (132 lines) becomes a re-export of the native global |
+| 42 | `Shapes` | class of statics + logic | Written in TypeScript (`facade.ts` 882-1019) because the manifest has no array results or rest params | native namespace `Shapes` in `platypus_math::shapes` (maths) declared by `#[ts_api]` (**F-LIST** results, `#[rest]` for `polygon`) | M | F-LIST | `shapes.ts` (132 lines) becomes a re-export of the native global |
 | 43 | `TangentMode` | literal union | no enums (and the compiler panics on a literal-union local) | **F-ENUM** (the compiler sees `string`, as for every enum) | S | F-ENUM | `spline.ts` |
 | 44 | `SplineKnot` | interface | record of `Vector3`s and an enum | **F-REC** | S | F-REC, F-ENUM | `spline.ts` |
 | 45 | `Spline` | class + logic | TypeScript class in `facade.ts` (1021-1386) | native handle class `Spline = SplineRef` in `platypus_engine_api::spline` over pure maths in `platypus_math::spline`; **F-CTOR** (`#[options(after = points)]`), **F-REC** results (`locate`, `nearest`), **F-LIST** (`knots`, `sample`) | L | F-ENUM, F-REC, F-LIST, F-CTOR | `spline.ts` (`Spline`, ~350 lines) becomes a re-export |
@@ -231,7 +231,7 @@ count-index / token native API (disappears once the native API has the TS shape:
 | 45 | `BloomSettings` | `BloomSettings`, `__xw_RenderSettings_bloom` | 15 | adapter | native record property | - |
 | 46 | `LineRenderer2D @ LineRenderer2D` | `__xg/__xs_LineRenderer2D_fillColor` | 8 | adapter | `gen_components.py` nullable colour | - |
 | 47 | `screenToWorldPoint @ Camera Screen` | `__xm_Camera_screenToWorldPoint` | 21 | **logic** (frustum maths) | port to `platypus_engine_api::camera` | `rendering.ts` line 402 |
-| 48 | `Shapes. @ Vector2` | `__shapes_at`, `__shapes_pick`, `__shapes_cardinal`, `class Shapes` (12 statics) | 138 | **logic** | `platypus_math::shapes` + `#[platypus_api(namespace = "Shapes")]` | `shapes.ts` |
+| 48 | `Shapes. @ Vector2` | `__shapes_at`, `__shapes_pick`, `__shapes_cardinal`, `class Shapes` (12 statics) | 138 | **logic** | `platypus_math::shapes` + `#[ts_api(namespace = "Shapes")]` | `shapes.ts` |
 | 49 | `Spline @ Vector3` | `TangentMode`, `SplineKnot`, `SplineOptions`, `SplineHit`, `SplineNearest`, `class Spline` (25 members) | 366 | **logic** | `platypus_math::spline` + handle class | `spline.ts` |
 | 50 | `SplineAnimate @ Vector3 Quaternion GameObject` | `class SplineAnimate` | 47 | **logic** + component | native component kind | `spline.ts` |
 
@@ -312,7 +312,7 @@ them off manifest data (record params, overload sets, aliases) instead of names.
 ### 2.1 The pipeline after the change
 
 ```
-Rust items (#[platypus_api], #[platypus_enum], #[platypus_record], gen_components data)  --macro-->  platypus_api::Namespace (static data)
+Rust items (#[ts_api], #[platypus_enum], #[platypus_record], gen_components data)  --macro-->  ts_api::Namespace (static data)
        |                                                                                  |
        |                                                                       Namespace::to_json (manifest v2)
        |                                                                                  v
@@ -331,7 +331,7 @@ platypus_ui / platypus_ts_ui UI tables ----------------------------> tools/platy
 Additive, so old readers keep working while the phases land; `"version": 2` at the top.
 
 - `doc` on functions, params, classes, values, enums, records and fields (**F-DOC**). The macro already collects `doc_of(attrs)`; only
-  `function_json` drops it. `types_dts.rs` writes JSDoc (`jsdoc()` exists in `platypus_api`).
+  `function_json` drops it. `types_dts.rs` writes JSDoc (`jsdoc()` exists in `ts_api`).
 - New type strings, parsed by `manifest.rs::ext_ty`:
   - `enum:FogMode` -> `ExtTy::Str` for the compiler (strings stay the wire form; question 6), the literal union for `tsc`.
   - `record:HeightFogSettings` -> a new `ExtTy::Record(name)`; `opt:<T>` -> `ExtTy::Opt(Box<T>)` (**F-NULL**).
@@ -348,13 +348,13 @@ type as the union of its setters' types.
 
 ### 2.3 What each extension needs
 
-| Code | Macro (`platypus_api_macros`) | Compiled side (`platypus_ts`) | QuickJS side (`platypus_api::qjs`) | Generator |
+| Code | Macro (`ts_api_macros`) | Compiled side (`platypus_ts`) | QuickJS side (`ts_api::qjs`) | Generator |
 |---|---|---|---|---|
 | F-DOC | emit `doc` (exists internally) | ignore | ignore | JSDoc |
 | F-ENUM | `#[platypus_enum]` on a Rust enum: `FromStr` / `as_str` (camelCase of the variant, `#[ts_name = ".."]`), a `Ty::Enum(name)`; an enum param is read as `&str` and parsed, an unknown value logs and keeps the default (as the string APIs do today) | `ExtTy::Str` (no compiler change; the literal-union local panic in the Spline note stops mattering because the compiler never sees a union type) | parse the string; `TypeError` on an unknown value | `type X = "a" \| "b";` |
-| F-REC | `#[platypus_record]` on a struct: field kinds = every param kind incl. `Option`, nested records, `Vec`; generates `ValueType`-like encode / decode | **params**: an object literal or a variable of an interface type is passed as a pointer to the compiled struct, and the shim reads fields through a per-record layout table that the compiler registers at load (`platypus_api::record::register_layout(name, offsets)`), or (simpler, recommended first) the lowerer flattens the record into one scalar / string / handle argument per field plus a presence bitmask, as `call_ext_args` already does for trailing option objects. **results**: the shim writes the flattened fields through out-pointers (value classes do this already for one type) and the lowerer builds the struct | read / build plain objects (`options_object` exists) | `interface X { .. }` |
+| F-REC | `#[platypus_record]` on a struct: field kinds = every param kind incl. `Option`, nested records, `Vec`; generates `ValueType`-like encode / decode | **params**: an object literal or a variable of an interface type is passed as a pointer to the compiled struct, and the shim reads fields through a per-record layout table that the compiler registers at load (`ts_api::record::register_layout(name, offsets)`), or (simpler, recommended first) the lowerer flattens the record into one scalar / string / handle argument per field plus a presence bitmask, as `call_ext_args` already does for trailing option objects. **results**: the shim writes the flattened fields through out-pointers (value classes do this already for one type) and the lowerer builds the struct | read / build plain objects (`options_object` exists) | `interface X { .. }` |
 | F-NULL | `Option<T>` param / result / property kinds | presence flag + value (handles already use 0) | `null` / `undefined` | `T \| null` (or `\| undefined`) |
-| F-LIST | `Vec<T>` results, `&[T]` params for handles, strings, enums, records, tuples, typed arrays; `#[rest]` | **results**: the runtime builds the array through the callback bridge (`platypus_api::callback::install_bridge` already lets Rust make script strings; add `array_new`, `array_push_f64` / `_handle` / `_ptr` and a value-struct maker the compiler registers per value class), **or** the shim returns a flat `f64` buffer (`ts_rt_typed_from_host_gc` exists) and the lowerer unpacks it into `Vector2` structs. The second needs no runtime change and is the recommended start for values and numbers | `rquickjs::Array` | `T[]`, `...x: T[]` |
+| F-LIST | `Vec<T>` results, `&[T]` params for handles, strings, enums, records, tuples, typed arrays; `#[rest]` | **results**: the runtime builds the array through the callback bridge (`ts_api::callback::install_bridge` already lets Rust make script strings; add `array_new`, `array_push_f64` / `_handle` / `_ptr` and a value-struct maker the compiler registers per value class), **or** the shim returns a flat `f64` buffer (`ts_rt_typed_from_host_gc` exists) and the lowerer unpacks it into `Vector2` structs. The second needs no runtime change and is the recommended start for values and numbers | `rquickjs::Array` | `T[]`, `...x: T[]` |
 | F-UNION | allow several `#[setter(name)]` / `#[js_name]` items per name in classes | the existing overload-by-argument-type choice (`manifest.overloads`) for methods / setters / ctors | by argument type (today by count) | union of the setters' types |
 | F-CTOR | `#[constructor]` on statics; `#[options(after = p)]`, `#[options(name = "..")]` | `new X(..)` picks among the ctors by argument types | same | `constructor(..)` lines (replaces `//@ctor`) |
 | F-SUB | `#[subscription(off = "..")]` on a token-returning `on_x` | the call returns a closure `() => off(token)` (generic lowering, a few lines in Rust; replaces the six facade wrappers) | wrap in a JS function | `(..) => () => void` |
@@ -386,7 +386,7 @@ pub struct Builtin {
 ```
 
 Types are written with a small typed builder over a `TsType` enum (`Num`, `Str`, `Bool`, `Void`, `Unknown`, `Named`, `Lit`, `Generic`,
-`Array`, `Union`, `Fn`, `Object`, `Tuple`, `Apply`), printed by one function. The same `TsType` lives in `platypus_api::ts`, so the macro
+`Array`, `Union`, `Fn`, `Object`, `Tuple`, `Apply`), printed by one function. The same `TsType` lives in `ts_api::ts`, so the macro
 and the table share the printer. Two signatures are awkward to build (`useCallback<F extends (...args: any[]) => any>`, `useContext`'s
 phantom type): allow **F-TS** text inside the table entry for them (question 1).
 
@@ -431,7 +431,7 @@ be declared too (TODO.md "Engine names as globals" item 5 notes they are missing
   `Spline` struct: knots, `closed`, `tension`, cached control points and length table, `evaluate` / `tangent` / `locate` /
   `segmentPoint` / `segmentDerivative` / `sample` / `nearest` / `handleIn` / `handleOut`). Port from `facade.ts` (which is the
   allocation-free port of `js/engine/src/spline.ts`), same order of operations so the numbers match bit for bit (platypus_math's rule).
-- **API:** `#[platypus_api(namespace = "Shapes", quickjs, values(Vector2 = V2 [..]))]` with `-> Vec<V2>` results and
+- **API:** `#[ts_api(namespace = "Shapes", quickjs, values(Vector2 = V2 [..]))]` with `-> Vec<V2>` results and
   `#[rest] points: &[V2]` for `polygon`. `Spline = SplineRef`: a per-thread generational registry in `platypus_engine_api::spline`
   (like `AnimationCurve`'s `CurveRef`), `#[constructor] #[options(after = points)] #[optional(points, closed = false,
   tension = 0.5, mode)]`, `version` getter, `knots -> Vec<SplineKnot>` (**F-REC** snapshot; the examples only read it:
@@ -671,7 +671,7 @@ differential test, bit for bit, in every GC mode), instead of captured JSON. Wha
   folded at compile time, anything else goes through the generated `platypus_<Enum>_parse`; results through `platypus_<Enum>_name`;
   `TangentMode.name(i)` / `.parse(s)` exist as globals in both backends.
 - **F-REC / F-LIST (results only)**: `records(..)` and `-> Vec<V | Record>` come back through a per-thread number buffer read with
-  `platypus_api_result(i)`; records as parameters are not built (P2b).
+  `ts_api_result(i)`; records as parameters are not built (P2b).
 - **F-CTOR**: `#[options(after = p)]` (manifest `optionsAfter`; the constructor line `(points?, options?)`).
 - **F-DOC**: module, class, function, enum, record and field docs reach the JSON and the `.d.ts`.
 - **F-EXT not needed**: `SplineAnimate` is a handle class like `Camera` (no `extends Component`); `like` (value parameters
@@ -696,7 +696,7 @@ ratchet `MAX_FACADE_CHUNKS` is 40). What the extensions turned out to be:
   `ShadowQualityMode`, `WindowStyle`, `LoadSceneMode`. A manifest enum is also a literal union for the compiler's `Record<X, V>`
   (`lit_members`).
 - **F-NULL**: `Option<f64>` (NaN), `Option<V>` of a value class (NaN fields) as results and parameters, `Option<String>` as a result
-  (empty text plus `platypus_api_result_none()`), manifest `opt:..`, compiled `ExtTy::Opt`; `#[nullable(undefined)]` for the handle
+  (empty text plus `ts_api_result_none()`), manifest `opt:..`, compiled `ExtTy::Opt`; `#[nullable(undefined)]` for the handle
   properties declared `T | undefined`. Native: `Camera.main`, `Window.parent` / `focused` / `at` / `find` / `byHandle`,
   `Window.openError`, `RenderSettings.fixedExposure`, `LineRenderer2D.fillColor` (`gen_components.py`'s new `color?` field type).
 - **F-ALIAS**: `aliases(A = B)` (manifest `aliases`; the compiler renames in the source, QuickJS sets a second global, the d.ts prints
@@ -714,7 +714,7 @@ Surface changes (`tests/golden/api_surface.txt`, reviewed): the enum types are `
 
 `engine_ts.d.ts` 504 -> about 450 lines, `facade.ts` 845 -> about 810 lines (chunks 40 -> 38). Done:
 
-- **Result records with strings:** a record field `string` (the strings go through `return_strings` and `platypus_api_result_str(i)` next to
+- **Result records with strings:** a record field `string` (the strings go through `return_strings` and `ts_api_result_str(i)` next to
   the numbers); `Screen.windowSize` / `currentResolution` / `resolutions` (`WindowSize`, `Resolution`) and
   `Animator.getCurrentAnimatorStateInfo()` (`AnimatorStateInfo`) are native; facade chunks 5 and 6 and the `AnimatorStateInfo` part of chunk 15
   are gone with their `engine_ts.d.ts` interfaces.
@@ -751,7 +751,7 @@ facade kind are gone. The mechanism, which turned out to be small because the co
 
 `engine_ts.d.ts` 359 -> 300 lines, `facade.ts` 712 -> about 490 lines (chunks 34 -> 20; ratchet `MAX_FACADE_CHUNKS` 20). Done:
 
-- **Lists:** `Vec<f64>` and `Vec<Handle>` results (`platypus_api_result_id`), `&[Handle]` parameters (`script_handles`), getters that return a list pair with the setter that takes the array (`pair_ty`), `#[like]` per function. Native: `SkinnedMeshRenderer.bones`, `Cloth.pins` / `sphereColliders` / `capsuleColliders` / `pinBox` (record `ClothBox`), `Camera.layerCullDistances`, `LineRenderer.positions`, `LineRenderer2D.points`, `EdgeCollider2D.points`, `QualitySettings.names`, `Scene.getRootGameObjects()`, `Sprite.grid`. Gone: facade chunks 2, 4, 8, 10, 11, 14 and their d.ts blocks.
+- **Lists:** `Vec<f64>` and `Vec<Handle>` results (`ts_api_result_id`), `&[Handle]` parameters (`script_handles`), getters that return a list pair with the setter that takes the array (`pair_ty`), `#[like]` per function. Native: `SkinnedMeshRenderer.bones`, `Cloth.pins` / `sphereColliders` / `capsuleColliders` / `pinBox` (record `ClothBox`), `Camera.layerCullDistances`, `LineRenderer.positions`, `LineRenderer2D.points`, `EdgeCollider2D.points`, `QualitySettings.names`, `Scene.getRootGameObjects()`, `Sprite.grid`. Gone: facade chunks 2, 4, 8, 10, 11, 14 and their d.ts blocks.
 - **Subscriptions:** `#[subscription(off = .., ts = ..)]`; the six listener facades are generated from the manifest (`facade::extend_source`); chunks 27-31 gone.
 - **Still open** (the hard part of 2b/2c and 2d): `LodLevel`/`setLODs` (records holding handles: a handle stringifies as `{}`; the plan is a numeric-id descriptor tag for handles only in engine-record blobs and a JS-object walker in QuickJS), `ParticleSystem` records lists, `MeshData`/`FlatMeshData`/`NumberList`, `Gamepad` dictionaries, `Collision`/`Collision2D`, tuple lists (`AnimationCurve.fromPoints`), the promise chunks (`loadSceneAsync`, `Prefab.load`, `whenLoaded`: need a `Promise<T>` result kind over the promise classes of `lower/promise.rs`), `gen_components.py` as Rust (its output is rustfmt-formatted `generated.rs`, so a port can be checked byte for byte).
 - **Promises (P2d second part):** `#[promise]` (resolve and reject callbacks as the last two parameters; QuickJS a real `Promise`, compiled code a function written from the manifest). `loadSceneAsync`, `Prefab.load`, `Texture.whenLoaded`, `Model.whenLoaded` are native; chunks 17-19 are gone (the promise half of 41, the light meter, stays).

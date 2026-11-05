@@ -14,7 +14,7 @@
 
 use crate::comp::{self, Data, Jt, RopeD, with_joint, with_rope};
 use crate::*;
-use platypus_api::platypus_api;
+use ts_api::ts_api;
 
 fn jg<R: Default>(h: u32, f: impl FnOnce(&Jt) -> R) -> R {
     with_joint(h, |j| f(j)).unwrap_or_default()
@@ -53,7 +53,7 @@ pub(crate) fn count_joints() -> u32 {
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[platypus_api(
+#[ts_api(
     namespace = "PhysicsJoints", handles(
         GameObject = ObjectId,
         Rigidbody = RigidbodyRef,

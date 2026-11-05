@@ -2,14 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Physics for compiled scripts: rigid bodies, colliders and ray queries over `platypus_physics`,
-//! declared with `#[platypus_api]` (design: `docs/research/platypus-native-physics.md`).
+//! declared with `#[ts_api]` (design: `docs/research/platypus-native-physics.md`).
 //!
 //! Bodies and colliders are numbers chosen here; the world is one per thread. The host calls
 //! [`step`] once per fixed tick: it advances the world, moves the GameObjects bodies are attached
 //! to, and queues the contacts for [`take_contacts`] (the host turns them into
 //! `onCollisionEnter` and friends). A ray answers at once.
 
-use platypus_api::{Handle, platypus_api};
 use platypus_core::Value;
 use platypus_math::{Q, V3};
 use platypus_physics::{Contact, Physics};
@@ -17,6 +16,7 @@ use platypus_scene::ObjectId;
 use platypus_scene::api::TransformRef;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use ts_api::{Handle, ts_api};
 
 mod comp;
 pub mod components;
@@ -298,12 +298,12 @@ pub fn step() {
     step_world();
     // What was asked to run after the next step runs now, once.
     let callbacks = AFTER_STEP.with(|a| std::mem::take(&mut *a.borrow_mut()));
-    platypus_api::callback::emit(&callbacks, ());
+    ts_api::callback::emit(&callbacks, ());
 }
 
 thread_local! {
     /// Closures `Physics.afterNextStep` was given, run once after the next step.
-    static AFTER_STEP: std::cell::RefCell<Vec<platypus_api::Callback<()>>> =
+    static AFTER_STEP: std::cell::RefCell<Vec<ts_api::Callback<()>>> =
         const { std::cell::RefCell::new(Vec::new()) };
 }
 
@@ -445,7 +445,7 @@ fn flat(points: &[V3]) -> Vec<f64> {
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[platypus_api(
+#[ts_api(
     namespace = "Physics", handles(
         PhysicsBody = BodyRef,
         PhysicsCollider = ColliderRef,
@@ -459,7 +459,7 @@ fn flat(points: &[V3]) -> Vec<f64> {
 )]
 pub mod physics_api {
     use super::*;
-    use platypus_api::Callback;
+    use ts_api::Callback;
 
     /// Gravity in m/s² (y up; default 0, -9.81, 0).
     #[property]

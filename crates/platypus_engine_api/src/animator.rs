@@ -18,9 +18,9 @@ use platypus_animation::{
     ControllerId, CullingMode, Motion, Node, NodeId, Param, ParameterType, Transition,
     TransitionId, with_world,
 };
-use platypus_api::{Handle, platypus_api};
 use platypus_scene::ObjectId;
 use std::cell::RefCell;
+use ts_api::{Handle, ts_api};
 
 macro_rules! handle {
     ($($name:ident),*) => {$(
@@ -60,7 +60,7 @@ fn nan_or(x: Option<f64>) -> f64 {
     x.unwrap_or(f64::NAN)
 }
 
-#[platypus_api(namespace = "AnimationParameter", handles(AnimationParameter = ParameterRef))]
+#[ts_api(namespace = "AnimationParameter", handles(AnimationParameter = ParameterRef))]
 pub mod animation_parameter_api {
     use super::*;
 
@@ -120,7 +120,7 @@ pub mod animation_parameter_api {
     }
 }
 
-#[platypus_api(namespace = "AnimationCondition", handles(AnimationCondition = ConditionRef))]
+#[ts_api(namespace = "AnimationCondition", handles(AnimationCondition = ConditionRef))]
 pub mod animation_condition_api {
     use super::*;
 
@@ -187,7 +187,7 @@ fn transition<R>(t: TransitionRef, f: impl FnOnce(&mut Transition) -> R) -> Opti
     with_world(|w| w.graphs.transition_mut(TransitionId(t.0 as u32)).map(f))
 }
 
-#[platypus_api(namespace = "AnimationTransition", handles(
+#[ts_api(namespace = "AnimationTransition", handles(
     AnimationTransition = TransitionRef, AnimationCondition = ConditionRef))]
 pub mod animation_transition_api {
     use super::*;
@@ -283,7 +283,7 @@ pub mod animation_transition_api {
     }
 }
 
-#[platypus_api(namespace = "AnimationBlendTree", handles(
+#[ts_api(namespace = "AnimationBlendTree", handles(
     AnimationBlendTree = BlendRef, AnimationClip = ClipRef))]
 pub mod animation_blend_tree_api {
     use super::*;
@@ -344,7 +344,7 @@ fn node<R>(n: NodeRef, f: impl FnOnce(&mut Node) -> R) -> Option<R> {
     with_world(|w| w.graphs.node_mut(NodeId(n.0 as u32)).map(f))
 }
 
-#[platypus_api(namespace = "AnimationNode", handles(
+#[ts_api(namespace = "AnimationNode", handles(
     AnimationNode = NodeRef, AnimationClip = ClipRef, AnimationBlendTree = BlendRef))]
 pub mod animation_node_api {
     use super::*;
@@ -487,7 +487,7 @@ pub struct TransitionData {
     pub offset: Option<f64>,
 }
 
-#[platypus_api(namespace = "AnimationController", handles(
+#[ts_api(namespace = "AnimationController", handles(
     AnimationController = ControllerRef, AnimationParameter = ParameterRef,
     AnimationNode = NodeRef, AnimationTransition = TransitionRef, AnimationBuilder = BuilderRef,
     AnimationClip = ClipRef),
@@ -737,7 +737,7 @@ fn builder<R>(b: BuilderRef, f: impl FnOnce(&mut BuilderState) -> R) -> Option<R
     })
 }
 
-#[platypus_api(namespace = "AnimationBuilder", handles(
+#[ts_api(namespace = "AnimationBuilder", handles(
     AnimationBuilder = BuilderRef, AnimationController = ControllerRef, AnimationClip = ClipRef))]
 pub mod animation_builder_api {
     use super::*;
@@ -893,7 +893,7 @@ pub struct StateSummary {
     pub length: f64,
 }
 
-#[platypus_api(namespace = "Animator", handles(
+#[ts_api(namespace = "Animator", handles(
     Animator = AnimatorRef, AnimationController = ControllerRef, GameObject = ObjectId),
     enums(
         /// What an `Animator` does while none of its object's renderers was drawn (by a camera or

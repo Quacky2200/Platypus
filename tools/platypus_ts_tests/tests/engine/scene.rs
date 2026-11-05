@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Compiled scripts driving the real engine scene (`bench/scene.ts`): `platypus_scene`'s `Scene`
-//! API, written with `#[platypus_api]`, is called directly by native code the compiler made from
+//! API, written with `#[ts_api]`, is called directly by native code the compiler made from
 //! TypeScript. The scene is made current with `platypus_scene::api::enter`, as the host will around
 //! running scripts. Every test runs normally, in stress GC mode and with collection off.
 //! IDs are in TESTS.md (M9-TS-151..).
@@ -223,14 +223,14 @@ fn many_names_survive_collections() {
 
 // M9-TS-186
 //
-// The engine side reads script strings through `platypus_api::ScriptStr`, so its layout must be the
+// The engine side reads script strings through `ts_api::ScriptStr`, so its layout must be the
 // runtime's `Str`.
 #[test]
 fn the_engines_view_of_a_script_string_is_the_runtimes_layout() {
     assert_eq!(
-        std::mem::size_of::<platypus_api::ScriptStr>(),
+        std::mem::size_of::<ts_api::ScriptStr>(),
         std::mem::size_of::<platypus_ts_rt::Str>()
     );
     let s = unsafe { platypus_ts_rt::ts_rt_str_new("añ😀".as_ptr(), "añ😀".len() as i64) };
-    assert_eq!(unsafe { platypus_api::script_str(s as *const u8) }, "añ😀");
+    assert_eq!(unsafe { ts_api::script_str(s as *const u8) }, "añ😀");
 }

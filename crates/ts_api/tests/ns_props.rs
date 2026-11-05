@@ -3,14 +3,14 @@
 
 //! Properties on a namespace: `Time.deltaTime`, `Gizmos.color = c`. A `#[property]` function without
 //! a receiver is the getter, `set_x(v)` next to it the setter. IDs are in TESTS.md (M9-API-*).
-use platypus_api::{FnKind, Ty, platypus_api};
 use std::cell::Cell;
+use ts_api::{FnKind, Ty, ts_api};
 
 thread_local! {
     static LEVEL: Cell<u32> = const { Cell::new(1) };
 }
 
-#[platypus_api(namespace = "Cfg")]
+#[ts_api(namespace = "Cfg")]
 pub mod cfg {
     use super::LEVEL;
 

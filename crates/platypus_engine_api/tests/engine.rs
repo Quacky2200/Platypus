@@ -44,7 +44,7 @@ fn a_camera_has_the_engines_defaults_and_clamps_the_field_of_view() {
         index: 3,
         generation: 0,
     };
-    let c = camera::camera_api::platypus_Camera_attach(platypus_api::Handle::to_raw(go));
+    let c = camera::camera_api::platypus_Camera_attach(ts_api::Handle::to_raw(go));
     assert_eq!(camera::camera_api::platypus_Camera_fieldOfView(c), 60.0);
     assert!(!camera::camera_api::platypus_Camera_orthographic(c));
     camera::camera_api::platypus_Camera_setFieldOfView(c, 500.0);

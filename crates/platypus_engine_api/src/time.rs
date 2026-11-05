@@ -4,8 +4,8 @@
 //! `Time`: game time, scaled by `timeScale`. The host calls [`advance`] once per frame with the
 //! real frame length; scripts read the rest.
 
-use platypus_api::platypus_api;
 use std::cell::Cell;
+use ts_api::ts_api;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TimeState {
@@ -68,7 +68,7 @@ pub fn reset() {
     STATE.with(|s| s.set(START));
 }
 
-#[platypus_api(namespace = "Time")]
+#[ts_api(namespace = "Time")]
 pub mod time_api {
     use super::{STARTED, STATE};
 

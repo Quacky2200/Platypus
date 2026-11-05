@@ -17,7 +17,7 @@ use std::path::{Path, PathBuf};
 #[derive(Clone, Copy)]
 enum Api {
     None,
-    /// `platypus_demo_api` (`#[platypus_api]` test namespaces).
+    /// `platypus_demo_api` (`#[ts_api]` test namespaces).
     Demo,
     /// The UI half (`platypus_ts_ui`).
     Ui,

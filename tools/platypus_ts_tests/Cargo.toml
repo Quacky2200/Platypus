@@ -29,7 +29,7 @@ platypus_ui_native = { path = "../../crates/platypus_ui_native" }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 
 [dev-dependencies]
-platypus_api = { path = "../../crates/platypus_api" }
+ts_api = { path = "../../crates/ts_api" }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 
 [build-dependencies]

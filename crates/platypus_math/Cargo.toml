@@ -9,4 +9,4 @@ publish.workspace = true
 license.workspace = true
 
 [dependencies]
-platypus_api = { path = "../platypus_api", default-features = false }
+ts_api = { path = "../ts_api", default-features = false }

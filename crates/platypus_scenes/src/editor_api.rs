@@ -10,11 +10,11 @@
 use crate::data::{Saver, load_objects};
 use crate::inspect::{ComponentInfo, FieldInfo};
 use crate::manager;
-use platypus_api::{Handle, platypus_api};
 use platypus_engine_api::editor::{files, project_op};
 use platypus_scene::ObjectId;
 use platypus_scene::api::with_scene;
 use serde_json::{Value, json};
+use ts_api::{Handle, ts_api};
 
 /// An object and what is under it as JSON text: components, children and references inside it
 /// to each other; references outside and assets stay live (it is for this session only).
@@ -62,7 +62,7 @@ pub fn scene_name_of(path: &str) -> String {
     file.to_string()
 }
 
-#[platypus_api(
+#[ts_api(
     namespace = "EditorScene",
     handles(GameObject = ObjectId),
     records(

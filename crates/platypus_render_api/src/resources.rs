@@ -87,7 +87,7 @@ struct State {
 
 type TextureWaiter = (
     u32,
-    Callback<(platypus_api::callback::HandleArg<TextureRef>,)>,
+    Callback<(ts_api::callback::HandleArg<TextureRef>,)>,
     Callback<(String,)>,
 );
 
@@ -148,7 +148,7 @@ pub fn texture_loaded(t: TextureRef, width: u32, height: u32) {
         if width == 0 {
             reject.call(("texture failed to load".to_string(),));
         } else {
-            resolve.call((platypus_api::callback::HandleArg(t),));
+            resolve.call((ts_api::callback::HandleArg(t),));
         }
     }
 }
@@ -336,7 +336,7 @@ pub enum WrapKind {
     Mirror,
 }
 
-#[platypus_api(
+#[ts_api(
     namespace = "Texture", handles(Texture = TextureRef),
     values(Color = Rgba [r: f64, g: f64, b: f64, a: f64]),
     enums(
@@ -355,12 +355,12 @@ pub mod texture_api {
         #[promise]
         pub fn when_loaded(
             self,
-            resolve: Callback<(platypus_api::callback::HandleArg<TextureRef>,)>,
+            resolve: Callback<(ts_api::callback::HandleArg<TextureRef>,)>,
             reject: Callback<(String,)>,
         ) {
             match texture_info(self) {
                 Some(i) if i.failed => reject.call(("texture failed to load".to_string(),)),
-                Some(i) if i.loaded => resolve.call((platypus_api::callback::HandleArg(self),)),
+                Some(i) if i.loaded => resolve.call((ts_api::callback::HandleArg(self),)),
                 Some(_) => st(|s| s.waiters.push((self.0, resolve, reject))),
                 None => reject.call(("the texture was freed".to_string(),)),
             }
@@ -632,7 +632,7 @@ fn bone_arrays(bones: &[BoneInfluence]) -> (Vec<f64>, Vec<f64>) {
     (joints, weights)
 }
 
-#[platypus_api(
+#[ts_api(
     namespace = "Mesh", handles(Mesh = MeshRef),
     values(
         Vector3 = V3 [x: f64, y: f64, z: f64],

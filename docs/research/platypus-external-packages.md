@@ -97,7 +97,7 @@ does that). "Edits" means changes to the package source in a vendored copy.
 | `@std/random` seeded PRNG (`randomSeeded`, pcg32 on `BigInt`) or a hand-sized mulberry32 / sfc32 | TS source, numeric, bit ops | **Compiles** (mulberry32 in minutes; the `@std` one depends on `BigInt` 64-bit arithmetic, which exists, and on `Uint8Array` / `DataView`, which exist) | Pure arithmetic is the compiler's best case; check `>>> 0` / `Math.imul` results against bun (the JS-semantics conformance item). |
 | `mitt` (event emitter, TS source in its repo; npm ships JS + `.d.ts`) | about 100 lines, `Map`, generics `Emitter<Events extends Record<EventType, unknown>>`, `EventType = string \| symbol`, `keyof Events`, `'*'` overloads | **Fails today; vendored and rewritten in ~30 lines it works** | `Record<string \| symbol, unknown>`, `keyof`, indexed access by a type parameter (`Events[Key]`), overload signatures. Typical of "small but type-level" libraries. |
 | `zod` (generics-heavy) | TS source in repo, compiled JS on npm; deep conditional/mapped types, `ZodType<Output, Def, Input>` hierarchy, `any` in internals, dynamic shape objects | **Will not compile, and should not be the goal** | Type-level programming is the whole API (`z.infer<typeof schema>`); runtime walks objects by string keys. A validation story for Platypus is typed `JSON.parse` (already built) plus hand checks, or a future `JsonValue` (`TODO.md` "JsValue fallback"). |
-| `pathfinding` (PathFinding.js) | CommonJS JS, `function Grid() {}` + `Grid.prototype.x = ...`, `require('heap')` | **Impossible as is**; port to TS classes (~400 lines for A* + grid + heap) | No CommonJS, no types, prototype assignment. Pathfinding is a good candidate for a hand-written Platypus-style TS package (or a Rust `#[platypus_api]` module, which would also be faster). |
+| `pathfinding` (PathFinding.js) | CommonJS JS, `function Grid() {}` + `Grid.prototype.x = ...`, `require('heap')` | **Impossible as is**; port to TS classes (~400 lines for A* + grid + heap) | No CommonJS, no types, prototype assignment. Pathfinding is a good candidate for a hand-written Platypus-style TS package (or a Rust `#[ts_api]` module, which would also be faster). |
 | `dotenv` / anything using `fs`, `path`, `process`, `Buffer` | CommonJS, Node built-ins | **Impossible by design** | No Node runtime. File access is M6 Script IO (`docs/research/networking-and-files.md`). tsc already rejects it (`"types": []` means no `@types/node`). |
 | `marked` (markdown; TS source since v5, ESM JS + `.d.ts` on npm) | Classes (`Lexer`, `Parser`, `Renderer`), regex tables built at run time (`edit(regex).replace(...).getRegex()` on `.source`), a discriminated union of token interfaces, `any` in extensions/options | **Fails; a large port** | Token unions need structural typing / unions of interfaces; options objects with `any`; dynamic regex composition is fine (RegExp is built). Realistic only after structural typing lands. |
 | (classes/mixins) `miniplex` or `bitecs` (ECS) | Mapped types (`With<E, P>`), dynamic component stores keyed by string or `Symbol`, `Proxy` in some versions | **Fails** | Platypus already owns the world in Rust (`platypus_scene`, components); an ECS library fights the core rule. Not worth targeting. |
@@ -264,7 +264,7 @@ the estimates of section 1.4 into measurements.
 - **Cheaper middle ground**: `JsValue` only for `any`/`unknown` *values* inside typed code (that note's section 6,
   point 4). It would let `unknown`-typed internals (event payloads, JSON blobs, `Record<string, unknown>` options)
   compile, which is the most common reason small TS libraries fail. Worth a decision (Q2).
-- **Port to Rust**: for heavy algorithmic packages (pathfinding, noise, physics helpers) an `#[platypus_api]` module
+- **Port to Rust**: for heavy algorithmic packages (pathfinding, noise, physics helpers) an `#[ts_api]` module
   in Rust is faster and available to both backends (`docs/platypus-api.md`).
 
 ### 3.4 Tree-shaking and compile cost
@@ -395,7 +395,7 @@ user's OK per the project rules).
 5. **Platypus's own third-party notices** (Rust crates, ICU data) in the same `THIRD-PARTY-NOTICES.txt`, generated at
    release time?
 6. **JSR support**: worth a `platypus-build vendor jsr:@std/...` fetch command, or document `npx jsr` + vendoring?
-7. **Package-provided engine extensions**: should a package be allowed to ship `#[platypus_api]` Rust code (native
+7. **Package-provided engine extensions**: should a package be allowed to ship `#[ts_api]` Rust code (native
    plugins) later, or are packages TypeScript only? (Affects the `platypus` export condition's meaning.)
 8. **Should tree-shaking also apply to game code** (unused game functions with unsupported constructs stop failing),
    or only to package files? Recommendation: everything, it is the same pass.

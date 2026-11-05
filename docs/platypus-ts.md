@@ -48,7 +48,7 @@ platypus_ts file.ts [--dump-ir] [--prefix p_] [--struct-base N] [-o out.obj] [--
 | `--bindings out.rs` | Write the generated Rust bindings |
 | `--opt` | Cranelift `opt_level`, default `speed` |
 | `--time N` | Compile `N` times and print the best time of each phase |
-| `--manifest api.json` | Repeatable. An `#[platypus_api]` namespace the source may call (the JSON from `Namespace::to_json`, see [platypus-api.md](platypus-api.md)); the library entry point is `compile_with_manifests(src, opt, prefix, struct_base, &manifests)` |
+| `--manifest api.json` | Repeatable. An `#[ts_api]` namespace the source may call (the JSON from `Namespace::to_json`, see [platypus-api.md](platypus-api.md)); the library entry point is `compile_with_manifests(src, opt, prefix, struct_base, &manifests)` |
 
 ## Pipeline
 
@@ -100,7 +100,7 @@ bytes, bindings text, IR dump and the time of each phase.
   assignment on value properties.
 - **String arguments and results.** A `string` in the manifest is `ExtTy::Str`. As an argument the
   call passes the script string pointer, and codegen adds a trailing stack slot for the length
-  when the extern has a string result. The callee borrows the bytes (`platypus_api::script_str`), so
+  when the extern has a string result. The callee borrows the bytes (`ts_api::script_str`), so
   the string stays rooted for the call; a lone surrogate reaches the engine as U+FFFD. A string result
   comes back as bytes plus length from a per-thread buffer and is copied at once into a new script
   string with `ts_rt_str_new_gc`. That call can collect, so the root analysis (`frames.rs`) counts
@@ -113,7 +113,7 @@ bytes, bindings text, IR dump and the time of each phase.
 
 | File | What |
 |---|---|
-| [manifest.rs](../tools/platypus_ts/src/manifest.rs) | Reads the `platypus_api` JSON manifests into a table of callable functions (`Manifest`, `ExternFn`), the handle type names, the value classes (`values`) and the handle classes (`classes`: `ClassFns` with `statics`, `methods`, `getters`, `setters`) |
+| [manifest.rs](../tools/platypus_ts/src/manifest.rs) | Reads the `ts_api` JSON manifests into a table of callable functions (`Manifest`, `ExternFn`), the handle type names, the value classes (`values`) and the handle classes (`classes`: `ClassFns` with `statics`, `methods`, `getters`, `setters`) |
 | [lib.rs](../tools/platypus_ts/src/lib.rs) | `compile_source` / `compile_with_prefix` / `compile_with` / `compile_with_manifests`, `Output`; unit tests for lowering errors (`M9-TS-14..16`, `55`, `56`, `70`, `84`, `110`, `119`) |
 | [ir.rs](../tools/platypus_ts/src/ir.rs) | The IR: `Ty`, `Module` (with `vtables` and `itables`), `Func`, `Stmt`, `Expr`/`ExprKind` (including `CallVirtual` and `InstanceOf`), `RtFn` (runtime calls), `field_offset`, `dump` |
 | [frames.rs](../tools/platypus_ts/src/frames.rs) | Shadow-stack frame plan and the spill rule (see GC roots below) |
@@ -1146,7 +1146,7 @@ calls into. Its header comment is the long version.
 |---|---|
 | `fixtures/sim.ts`, `sim.test.ts` | A game-rules simulation (678 lines) and its bun tests |
 | `bench/*.ts` | One TypeScript module per language area (`closures`, `loops`, `switches`, `classes`, `inherit` ...); `bench.ts` and `sine_bench.ts` are the JavaScript sides of the benchmarks (run in bun, not compiled) |
-| `bench/engine.ts` | Calls the `Demo` engine API; `build.rs` compiles it with the manifest of [tools/platypus_demo_api](../tools/platypus_demo_api/src/lib.rs) (a small world of entities written with `#[platypus_api]`), whose shims the test binaries link |
+| `bench/engine.ts` | Calls the `Demo` engine API; `build.rs` compiles it with the manifest of [tools/platypus_demo_api](../tools/platypus_demo_api/src/lib.rs) (a small world of entities written with `#[ts_api]`), whose shims the test binaries link |
 | `bench/scene.ts` | Drives the real scene: `build.rs` compiles it (prefix `scn_`, base 15000) with `platypus_scene`'s manifest (`platypus_scene::api::scene_api::MANIFEST`) and the tests run it against a real `Scene` made current with `platypus_scene::api::enter`; `platypus_ts_tests::scene_anchor()` keeps the `Scene` shims linked |
 | `build.rs` | Compiles `fixtures/sim.ts` and every `bench/<name>.ts` in a list of `(name, prefix, struct_base)` at build time, writes the `.obj` and `<name>_bindings.rs` to `OUT_DIR` and passes the objects to the linker. Each program is cached there under a hash of its (bundled) source, prefix, base, manifests and the build script's own executable (relinked by cargo whenever `platypus_ts` changes), so a bench edit recompiles one program and a compiler edit all of them, in parallel. Build scripts run unoptimised (no `build-override`): `platypus_ts` built once more at `opt-level = 3` cost more than it saved |
 | `src/lib.rs` | One `pub mod` per module that `include!`s its bindings, plus helpers (`root`, `push_f64s`, `gc_mode_from_env`, builders for the sim's state); `demo_api_anchor()` uses `platypus_demo_api` so the linker keeps its shims |
@@ -1380,7 +1380,7 @@ lowers and generates code on a 64 MiB thread (the game's code then runs on the h
 `crates/platypus_app/build.rs` asks to be 16 MB on Windows), running the same `codegen::generate` (generic over the Cranelift `Module`; the object writer is
 unchanged, byte for byte, `M9-TS-1900`) into a `cranelift-jit` module with the CPU's own features. Imports are resolved by name
 from `platypus_ts_rt::symbols()` (generated by `platypus_ts_rt/build.rs` from its exports; `tools/symbols_build.rs`, also used by
-`platypus_ts_ui`), `platypus_api::symbol` (filled when a manifest is read) and `JitOptions::symbols`; a missing one is an error before any
+`platypus_ts_ui`), `ts_api::symbol` (filled when a manifest is read) and `JitOptions::symbols`; a missing one is an error before any
 code runs. `Game::function("name")`, `Game::init()`, `Game::class_meta()` (the data form of the bindings' `classes()`,
 `classmeta.rs`) and `Game::classes()` (`NativeClass` values for `NativeHost`). Memory of a `Game` is never freed.
 

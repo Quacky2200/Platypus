@@ -17,10 +17,10 @@
 //! its creator, until [`end_frame`].
 
 use crate::log::{Level, emit as log_emit};
-use platypus_api::callback::{HandleArg, Listeners, emit};
-use platypus_api::{Callback, Handle, platypus_api};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use ts_api::callback::{HandleArg, Listeners, emit};
+use ts_api::{Callback, Handle, ts_api};
 
 /// A window handle: 1 is the main window, then 2, 3, ... never reused in a run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -1413,7 +1413,7 @@ fn add_listener<A: Clone + 'static>(
 }
 
 /// The game's windows. `Window.main` is the original one; `Window.create({ .. })` makes more.
-#[platypus_api(
+#[ts_api(
     namespace = "Window", handles(Window = WindowRef),
     enums(
         /// How a window looks and behaves.

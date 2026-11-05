@@ -4,12 +4,12 @@
 //! Compiled components driven by `platypus_ts_rt::NativeHost` over the real scene
 //! (`bench/components.ts`): `class X extends Component` + `register(X)` and the component
 //! lifecycle, no script engine. IDs are in TESTS.md (M9-TS-556..).
-use platypus_api::Handle;
 use platypus_scene::Scene;
 use platypus_scene::api::scene_api as api;
 use platypus_ts_rt::{NativeHost, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::cmp::*;
 use std::sync::Mutex;
+use ts_api::Handle;
 
 /// The scripts' globals (`awakes`, `order`) are shared; one test at a time.
 static SERIAL: Mutex<()> = Mutex::new(());

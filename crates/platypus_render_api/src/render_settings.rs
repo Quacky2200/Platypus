@@ -795,7 +795,7 @@ impl AutoExposurePatch {
     }
 }
 
-#[platypus_api(
+#[ts_api(
     namespace = "RenderSettings", values(
         Color = Rgba [r: f64, g: f64, b: f64, a: f64],
         Vector3 = V3 [x: f64, y: f64, z: f64]
@@ -1688,7 +1688,7 @@ fn stat<R>(f: impl FnOnce(&Stats) -> R) -> R {
 
 /// What the world renderer drew and skipped in the last frame, over every camera, mirror and
 /// reflection probe (like Unity's rendering statistics). Read-only; the engine updates it.
-#[platypus_api(namespace = "RenderStats")]
+#[ts_api(namespace = "RenderStats")]
 pub mod render_stats_api {
     use super::*;
 
@@ -1753,7 +1753,7 @@ pub fn set_physical_light_units(physical: bool) {
 
 /// Project-wide graphics settings (Unity's `GraphicsSettings`). Platypus has one render pipeline;
 /// what a project chooses is its light units, in `project.json`.
-#[platypus_api(namespace = "GraphicsSettings")]
+#[ts_api(namespace = "GraphicsSettings")]
 pub mod graphics_settings_api {
     use super::*;
 

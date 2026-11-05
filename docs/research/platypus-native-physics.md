@@ -17,7 +17,7 @@ simulates everything. What is left is the script surface, and three pieces of bo
 
 - `platypus_physics` keeps the rapier world and script-chosen ids. A new `crates/platypus_physics_api` (or a module of `platypus_engine_api`)
   declares `Rigidbody`, `BoxCollider`, `SphereCollider`, `CapsuleCollider`, `MeshCollider`, `CharacterController`, the joints
-  and `Physics` (`gravity`, `raycast`, `overlap*`) with `#[platypus_api]`, as handle classes whose objects are the GameObjects
+  and `Physics` (`gravity`, `raycast`, `overlap*`) with `#[ts_api]`, as handle classes whose objects are the GameObjects
   (like `Camera`): `go.addComponent(Rigidbody, { mass: 2 })`, `go.getComponent(BoxCollider)` through `findOn`.
 - Each registers a **kind** (`platypus_kinds`), so scene files with physics components load, and `instantiate` copies them.
 - A fixed tick is `physics::step(dt)` and then `sync` writes the moved bodies back into `platypus_scene` (the existing

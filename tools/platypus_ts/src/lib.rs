@@ -76,7 +76,7 @@ pub fn compile_with(
     compile_with_manifests(src, opt, prefix, struct_base, &[])
 }
 
-/// Like `compile_with`, with engine API manifests (the JSON `platypus_api` generates): the TypeScript
+/// Like `compile_with`, with engine API manifests (the JSON `ts_api` generates): the TypeScript
 /// can call `Namespace.function(...)` and the call is a direct call of the function's symbol.
 pub fn compile_with_manifests(
     src: &str,

@@ -69,7 +69,7 @@ fn no_new_hand_written_declaration_files_appear() {
         .collect();
     assert!(
         found.is_empty(),
-        "hand-written .d.ts files are not allowed (declare it in #[platypus_api], platypus_ui::tables or tools/platypus_ts/src/builtins.rs): {found:?}"
+        "hand-written .d.ts files are not allowed (declare it in #[ts_api], platypus_ui::tables or tools/platypus_ts/src/builtins.rs): {found:?}"
     );
     // No Rust source may include a declaration file either.
     let mut included = BTreeSet::new();

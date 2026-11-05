@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [package]
-name = "platypus_api_macros"
+name = "ts_api_macros"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true

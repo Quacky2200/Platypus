@@ -9,10 +9,10 @@
 //! PlayerPrefs, [`apply_default_quality`]).
 
 use crate::prefs;
-use platypus_api::callback::{Listeners, emit};
-use platypus_api::{Callback, platypus_api};
 use serde_json::{Value, json};
 use std::cell::RefCell;
+use ts_api::callback::{Listeners, emit};
+use ts_api::{Callback, ts_api};
 
 /// A display mode: physical pixels and Hz (0 when unknown).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -422,7 +422,7 @@ impl From<&Resolution> for DisplayMode {
     }
 }
 
-#[platypus_api(
+#[ts_api(
     namespace = "Screen", records(
         /// A size in pixels.
         WindowSize = ScreenSize [width: f64, height: f64],
@@ -663,7 +663,7 @@ pub enum ShadowKind {
     All,
 }
 
-#[platypus_api(
+#[ts_api(
     namespace = "QualitySettings", enums(
         /// Which shadows are drawn: none, only hard ones, or soft ones too.
         ShadowQualityMode = ShadowKind [Disable, HardOnly, All]

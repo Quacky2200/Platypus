@@ -751,7 +751,7 @@ fn gen_component(c: &Component) -> Vec<String> {
         attr += &format!(", records({})", c.extra_records.join(", "));
     }
     w(&mut o, "");
-    o.push(format!("#[platypus_api({attr})]"));
+    o.push(format!("#[ts_api({attr})]"));
     w(&mut o, "pub mod {low}_api {");
     w(&mut o, "    use super::*;");
     w(&mut o, "");

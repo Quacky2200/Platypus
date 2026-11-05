@@ -6,8 +6,8 @@
 //! takes one string (compiled code writes a template literal; `js/engine`'s versions joined many
 //! arguments and printed objects as JSON).
 
-use platypus_api::platypus_api;
 use std::cell::RefCell;
+use ts_api::ts_api;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Level {
@@ -38,7 +38,7 @@ pub fn emit(level: Level, message: &str) {
 }
 
 /// Unity's `Debug`.
-#[platypus_api(namespace = "Debug")]
+#[ts_api(namespace = "Debug")]
 pub mod debug_api {
     use super::{Level, emit};
 
@@ -74,7 +74,7 @@ pub mod debug_api {
 }
 
 /// s&box's `Log`.
-#[platypus_api(namespace = "Log")]
+#[ts_api(namespace = "Log")]
 pub mod log_api {
     use super::{Level, emit};
 
@@ -97,7 +97,7 @@ pub mod log_api {
 }
 
 /// C#'s `Console`, with the JS names too.
-#[platypus_api(namespace = "Console")]
+#[ts_api(namespace = "Console")]
 pub mod console_api {
     use super::{Level, emit};
 

@@ -102,7 +102,7 @@ so attached bodies follow objects that scripts moved
 
 ## The typed script API (`platypus_scene::api`)
 
-[api.rs](../crates/platypus_scene/src/api.rs) declares a `Scene` namespace with `#[platypus_api]` (see
+[api.rs](../crates/platypus_scene/src/api.rs) declares a `Scene` namespace with `#[ts_api]` (see
 [platypus-api.md](platypus-api.md)), next to the op-based `ScriptScene`, which is untouched. Compiled
 TypeScript ([platypus-ts.md](platypus-ts.md)) calls its generated shims directly, with no op queue. The
 functions: `create`, `destroy`, `exists`, `count`, `parent`, `setParent(object, parent, keepWorld)`,
@@ -141,12 +141,12 @@ functions (`Vector3.zero`) yet.
 - **Handles.** `ObjectId`'s raw handle is `((generation + 1) << 32) | index`, so no live object is 0
   (0 is `null` in `GameObject | null`; `from_raw(0)` gets a generation no slot has and misses).
 - **The scene.** `platypus_scene::api::enter(&mut scene)` makes a scene current on the thread until the
-  returned scope is dropped (the `platypus_api::context` thread-local). With none, or for a stale id, the
+  returned scope is dropped (the `ts_api::context` thread-local). With none, or for a stale id, the
   functions answer with defaults: no object, `false`, `0`, the origin, the identity rotation, scale one.
 - **Wired in.** The host calls `enter` around every call into the game (`Native`, see
   [scripting.md](scripting.md)). Tests: [tests/api.rs](../crates/platypus_scene/tests/api.rs) (`M9-API-12..15`, `19`)
   and the compiled `bench/scene.ts` in `tools/platypus_ts_tests` (`M9-TS-151..161`; the math methods are
-  `M9-TS-159..161`, the macro side `M9-API-20` in `platypus_api`; names and `find` are `M9-TS-183..186`).
+  `M9-TS-159..161`, the macro side `M9-API-20` in `ts_api`; names and `find` are `M9-TS-183..186`).
 
 ## Components and the lifecycle
 
@@ -184,7 +184,7 @@ built. Re-attach listeners and callbacks there ([scripting.md](scripting.md#hot-
 
 ## TypeScript API overview
 
-All of it is declared by the native API crates (`#[platypus_api]`; the declarations game code sees are in the generated
+All of it is declared by the native API crates (`#[ts_api]`; the declarations game code sees are in the generated
 `types/platypus.d.ts`). The TypeScript files named below (`scene.ts`, `math.ts`, ...) in `js/engine` were deleted with
 QuickJS; their behaviour is kept as the specification of the native classes. The names follow Unity and
 s&box.
@@ -199,7 +199,7 @@ s&box.
   primitive).
 - `Transform`: `position`, `rotation`, `scale` (world) and local versions, `forward`, `right`, `up`,
   `eulerAngles`, `translate`, `rotate`, `lookAt`, `transformPoint`, `inverseTransformPoint`,
-  `transformDirection`. Native games (the `#[platypus_api]` `Transform`) also have Unity's hierarchy:
+  `transformDirection`. Native games (the `#[ts_api]` `Transform`) also have Unity's hierarchy:
   `parent` (`null` at a root, as on `GameObject`), `childCount`, `getChild(i)`, `root`,
   `find("a/b")` (also `..`, `.` and a leading `/` from the roots), `localToWorldMatrix` /
   `worldToLocalMatrix` (position, rotation and world scale, no shear), `isChildOf`, `detachChildren`, `siblingIndex` with `setAsFirstSibling` /

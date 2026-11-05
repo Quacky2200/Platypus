@@ -60,7 +60,7 @@ About 440 prelude lines were added (73 for hello).
 
 ## 6. QuickJS script time, like for like
 
-From `opMarshalMs` and `opsApplyMs` in `docs/benchmarks/results.json`: op marshalling (copying `__platypus_op` arguments out of JavaScript, inside script time) is at most 0.31 ms (raindrop-demo), godrays-room 0.17, fishtank 0.12, the rest 0.1 or less. Applying ops (counted under "other") is at most 0.27 ms (godrays-clouds). So QuickJS script time is nearly all JavaScript plus direct `#[platypus_api]` native calls. Separating those or the in-JS animation, spline and camera-follow components (which native counts under "sync") would need a timer in every binding, which is not cheap and was not done.
+From `opMarshalMs` and `opsApplyMs` in `docs/benchmarks/results.json`: op marshalling (copying `__platypus_op` arguments out of JavaScript, inside script time) is at most 0.31 ms (raindrop-demo), godrays-room 0.17, fishtank 0.12, the rest 0.1 or less. Applying ops (counted under "other") is at most 0.27 ms (godrays-clouds). So QuickJS script time is nearly all JavaScript plus direct `#[ts_api]` native calls. Separating those or the in-JS animation, spline and camera-follow components (which native counts under "sync") would need a timer in every binding, which is not cheap and was not done.
 
 ## 7. Render sync (resolved separately)
 

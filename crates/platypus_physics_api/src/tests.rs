@@ -7,10 +7,10 @@
 use crate::comp::{self, ColShape};
 use crate::{add_collider, reset, step, take_contacts};
 use glam::{Quat, Vec3};
-use platypus_api::Handle;
 use platypus_math::{V2, V3};
 use platypus_scene::{ObjectId, Scene};
 use serde_json::{Map, json};
+use ts_api::Handle;
 
 fn make(name: &str) -> ObjectId {
     platypus_scene::api::with_scene(|s| s.create(name)).unwrap()

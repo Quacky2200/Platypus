@@ -245,7 +245,7 @@ Unchanged, and resolved through the `Vfs` with no script change: `Texture.load`,
 `Assets.guidToPath` / `pathToGuid` / `importer` / `count` / `pathAt` (the release asset database comes from `Vfs::entries()`, pack
 plan step 7).
 
-New, in `platypus_engine_api::assets` (namespace `Assets`, already `#[platypus_api(namespace = "Assets", quickjs)]`, so QuickJS games get
+New, in `platypus_engine_api::assets` (namespace `Assets`, already `#[ts_api(namespace = "Assets", quickjs)]`, so QuickJS games get
 the same functions with no extra work). They answer from the asset database the host fills (`set_assets`), so `platypus_engine_api`
 gains no dependency on `platypus_pack`:
 

@@ -26,7 +26,7 @@ changes for a game, so the shape can be agreed before the work is done.
 `update(&mut Scene, dt, &mut dyn PropertySink) -> Vec<FiredEvent>`, which the host calls where it now calls `__platypus_animate`.
 Transform channels and `GameObject.active` are written to the scene directly. Nothing in it knows TypeScript.
 
-**The script API** is declared in `platypus_engine_api` (`animation.rs`) with `#[platypus_api]`, so compiled code and QuickJS both get
+**The script API** is declared in `platypus_engine_api` (`animation.rs`) with `#[ts_api]`, so compiled code and QuickJS both get
 it (same as every other module). Types are handles into the system's arenas:
 
 | Class | Made by | Members |
@@ -48,7 +48,7 @@ Strings are used where TypeScript had unions (`"loop"`, `"Transform"`, `"if"`), 
 2. **`fromPoints` takes a flat list** (`[t0, v0, t1, v1, ..]`) once arrays of numbers cross the boundary (section 4); until then
    `AnimationCurve` is built key by key.
 3. **Properties of components are looked up by name through a registry**, not by writing to a JS object. Engine components
-   (`Light`, `MeshRenderer`, `AudioSource`, ...) declare their number properties through their `#[platypus_api]` setters, so
+   (`Light`, `MeshRenderer`, `AudioSource`, ...) declare their number properties through their `#[ts_api]` setters, so
    `setCurve("", "Light", "intensity", c)` works exactly when `Light` has `set_intensity`; a value field such as `color.r` is
    read, changed and written back. A compiled component animates its `@property` fields only (they are in the reflection
    table, `NativeHost::set_property`, `M9-TS-601..604`). Any other field is not animatable (TypeScript could write any
@@ -65,7 +65,7 @@ Strings are used where TypeScript had unions (`"loop"`, `"Transform"`, `"if"`), 
 - **Arrays across the boundary** (`number[]`, `string[]`, handle arrays, value arrays) in parameters and results. In: a pointer
   to the script `Array`, read like a string; out: a per-thread buffer the compiled call copies into a new script array, like
   strings. This is needed again by physics (raycast hits), the scene (`getComponents`, children) and rendering (vertices), so it
-  is built once, in `platypus_api` first.
+  is built once, in `ts_api` first.
 - **Optional value parameters** (`#[optional]` on a `Vector3`: left out means "the default the function documents").
 - **Handle classes in QuickJS** (the item already open): QuickJS games use the same API.
 - Reading the scene's component list from Rust: `getComponent` exists for compiled components; the animation system needs "the
@@ -89,7 +89,7 @@ GC stress runs as for the rest.
 
 ## 7. Questions for the user
 
-1. Is the builder shape in section 3 acceptable for the controller and events, or should `platypus_api` grow support for nested
+1. Is the builder shape in section 3 acceptable for the controller and events, or should `ts_api` grow support for nested
    object literals instead (a larger feature: a manifest type for "options object of these fields", used for
    `new AnimatorController({..})`)? The builders are less work and clearer in the generated types; literals are closer to the
    current code.

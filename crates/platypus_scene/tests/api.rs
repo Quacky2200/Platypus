@@ -1,12 +1,12 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The scene's `#[platypus_api]` namespace: handles, values and the current scene. IDs are in
+//! The scene's `#[ts_api]` namespace: handles, values and the current scene. IDs are in
 //! TESTS.md (M9-API-*).
 use glam::Quat;
-use platypus_api::Handle;
 use platypus_scene::api::{enter, scene_api as api};
 use platypus_scene::{ObjectId, Scene};
+use ts_api::Handle;
 
 // M9-API-12
 //

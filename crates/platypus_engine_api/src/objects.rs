@@ -4,8 +4,8 @@
 //! Small pieces of the object model: the `HideFlags` constants (flags that keep an object out of
 //! the editor views and saved scenes; combine with `|`).
 
-use platypus_api::platypus_api;
 use platypus_scene::ObjectId;
+use ts_api::ts_api;
 
 /// Cleans up after objects the script destroyed: the engine components on them are removed, and
 /// the list is returned so the host can drop its own (a `NativeHost` runs `onDestroy` with
@@ -20,7 +20,7 @@ pub fn process_destroyed() -> Vec<ObjectId> {
     list
 }
 
-#[platypus_api(namespace = "HideFlags")]
+#[ts_api(namespace = "HideFlags")]
 pub mod hide_flags_api {
     #[property]
     #[js_name = "None"]

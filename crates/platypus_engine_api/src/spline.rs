@@ -7,7 +7,6 @@
 //! `SplineAnimate` that uses it. The host calls [`update`] once a frame next to
 //! `animation::update`; [`reset`] forgets everything (a reload).
 
-use platypus_api::{Handle, platypus_api};
 use platypus_kinds::{AssetKind, Kind, asset_handle, asset_ref, object_ref};
 use platypus_math::spline::{
     Alignment, Knot, LoopMode, Spline, SplineHit, SplineNearest, Tangent, animate_pose, animate_t,
@@ -17,6 +16,7 @@ use platypus_scene::ObjectId;
 use platypus_scene::api::{TransformRef, scene_api, with_scene};
 use serde_json::{Map, Value, json};
 use std::cell::RefCell;
+use ts_api::{Handle, ts_api};
 
 macro_rules! numbered_handle {
     ($(#[$m:meta])* $name:ident) => {
@@ -234,7 +234,7 @@ pub fn update(dt: f64) {
     }
 }
 
-#[platypus_api(
+#[ts_api(
     namespace = "Spline", like,
     handles(Spline = SplineRef),
     values(Vector3 = V3 [x: f64, y: f64, z: f64]),
@@ -430,7 +430,7 @@ pub mod spline_api {
     }
 }
 
-#[platypus_api(
+#[ts_api(
     namespace = "SplineAnimate", like,
     handles(
         SplineAnimate = SplineAnimateRef,

@@ -25,7 +25,7 @@ test as usual (`// M9-API-1401`).
 
 Which steps touch which crates:
 
-| Step | platypus_platform | platypus_engine_api | platypus_api(_macros) | tools/ (platypus_ts, platypus_ts_ui, platypus_ts_tests) | platypus_render | platypus_app | js/ | examples |
+| Step | platypus_platform | platypus_engine_api | ts_api(_macros) | tools/ (platypus_ts, platypus_ts_ui, platypus_ts_tests) | platypus_render | platypus_app | js/ | examples |
 |---|---|---|---|---|---|---|---|---|
 | 1 | x | | | | | | | |
 | 1b | | | x | | | | | |
@@ -105,13 +105,13 @@ NativePlan, Os, WindowTree, WindowCommand, WindowHost, plan, place}`.
 
 ---
 
-## Step 1b: static accessor properties on handle classes (`platypus_api_macros`, `platypus_api::qjs`)
+## Step 1b: static accessor properties on handle classes (`ts_api_macros`, `ts_api::qjs`)
 
 **Why.** `Window.main` is a property in compiled TypeScript and must be one in QuickJS too (the user's requirement): not
 `Window.main()`. QuickJS accessor properties work on any object, including a class constructor.
 
-**Files.** `crates/platypus_api_macros/src/lib.rs` (handle-class branch), `crates/platypus_api/src/qjs.rs` (helper),
-`crates/platypus_api/src/lib.rs` manifest types if needed, `crates/platypus_api/tests/classes.rs` (or a new `static_props.rs`),
+**Files.** `crates/ts_api_macros/src/lib.rs` (handle-class branch), `crates/ts_api/src/qjs.rs` (helper),
+`crates/ts_api/src/lib.rs` manifest types if needed, `crates/ts_api/tests/classes.rs` (or a new `static_props.rs`),
 `docs/platypus-api.md` (one paragraph in "Handle classes").
 
 **Rule.** Inside a handle class's `impl`, `#[property] pub fn main() -> T` (no `self`, no parameters) is a **static getter**,
@@ -123,7 +123,7 @@ and `pub fn set_main(v: T)` next to it (same type) the static setter.
 - QuickJS: after the class constructor is made (`install_namespace` / the class object the macro builds), define the property on
   the constructor with rquickjs 0.14's `Object::prop(name, Accessor::new_get(f))` (or `Accessor::new(get, set)`;
   `rquickjs-core/src/value/object/property.rs`), configurable, not enumerable. A helper
-  `platypus_api::qjs::define_static_accessor(ctx, class_obj, name, getter, setter: Option<..>)` keeps the macro output small.
+  `ts_api::qjs::define_static_accessor(ctx, class_obj, name, getter, setter: Option<..>)` keeps the macro output small.
 - A namespace function with the same name as a static property is a compile error (avoids silent shadowing).
 
 **Tests.**
@@ -133,7 +133,7 @@ and `pub fn set_main(v: T)` next to it (same type) the static setter.
 | M9-API-1490 | `a_static_property_of_a_handle_class_is_an_accessor_in_quickjs` (a demo class: `Demo.current` reads through the getter each time, `typeof Demo.current === "object"`, `Object.getOwnPropertyDescriptor(Demo, "current").get` is a function, the manifest has kind `get` with no `this`, the d.ts says `static readonly current: Demo`) |
 | M9-API-1491 | `a_static_setter_writes_through_and_a_read_only_one_ignores_writes` (strict-mode assignment to a read-only static throws `TypeError`) |
 
-**Acceptance.** `cargo test -p platypus_api -p platypus_api_macros`; `M9-API-120` still passes (`cargo test -p platypus_native`).
+**Acceptance.** `cargo test -p ts_api -p ts_api_macros`; `M9-API-120` still passes (`cargo test -p platypus_native`).
 
 ---
 
@@ -144,7 +144,7 @@ to `manifests()` and `window::window_api::register_quickjs(ctx)?` to `register_q
 `crates/platypus_engine_api/tests/window.rs`.
 
 **Code.** Exactly design section 5: `WindowRef`, `MAIN`, `Style` (its own enum, no `platypus_platform` dependency), `Flags`,
-`WindowState`, `WindowRequest`, `Opened`, the host functions and `#[platypus_api(namespace = "Window", quickjs, handles(Window =
+`WindowState`, `WindowRequest`, `Opened`, the host functions and `#[ts_api(namespace = "Window", quickjs, handles(Window =
 WindowRef))] pub mod window_api`. Without step 3, leave `#[options]` out (add it in step 3). The statics `main`, `focused`,
 `current`, `count` are `#[property]` statics (step 1b). The family, domain and message members come in steps F1 and M1.
 
@@ -199,9 +199,9 @@ Behaviour details the tests pin down:
 **Why.** `Window.create({ title, style })` maps by name in compiled code already (`call_ext_args`), but the QuickJS bindings
 take positional arguments only (`audio.createBus(0.5)`).
 
-**Files.** `crates/platypus_api_macros/src/lib.rs` (the QuickJS argument reading of a function), `crates/platypus_api/src/qjs.rs` (a helper
+**Files.** `crates/ts_api_macros/src/lib.rs` (the QuickJS argument reading of a function), `crates/ts_api/src/qjs.rs` (a helper
 `options_object(ctx, value) -> Option<Object>`: a plain object whose prototype is `Object.prototype`, not an array, not a handle
-or value class instance), test `crates/platypus_api/tests/options.rs`, `docs/platypus-api.md` (one paragraph under "Optional
+or value class instance), test `crates/ts_api/tests/options.rs`, `docs/platypus-api.md` (one paragraph under "Optional
 parameters").
 
 **Rule.** On a function marked `#[options]` (it must also have `#[optional(..)]`, else a compile error): when the call has
@@ -213,7 +213,7 @@ today). Positional calls keep working. The manifest does not change (the compile
 
 | ID | Test |
 |---|---|
-| M9-API-1430 | `an_options_object_fills_optional_parameters_by_name` (a demo `#[platypus_api]` module in the test: `make(a: f64, #[optional(b = 2, c, s)] ...)`) |
+| M9-API-1430 | `an_options_object_fills_optional_parameters_by_name` (a demo `#[ts_api]` module in the test: `make(a: f64, #[optional(b = 2, c, s)] ...)`) |
 | M9-API-1431 | `left_out_keys_take_the_declared_defaults` |
 | M9-API-1432 | `positional_calls_still_work_and_a_value_class_argument_is_not_an_options_object` |
 | M9-API-1433 | `window_create_takes_an_options_object_in_quickjs` (`crates/platypus_native/tests/window.rs`: `Window.create({ title: "T", style: "tool", width: 200 })`, then `Window.main.title` (a property, step 1b), `w.isChild`, `w.parent.handle === 1`) |
@@ -221,7 +221,7 @@ today). Positional calls keep working. The manifest does not change (the compile
 
 Then put `#[options]` on `WindowRef::create`.
 
-**Acceptance.** `cargo test -p platypus_api -p platypus_native -p platypus_engine_api` passes.
+**Acceptance.** `cargo test -p ts_api -p platypus_native -p platypus_engine_api` passes.
 
 ---
 

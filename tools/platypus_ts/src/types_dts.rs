@@ -4,7 +4,7 @@
 //! `types/platypus.d.ts` from the engine manifests: what `tsc` needs to type-check a game when there is no
 //! `node_modules` (no `@platypus/engine`, `react` or `@types/react` packages).
 //!
-//! The manifests (the JSON `platypus_api` generates, `docs/platypus-api.md`) list namespaces, handle and value
+//! The manifests (the JSON `ts_api` generates, `docs/platypus-api.md`) list namespaces, handle and value
 //! classes and their functions. This turns them into declarations, once as the module `@platypus/engine`
 //! (so the examples' `import { Color } from "@platypus/engine"` type-checks as written). The doc comments
 //! are not in the manifests, so the declarations have none. The ambient declarations (React-style

@@ -474,7 +474,7 @@ pub enum Primitive {
     Quad,
 }
 
-#[platypus_api(
+#[ts_api(
     namespace = "Primitives", handles(GameObject = ObjectId),
     enums(extern PrimitiveType = Primitive [Cube, Sphere, Capsule, Cylinder, Plane, Quad])
 )]
@@ -493,7 +493,7 @@ pub mod primitives_api {
 
 /// The names of the built-in meshes: `PrimitiveType.Cube` is `"cube"`, and `PrimitiveType.name(i)`
 /// / `.parse(s)` convert the index.
-#[platypus_api(
+#[ts_api(
     namespace = "PrimitiveType", enums(
         /// A built-in mesh (Unity's `PrimitiveType`).
         PrimitiveType = Primitive [Cube, Sphere, Capsule, Cylinder, Plane, Quad]

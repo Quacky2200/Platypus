@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Compiled scripts driving the real engine scene (`platypus_scene`'s `Scene` API, written with
-// `#[platypus_api]`): GameObject handles and Vector3 / Quaternion values, no JavaScript engine.
+// `#[ts_api]`): GameObject handles and Vector3 / Quaternion values, no JavaScript engine.
 
 /** A parent and a child: the child's world position includes the parent's. */
 export function moveAround(): number {

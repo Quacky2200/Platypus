@@ -401,7 +401,7 @@ pub struct VTable {
     pub entries: Vec<(StructId, FuncId)>,
 }
 
-/// A type at the engine boundary (the C ABI of a `platypus_api` function).
+/// A type at the engine boundary (the C ABI of a `ts_api` function).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ExtTy {
     Void,
@@ -434,7 +434,7 @@ pub enum ExtTy {
     /// constant).
     Enum(String),
     /// A result record (`SplineHit`): a plain object of the manifest's fields. The call leaves its
-    /// numbers in `platypus_api`'s buffer and the lowering reads them with `platypus_api_result`.
+    /// numbers in `ts_api`'s buffer and the lowering reads them with `ts_api_result`.
     Record(String),
     /// A result `Vec` of a value class: the call returns the count and leaves the numbers in the
     /// buffer.
@@ -442,7 +442,7 @@ pub enum ExtTy {
     /// A result `Vec` of records.
     RecordList(String),
     /// A result `Vec<String>`: the call returns the count and keeps the strings; the lowering
-    /// reads them with `platypus_api_result_str`.
+    /// reads them with `ts_api_result_str`.
     StrList,
     /// A result `Vec` of an enum: the count, and the indexes in the buffer.
     EnumList(String),
@@ -450,10 +450,10 @@ pub enum ExtTy {
     RecordsJson(String),
     /// A result `Vec<f64>`: the count, and the numbers in the buffer.
     F64List,
-    /// A result `Vec` of handles: the count, and the ids read with `platypus_api_result_id`.
+    /// A result `Vec` of handles: the count, and the ids read with `ts_api_result_id`.
     HandleList(String),
     /// A value that may be `null`: `Option<f64>` (NaN is none), `Option<String>` (a result; the
-    /// call leaves a flag read with `platypus_api_result_none`) or `Option<V>` of a value class (NaN
+    /// call leaves a flag read with `ts_api_result_none`) or `Option<V>` of a value class (NaN
     /// in every field is none).
     Opt(Box<ExtTy>),
 }

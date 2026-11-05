@@ -48,7 +48,7 @@ game). That is the bulk of the work in this item, and it is mostly mechanical.
 ## 3. The shape: declarations over a native API
 
 ```text
-Rust engine functions (#[platypus_api])  --generates-->  engine_api.json   (the manifest)
+Rust engine functions (#[ts_api])  --generates-->  engine_api.json   (the manifest)
                                                        |-- platypus.d.ts          (for tsc, editors, users)
                                                        |-- extern "C" shims   (the symbols to link)
                                                        |-- compiler extern table (platypus_ts)
@@ -228,7 +228,7 @@ Out of scope here, but they constrain this note:
 
 ## 11. Decisions I need from you
 
-1. **Source of truth**: Rust annotated with `#[platypus_api]` generating the manifest, `.d.ts`, shims and
+1. **Source of truth**: Rust annotated with `#[ts_api]` generating the manifest, `.d.ts`, shims and
    QuickJS bindings (recommended); or hand-written `.d.ts` and Rust checked against each other.
 2. **Value classes**: phase 1 ordinary structs with scalarised engine calls, scalar replacement
    later (recommended); or build register-passed vectors into the IR from the start.
@@ -248,7 +248,7 @@ Out of scope here, but they constrain this note:
 
 | # | Sub-task | Size | Needs |
 |---|---|---|---|
-| 1 | The manifest format and `#[platypus_api]` (or the hand-written equivalent), generating `.d.ts` | M | decision 1 |
+| 1 | The manifest format and `#[ts_api]` (or the hand-written equivalent), generating `.d.ts` | M | decision 1 |
 | 2 | Compiler: extern table, `Handle` type, singleton calls, direct calls with scalar arguments | M | 1 |
 | 3 | First vertical slice: `Time`, `Mathf`, `Vector3` intrinsics, `Transform` position/rotation, `Input` axes, compiled `Component` subclass with `onUpdate`, driven by `ComponentHost` | M | 1, 2, plain classes |
 | 4 | Class table and component creation/hooks without names | M | 3 |
@@ -265,7 +265,7 @@ set against the 0.12 ms crossing above.
 
 ## 13. Answers (from the user, 2026-10-18)
 
-1. **Source of truth: Rust annotated with `#[platypus_api]`**, generating the manifest, the shims and the
+1. **Source of truth: Rust annotated with `#[ts_api]`**, generating the manifest, the shims and the
    QuickJS bindings, *instead of* `__platypus_op`. The user's point, which this note had only half said:
    this speeds up QuickJS as well. The QuickJS bindings become ordinary native functions registered
    with typed arguments (numbers as `f64`, handles as integers), not strings plus a `Value` array in an
@@ -291,22 +291,22 @@ set against the 0.12 ms crossing above.
 `findObjectOfType` as compiler intrinsics until generics exist), is therefore **still open**; the
 recommendation stands as the working default and is easy to change, because it is three functions.
 
-**What this makes next.** Sub-task 1 of section 12: the manifest format and `#[platypus_api]`, generating
+**What this makes next.** Sub-task 1 of section 12: the manifest format and `#[ts_api]`, generating
 the `.d.ts`, the `extern "C"` shims and the QuickJS bindings. It lives in the engine workspace (a
 proc-macro crate and a generator), not in `tools/`, and the engine crates that carry ops today
 (`platypus_scene`, `platypus_physics`, `platypus_audio`, `platypus_script`) are where the first annotated functions
 go. `platypus_render` and `platypus_app` carry the `render.*`, `app.*`, `cursor.*` and `screen.*` ops and
 belong to another session's area, so they are left for last, and for whoever owns them.
 
-## 14. First slice of `#[platypus_api]`: built (2026-10-18)
+## 14. First slice of `#[ts_api]`: built (2026-10-18)
 
 Sub-task 1 of section 12, in its smallest useful form: two new crates in the engine workspace,
 additive (nothing else depends on them, `__platypus_op` is untouched).
 
-- `crates/platypus_api_macros`: `#[platypus_api(namespace = "Demo", quickjs, handles(GameObject = ObjectId))]`
+- `crates/ts_api_macros`: `#[ts_api(namespace = "Demo", quickjs, handles(GameObject = ObjectId))]`
   on an inline `pub mod`. It keeps the module's code and adds `MANIFEST`, one `extern "C"` shim per
   `pub fn` (`platypus_Demo_add`), and with `quickjs` a `register_quickjs(ctx)`.
-- `crates/platypus_api`: the manifest types (`Namespace`, `Function`, `Param`, `Ty`), the `Handle` trait
+- `crates/ts_api`: the manifest types (`Namespace`, `Function`, `Param`, `Ty`), the `Handle` trait
   (the Rust id type implements `to_raw`/`from_raw`), and the generators `to_dts()` (the TypeScript
   declaration, doc comments as JSDoc) and `to_json()` (the table the compiler will read).
 - Supported so far: functions over `f64`, `f32`, `i32`, `u32`, `bool`, `()` and declared handle
@@ -314,12 +314,12 @@ additive (nothing else depends on them, `__platypus_op` is untouched).
   number in QuickJS. No registry or linker trick: everything the macro needs is in the one module it
   is attached to.
 - **QuickJS gets typed functions**, not `__platypus_op(name, ...args)`: `Demo.add(1, 2)` is a native
-  closure taking `f64`s. Measured with `cargo test -p platypus_api --release -- --ignored --nocapture`:
+  closure taking `f64`s. Measured with `cargo test -p ts_api --release -- --ignored --nocapture`:
   1,000,000 calls take about 150 ns each through the typed function and about 245 ns through a
   simplified `__platypus_op` (a name string, a rest array of numbers, a queue push; the real op also
   converts each argument to a `Value`, so the real gap is larger). Most of the remaining 150 ns is
   QuickJS's own call overhead; the large win is for compiled code, which calls the shim directly.
-- Tests: `crates/platypus_api/tests/api.rs` (`M9-API-01`..`06`).
+- Tests: `crates/ts_api/tests/api.rs` (`M9-API-01`..`06`).
 
 **Not built yet** (next, in order): the compiler reading the JSON manifest (an extern call node, the
 `Handle` type, f32/i32/u32/bool conversions at the call), value classes (`Vector3`) scalarised across
@@ -333,7 +333,7 @@ and are left for their owner.
 ## 15. The compiler calls the engine API: built (2026-10-18)
 
 Sub-task 2 of section 12, in its first form (`M9-TS-142`..`146`). A TypeScript module compiled with
-the manifest of an `#[platypus_api]` namespace calls it directly.
+the manifest of an `#[ts_api]` namespace calls it directly.
 
 - `platypus_ts --manifest api.json` (or `compile_with_manifests`) reads the JSON `Namespace::to_json`
   writes (`tools/platypus_ts/src/manifest.rs`). `Demo.scale(3, 4)` becomes `CallExtern`, an import of the
@@ -351,7 +351,7 @@ the manifest of an `#[platypus_api]` namespace calls it directly.
   heap: `CallExtern` is not an allocation point in the frame plan. The first engine function that runs
   a script hook changes that (closures to Rust, section 6).
 - The end-to-end proof is `tools/platypus_demo_api` (a small world of entities written with
-  `#[platypus_api]`) linked into `platypus_ts_tests`, whose `build.rs` compiles `bench/engine.ts` with that
+  `#[ts_api]`) linked into `platypus_ts_tests`, whose `build.rs` compiles `bench/engine.ts` with that
   crate's manifest. Every test runs normally, in stress GC mode and with collection off.
 
 Not built yet: value classes across the boundary, strings, methods on handles (`transform.position`),
@@ -363,7 +363,7 @@ other engine crates.
 **Decision: a thread-local current world.** Taken as the recommended default when the question in
 section 12's follow-up went unanswered and the work was told to continue. A shim has no world argument
 (scripts have none), so the host makes the world current on the scripting thread and API functions
-reach it through `platypus_api::context`: `enter(&SLOT, &mut world)` returns a scope guard that restores
+reach it through `ts_api::context`: `enter(&SLOT, &mut world)` returns a scope guard that restores
 the previous world when dropped, and `with(&SLOT, |w| ..)` runs a closure on it or answers `None` when
 there is none (so a function called outside a frame returns its default instead of crashing). While
 the closure runs the world is *not* current, so an API function called from inside it gets `None`
@@ -394,20 +394,20 @@ handles (`transform.position`), annotating the real engine crates, and QuickJS s
 
 ## 17. The first real engine crate: `platypus_scene` (2026-10-18)
 
-`crates/platypus_scene/src/api.rs` declares the `Scene` namespace with `#[platypus_api]`, next to the
+`crates/platypus_scene/src/api.rs` declares the `Scene` namespace with `#[ts_api]`, next to the
 op-based `ScriptScene`, which is untouched. It is the first engine crate on the new path, and
 compiled TypeScript now drives the real scene (`tools/platypus_ts_tests/bench/scene.ts`).
 
 - Functions (no strings yet): `create`, `destroy`, `exists`, `count`, `parent`, `setParent`,
   `enabled`/`setEnabled`, `active`, `layer`/`setLayer`, and position, rotation and scale in local
   space plus position and rotation in world space, as `Vector3` and `Quaternion` values on
-  `GameObject` handles (glam's `Vec3` and `Quat`, through the new `platypus_api` `glam` feature).
+  `GameObject` handles (glam's `Vec3` and `Quat`, through the new `ts_api` `glam` feature).
 - **The handle encoding.** `ObjectId` is an index and a generation; its raw handle is
   `((generation + 1) << 32) | index`, so **no live object is 0** (generation 0 and index 0 is a real
   object, and 0 must mean "no object" in `GameObject | null`). `from_raw(0)` decodes to a generation
   no slot has, so it misses everywhere.
 - **The world.** `platypus_scene::api::enter(&mut scene)` makes a scene current on the thread (the
-  `platypus_api::context` thread-local); the functions answer with defaults (no object, the origin, the
+  `ts_api::context` thread-local); the functions answer with defaults (no object, the origin, the
   identity rotation) when there is none or the id is stale.
 - **Not wired into the running engine.** `platypus_app` is another session's area and was not touched:
   nothing calls `enter` yet, and the engine's scripts still use `__platypus_op`. Wiring it is one line
@@ -423,7 +423,7 @@ Next for this crate: strings (names, `find`), methods on handles (`transform.pos
 
 Handles now have members: `parent.transform.localPosition = v` instead of
 `Scene.setLocalPosition(parent, v)`. They are declared in ordinary `impl` blocks of the handle's Rust
-type inside the `#[platypus_api]` module.
+type inside the `#[ts_api]` module.
 
 - **Syntax.** `#[property] pub fn x(self) -> T` is a getter; `pub fn set_x(self, v: T)` next to it (same
   type) is the setter, and a getter alone is read-only. Other `self` functions are methods, functions
@@ -469,7 +469,7 @@ Not built yet: methods on value classes as intrinsics (`a.add(b)`; built in sect
 
 Value classes have members: `a.add(b).scale(2)`, `v.magnitude`, `q.rotate(v)`.
 
-- **Syntax.** A free function in the `#[platypus_api]` module marked `#[method(Vector3)]` or
+- **Syntax.** A free function in the `#[ts_api]` module marked `#[method(Vector3)]` or
   `#[getter(Vector3)]`, where `Vector3` is declared in `values(..)` and the first parameter is that
   value. A getter takes only the value. Anything else is a compile error.
 - **Why free functions with an attribute.** The value type is a foreign glam type (`Vec3`), so an
@@ -500,23 +500,23 @@ const v = q.rotate(new Vector3(1, 0, 0)); // (0, 0, -1)
 
 ## 20. Strings across the boundary (2026-10-18)
 
-`#[platypus_api]` functions take `&str` (or `String`) parameters and return `String`; the strings item of
+`#[ts_api]` functions take `&str` (or `String`) parameters and return `String`; the strings item of
 the compiler is now complete (see [platypus-ts-strings.md](platypus-ts-strings.md)).
 
-- **Type.** Manifest, JSON and d.ts say `string` (`platypus_api::Ty::Str`; compiler `ExtTy::Str`).
+- **Type.** Manifest, JSON and d.ts say `string` (`ts_api::Ty::Str`; compiler `ExtTy::Str`).
   `string | null` parameters are not supported. A string in a `quickjs` namespace is a compile error.
-- **In.** A parameter is a `*const u8` to the script string object (header `platypus_api::ScriptStr`,
+- **In.** A parameter is a `*const u8` to the script string object (header `ts_api::ScriptStr`,
   layout equal to `platypus_ts_rt::Str`, bytes inline after the 48-byte header). The shim reads it with
-  `platypus_api::script_str`, which borrows the bytes as `&str` without a copy when the string is well
+  `ts_api::script_str`, which borrows the bytes as `&str` without a copy when the string is well
   formed, and otherwise copies it with each lone surrogate replaced by one U+FFFD. The collector is
   non-moving and the caller roots the string, so the pointer is valid for the call. The engine must
   copy what it keeps. Shims with string parameters are `unsafe extern "C"`.
 - **Out.** A `String` result adds a trailing `out_len: *mut i64` and returns `*const u8` into a
-  per-thread buffer (`platypus_api::return_string`). The compiled call copies it at once into a new script
+  per-thread buffer (`ts_api::return_string`). The compiled call copies it at once into a new script
   string with `ts_rt_str_new_gc`, so it can collect: the root analysis counts it as allocating.
   Codegen passes a trailing stack slot for the length.
 - **platypus_scene.** `GameObject.name` (get and set) and `GameObject.find(name)`. Tests `M9-API-21`..`22`
-  (crates/platypus_api/tests/strings.rs) and `M9-TS-183`..`186` (tools/platypus_ts_tests/tests/scene.rs).
+  (crates/ts_api/tests/strings.rs) and `M9-TS-183`..`186` (tools/platypus_ts_tests/tests/scene.rs).
 - **Not built.** `string | null` parameters; strings in the QuickJS bindings.
 
 ## 21. Components for the host (2026-10-19)

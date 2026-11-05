@@ -1,18 +1,18 @@
-# platypus_api: the script API declared once in Rust
+# ts_api: the script API declared once in Rust
 
-Crates: [platypus_api](../crates/platypus_api/src/lib.rs) (manifest types and generators) and
-[platypus_api_macros](../crates/platypus_api_macros/src/lib.rs) (the `#[platypus_api]` attribute). Tests:
-[api.rs](../crates/platypus_api/tests/api.rs) (`M9-API-01`..`06`),
-[context.rs](../crates/platypus_api/tests/context.rs) (`M9-API-07`..`09`) and
-[values.rs](../crates/platypus_api/tests/values.rs) (`M9-API-10`, `11`) and
-[classes.rs](../crates/platypus_api/tests/classes.rs) (`M9-API-16`..`18`). Design and the road ahead:
+Crates: [ts_api](../crates/ts_api/src/lib.rs) (manifest types and generators) and
+[ts_api_macros](../crates/ts_api_macros/src/lib.rs) (the `#[ts_api]` attribute). Tests:
+[api.rs](../crates/ts_api/tests/api.rs) (`M9-API-01`..`06`),
+[context.rs](../crates/ts_api/tests/context.rs) (`M9-API-07`..`09`) and
+[values.rs](../crates/ts_api/tests/values.rs) (`M9-API-10`, `11`) and
+[classes.rs](../crates/ts_api/tests/classes.rs) (`M9-API-16`..`18`). Design and the road ahead:
 [platypus-ts-engine-boundary.md](research/platypus-ts-engine-boundary.md).
 
 One module of ordinary Rust is the single source for a namespace of the script API: the manifest, the
 TypeScript declarations and the `extern "C"` shims that compiled scripts link to. They are all generated from the same
 functions, so they cannot drift apart.
 
-> **QuickJS removed (2026-10-28).** `platypus_api` has no `qjs.rs` and no `quickjs` feature; `#[platypus_api(..)]` no
+> **QuickJS removed (2026-10-28).** `ts_api` has no `qjs.rs` and no `quickjs` feature; `#[ts_api(..)]` no
 > longer takes `quickjs` and generates no `register_quickjs`; the `platypus_native` crate (`install`,
 > `register_quickjs`) and `window::QUICKJS_PRELUDE` are deleted. Where this page still mentions QuickJS (a "QuickJS"
 > column, "in QuickJS" notes, the old `quickjs` flag), that is the history of how a type or feature was bound; only the
@@ -23,7 +23,7 @@ functions, so they cannot drift apart.
 ## Usage
 
 ```rust
-use platypus_api::{Handle, platypus_api};
+use ts_api::{Handle, ts_api};
 
 #[derive(Clone, Copy)]
 pub struct ObjectId(pub u64);
@@ -32,7 +32,7 @@ impl Handle for ObjectId {
     fn from_raw(raw: u64) -> Self { ObjectId(raw) }
 }
 
-#[platypus_api(namespace = "Demo", handles(GameObject = ObjectId))]
+#[ts_api(namespace = "Demo", handles(GameObject = ObjectId))]
 pub mod demo {
     use super::ObjectId;
 
@@ -45,14 +45,14 @@ pub mod demo {
 ```
 
 Arguments: `namespace = ".."` (required) and
-`handles(TsName = RustType, ..)` (Rust types that implement `platypus_api::Handle`) and
+`handles(TsName = RustType, ..)` (Rust types that implement `ts_api::Handle`) and
 `values(TsName = RustType [field: scalar, ..], ..)` (value classes, below). The module must be
 inline (`pub mod x { .. }`).
 
 ### Value classes
 
 A small Rust type that scripts see as a class of numbers (`glam::Vec3` as `Vector3`). The type
-implements `platypus_api::ValueType<N>` (`N` fields; the parts travel as `f64`):
+implements `ts_api::ValueType<N>` (`N` fields; the parts travel as `f64`):
 
 ```rust
 impl ValueType<3> for Vec3 {
@@ -60,13 +60,13 @@ impl ValueType<3> for Vec3 {
     fn to_parts(self) -> [f64; 3] { [self.x as f64, self.y as f64, self.z as f64] }
 }
 
-#[platypus_api(namespace = "Demo", values(Vector3 = Vec3 [x: f32, y: f32, z: f32]))]
+#[ts_api(namespace = "Demo", values(Vector3 = Vec3 [x: f32, y: f32, z: f32]))]
 pub mod demo {
     pub fn cross(a: Vec3, b: Vec3) -> Vec3 { /* .. */ }
 }
 ```
 
-The `glam` feature (`platypus_api = { features = ["glam"] }`) implements `ValueType` for `Vec2`, `Vec3`,
+The `glam` feature (`ts_api = { features = ["glam"] }`) implements `ValueType` for `Vec2`, `Vec3`,
 `Vec4` and `Quat`, so `platypus_scene` declares `Vector3 = Vec3 [x: f32, y: f32, z: f32]` and
 `Quaternion = Quat [..]` without writing the impls.
 
@@ -105,7 +105,7 @@ inside the module. The type must be declared in `handles(..)`; the class gets th
 name.
 
 ```rust
-#[platypus_api(namespace = "Scene", handles(GameObject = ObjectId, Transform = TransformRef))]
+#[ts_api(namespace = "Scene", handles(GameObject = ObjectId, Transform = TransformRef))]
 pub mod scene_api {
     impl ObjectId {
         pub fn create() -> ObjectId { /* .. */ }          // static: GameObject.create()
@@ -151,7 +151,7 @@ manifest has a `get` / `set` function of the class without a `this` parameter (t
 class statics, so `ext_static_prop` reads it, and the setter in `static_setters`). The `.d.ts` says `static readonly main: T;`
 (`static get` / `static set` for a writable one), and `platypus-build types` the same. A static function
 and a static property of one class cannot share a script name (compile error). A static and an instance member may (`Window.focused`
-and `win.focused`): the instance one lives on the prototype. Tests: `crates/platypus_api/tests/static_props.rs` (`M9-API-1490`, `1491`).
+and `win.focused`): the instance one lives on the prototype. Tests: `crates/ts_api/tests/static_props.rs` (`M9-API-1490`, `1491`).
 
 ## What the macro adds
 
@@ -179,7 +179,7 @@ generic; `self` is allowed only in a handle class's `impl`, by value.
 
 | `&str` / `String` | `string` | a parameter: `*const u8` to the script string object; a result: `*const u8` plus a trailing `out_len: *mut i64` | a JS string |
 | `&[f64]` / `&[V]` | `number[]` / `Vector3[]` | `*const u8` to the script array | a JS array (elements: instances, objects or arrays) |
-| `&[String]` / `Vec<String>` | `string[]` | `*const u8` to the script array of strings; the shim copies them (`platypus_api::script_strs`), so the function may keep them | a JS array of strings |
+| `&[String]` / `Vec<String>` | `string[]` | `*const u8` to the script array of strings; the shim copies them (`ts_api::script_strs`), so the function may keep them | a JS array of strings |
 
 Any other type is a compile error that lists the supported ones. Names follow `snake_case` to
 `camelCase` (`set_time_scale` is `setTimeScale`), done by `camel` in both crates.
@@ -187,17 +187,17 @@ Any other type is a compile error that lists the supported ones. Names follow `s
 ### Strings
 
 A function may take `&str` (or `String`) parameters and return `String`. The manifest, JSON and d.ts
-type is `string` (`platypus_api::Ty::Str`); `string | null` parameters are not supported.
+type is `string` (`ts_api::Ty::Str`); `string | null` parameters are not supported.
 
 - **In.** A string parameter is a `*const u8` pointing at the script string object: the header
-  `platypus_api::ScriptStr` (layout equal to `platypus_ts_rt::Str`, a test in `platypus_ts_tests` checks it) and
-  the bytes inline after its 48 bytes. The shim reads it with `platypus_api::script_str`, which
+  `ts_api::ScriptStr` (layout equal to `platypus_ts_rt::Str`, a test in `platypus_ts_tests` checks it) and
+  the bytes inline after its 48 bytes. The shim reads it with `ts_api::script_str`, which
   borrows the bytes as `&str` with no copy when the string is well formed. Script strings are WTF-8,
   so one with a lone surrogate is copied with each lone surrogate replaced by one U+FFFD. A null
   pointer reads as `""`. The collector is non-moving and the caller roots the string, so it stays
   valid for the call. The engine must copy what it keeps (`set_name` stores an owned `String`).
 - **Out.** A `String` result adds a trailing `out_len: *mut i64` to the shim, which returns
-  `*const u8` into a per-thread buffer (`platypus_api::return_string`). The compiled call copies it at
+  `*const u8` into a per-thread buffer (`ts_api::return_string`). The compiled call copies it at
   once into a new script string (`ts_rt_str_new_gc`), before any other engine call.
 - **Unsafe shims.** A shim with a string parameter is `unsafe extern "C"`, since it dereferences the
   pointer.
@@ -207,7 +207,7 @@ pub fn find(name: &str) -> ObjectId { /* name is borrowed: copy it to keep it */
 pub fn name(self) -> String { /* the shim returns it through return_string */ }
 ```
 
-Tests: `M9-API-21`..`22` (crates/platypus_api/tests/strings.rs).
+Tests: `M9-API-21`..`22` (crates/ts_api/tests/strings.rs).
 
 ## Generating the files
 
@@ -229,16 +229,16 @@ indices at 1).
 ## The engine context
 
 A shim has no world argument (scripts have none), so the host makes the world current on the thread
-that runs scripts and API functions reach it through `platypus_api::context`. `enter` returns a scope
+that runs scripts and API functions reach it through `ts_api::context`. `enter` returns a scope
 guard that restores the previous world on drop; `with` runs a closure on the current world, or
 returns `None` when there is none. While the closure runs the world is not current, so a nested
 call gets `None` instead of a second `&mut` to it.
 
 ```rust
 thread_local! { static WORLD: Cell<*mut World> = const { Cell::new(std::ptr::null_mut()) }; }
-let _scope = platypus_api::context::enter(&WORLD, &mut world); // while scripts run
+let _scope = ts_api::context::enter(&WORLD, &mut world); // while scripts run
 // inside an API function:
-let pos = platypus_api::context::with(&WORLD, |w| w.position(id)).unwrap_or_default();
+let pos = ts_api::context::with(&WORLD, |w| w.position(id)).unwrap_or_default();
 // a nested `with(&WORLD, ..)` inside that closure returns None
 ```
 
@@ -269,7 +269,7 @@ against 245 ns, no longer has a counterpart; the QuickJS bindings for values, st
 
 ## The engine API beyond the scene
 
-[platypus_engine_api](../crates/platypus_engine_api/src/lib.rs) declares, with `#[platypus_api]`, what the sine-circle demo and most gameplay
+[platypus_engine_api](../crates/platypus_engine_api/src/lib.rs) declares, with `#[ts_api]`, what the sine-circle demo and most gameplay
 code use besides `Scene`: `Color`, `Time`, `input`, `Gizmos`, `Camera`, `Screen` and `QualitySettings`, with the names and behaviour of
 the former `js/engine` (deleted). Each keeps its state per thread and has plain Rust functions for the host: `time::advance(real_dt)`,
 `input::{key_down_event, key_up_event, mouse_button_event, mouse_move, end_frame}`, `gizmos::take_frame()`, `camera::cameras()`,
@@ -533,7 +533,7 @@ draws, the app reads per-thread registries and a command queue. **No change to `
   `Mirror.normal` has a `hasNormal` flag; `specularColor = null` is `clearSpecularColor()`; enum-like strings (`Light.type`) ignore
   unknown names instead of storing them.
 
-## Closures given to the engine (`platypus_api::callback`)
+## Closures given to the engine (`ts_api::callback`)
 
 A parameter of type `Callback<(A, B)>` (elements `f64`, `i32`, `u32`, `bool`, `String` or `HandleArg<T>` for a declared handle) is a
 script closure the engine keeps and calls later: `input.onKeyDown((code, repeat) => ..)`. Manifest type `fn(f64,string):void`
@@ -544,7 +544,7 @@ The closure returns nothing.
   `add` / `remove` / `snapshot`; tokens are unique across all events) and `emit(&snapshot, args)`. Emit after the state borrow is
   released, from a snapshot, so a listener may subscribe, unsubscribe or call the API.
 - **Runtime.** The shim wraps the closure pointer with `Callback::from_script`, which roots it (a host root) until the last clone is
-  dropped. The runtime tells `platypus_api` how to root, make a script string and take a thrown exception through
+  dropped. The runtime tells `ts_api` how to root, make a script string and take a thrown exception through
   `callback::install_bridge`; `platypus_ts_rt` installs it with its heap. A string argument is a new rooted script string for the call.
   An exception thrown by a callback is swallowed and listed by `callback::take_errors()`.
 - **Differences.** The TypeScript `on(..)` returned an unsubscribe function; here `onX(f)` returns a token (a number, never 0) and a
@@ -556,16 +556,16 @@ The closure returns nothing.
 
 A handle (an engine id such as a GameObject, a component, a texture) is a `u64` on the compiled side (`Handle::to_raw`); `0` is
 `null` in `GameObject | null`. Plain data (numbers, strings, arrays, value classes) is encoded normally. (The QuickJS
-form of a handle, an opaque `HandleBox` object with a JS class per handle, `platypus_api::qjs`, `platypus_native::install` and
+form of a handle, an opaque `HandleBox` object with a JS class per handle, `ts_api::qjs`, `platypus_native::install` and
 `register_quickjs` were removed with QuickJS, with their tests `M9-API-100..113`, `-120`..`-125`.)
 
 - *Arrays.* `&[String]` (or `Vec<String>`, owned) is an array of strings (manifest type `strings`, `ExtTy::StrArr` in the compiled lowering; an optional one left out is empty; `M9-API-1621`, `M9-TS-3323`); `&[f64]` an array of numbers; `&[V]` an array of value instances, objects or arrays. Typed arrays and array results are not built.
-- *Namespaces.* Every `#[platypus_api]` module of the engine is a namespace the compiler links: math (value classes: `Mathf`, `Vector2/3/4`, `Vector2Int/3Int`, `Quaternion`, `Matrix4x4`, `Rect`, `RectInt`, `Ray`, `Plane`, `Bounds`, `Pose`, `Color`, `Keyframe`, `TimeSpan`, `DateTime`, `TimeSince`, `TimeUntil`); scene and objects (`Scene`, `GameObject`, `Transform`, `SceneManager`, `Prefab`, `HideFlags`, `LayerMask`); services (`Time`, `input`, `Random` / `Rng`, `Debug`, `Log`, `Console`, `PlayerPrefs`, `Assets`, `Application`, `SystemInfo`, `Cursor`, `Screen`, `QualitySettings`, `Gizmos`, `Editor`, `EditorScene` (snapshots and scene files for the editor; `platypus_scenes`, see [editor.md](editor.md))); animation (`AnimationCurve`, `AnimationClip`, `Animation`, `Animator`, `AnimationController` and its builders); audio (`audio`, `AudioSource`, `AudioListener`); physics (`Physics`, `Rigidbody`, colliders, joints, `Rope`, `Physics2D` and its 2D classes); rendering data (`Camera`, `Light`, `MeshRenderer`, `SkinnedMeshRenderer`, `SpriteRenderer`, `LineRenderer`, `LineRenderer2D`, `LODGroup`, `Mirror`, `ReflectionProbe`, `PlaneRenderer`, `WorldPanel`, `ParticleSystem`, `Cloth`, `Material`, `Sprite`, `Texture`, `Mesh`, `Model`, `Primitives`, `RenderSettings`). The compiler gets their manifests from the engine crates (`platypus_ts` `engine_manifests`).
+- *Namespaces.* Every `#[ts_api]` module of the engine is a namespace the compiler links: math (value classes: `Mathf`, `Vector2/3/4`, `Vector2Int/3Int`, `Quaternion`, `Matrix4x4`, `Rect`, `RectInt`, `Ray`, `Plane`, `Bounds`, `Pose`, `Color`, `Keyframe`, `TimeSpan`, `DateTime`, `TimeSince`, `TimeUntil`); scene and objects (`Scene`, `GameObject`, `Transform`, `SceneManager`, `Prefab`, `HideFlags`, `LayerMask`); services (`Time`, `input`, `Random` / `Rng`, `Debug`, `Log`, `Console`, `PlayerPrefs`, `Assets`, `Application`, `SystemInfo`, `Cursor`, `Screen`, `QualitySettings`, `Gizmos`, `Editor`, `EditorScene` (snapshots and scene files for the editor; `platypus_scenes`, see [editor.md](editor.md))); animation (`AnimationCurve`, `AnimationClip`, `Animation`, `Animator`, `AnimationController` and its builders); audio (`audio`, `AudioSource`, `AudioListener`); physics (`Physics`, `Rigidbody`, colliders, joints, `Rope`, `Physics2D` and its 2D classes); rendering data (`Camera`, `Light`, `MeshRenderer`, `SkinnedMeshRenderer`, `SpriteRenderer`, `LineRenderer`, `LineRenderer2D`, `LODGroup`, `Mirror`, `ReflectionProbe`, `PlaneRenderer`, `WorldPanel`, `ParticleSystem`, `Cloth`, `Material`, `Sprite`, `Texture`, `Mesh`, `Model`, `Primitives`, `RenderSettings`). The compiler gets their manifests from the engine crates (`platypus_ts` `engine_manifests`).
 
 **Callbacks.** A `Callback<(..)>` parameter (listener APIs: `input.onKeyDown(f)`, `Assets.onChanged`, `SceneManager.onSceneLoaded`,
 `Screen.onChange`, `ParticleSystem.onStopped`, `Playback.onEnded`, ...) takes a script closure, rooted as described under "Callbacks" above; the listener
 APIs return the numeric token and `off(token)` removes it. An exception in a callback is not thrown into the engine: it is recorded for
-`platypus_api::callback::take_errors()` and the other callbacks still run. Reset the engine state that holds listeners (`input::reset`,
+`ts_api::callback::take_errors()` and the other callbacks still run. Reset the engine state that holds listeners (`input::reset`,
 `assets::reset`, `app::reset`, `screen::reset`, `audio::reset`, `platypus_render_api::reset`, `platypus_scenes::reset`) before replacing the
 program (a hot reload does).
 
@@ -582,7 +582,7 @@ bundle (`build/game.js`) is refused.
 - **Bundle** (written by `platypus-build`): JSON `{"format":1,"title","entry","source":"<one TS/TSX text>","css":"game.css"|null,
   "assets":[..]}`. `Bundle::read` / `Bundle::parse`. The stylesheet is still `build/game.css`, loaded by `load_game_css`.
 - **Compile.** Manifests: each engine crate's `manifests()` (all engine namespaces, which also registers their shim addresses in
-  `platypus_api::symbol`) plus `platypus_ts_ui::manifest_json()` and `root_manifest_json()`; extra symbols: `platypus_ts_ui::symbols()`; the
+  `ts_api::symbol`) plus `platypus_ts_ui::manifest_json()` and `root_manifest_json()`; extra symbols: `platypus_ts_ui::symbols()`; the
   runtime's come from `platypus_ts_rt::symbols()` (a build script lists its `#[no_mangle]` exports). Each reload gets a new
   `struct_base` (100,000 apart).
 - **Per frame and event** (`Native`): `fixed_tick` (`NativeHost::fixed_update`, `platypus_physics_api::step`, `dispatch_physics`),
@@ -696,7 +696,7 @@ units, soft shadow levels, fog volumes) are declared natively too, and `render_s
   it as the `clouds` op; `WorldViews::advance_clouds` carries it on the wind each frame (`M7-CLOUD-04`).
 - **Object-valued properties** are native records: `skybox`, `bloom`, `heightFog`, `volumetricFog`, `cloudLayer` and `autoExposure` take an object or
   `null` and read back as one (`Option<Record>`, JSON on the wire, see "Records as parameters" below); `fixedExposure` is native
-  (`number | null`). `FogMode`, `VolumeDetail`, `VolumeDenoising` and `ExposureMetering` are enums (`#[platypus_api]` `enums(..)`, string
+  (`number | null`). `FogMode`, `VolumeDetail`, `VolumeDenoising` and `ExposureMetering` are enums (`#[ts_api]` `enums(..)`, string
   unions in the declarations). The per-field natives (`heightFogDensity`, `skyZenith`, ...) are still there.
 - **`Camera`**: `fog` (show the fog, on), `exposure` / `sceneBrightness` (EV100, read back from the GPU a frame or two late, NaN
   before: the app calls `camera::set_exposure`), `resetExposure()`, `aperture` / `shutterSpeed` / `iso` and `physicalExposure`.
@@ -761,22 +761,22 @@ games too. The renderer-side parts send the same ops as the QuickJS classes (`re
 ## Enums, records, lists, rest parameters and docs (2026-10-22, generated declarations P0/P1)
 
 Part of making every declaration generated from Rust (plan: [platypus-generated-dts-plan.md](research/platypus-generated-dts-plan.md)):
-`#[platypus_api]` and the manifest got what `Shapes`, `Spline` and `SplineAnimate` needed, so their TypeScript copies
-(`facade.ts`, `engine_ts.d.ts`) could go. Tests: [records_enums.rs](../crates/platypus_api/tests/records_enums.rs)
+`#[ts_api]` and the manifest got what `Shapes`, `Spline` and `SplineAnimate` needed, so their TypeScript copies
+(`facade.ts`, `engine_ts.d.ts`) could go. Tests: [records_enums.rs](../crates/ts_api/tests/records_enums.rs)
 (`M9-API-1610`..`1614`).
 
 | Rust | Script | C ABI |
 |---|---|---|
 | `enums(TangentMode = Tangent [Auto, Bezier, Linear])` on the attribute, a Rust enum `Tangent` | the string union `"auto" \| "bezier" \| "linear"` (variant names with a lower-case first letter), plus the global `TangentMode.name(i)` / `TangentMode.parse(s)` | the index, `i32` (-1: not a name; the engine reads it as the first value) |
-| `records(SplineHit = SplineHit [segment: f64, u: f64])`, a Rust struct with those public fields (`f64`, `bool`, `string` (a `String`), a declared value class or enum) | a plain object `{ segment, u }` (an `interface` in the d.ts) | a result only: the numbers go to `platypus_api`'s per-thread buffer (`return_flat`) and the strings to its string list (`return_strings`, in field order, element after element for a list), the compiled call reads them with `platypus_api_result(i)` / `platypus_api_result_str(i)` and builds the object |
+| `records(SplineHit = SplineHit [segment: f64, u: f64])`, a Rust struct with those public fields (`f64`, `bool`, `string` (a `String`), a declared value class or enum) | a plain object `{ segment, u }` (an `interface` in the d.ts) | a result only: the numbers go to `ts_api`'s per-thread buffer (`return_flat`) and the strings to its string list (`return_strings`, in field order, element after element for a list), the compiled call reads them with `ts_api_result(i)` / `ts_api_result_str(i)` and builds the object |
 | `-> Vec<V>` / `-> Vec<Record>` | `V[]` / `Record[]` | the shim returns the element count; the numbers of every element are in the same buffer |
-| `-> Vec<String>` | `string[]` | the shim returns the count and keeps the strings in `platypus_api`'s per-thread list (`return_strings`); the compiled call copies them out with `platypus_api_result_str(i)`, one new script string each (manifest `list:string`; QuickJS gets an array of strings; `Assets.list`, `M9-API-1620`) |
+| `-> Vec<String>` | `string[]` | the shim returns the count and keeps the strings in `ts_api`'s per-thread list (`return_strings`); the compiled call copies them out with `ts_api_result_str(i)`, one new script string each (manifest `list:string`; QuickJS gets an array of strings; `Assets.list`, `M9-API-1620`) |
 | `#[rest(points)]` on a function whose last parameter is `&[V]` | `...points: V[]` (QuickJS: every remaining argument; compiled: the arguments packed into an array, or one `...array`) | the array pointer, as for `&[V]` |
 | `#[options(after = points)]` with `#[optional(points, closed = false, ..)]` | `new Spline(points?, { closed?, tension? })`: the object after `points` gives the parameters after it | the positional shim |
 | `like` on the attribute | value *parameters* are declared `Vector3Like` (a plain `{ x, y, z }` does) | - |
 | `#[nullable]` on a handle getter and its setter | `T \| null` in the declaration | a zero handle is `null` as before |
 | `#[nullable(undefined)]` (on a handle result, a static property such as `Camera.main`) | `T \| undefined` | the same zero handle (manifest `undefined`) |
-| `Option<f64>`, `Option<String>` (a result only), `Option<V>` for a value class | `number \| null`, `string \| null`, `Color \| null` (manifest `opt:f64`, `opt:string`, `opt:value:Color`) | the inner type with a none mark: NaN for a number, NaN in every field for a value (also as a parameter, so a setter takes `null`), and for a string an empty text plus the flag `platypus_api_result_none()` the compiled call reads right after (`Window.openError`, `RenderSettings.fixedExposure`, `LineRenderer2D.fillColor`); QuickJS gets `null` |
+| `Option<f64>`, `Option<String>` (a result only), `Option<V>` for a value class | `number \| null`, `string \| null`, `Color \| null` (manifest `opt:f64`, `opt:string`, `opt:value:Color`) | the inner type with a none mark: NaN for a number, NaN in every field for a value (also as a parameter, so a setter takes `null`), and for a string an empty text plus the flag `ts_api_result_none()` the compiled call reads right after (`Window.openError`, `RenderSettings.fixedExposure`, `LineRenderer2D.fillColor`); QuickJS gets `null` |
 | `enums(extern PrimitiveType = Primitive [..])` | an enum another namespace declares (no second set of converters, no second declaration); the module imports the declaring namespace's `primitive_type_*` helpers | the same index |
 | `enums(FullScreenMode = Mode [ExclusiveFullScreen = "ExclusiveFullScreen", ..])` | a variant may name its string when it is not the variant with a lower-case first letter | the index |
 | a parameter `Option<Enum>` | the enum, usually optional; a left-out or unknown name is `None` (compiled calls pass -1; QuickJS throws a `TypeError` for an unknown name and takes a left-out one as `None`): setters use it to ignore a name that is not one (`RenderSettings.fogMode = "nonsense"`), constructors to tell "left out" (the `.meta` importer's value) from the first value (`Texture.load(.., { filterMode })`) | the index (-1: none) |
@@ -796,12 +796,12 @@ returns the strings and throws a `TypeError` for an unknown name (a left-out opt
 **Enums of the engine API (2026-10-22, plan phase 2a).** `FogMode`, `VolumeDetail` (`RenderSettings`), `PrimitiveType` (with the
 alias `PrimitiveMesh`; `PrimitiveType.Cube` is the enum value `"cube"`), `FilterMode`, `TextureWrapMode` (`Texture`), `FullScreenMode`
 (`Screen`), `ShadowQualityMode` (`QualitySettings`), `WindowStyle` (`Window`) and `LoadSceneMode` (`SceneManager`) are
-`#[platypus_api]` enums: the string unions in the declarations are generated, `tsc` and the compiler's `Record<FogMode, V>` see the same
+`#[ts_api]` enums: the string unions in the declarations are generated, `tsc` and the compiler's `Record<FogMode, V>` see the same
 names, and a setter ignores a name that is not one. Differences from before: the natives
 `Screen.supportedFullScreenModeCount` / `...At(i)`, `RenderSettings.fixedExposureEnabled` / `...Value`, `LineRenderer2D.hasFill` /
 `fillValue` and `Window.openErrorText` are gone (the nullable property replaces each pair), `Camera.main` is a property of the
 native `Camera` class in QuickJS too (it was a function there), and `Window.create({ style: "floating" })` throws a `TypeError` in
-QuickJS (compiled code and the old string API fell back to `normal` with a warning). Tests: `crates/platypus_api/tests/enums_nullables.rs`
+QuickJS (compiled code and the old string API fell back to `normal` with a warning). Tests: `crates/ts_api/tests/enums_nullables.rs`
 (`M9-API-1622`..`1626`, `1630`..`1632`), `crates/platypus_native/tests/enums.rs` (`M9-API-1627`..`1629`, `1633`), `tools/platypus_ts_tests` `M9-TS-3340`, `3341`, `3343`, `tools/platypus_ts` `M9-TS-3342`.
 
 **Records as parameters (2026-10-22, plan phase 2b, second part).** A record declared in `records(..)` may have optional keys and number
@@ -824,7 +824,7 @@ fed the facade are gone: `Screen.resolutionCount` / `resolutionWidth(i)` / `reso
 `currentResolutionWidth` / `Height` / `RefreshRate`.
 
 **Lists (2026-10-22, plan phase 2c, first part).** `Vec<f64>` and `Vec<Handle>` are results (`list:f64`, `list:handle:X`: the count, then the numbers in the
-result buffer or the 64-bit ids behind `platypus_api_result_id(i)`), `&[Handle]` is a parameter (`handles:X`, read with `script_handles`: the
+result buffer or the 64-bit ids behind `ts_api_result_id(i)`), `&[Handle]` is a parameter (`handles:X`, read with `script_handles`: the
 script array of ids). A getter that returns a list pairs with the setter that takes the array (`pair_ty` in the macro), so it is one
 property (`SkinnedMeshRenderer.bones`, `Cloth.pins` / `sphereColliders` / `capsuleColliders`, `Camera.layerCullDistances`,
 `LineRenderer.positions`, `LineRenderer2D.points`, `EdgeCollider2D.points`, `PolygonCollider2D.points`, `QualitySettings.names`);

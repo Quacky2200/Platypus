@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 [package]
-name = "platypus_api"
+name = "ts_api"
 version.workspace = true
 edition.workspace = true
 publish.workspace = true
@@ -13,7 +13,7 @@ license.workspace = true
 glam = ["dep:glam"]
 
 [dependencies]
-platypus_api_macros = { version = "0.1.0", path = "../platypus_api_macros" }
+ts_api_macros = { version = "0.1.0", path = "../ts_api_macros" }
 glam = { version = "0.34.1", optional = true }
 serde_json = "1"
 

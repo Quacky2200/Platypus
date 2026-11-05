@@ -12,7 +12,7 @@ use std::rc::Rc;
 // `video_settings_changed` runs the `onVideoSettingsChanged` listeners until they are removed.
 #[test]
 fn show_video_settings_is_a_request_and_the_change_reaches_listeners() {
-    use platypus_api::Callback;
+    use ts_api::Callback;
     app::reset();
     app::application_api::show_video_settings();
     assert_eq!(app::take_requests(), [app::Request::ShowVideoSettings]);

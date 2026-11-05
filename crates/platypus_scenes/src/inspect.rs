@@ -7,10 +7,10 @@
 //! one (`platypus_kinds::register_fields`), else from the saved value's shape.
 
 use crate::data::{Opaque, components_of, opaque_components, remove_opaque, set_opaque};
-use platypus_api::Handle;
 use platypus_kinds::FieldDoc;
 use platypus_scene::ObjectId;
 use serde_json::{Map, Value, json};
+use ts_api::Handle;
 
 /// One component as the Inspector lists it.
 #[derive(Clone, Debug, PartialEq)]

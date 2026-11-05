@@ -179,12 +179,21 @@ fn layers_side_by_side_share_one_texture() {
         ("opacity", "0.5"),
     ];
     // (A box with a child: one alone is drawn with its alpha scaled, no layer.)
-    let child: &[(&str, &str)] = &[("width", "10"), ("height", "10"), ("backgroundColor", "blue")];
-    let rows: Vec<Element> = (0..4u32).flat_map(|i| [(0, "box", row), (2 * i + 1, "box", child)]).collect();
+    let child: &[(&str, &str)] = &[
+        ("width", "10"),
+        ("height", "10"),
+        ("backgroundColor", "blue"),
+    ];
+    let rows: Vec<Element> = (0..4u32)
+        .flat_map(|i| [(0, "box", row), (2 * i + 1, "box", child)])
+        .collect();
     let mut t = tree(&rows, &[], "");
     let p = plan_of(&t.draw_list(), false, &mut Fake::default());
     assert_eq!(p.layers, 4);
-    assert_eq!(p.textures, 2, "the canvas and one layer texture, used in turn");
+    assert_eq!(
+        p.textures, 2,
+        "the canvas and one layer texture, used in turn"
+    );
     // Each layer is cleared before it is drawn into and composited onto the canvas.
     let clears = p
         .steps
@@ -199,7 +208,11 @@ fn layers_side_by_side_share_one_texture() {
     assert_eq!((clears, composites), (4, 4));
 
     // Nested, both are open at once: two.
-    let mut t = tree(&[(0, "box", row), (1, "box", row), (2, "box", child)], &[], "");
+    let mut t = tree(
+        &[(0, "box", row), (1, "box", row), (2, "box", child)],
+        &[],
+        "",
+    );
     let p = plan_of(&t.draw_list(), false, &mut Fake::default());
     assert_eq!((p.layers, p.textures), (2, 3));
 }

@@ -141,10 +141,10 @@ thread_local! {
     }) };
 }
 
-/// Tells `platypus_api` how engine code roots a closure it keeps, makes a script string for a
-/// callback argument and takes an exception a callback threw (`platypus_api::callback`).
+/// Tells `ts_api` how engine code roots a closure it keeps, makes a script string for a
+/// callback argument and takes an exception a callback threw (`ts_api::callback`).
 fn install_engine_bridge() {
-    platypus_api::callback::install_bridge(platypus_api::callback::ScriptBridge {
+    ts_api::callback::install_bridge(ts_api::callback::ScriptBridge {
         root_add: |p| ts_rt_root_add(p),
         root_remove: |r| ts_rt_root_remove(r),
         str_new: |s| {

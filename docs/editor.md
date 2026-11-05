@@ -59,7 +59,7 @@ Without `--project` the `Editor` calls do nothing and fail, so games can't use t
 
 ## The `Editor` namespace
 
-Declared with `#[platypus_api]` in [editor.rs](../crates/platypus_engine_api/src/editor.rs), so its TypeScript
+Declared with `#[ts_api]` in [editor.rs](../crates/platypus_engine_api/src/editor.rs), so its TypeScript
 declarations are generated. All calls answer at once; there are no ops and no promises on the Rust side.
 
 | Member | Does |
@@ -112,7 +112,7 @@ is `code.cmd`, and the process gets `CREATE_NO_WINDOW`). With neither, it logs h
 
 ## The `EditorScene` namespace
 
-Declared in [editor_api.rs](../crates/platypus_scenes/src/editor_api.rs) with `#[platypus_api]`. Like `Editor` it works
+Declared in [editor_api.rs](../crates/platypus_scenes/src/editor_api.rs) with `#[ts_api]`. Like `Editor` it works
 only with `--project`: each call goes through `Editor`'s `project_op`, so a failure warns and leaves its reason in
 `Editor.lastError`. Paths are project paths.
 

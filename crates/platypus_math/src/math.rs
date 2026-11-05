@@ -9,7 +9,7 @@
 //! there; `Mathf.smoothDamp` returns a `Vector2` of (value, velocity) instead of an array.
 
 use crate::jsnum::{self, clamp, clamp01, hypot};
-use platypus_api::{ValueType, platypus_api};
+use ts_api::{ValueType, ts_api};
 
 pub const DEG: f64 = std::f64::consts::PI / 180.0;
 
@@ -212,7 +212,7 @@ fn perlin2(x: f64, y: f64) -> f64 {
     x1 + (x2 - x1) * v
 }
 
-#[platypus_api(namespace = "Mathf", values(Vector2 = V2 [x: f64, y: f64]))]
+#[ts_api(namespace = "Mathf", values(Vector2 = V2 [x: f64, y: f64]))]
 pub mod mathf_api {
     use super::{DEG, V2, clamp, clamp01, jsnum, perlin2, v2};
     use std::f64::consts::PI;
@@ -399,7 +399,7 @@ pub mod mathf_api {
 
 // ---- Vector2 ----
 
-#[platypus_api(namespace = "Vector2", values(Vector2 = V2 [x: f64, y: f64], Vector3 = V3 [x: f64, y: f64, z: f64]))]
+#[ts_api(namespace = "Vector2", values(Vector2 = V2 [x: f64, y: f64], Vector3 = V3 [x: f64, y: f64, z: f64]))]
 pub mod vector2_api {
     use super::{DEG, V2, V3, clamp, clamp01, hypot, n, opt_eps, v2, v3};
 
@@ -551,7 +551,7 @@ pub mod vector2_api {
 
 // ---- Vector3 ----
 
-#[platypus_api(namespace = "Vector3", values(Vector3 = V3 [x: f64, y: f64, z: f64], Vector2 = V2 [x: f64, y: f64]))]
+#[ts_api(namespace = "Vector3", values(Vector3 = V3 [x: f64, y: f64, z: f64], Vector2 = V2 [x: f64, y: f64]))]
 pub mod vector3_api {
     use super::{DEG, V2, V3, clamp, hypot, n, opt_eps, v2, v3};
 
@@ -748,7 +748,7 @@ pub mod vector3_api {
 
 // ---- Vector4 ----
 
-#[platypus_api(namespace = "Vector4", values(Vector4 = V4 [x: f64, y: f64, z: f64, w: f64], Vector3 = V3 [x: f64, y: f64, z: f64]))]
+#[ts_api(namespace = "Vector4", values(Vector4 = V4 [x: f64, y: f64, z: f64, w: f64], Vector3 = V3 [x: f64, y: f64, z: f64]))]
 pub mod vector4_api {
     use super::{V3, V4, clamp01, n, opt_eps, v3, v4};
 

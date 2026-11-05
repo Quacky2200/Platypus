@@ -1957,28 +1957,10 @@ name = "platypus_animation"
 version = "0.1.0"
 dependencies = [
  "glam 0.34.1",
- "platypus_api",
  "platypus_math",
  "platypus_scene",
  "serde_json",
-]
-
-[[package]]
-name = "platypus_api"
-version = "0.1.0"
-dependencies = [
- "glam 0.34.1",
- "platypus_api_macros",
- "serde_json",
-]
-
-[[package]]
-name = "platypus_api_macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
+ "ts_api",
 ]
 
 [[package]]
@@ -2020,7 +2002,7 @@ dependencies = [
 name = "platypus_demo_api"
 version = "0.1.0"
 dependencies = [
- "platypus_api",
+ "ts_api",
 ]
 
 [[package]]
@@ -2030,12 +2012,12 @@ dependencies = [
  "glam 0.34.1",
  "jiff",
  "platypus_animation",
- "platypus_api",
  "platypus_core",
  "platypus_kinds",
  "platypus_math",
  "platypus_scene",
  "serde_json",
+ "ts_api",
 ]
 
 [[package]]
@@ -2049,7 +2031,7 @@ dependencies = [
 name = "platypus_math"
 version = "0.1.0"
 dependencies = [
- "platypus_api",
+ "ts_api",
 ]
 
 [[package]]
@@ -2086,7 +2068,6 @@ name = "platypus_physics_api"
 version = "0.1.0"
 dependencies = [
  "glam 0.34.1",
- "platypus_api",
  "platypus_core",
  "platypus_engine_api",
  "platypus_kinds",
@@ -2094,6 +2075,7 @@ dependencies = [
  "platypus_physics",
  "platypus_scene",
  "serde_json",
+ "ts_api",
 ]
 
 [[package]]
@@ -2101,13 +2083,13 @@ name = "platypus_render_api"
 version = "0.1.0"
 dependencies = [
  "platypus_animation",
- "platypus_api",
  "platypus_engine_api",
  "platypus_kinds",
  "platypus_math",
  "platypus_physics_api",
  "platypus_scene",
  "serde_json",
+ "ts_api",
 ]
 
 [[package]]
@@ -2115,9 +2097,9 @@ name = "platypus_scene"
 version = "0.1.0"
 dependencies = [
  "glam 0.34.1",
- "platypus_api",
  "platypus_core",
  "platypus_math",
+ "ts_api",
 ]
 
 [[package]]
@@ -2126,12 +2108,12 @@ version = "0.1.0"
 dependencies = [
  "glam 0.34.1",
  "platypus_animation",
- "platypus_api",
  "platypus_engine_api",
  "platypus_kinds",
  "platypus_render_api",
  "platypus_scene",
  "serde_json",
+ "ts_api",
 ]
 
 [[package]]
@@ -2158,11 +2140,11 @@ dependencies = [
  "oxc_parser",
  "oxc_span",
  "oxc_syntax",
- "platypus_api",
  "platypus_ts_rt",
  "platypus_ui",
  "serde_json",
  "target-lexicon",
+ "ts_api",
  "windows-sys 0.61.2",
 ]
 
@@ -2177,11 +2159,11 @@ dependencies = [
  "num-bigint 0.4.8",
  "num-integer",
  "num-traits",
- "platypus_api",
  "platypus_kinds",
  "platypus_physics_api",
  "regress",
  "serde_json",
+ "ts_api",
  "writeable",
 ]
 
@@ -2191,7 +2173,6 @@ version = "0.1.0"
 dependencies = [
  "glam 0.34.1",
  "platypus_animation",
- "platypus_api",
  "platypus_core",
  "platypus_demo_api",
  "platypus_engine_api",
@@ -2207,19 +2188,20 @@ dependencies = [
  "platypus_ui",
  "platypus_ui_native",
  "serde_json",
+ "ts_api",
 ]
 
 [[package]]
 name = "platypus_ts_ui"
 version = "0.1.0"
 dependencies = [
- "platypus_api",
  "platypus_core",
  "platypus_ts",
  "platypus_ts_rt",
  "platypus_ui",
  "platypus_ui_native",
  "serde_json",
+ "ts_api",
 ]
 
 [[package]]
@@ -2792,6 +2774,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
 dependencies = [
  "once_cell",
+]
+
+[[package]]
+name = "ts_api"
+version = "0.1.0"
+dependencies = [
+ "glam 0.34.1",
+ "serde_json",
+ "ts_api_macros",
+]
+
+[[package]]
+name = "ts_api_macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]

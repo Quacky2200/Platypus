@@ -5,8 +5,8 @@
 //! window, and give it an image. The host reads [`state`] when [`version`] changed. UI elements'
 //! CSS `cursor` still wins where they set one.
 
-use platypus_api::platypus_api;
 use std::cell::RefCell;
+use ts_api::ts_api;
 
 /// What scripts asked of the cursor.
 #[derive(Clone, Debug, PartialEq)]
@@ -55,7 +55,7 @@ fn change(f: impl FnOnce(&mut CursorState)) {
     });
 }
 
-#[platypus_api(namespace = "Cursor")]
+#[ts_api(namespace = "Cursor")]
 pub mod cursor_api {
     use super::{STATE, change};
 
@@ -97,7 +97,7 @@ pub mod cursor_api {
     }
 }
 
-#[platypus_api(namespace = "CursorLockMode")]
+#[ts_api(namespace = "CursorLockMode")]
 pub mod cursor_lock_mode_api {
     /// Free to leave the window.
     #[property]

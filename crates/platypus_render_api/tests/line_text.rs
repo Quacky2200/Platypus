@@ -3,13 +3,13 @@
 
 //! `LineRenderer2D` fills and draw order, and the `TextMesh` component, as data (the host reads
 //! the registries; nothing draws here).
-use platypus_api::Handle;
 use platypus_engine_api::color::Rgba;
 use platypus_render_api::{
     LineRenderer2DRef, TextMeshRef, load_line_renderer2d, load_text_mesh, save_line_renderer2d,
     save_text_mesh,
 };
 use platypus_scene::ObjectId;
+use ts_api::Handle;
 
 fn object(n: u64) -> ObjectId {
     ObjectId::from_raw(n)

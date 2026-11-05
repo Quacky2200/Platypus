@@ -4,7 +4,7 @@
 //! Records with lists of numbers and of records, a function called with one object of all its
 //! parameters (`#[options(.., object)]`), and a class function declared twice. IDs are in TESTS.md
 //! (M9-API-1640..).
-use platypus_api::{Handle, platypus_api};
+use ts_api::{Handle, ts_api};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Row {
@@ -36,7 +36,7 @@ thread_local! {
     static LEVEL: std::cell::Cell<f64> = const { std::cell::Cell::new(0.0) };
 }
 
-#[platypus_api(
+#[ts_api(
     namespace = "Lists", handles(Cell = Cell),
     records(
         /// A row of tags.

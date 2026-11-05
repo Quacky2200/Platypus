@@ -13,7 +13,7 @@
 use crate::jsnum;
 use crate::math::{V2, V3, v2, v3};
 use crate::quat::{Q, q};
-use platypus_api::{ValueType, platypus_api};
+use ts_api::{ValueType, ts_api};
 
 macro_rules! value {
     ($(#[$m:meta])* $name:ident { $($f:ident),+ } $n:literal) => {
@@ -182,7 +182,7 @@ fn n(x: f64) -> String {
 
 // ---- Vector2Int / Vector3Int ----
 
-#[platypus_api(namespace = "Vector2Int", values(
+#[ts_api(namespace = "Vector2Int", values(
     Vector2Int = V2I [x: f64, y: f64],
     Vector2 = V2 [x: f64, y: f64]))]
 pub mod vector2_int_api {
@@ -287,7 +287,7 @@ pub mod vector2_int_api {
     }
 }
 
-#[platypus_api(namespace = "Vector3Int", values(
+#[ts_api(namespace = "Vector3Int", values(
     Vector3Int = V3I [x: f64, y: f64, z: f64],
     Vector3 = V3 [x: f64, y: f64, z: f64]))]
 pub mod vector3_int_api {
@@ -373,7 +373,7 @@ pub mod vector3_int_api {
 
 // ---- Rect / RectInt ----
 
-#[platypus_api(namespace = "Rect", values(
+#[ts_api(namespace = "Rect", values(
     Rect = Rect [x: f64, y: f64, width: f64, height: f64],
     Vector2 = V2 [x: f64, y: f64]))]
 pub mod rect_api {
@@ -439,7 +439,7 @@ pub mod rect_api {
     }
 }
 
-#[platypus_api(namespace = "RectInt", values(
+#[ts_api(namespace = "RectInt", values(
     RectInt = Rect [x: f64, y: f64, width: f64, height: f64],
     Vector2 = V2 [x: f64, y: f64]))]
 pub mod rect_int_api {
@@ -508,7 +508,7 @@ pub mod rect_int_api {
 
 // ---- Ray / Plane ----
 
-#[platypus_api(namespace = "Ray", values(
+#[ts_api(namespace = "Ray", values(
     Ray = Ray [ox: f64, oy: f64, oz: f64, dx: f64, dy: f64, dz: f64],
     Vector3 = V3 [x: f64, y: f64, z: f64]))]
 pub mod ray_api {
@@ -543,7 +543,7 @@ pub mod ray_api {
     }
 }
 
-#[platypus_api(namespace = "Plane", values(
+#[ts_api(namespace = "Plane", values(
     Plane = Plane [nx: f64, ny: f64, nz: f64, distance: f64],
     Ray = Ray [ox: f64, oy: f64, oz: f64, dx: f64, dy: f64, dz: f64],
     Vector3 = V3 [x: f64, y: f64, z: f64]))]
@@ -661,7 +661,7 @@ pub mod plane_api {
 
 // ---- Bounds / Pose ----
 
-#[platypus_api(namespace = "Bounds", values(
+#[ts_api(namespace = "Bounds", values(
     Bounds = Bounds [cx: f64, cy: f64, cz: f64, sx: f64, sy: f64, sz: f64],
     Vector3 = V3 [x: f64, y: f64, z: f64]))]
 pub mod bounds_api {
@@ -732,7 +732,7 @@ pub mod bounds_api {
     }
 }
 
-#[platypus_api(namespace = "Pose", values(
+#[ts_api(namespace = "Pose", values(
     Pose = Pose [px: f64, py: f64, pz: f64, qx: f64, qy: f64, qz: f64, qw: f64],
     Vector3 = V3 [x: f64, y: f64, z: f64],
     Quaternion = Q [x: f64, y: f64, z: f64, w: f64]))]

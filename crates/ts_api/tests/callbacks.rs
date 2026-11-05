@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Closure parameters (`Callback`), their manifest type and the listener table (`M9-API-300..302`).
-use platypus_api::callback::{HandleArg, Listeners, emit};
-use platypus_api::{Callback, Handle, platypus_api};
 use std::cell::RefCell;
 use std::rc::Rc;
+use ts_api::callback::{HandleArg, Listeners, emit};
+use ts_api::{Callback, Handle, ts_api};
 
 #[derive(Clone, Copy)]
 pub struct Thing(pub u64);
@@ -22,11 +22,11 @@ thread_local! {
     static LISTENERS: RefCell<Listeners<(f64, String)>> = RefCell::new(Listeners::default());
 }
 
-#[platypus_api(namespace = "Events", handles(Thing = Thing))]
+#[ts_api(namespace = "Events", handles(Thing = Thing))]
 pub mod events_api {
     use super::{LISTENERS, Thing};
-    use platypus_api::Callback;
-    use platypus_api::callback::HandleArg;
+    use ts_api::Callback;
+    use ts_api::callback::HandleArg;
 
     /// Calls `f(n, text)` on every event.
     pub fn on_event(f: Callback<(f64, String)>) -> u32 {

@@ -3,11 +3,11 @@
 
 //! The JIT: the same code generation as the object writer, into the running process
 //! (`platypus_ts::jit`). IDs are in TESTS.md (M9-TS-1900.., M9-API-600..).
-use platypus_api::Handle;
 use platypus_scene::Scene;
 use platypus_scene::api::scene_api as api;
 use platypus_ts::jit::{JitOptions, compile_and_load};
 use platypus_ts_rt::{NativeHost, link_anchor};
+use ts_api::Handle;
 
 /// Compiled programs share the thread's heap and globals: one test at a time.
 fn bench(name: &str) -> String {
@@ -181,7 +181,7 @@ fn every_manifest_function_symbol_resolves_after_reading_the_manifests() {
                 serde_json::Value::Object(o) => {
                     if let Some(s) = o.get("symbol").and_then(|s| s.as_str()) {
                         n += 1;
-                        if platypus_api::symbol(s).is_none() {
+                        if ts_api::symbol(s).is_none() {
                             missing.push(s.to_string());
                         }
                     }

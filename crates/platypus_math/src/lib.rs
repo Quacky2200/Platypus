@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! The math types of the script API: `Mathf`, `Vector2/3/4` (and the grid, quaternion, matrix and
-//! shape types as they arrive), declared with `#[platypus_api]` as `js/engine/src/math.ts` has them.
+//! shape types as they arrive), declared with `#[ts_api]` as `js/engine/src/math.ts` has them.
 //! The values are doubles computed in the order the TypeScript did, so results are bit for bit the
 //! same. Both the scene and the rest of the engine API use these types, so they live below them.
 

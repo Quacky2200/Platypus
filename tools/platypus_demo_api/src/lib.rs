@@ -1,12 +1,12 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! A small engine API written with `#[platypus_api]`, to prove the whole path: Rust functions, the
+//! A small engine API written with `#[ts_api]`, to prove the whole path: Rust functions, the
 //! generated manifest, and TypeScript compiled by `platypus_ts` calling the generated `extern "C"`
 //! shims directly. It keeps a tiny "world" of entities behind handles, like the real engine will.
 
-use platypus_api::{Handle, ValueType, platypus_api};
 use std::cell::RefCell;
+use ts_api::{Handle, ValueType, ts_api};
 
 /// An entity id: slot index in the low 32 bits, generation in the high 32 (so a stale id misses).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -67,7 +67,7 @@ fn with_slot<R>(e: EntityId, f: impl FnOnce(&mut Slot) -> R) -> Option<R> {
     })
 }
 
-#[platypus_api(namespace = "Demo", handles(Entity = EntityId), values(Vector3 = Vec3 [x: f32, y: f32, z: f32]))]
+#[ts_api(namespace = "Demo", handles(Entity = EntityId), values(Vector3 = Vec3 [x: f32, y: f32, z: f32]))]
 pub mod demo {
     use super::{EntityId, Slot, Vec3, WORLD, id, with_slot};
 

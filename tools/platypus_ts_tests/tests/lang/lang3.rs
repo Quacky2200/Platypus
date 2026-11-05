@@ -7,8 +7,8 @@
 //! GC and collection-off modes and are compared with bun (`bench/gen_cases_expected.ts`). IDs are
 //! in TESTS.md (M9-TS-3313..).
 use crate::cases::{case, run, run_with};
-use platypus_api::platypus_api;
 use serde_json::Value;
+use ts_api::ts_api;
 
 const CASES: &str = include_str!("../../bench/lang3_cases.ts");
 
@@ -81,7 +81,7 @@ fn object_assign_of_a_dictionary_value_of_the_wrong_type_throws_naming_the_key()
 }
 
 /// A small host API with string array parameters (`&[String]` and `Vec<String>`).
-#[platypus_api(namespace = "Words")]
+#[ts_api(namespace = "Words")]
 pub mod words_api {
     /// The words with a separator between them.
     pub fn join(words: &[String], sep: &str) -> String {

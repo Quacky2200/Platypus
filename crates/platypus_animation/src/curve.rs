@@ -4,8 +4,8 @@
 //! Keyframes and curves, as `AnimationCurve` in `js/engine/src/animation.ts`: keys joined by cubic
 //! Hermite segments shaped by their tangents, wrap modes before and after.
 
-use platypus_api::ValueType;
 use serde_json::{Value, json};
+use ts_api::ValueType;
 
 /// One key on a curve: tangents are slopes (value per second). An infinite tangent holds a value
 /// (a step).

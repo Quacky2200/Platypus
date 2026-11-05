@@ -24,7 +24,7 @@ fn in_every_gc_mode(f: impl Fn()) {
 }
 
 fn text(p: *mut u8) -> String {
-    unsafe { platypus_api::script_str(p as *const u8) }.into_owned()
+    unsafe { ts_api::script_str(p as *const u8) }.into_owned()
 }
 
 // M9-TS-593

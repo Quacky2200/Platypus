@@ -9,7 +9,7 @@
 
 use crate::comp::{self, ColShape, Data, ShapeTag, with_col, with_rb};
 use crate::*;
-use platypus_api::platypus_api;
+use ts_api::ts_api;
 
 fn colg<R: Default>(h: u32, f: impl FnOnce(&comp::Col) -> R) -> R {
     with_col(h, |c| f(c)).unwrap_or_default()
@@ -218,7 +218,7 @@ pub(crate) fn count_rigidbodies() -> u32 {
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[platypus_api(
+#[ts_api(
     namespace = "PhysicsComponents", handles(
         GameObject = ObjectId,
         PhysicsBody = BodyRef,
@@ -997,7 +997,7 @@ pub mod components_api {
     }
 }
 
-#[platypus_api(namespace = "ForceMode")]
+#[ts_api(namespace = "ForceMode")]
 pub mod force_mode_api {
     /// A force in newtons, over one fixed step (call it from `onFixedUpdate`).
     #[property]
@@ -1028,7 +1028,7 @@ pub mod force_mode_api {
     }
 }
 
-#[platypus_api(namespace = "RigidbodyConstraints")]
+#[ts_api(namespace = "RigidbodyConstraints")]
 pub mod constraints_api {
     #[property]
     #[js_name = "None"]

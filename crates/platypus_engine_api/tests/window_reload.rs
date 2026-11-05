@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Hot reload and windows: keyed windows stay, the rest close. IDs are in TESTS.md (M9-API-148x).
-use platypus_api::Callback;
 use platypus_engine_api::window::{self, MAIN, Opened, Style, WindowRef, WindowRequest};
 use std::cell::Cell;
 use std::rc::Rc;
+use ts_api::Callback;
 
 fn create(title: &str, style: &str, key: &str) -> WindowRef {
     WindowRef::create(

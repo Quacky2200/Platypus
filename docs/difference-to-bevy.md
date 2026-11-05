@@ -37,7 +37,7 @@ explains where the two differ and why, so readers don't have to guess.
 - **No ECS.** `DESIGN.md` §7.4 looked at reusing Bevy's rendering and asset crates and rejected it,
   because they bring Bevy's ECS and app model. Platypus keeps Rust owning the world (`platypus_scene`)
   and JavaScript owning behaviour (components with `onUpdate`, `onFixedUpdate`, and so on). The
-  scripts hold only numeric IDs and call the engine API (`#[platypus_api]`) directly.
+  scripts hold only numeric IDs and call the engine API (`#[ts_api]`) directly.
 - **TypeScript gameplay.** Gameplay is TypeScript compiled to native code by `platypus_ts` (oxc →
   Cranelift). No JavaScript engine runs a game.
 - **React UI.** The UI is a React reconciler over our own tree. Components, state and events work

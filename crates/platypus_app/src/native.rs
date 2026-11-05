@@ -231,7 +231,7 @@ struct DeferredReload {
 }
 
 fn active(o: u64) -> bool {
-    use platypus_api::Handle;
+    use ts_api::Handle;
     platypus_scene::api::scene_api::active(platypus_scene::ObjectId::from_raw(o))
 }
 
@@ -421,7 +421,7 @@ impl Native {
     }
 
     fn spawn_classes(&mut self, scene: &mut Scene, classes: &[&'static str]) {
-        use platypus_api::Handle;
+        use ts_api::Handle;
         let _scope = platypus_scene::api::enter(scene);
         for &class in classes {
             let go = platypus_scene::ObjectId::create();
@@ -497,7 +497,7 @@ impl Native {
     }
 
     fn objects_destroyed(&mut self, gone: &[platypus_scene::ObjectId]) {
-        use platypus_api::Handle;
+        use ts_api::Handle;
         if gone.is_empty() {
             return;
         }

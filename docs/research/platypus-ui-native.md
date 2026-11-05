@@ -216,7 +216,7 @@ re-rendered natively and compared; `PLATYPUS_TS_GC=stress` on everything (instan
 3. Compiler: JSX rewrite, `Element` builders, hook intrinsics (state/ref/memo/callback/effect/sync-store/context/
    imperative-handle), stable ids and hook signatures. Compile and run a counter, a keyed todo list, a portal.
 4. Native event dispatch (handler tables, capture/bubble in Rust), controlled fields, refs as `UiNode` handles with
-   `focus()`/`blur()`/scroll as `#[platypus_api]` methods (replacing the `op("focus", id)` calls).
+   `focus()`/`blur()`/scroll as `#[ts_api]` methods (replacing the `op("focus", id)` calls).
 5. Port the arcade HUD beside its React version; goldens must match. Then `@platypus/editor-ui` (needs the `TreeView<T>`
    decision above), then remove `js/react` when nothing imports it.
 

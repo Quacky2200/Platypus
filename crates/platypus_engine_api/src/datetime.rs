@@ -11,8 +11,8 @@
 //! value (NaN) instead of throwing, and `DateTime.parse` knows the ISO 8601 forms only.
 
 use jiff::{Timestamp, tz::TimeZone};
-use platypus_api::{ValueType, platypus_api};
 use std::cell::RefCell;
+use ts_api::{ValueType, ts_api};
 
 const MS_PER_SECOND: f64 = 1000.0;
 const MS_PER_MINUTE: f64 = 60_000.0;
@@ -275,7 +275,7 @@ fn parse_span(text: &str) -> Option<f64> {
     Some(if neg { -ms } else { ms })
 }
 
-#[platypus_api(namespace = "TimeSpan", values(TimeSpan = Span [totalMilliseconds: f64]))]
+#[ts_api(namespace = "TimeSpan", values(TimeSpan = Span [totalMilliseconds: f64]))]
 pub mod time_span_api {
     use super::{
         MS_PER_DAY, MS_PER_HOUR, MS_PER_MINUTE, MS_PER_SECOND, Span, invalid_span, parse_span,
@@ -837,7 +837,7 @@ fn add_months(t: Dt, months: f64) -> Dt {
     }
 }
 
-#[platypus_api(namespace = "DateTime", values(
+#[ts_api(namespace = "DateTime", values(
     DateTime = Dt [epochMilliseconds: f64, utc: f64],
     TimeSpan = Span [totalMilliseconds: f64]))]
 pub mod date_time_api {

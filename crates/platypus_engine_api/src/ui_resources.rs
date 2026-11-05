@@ -8,8 +8,8 @@
 //!
 //! The TypeScript functions of `@platypus/engine` are written over this in the compiler's facade.
 
-use platypus_api::platypus_api;
 use std::cell::RefCell;
+use ts_api::ts_api;
 
 /// One request, in the order scripts made them.
 #[derive(Clone, Debug, PartialEq)]
@@ -51,7 +51,7 @@ pub fn reset() {
     STATE.with(|s| *s.borrow_mut() = State::default());
 }
 
-#[platypus_api(namespace = "UiResources")]
+#[ts_api(namespace = "UiResources")]
 pub mod ui_resources_api {
     use super::{STATE, UiRequest};
 

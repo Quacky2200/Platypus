@@ -10,7 +10,7 @@ license.workspace = true
 
 [dependencies]
 glam = "0.34.1"
-platypus_api = { path = "../platypus_api", default-features = false, features = ["glam"] }
+ts_api = { path = "../ts_api", default-features = false, features = ["glam"] }
 platypus_core = { path = "../platypus_core" }
 platypus_engine_api = { path = "../platypus_engine_api" }
 platypus_kinds = { path = "../platypus_kinds" }

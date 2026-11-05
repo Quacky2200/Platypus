@@ -6,8 +6,8 @@
 //! (`UiScale.height(1080)`); the host reads it with [`current`] and sizes the screen UI by
 //! [`UiScale::factor`] on every renderer. It goes back to [`UiScale::None`] on a reload ([`reset`]).
 
-use platypus_api::platypus_api;
 use std::cell::Cell;
+use ts_api::ts_api;
 
 /// How screen UI is scaled to the window.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -80,7 +80,7 @@ fn set(mode: Option<UiScale>) {
 /// How screen UI is scaled to the window: laid out in UI pixels, drawn bigger or smaller, so a
 /// design for one size fills any window the same (s&box's ScreenPanel scaling). The result is
 /// clamped between a quarter and 8 times; `Screen.width` / `height` are in UI pixels.
-#[platypus_api(namespace = "UiScale")]
+#[ts_api(namespace = "UiScale")]
 pub mod ui_scale_api {
     use super::{UiScale, positive, set};
 

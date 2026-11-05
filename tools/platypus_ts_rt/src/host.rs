@@ -611,7 +611,7 @@ impl NativeHost {
     /// dispatches them: each contact tells the components of both objects (a collider with no
     /// object attached tells nobody).
     pub fn dispatch_physics(&mut self, active: &dyn Fn(u64) -> bool) -> Vec<Fault> {
-        use platypus_api::Handle;
+        use ts_api::Handle;
         let raw = |c: u32| platypus_physics_api::object_of_collider(c).map(|o| o.to_raw());
         let mut events = Vec::new();
         for c in platypus_physics_api::take_contacts() {

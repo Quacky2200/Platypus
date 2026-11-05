@@ -9,7 +9,7 @@ This is the only implementation: the TypeScript one (`js/engine/src/animation.ts
   (`bind.rs`), pose blending (`pose.rs`), the `Animation` component (`player.rs`), controller data (`controller.rs`), the
   `Animator` (`animator.rs`), culling (`culling.rs`), bench timers (`profile.rs`) and the property registry (`registry.rs`).
   No script engine in it.
-- `crates/platypus_engine_api/src/animation.rs`, `animator.rs`: the script API (`#[platypus_api]`), for compiled code.
+- `crates/platypus_engine_api/src/animation.rs`, `animator.rs`: the script API (`#[ts_api]`), for compiled code.
 
 ## Frame
 

@@ -7,7 +7,7 @@
 //! picks its renderer from it (`docs/rendering.md`, "Choosing the renderer").
 //!
 //! The tags live here, in one table keyed on the API's owner names (a class or a namespace of
-//! the `#[platypus_api]` manifests, or the prelude's `Component`); a name that isn't listed needs
+//! the `#[ts_api]` manifests, or the prelude's `Component`); a name that isn't listed needs
 //! nothing beyond the UI. Only code counts: names in strings or comments, and top-level
 //! functions nothing calls, don't.
 //! `platypus_build`'s tests check the table against the real API: every class and namespace of

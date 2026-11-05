@@ -270,7 +270,7 @@ pub struct Options {
     /// Off, the bundle has no trace of it and the host takes the fast path
     /// (`docs/research/platypus-ui-inspector.md`).
     pub ui_inspector: bool,
-    /// More API manifests (the JSON a host's own `#[platypus_api]` namespaces write, `--manifest
+    /// More API manifests (the JSON a host's own `#[ts_api]` namespaces write, `--manifest
     /// file.json`): a host that adds namespaces (Fluid's `Fluid`) builds its programs with them.
     pub manifests: Vec<String>,
     /// The `--aot` object's target triple (`--target`); `None` is the build machine's.

@@ -1033,13 +1033,13 @@ impl<'a> Lowerer<'a> {
         self.manifest.records[rn].iter().all(|(_, f)| f.is_flat())
     }
 
-    /// `platypus_api_result(i)`: the `i`-th number of the last list or record result.
+    /// `ts_api_result(i)`: the `i`-th number of the last list or record result.
     fn flat_result(&mut self, i: Expr) -> Expr {
         let f = ExternFn {
             rest: false,
             optional_from: usize::MAX,
             defaults: Vec::new(),
-            symbol: "platypus_api_result".into(),
+            symbol: "ts_api_result".into(),
             params: vec![("i".into(), ExtTy::U32)],
             ret: ExtTy::F64,
         };
@@ -1164,13 +1164,13 @@ impl<'a> Lowerer<'a> {
         }
     }
 
-    /// `platypus_api_result_str(i)`: the `i`-th string of the last result.
+    /// `ts_api_result_str(i)`: the `i`-th string of the last result.
     fn str_result(&mut self, i: Expr) -> Expr {
         let item = ExternFn {
             rest: false,
             optional_from: usize::MAX,
             defaults: Vec::new(),
-            symbol: "platypus_api_result_str".into(),
+            symbol: "ts_api_result_str".into(),
             params: vec![("i".into(), ExtTy::U32)],
             ret: ExtTy::Str,
         };
@@ -2770,7 +2770,7 @@ impl<'a> Lowerer<'a> {
                     rest: false,
                     optional_from: usize::MAX,
                     defaults: Vec::new(),
-                    symbol: "platypus_api_result_none".into(),
+                    symbol: "ts_api_result_none".into(),
                     params: Vec::new(),
                     ret: ExtTy::Bool,
                 };
@@ -2832,7 +2832,7 @@ impl<'a> Lowerer<'a> {
                 return mk(ExprKind::Seq(pre, Box::new(result)), arr_ty);
             }
             // A list of numbers or handles: the call returns the count; the numbers are in the
-            // buffer and the ids behind `platypus_api_result_id`.
+            // buffer and the ids behind `ts_api_result_id`.
             ExtTy::F64List | ExtTy::HandleList(_) => {
                 let arr_ty = self.ext_ir(&f.ret);
                 let count = self.new_local(Ty::Num);
@@ -2864,7 +2864,7 @@ impl<'a> Lowerer<'a> {
                             rest: false,
                             optional_from: usize::MAX,
                             defaults: Vec::new(),
-                            symbol: "platypus_api_result_id".into(),
+                            symbol: "ts_api_result_id".into(),
                             params: vec![("i".into(), ExtTy::U32)],
                             ret: ExtTy::Handle(hn.clone()),
                         };
@@ -2947,7 +2947,7 @@ impl<'a> Lowerer<'a> {
                     rest: false,
                     optional_from: usize::MAX,
                     defaults: Vec::new(),
-                    symbol: "platypus_api_result_str".into(),
+                    symbol: "ts_api_result_str".into(),
                     params: vec![("i".into(), ExtTy::U32)],
                     ret: ExtTy::Str,
                 };

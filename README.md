@@ -58,7 +58,7 @@ The idea
 - **React on a native reconciler.** UI is written with React components and hooks; the reconciler that diffs them is
   native, and the result is laid out by Taffy, set by Parley and drawn by Platypus's own wgpu renderer, not a browser.
 - **Rust owns the world, scripts own behaviour.** The scene, physics, audio and rendering live in Rust. Scripts hold
-  numeric IDs, never engine references. The engine API is Rust annotated with `#[platypus_api]`, which also generates
+  numeric IDs, never engine references. The engine API is Rust annotated with `#[ts_api]`, which also generates
   the game's TypeScript declarations, so the types always match the engine.
 
 Technologies

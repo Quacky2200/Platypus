@@ -28,7 +28,7 @@ next. The plan with every item is [TODO.md](../TODO.md); how the code works is [
   a virtual file system.
 - **The native compiler** (M9): `platypus_ts` compiles a game's TypeScript (oxc parser, a typed IR, Cranelift) with a
   precise garbage collector, closures, classes, async / await, Map / Set, JSON, RegExp and Intl (ICU4X). The engine API
-  is Rust annotated with `#[platypus_api]`, which also generates the game's TypeScript declarations
+  is Rust annotated with `#[ts_api]`, which also generates the game's TypeScript declarations
   (`types/platypus.d.ts`), so there is no hand-written `.d.ts`. `platypus-build` builds, checks, packages (one `.exe`
   with the game as a payload, its icon and version info; the Platypus icon when a game has none) and benchmarks games.
 - **Benchmarks**: `platypus-build bench` measures every example natively (the QuickJS comparison was dropped with QuickJS).

@@ -469,7 +469,7 @@ fn parameter_names(p: PostProcessRef) -> Vec<String> {
     .unwrap_or_default()
 }
 
-#[platypus_api(
+#[ts_api(
     namespace = "PostProcess", handles(PostProcess = PostProcessRef, Camera = CameraRef),
     values(Color = Rgba [r: f64, g: f64, b: f64, a: f64]),
     enums(

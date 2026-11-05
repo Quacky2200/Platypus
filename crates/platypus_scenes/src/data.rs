@@ -10,7 +10,6 @@
 //! copy as `{"$ref":..,"live":..}`.
 
 use glam::{Quat, Vec3};
-use platypus_api::Handle;
 use platypus_kinds::Kind;
 use platypus_scene::api::with_scene;
 use platypus_scene::{ObjectId, Scene, Transform};
@@ -18,6 +17,7 @@ use serde_json::{Map, Value, json};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
+use ts_api::Handle;
 
 /// `HideFlags.DontSave`: any of these bits keeps an object out of saved scenes.
 const DONT_SAVE: u32 = 52;

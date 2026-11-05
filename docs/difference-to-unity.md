@@ -83,7 +83,7 @@ Concretely:
   deprecation period and a migration note.
 - Keep dev and shipped runtimes on the same behaviour, so a game that works in dev works shipped.
 
-The script API (`#[platypus_api]` declarations) has been stable so far in our own testing. That is the
+The script API (`#[ts_api]` declarations) has been stable so far in our own testing. That is the
 start of a track record, not proof of one yet.
 
 ## Open questions and risks

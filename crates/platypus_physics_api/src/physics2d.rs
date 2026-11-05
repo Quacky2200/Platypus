@@ -13,8 +13,8 @@
 
 use crate::comp::{self, ColShape, Data, ShapeTag, with_col, with_rb};
 use crate::*;
-use platypus_api::platypus_api;
 use platypus_math::V2;
+use ts_api::ts_api;
 
 fn colg<R: Default>(h: u32, f: impl FnOnce(&comp::Col) -> R) -> R {
     with_col(h, |c| f(c)).unwrap_or_default()
@@ -101,7 +101,7 @@ pub(crate) fn count_rigidbodies_2d() -> u32 {
 }
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[platypus_api(
+#[ts_api(
     namespace = "Physics2D", handles(
         GameObject = ObjectId,
         Rigidbody2D = Rigidbody2DRef,

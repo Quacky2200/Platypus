@@ -13,8 +13,8 @@
 
 use crate::comp::{self, Data, with_col};
 use crate::*;
-use platypus_api::{Handle, platypus_api};
 use platypus_math::{Bounds, V2};
+use ts_api::{Handle, ts_api};
 
 /// One collision handed to the hooks.
 pub(crate) struct Slot {
@@ -253,7 +253,7 @@ raw_handle!(
 );
 
 #[allow(clippy::not_unsafe_ptr_arg_deref)]
-#[platypus_api(
+#[ts_api(
     namespace = "PhysicsContacts", handles(
         GameObject = ObjectId,
         Rigidbody = RigidbodyRef,

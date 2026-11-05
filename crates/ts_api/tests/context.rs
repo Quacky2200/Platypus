@@ -1,10 +1,10 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The engine's current world for `#[platypus_api]` functions (`platypus_api::context`).
+//! The engine's current world for `#[ts_api]` functions (`ts_api::context`).
 //! IDs are in TESTS.md (M9-API-*).
-use platypus_api::{context, platypus_api};
 use std::cell::Cell;
+use ts_api::{context, ts_api};
 
 struct World {
     ticks: u32,
@@ -15,7 +15,7 @@ thread_local! {
     static WORLD: Cell<*mut World> = const { Cell::new(std::ptr::null_mut()) };
 }
 
-#[platypus_api(namespace = "World")]
+#[ts_api(namespace = "World")]
 pub mod world_api {
     use super::{WORLD, context};
 

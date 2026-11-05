@@ -337,8 +337,7 @@ fn use_reducer_applies_actions_to_the_latest_state() {
 
 /// The component table the compiler exported: name -> (id, hooks).
 fn signatures() -> std::collections::HashMap<String, (u32, String)> {
-    let text =
-        unsafe { platypus_api::script_str(ts_uic___uiSignatures() as *const u8) }.into_owned();
+    let text = unsafe { ts_api::script_str(ts_uic___uiSignatures() as *const u8) }.into_owned();
     text.split(';')
         .map(|e| {
             let mut p = e.splitn(3, ':');

@@ -3,8 +3,8 @@
 
 //! Fog, light shafts, exposure, `RenderStats` and `GraphicsSettings` in `platypus_render_api`
 //! (`RenderSettings` is per thread: every test runs on its own).
-use platypus_api::Handle;
 use platypus_render_api::render_settings_api as rs;
+use ts_api::Handle;
 
 // M9-API-1502
 #[test]

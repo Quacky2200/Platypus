@@ -3,11 +3,11 @@
 
 //! Window families and event domains (design section 3a): roots, domains, the cross-family guard and
 //! the setup exception. IDs are in TESTS.md (M9-API-14xx).
-use platypus_api::Callback;
 use platypus_engine_api::log::{self, Level};
 use platypus_engine_api::window::{self, DomainId, MAIN, Style, WindowRef};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use ts_api::Callback;
 
 fn fresh() {
     window::reset();

@@ -8,9 +8,9 @@
 //! `onChanged(fn)`: here `onChanged(fn)` returns a token for `offChanged(token)` and `fn` gets the
 //! changed paths as one string, a path per line; `takeChanges()` polls the same list.
 
-use platypus_api::callback::{Listeners, emit};
-use platypus_api::platypus_api;
 use std::cell::RefCell;
+use ts_api::callback::{Listeners, emit};
+use ts_api::ts_api;
 
 /// One asset's database entry.
 #[derive(Clone, Debug, PartialEq)]
@@ -102,10 +102,10 @@ pub fn resolve(src: &str) -> String {
     }
 }
 
-#[platypus_api(namespace = "Assets")]
+#[ts_api(namespace = "Assets")]
 pub mod assets_api {
     use super::{STATE, clean};
-    use platypus_api::Callback;
+    use ts_api::Callback;
 
     /// Calls `f(paths)` when asset files change on disk (the paths, one per line); returns a token
     /// for `offChanged`.

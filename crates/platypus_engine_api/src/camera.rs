@@ -6,9 +6,9 @@
 //! with [`cameras`] when it draws.
 
 use crate::color::Rgba;
-use platypus_api::{Handle, platypus_api};
 use platypus_scene::ObjectId;
 use std::cell::RefCell;
+use ts_api::{Handle, ts_api};
 
 /// A camera by number (1-based: 0 is "no camera" in a script's `Camera | null`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -272,7 +272,7 @@ fn with<R>(c: CameraRef, f: impl FnOnce(&mut CameraData) -> R) -> Option<R> {
     })
 }
 
-#[platypus_api(
+#[ts_api(
     namespace = "Cameras",
     handles(GameObject = ObjectId, Camera = CameraRef, Texture = TextureRef),
     values(

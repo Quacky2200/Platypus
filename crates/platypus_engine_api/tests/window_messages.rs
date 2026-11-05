@@ -3,12 +3,12 @@
 
 //! Messages between windows (design section 3b): the queue per domain, delivery order, requests and
 //! replies, broadcast. IDs are in TESTS.md (M9-API-14xx).
-use platypus_api::Callback;
-use platypus_api::callback::HandleArg;
 use platypus_engine_api::log::{self, Level};
 use platypus_engine_api::window::{self, DomainId, MAIN, MAX_MESSAGE_BYTES, Style, WindowRef};
 use std::cell::RefCell;
 use std::rc::Rc;
+use ts_api::Callback;
+use ts_api::callback::HandleArg;
 
 fn fresh() {
     window::reset();

@@ -15,9 +15,9 @@
 //! components_version`) or the culled objects or their tree versions do.
 
 use super::render_sync::SKIN_BASE;
-use platypus_api::Handle;
 use platypus_scene::{ObjectId, Scene, ScriptObject, ScriptScene};
 use std::collections::{HashMap, HashSet};
+use ts_api::Handle;
 
 #[derive(Default)]
 pub(crate) struct Watch {
