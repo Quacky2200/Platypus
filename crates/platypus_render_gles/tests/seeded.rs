@@ -146,6 +146,37 @@ fn backdrop_blur_over_a_seeded_target_blurs_what_was_there() {
     }
 }
 
+// M2-GLES-19
+#[test]
+fn a_frame_after_release_canvases_is_the_same() {
+    let Some(cx) = context() else { return };
+    let gl = cx.gl();
+    let mut renderer = GlesRenderer::new(cx.gl()).expect("renderer");
+    let blurred = cmds(&[("backdropFilter", "blur(4px)")]);
+    let draw = |renderer: &mut GlesRenderer| unsafe {
+        let fbo = target(&gl);
+        let t = Target {
+            framebuffer: Some(fbo),
+            size: (W, H),
+            scale: 1.0,
+            srgb: false,
+        };
+        renderer.render_over(&t, &blurred);
+        [
+            pixel(&gl, fbo, 1, (H / 2) as i32),
+            pixel(&gl, fbo, (W / 2) as i32, (H / 2) as i32),
+        ]
+    };
+    let first = draw(&mut renderer);
+    assert!(
+        renderer.canvas_bytes() >= (W * H * 4 * 2) as usize,
+        "canvases and the seed"
+    );
+    assert!(renderer.release_canvases() >= (W * H * 4 * 2) as usize);
+    assert_eq!(renderer.canvas_bytes(), 0);
+    assert_eq!(draw(&mut renderer), first, "made again, the same pixels");
+}
+
 // M2-GLES-14
 #[test]
 fn a_seeded_target_without_ui_keeps_its_pixels() {
