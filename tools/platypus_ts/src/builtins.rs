@@ -10,8 +10,6 @@
 //! class or namespace of its owner (it replaces a native member of the same name), a top-level
 //! declaration after the engine's. Each entry's comment names the code that lowers it.
 
-use crate::lower::components::{CONTACT_HOOKS, HOOKS, hook_param};
-
 /// Where a built-in declaration goes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Place {
@@ -94,124 +92,6 @@ pub const BUILTINS: &[Builtin] = &[
         "queueMicrotask",
         "declare function queueMicrotask(callback: () => void): void;",
         "Runs `callback` after the current script turn, before timers.",
-    ),
-    // ---- Components (`lower/components.rs`: `register` is erased into exported thunks, the base
-    // class is its prelude; `engine_objs.rs` lowers the generic members).
-    top(
-        "ComponentClass",
-        "type ComponentClass<T = Component> = new () => T;",
-        "A component class (what `register` takes).",
-    ),
-    top(
-        "ClassOf",
-        "type ClassOf<T> = { prototype: T };",
-        "A class, engine or script, by its instances' type (what `getComponent` takes).",
-    ),
-    top(
-        "register",
-        "declare function register(components: Record<string, ComponentClass>, options?: { spawn?: boolean }): void;",
-        "Registers component classes by name (scene files use the names).",
-    ),
-    top(
-        "property",
-        "declare function property(value: unknown, context: ClassFieldDecoratorContext | ClassGetterDecoratorContext): void;",
-        "Marks a field as saved in scenes and kept across hot reloads.",
-    ),
-    // ---- GameObject (`lower/engine_objs.rs`: options, components, `findObjectOfType`;
-    // `components.rs` `children_helpers` / `tree_helpers`; `facade.rs` `lower_create_primitive`).
-    top(
-        "GameObjectOptions",
-        "interface GameObjectOptions {\n  parent?: GameObject | null;\n  position?: Vector3Like;\n  rotation?: QuaternionLike;\n  scale?: Vector3Like;\n}",
-        "Where a new object goes: its parent, and its position, rotation and scale (local to the parent).",
-    ),
-    top(
-        "InstantiateObjectOptions",
-        "interface InstantiateObjectOptions {\n  parent?: GameObject | null;\n  position?: Vector3Like;\n  rotation?: QuaternionLike;\n}",
-        "Where a copy goes (`GameObject.instantiate`).",
-    ),
-    ctor(
-        "GameObject",
-        "constructor(name?: string, options?: GameObjectOptions);",
-    ),
-    member(
-        "GameObject",
-        "readonly components: Component[];",
-        "The components of this program on the object.",
-    ),
-    member(
-        "GameObject",
-        "readonly children: GameObject[];",
-        "Its children, in order.",
-    ),
-    member(
-        "GameObject",
-        "readonly scene: Scene;",
-        "The scene it is in.",
-    ),
-    member(
-        "GameObject",
-        "addComponent<T>(cls: ClassOf<T>, props?: Partial<T>): T;",
-        "Adds a component of a class (engine or script), with some of its properties set.",
-    ),
-    member(
-        "GameObject",
-        "getComponent<T>(cls: ClassOf<T>): T | undefined;",
-        "The first component of a class on the object.",
-    ),
-    member(
-        "GameObject",
-        "getComponents<T>(cls: ClassOf<T>): T[];",
-        "Every component of a class on the object.",
-    ),
-    member(
-        "GameObject",
-        "getComponentInChildren<T>(cls: ClassOf<T>): T | undefined;",
-        "The first component of a class on the object or below it.",
-    ),
-    member(
-        "GameObject",
-        "getComponentsInChildren<T>(cls: ClassOf<T>): T[];",
-        "Every component of a class on the object and below it.",
-    ),
-    member(
-        "GameObject",
-        "getComponentInParent<T>(cls: ClassOf<T>): T | undefined;",
-        "The first component of a class on the object or above it.",
-    ),
-    member(
-        "GameObject",
-        "getComponentsInParent<T>(cls: ClassOf<T>): T[];",
-        "Every component of a class on the object and above it.",
-    ),
-    member(
-        "GameObject",
-        "removeComponent(component: Component): void;",
-        "Removes a component of this program from the object.",
-    ),
-    stat(
-        "GameObject",
-        "findObjectOfType<T>(cls: ClassOf<T>): T | undefined;",
-        "The first component of a class on any object.",
-    ),
-    stat(
-        "GameObject",
-        "readonly roots: readonly GameObject[];",
-        "The objects without a parent.",
-    ),
-    stat(
-        "GameObject",
-        "dontDestroyOnLoad(go: GameObject): void;",
-        "Keeps an object (and what is under it) when a single-mode scene load replaces the others.",
-    ),
-    stat(
-        "GameObject",
-        "instantiate(original: GameObject | Prefab, options?: InstantiateObjectOptions): GameObject;",
-        "A copy of an object or a prefab, with its components.",
-    ),
-    stat(
-        "GameObject",
-        "createPrimitive(type: PrimitiveType, options?: GameObjectOptions & { name?: string }): GameObject;",
-        "An object with a mesh renderer of a built-in mesh.",
     ),
     // ---- Window messages (`lower/messages.rs` over the JSON natives; `facade.rs` picks them).
     member(
@@ -305,23 +185,6 @@ pub const BUILTINS: &[Builtin] = &[
     ),
 ];
 
-/// The component base class, from the hooks the host calls (`components.rs`): the frame hooks
-/// with what their thunks pass, then the members every component has.
-fn component_class() -> String {
-    let mut s = String::from(
-        "/**\n * The base of a script component: `class Player extends Component { .. }`, then `register({ Player })`.\n * The contact hooks (",
-    );
-    let contacts: Vec<String> = CONTACT_HOOKS.iter().map(|h| format!("`{h}`")).collect();
-    s += &contacts.join(", ");
-    s += ", and their `..2D` forms) take a `Collision` (`Collision2D`), a trigger's the other `Collider` (`Collider2D`); they are not\n * declared, so a game writes them without `override`.\n */\ndeclare abstract class Component {\n  /** Set by the engine when the component is created. */\n  readonly id: number;\n  /** The object this component is attached to. */\n  readonly gameObject: GameObject;\n  /** The object's transform. */\n  readonly transform: Transform;\n";
-    for h in HOOKS {
-        let param = hook_param(h).map_or("", |(_, p)| p);
-        s += &format!("  {h}?({param}): void;\n");
-    }
-    s += "  /** After a hot reload, for a component restored from the old code (instead of `onAwake`). */\n  onReload?(): void;\n  /** Another component on the same object. */\n  getComponent<T>(cls: ClassOf<T>): T | undefined;\n  /** Removes this component from its object. */\n  destroy(): void;\n}\n";
-    s
-}
-
 /// The name a member signature declares (`pick<T>(..)` is `pick`, `readonly roots: T` is `roots`).
 pub fn member_name(sig: &str) -> &str {
     let s = sig.trim_start();
@@ -332,46 +195,95 @@ pub fn member_name(sig: &str) -> &str {
     &s[..end]
 }
 
-fn of(place: impl Fn(Place) -> bool) -> impl Iterator<Item = &'static Builtin> {
-    BUILTINS.iter().filter(move |b| place(b.place))
+/// The built-ins plus the declarations the manifests add: a manifest may list
+/// `"declarations": [{"top": "register", "sig": "..", "doc": ".."}, {"member": "GameObject", ..}]`
+/// (also `"static"` and `"ctor"`), the host's TypeScript names that no `#[ts_api]` item declares
+/// (Platypus: the `Component` class, `register`, the `GameObject` conveniences of its compiler
+/// extension).
+#[derive(Clone, Debug, Default)]
+pub struct Builtins {
+    extra: Vec<Builtin>,
 }
 
-/// The built-ins of an owner's static side.
-pub fn statics(owner: &str) -> impl Iterator<Item = &'static Builtin> + '_ {
-    of(move |p| matches!(p, Place::Static(o) if o == owner))
-}
-
-/// The built-in instance members of a class.
-pub fn members(owner: &str) -> impl Iterator<Item = &'static Builtin> + '_ {
-    of(move |p| matches!(p, Place::Member(o) if o == owner))
-}
-
-/// The built-in constructors of a class.
-pub fn ctors(owner: &str) -> impl Iterator<Item = &'static Builtin> + '_ {
-    of(move |p| matches!(p, Place::Ctor(o) if o == owner))
-}
-
-/// The top-level declarations (the component class first), each with its doc.
-pub fn top_level() -> String {
-    let mut s = component_class();
-    for b in of(|p| matches!(p, Place::Top(_))) {
-        if !b.doc.is_empty() {
-            s += &format!("/** {} */\n", b.doc);
+impl Builtins {
+    /// The built-ins and every manifest's `declarations`. The strings are leaked: the generator
+    /// runs once per process.
+    pub fn from_manifests(manifests: &[String]) -> Result<Self, String> {
+        let leak = |s: &str| -> &'static str { Box::leak(s.to_string().into_boxed_str()) };
+        let mut extra = Vec::new();
+        for m in manifests {
+            let v: serde_json::Value =
+                serde_json::from_str(m).map_err(|e| format!("manifest: {e}"))?;
+            for d in v["declarations"].as_array().into_iter().flatten() {
+                let s = |k: &str| d[k].as_str();
+                let place = if let Some(n) = s("top") {
+                    Place::Top(leak(n))
+                } else if let Some(o) = s("static") {
+                    Place::Static(leak(o))
+                } else if let Some(o) = s("member") {
+                    Place::Member(leak(o))
+                } else if let Some(o) = s("ctor") {
+                    Place::Ctor(leak(o))
+                } else {
+                    return Err(format!("manifest: a declaration needs a place: {d}"));
+                };
+                let sig = s("sig").ok_or("manifest: a declaration needs a `sig`")?;
+                extra.push(Builtin {
+                    place,
+                    sig: leak(sig),
+                    doc: leak(s("doc").unwrap_or("")),
+                });
+            }
         }
-        s += b.sig;
-        s += "\n";
+        Ok(Builtins { extra })
     }
-    s
-}
 
-/// The names the top-level declarations give (`@platypus/engine` re-exports them).
-pub fn top_names() -> Vec<&'static str> {
-    let mut names = vec!["Component"];
-    names.extend(of(|p| matches!(p, Place::Top(_))).map(|b| match b.place {
-        Place::Top(n) => n,
-        _ => unreachable!("filtered to top-level entries"),
-    }));
-    names
+    /// Every declaration: the built-ins, then the manifests'.
+    pub fn all(&self) -> impl Iterator<Item = &Builtin> {
+        BUILTINS.iter().chain(&self.extra)
+    }
+
+    fn of(&self, place: impl Fn(Place) -> bool) -> impl Iterator<Item = &Builtin> {
+        self.all().filter(move |b| place(b.place))
+    }
+
+    /// The built-ins of an owner's static side.
+    pub fn statics<'s>(&'s self, owner: &'s str) -> impl Iterator<Item = &'s Builtin> {
+        self.of(move |p| matches!(p, Place::Static(o) if o == owner))
+    }
+
+    /// The built-in instance members of a class.
+    pub fn members<'s>(&'s self, owner: &'s str) -> impl Iterator<Item = &'s Builtin> {
+        self.of(move |p| matches!(p, Place::Member(o) if o == owner))
+    }
+
+    /// The built-in constructors of a class.
+    pub fn ctors<'s>(&'s self, owner: &'s str) -> impl Iterator<Item = &'s Builtin> {
+        self.of(move |p| matches!(p, Place::Ctor(o) if o == owner))
+    }
+
+    /// The top-level declarations, each with its doc.
+    pub fn top_level(&self) -> String {
+        let mut s = String::new();
+        for b in self.of(|p| matches!(p, Place::Top(_))) {
+            if !b.doc.is_empty() {
+                s += &format!("/** {} */\n", b.doc);
+            }
+            s += b.sig;
+            s += "\n";
+        }
+        s
+    }
+
+    /// The names the top-level declarations give (`@platypus/engine` re-exports them).
+    pub fn top_names(&self) -> Vec<&'static str> {
+        self.of(|p| matches!(p, Place::Top(_)))
+            .map(|b| match b.place {
+                Place::Top(n) => n,
+                _ => unreachable!("filtered to top-level entries"),
+            })
+            .collect()
+    }
 }
 
 /// A class member signature as a namespace member (`function pick<T>(..)`, `const roots: T`).
@@ -405,27 +317,5 @@ mod tests {
             "const roots: X[];"
         );
         assert_eq!(as_namespace_member("count: number;"), "let count: number;");
-    }
-
-    // M9-TS-3360
-    #[test]
-    fn the_component_class_has_every_hook_the_host_calls() {
-        let c = component_class();
-        for h in HOOKS {
-            assert!(c.contains(&format!("  {h}?(")), "{h}: {c}");
-        }
-        assert!(c.contains("  onUpdate?(dt: number): void;"), "{c}");
-        assert!(
-            c.contains("  onApplicationFocus?(hasFocus: boolean): void;"),
-            "{c}"
-        );
-        assert!(c.contains("`onTriggerStay`"), "{c}");
-        // Every top-level entry names what it declares.
-        for b in of(|p| matches!(p, Place::Top(_))) {
-            let Place::Top(n) = b.place else {
-                unreachable!()
-            };
-            assert!(b.sig.contains(n), "{n}: {}", b.sig);
-        }
     }
 }

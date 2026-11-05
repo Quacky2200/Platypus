@@ -6,18 +6,23 @@
 //! [`platypus_ts_rt::HostClass`]; this crate gives its hooks their meaning and provides the
 //! `ts_rt_host_*` functions compiled code calls (pass [`symbols`] to the JIT).
 
+pub mod compile;
 mod host;
 pub use host::*;
 
 include!(concat!(env!("OUT_DIR"), "/symbols.rs"));
 
 /// What the compiler is told about components, the way every plugin tells it about its API: a
-/// manifest (`hostClasses`). Reading it registers the `ts_rt_host_*` functions with
-/// `ts_api`, so a JIT finds them.
+/// manifest (`hostClasses`, and the `declarations` for `types/platypus.d.ts`). Reading it
+/// registers the `ts_rt_host_*` functions with `ts_api`, so a JIT finds them, and installs the
+/// compiler extension (`compile.rs`) the manifest names.
 pub fn manifests() -> Vec<String> {
     ts_api::register_symbols(symbols());
+    platypus_ts::lower::ext::install(compile::EXTENSION, &compile::Platypus);
     let host = serde_json::json!({
+        "declarations": compile::declarations(),
         "hostClasses": {
+            "extension": compile::EXTENSION,
             "base": "Component",
             "object": "GameObject",
             "objectField": "gameObject",

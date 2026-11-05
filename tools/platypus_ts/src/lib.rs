@@ -26,6 +26,9 @@ pub mod ui_dts;
 #[cfg(windows)]
 pub mod unwind;
 
+/// The syntax tree compiler extensions (`lower::ext`) are handed, at the compiler's own version.
+pub use oxc_ast;
+
 /// What a compile produced.
 pub struct Output {
     pub object: Vec<u8>,

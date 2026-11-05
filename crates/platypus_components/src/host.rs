@@ -21,17 +21,8 @@ pub const HOOK_PRE_RENDER: usize = 5;
 pub const HOOK_DESTROY: usize = 6;
 pub const HOOK_APP_FOCUS: usize = 7;
 pub const HOOK_APP_PAUSE: usize = 8;
-const HOOK_NAMES: [&str; 9] = [
-    "onAwake",
-    "onStart",
-    "onUpdate",
-    "onLateUpdate",
-    "onFixedUpdate",
-    "onPreRender",
-    "onDestroy",
-    "onApplicationFocus",
-    "onApplicationPause",
-];
+/// The lifecycle hooks by `HOOK_*` index (the compiler extension's list).
+const HOOK_NAMES: [&str; 9] = crate::compile::HOOKS;
 
 type Create = unsafe extern "C" fn(f64, u64) -> *mut u8;
 type Hook = unsafe extern "C" fn(*mut u8, f64);
@@ -45,14 +36,8 @@ pub const CONTACT_STAY: usize = 2;
 pub const TRIGGER_ENTER: usize = 3;
 pub const TRIGGER_EXIT: usize = 4;
 pub const TRIGGER_STAY: usize = 5;
-const CONTACT_NAMES: [&str; 6] = [
-    "onCollisionEnter",
-    "onCollisionExit",
-    "onCollisionStay",
-    "onTriggerEnter",
-    "onTriggerExit",
-    "onTriggerStay",
-];
+/// The contact hooks by `CONTACT_*` / `TRIGGER_*` index.
+const CONTACT_NAMES: [&str; 6] = crate::compile::CONTACT_HOOKS;
 
 /// One registered class: its constructor thunk and the hooks it has (a missing hook costs nothing).
 #[derive(Clone)]

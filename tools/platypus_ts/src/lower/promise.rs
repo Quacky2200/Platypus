@@ -32,7 +32,7 @@ impl<'a> Lowerer<'a> {
     }
 
     /// A call of a declared helper with arguments that are already lowered.
-    pub(crate) fn call_helper(&mut self, name: &str, args: Vec<Expr>) -> R<Expr> {
+    pub fn call_helper(&mut self, name: &str, args: Vec<Expr>) -> R<Expr> {
         let Some(&fid) = self.fids.get(name) else {
             bail!(
                 "`{name}` does not exist: the program has no promise type for it (write `Promise<T>` for the type somewhere), or does not use the feature it belongs to"

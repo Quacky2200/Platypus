@@ -763,7 +763,7 @@ impl<'a> Lowerer<'a> {
             {
                 return self.lower_promise_method(recv, &key, value, m, c);
             }
-            if (self.is_host_lookup(m, true) || components::is_hierarchy_search(m))
+            if (self.is_host_lookup(m, true) || self.is_ext_class_method(m))
                 && let Some(go) = self.component_target(recv.clone())
                 && let Some(e) = self.lower_user_component_call(&go, m, c)?
             {
@@ -870,24 +870,15 @@ impl<'a> Lowerer<'a> {
             return self.lower_join(recv, c);
         }
         if let Ty::Handle(class) = &rty {
-            if class == "Prefab"
-                && m == "instantiate"
-                && let Some(e) = {
-                    let f = self.manifest.classes["Prefab"].methods["instantiate"].clone();
-                    let at = self.loc(c.span.start);
-                    let options = match c.arguments.first().and_then(|a| a.as_expression()) {
-                        Some(Expression::ObjectExpression(o)) => Some(&**o),
-                        _ => None,
-                    };
-                    Some(self.finish_instantiate(f, vec![recv.clone()], options, &at)?)
-                }
+            if let Some(ext) = self.ext
+                && let Some(e) = ext.method_call(self, class, &recv, m, c)?
             {
                 return Ok(e);
             }
             if self.manifest.is_host_method(m, |h| &h.add) {
                 return self.lower_add_component(recv, c);
             }
-            if (self.is_host_lookup(m, false) || components::is_hierarchy_search(m))
+            if (self.is_host_lookup(m, false) || self.is_ext_class_method(m))
                 && let Some(e) = self.lower_user_component_call(&recv, m, c)?
             {
                 return Ok(e);

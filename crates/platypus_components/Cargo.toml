@@ -13,4 +13,5 @@ ts_api = { path = "../ts_api", default-features = false }
 platypus_kinds = { path = "../platypus_kinds" }
 platypus_physics_api = { path = "../platypus_physics_api" }
 platypus_ts_rt = { path = "../../tools/platypus_ts_rt" }
+platypus_ts = { path = "../../tools/platypus_ts" }
 serde_json = "1"

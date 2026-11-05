@@ -909,7 +909,7 @@ impl<'a> Lowerer<'a> {
         }
     }
 
-    pub(crate) fn named_type(&mut self, name: &str) -> R<Ty> {
+    pub fn named_type(&mut self, name: &str) -> R<Ty> {
         if let Some(t) = self.named.get(name) {
             if self.alias_resolving.contains(name) {
                 self.alias_hits.insert(name.to_string());
@@ -1333,7 +1333,7 @@ impl<'a> Lowerer<'a> {
         )))
     }
 
-    pub(crate) fn coerce(&mut self, e: Expr, to: &Ty) -> R<Expr> {
+    pub fn coerce(&mut self, e: Expr, to: &Ty) -> R<Expr> {
         if e.ty == *to {
             return Ok(e);
         }

@@ -438,6 +438,8 @@ type RecordDecl = (String, Vec<(String, String, String)>);
 
 #[derive(Default)]
 struct Decls {
+    /// The compiler's built-ins and the manifests' `declarations`.
+    builtins: crate::builtins::Builtins,
     handles: BTreeSet<String>,
     /// Value class -> its field names.
     values: BTreeMap<String, Vec<String>>,
@@ -810,7 +812,10 @@ impl Decls {
             .flatten()
             // A built-in member of the same name declares it otherwise.
             .filter(|(n, _)| {
-                !crate::builtins::members(name).any(|b| crate::builtins::member_name(b.sig) == n)
+                !self
+                    .builtins
+                    .members(name)
+                    .any(|b| crate::builtins::member_name(b.sig) == n)
             })
             // A value class key takes a plain object too, as its setter's parameter does
             // (`mainTextureScale: { x: 4, y: 4 }`).
@@ -825,7 +830,9 @@ impl Decls {
     /// The constructor lines of a class: the built-in ones, else the value class's fields, else
     /// the handle class's `create` (and the options form the compiler also accepts).
     fn ctor_lines(&self, name: &str) -> Vec<String> {
-        let built: Vec<String> = crate::builtins::ctors(name)
+        let built: Vec<String> = self
+            .builtins
+            .ctors(name)
             .map(|b| b.sig.to_string())
             .collect();
         if !built.is_empty() {
@@ -987,9 +994,9 @@ impl Decls {
                     crate::builtins::member_name(b.sig) == member_name(m)
                 };
                 let hit = if m.starts_with("static ") {
-                    crate::builtins::statics(name).any(same)
+                    self.builtins.statics(name).any(same)
                 } else {
-                    crate::builtins::members(name).any(same)
+                    self.builtins.members(name).any(same)
                 };
                 if hit {
                     continue;
@@ -999,18 +1006,20 @@ impl Decls {
                 }
                 s += &format!("{indent}  {m}\n");
             }
-            for b in crate::builtins::members(name) {
+            for b in self.builtins.members(name) {
                 s += &jsdoc(b.doc, &format!("{indent}  "));
                 s += &format!("{indent}  {}\n", b.sig);
             }
-            for b in crate::builtins::statics(name) {
+            for b in self.builtins.statics(name) {
                 s += &jsdoc(b.doc, &format!("{indent}  "));
                 s += &format!("{indent}  static {}\n", b.sig);
             }
             // `Class.create({ .. })` sets the keys as properties, like `new Class({ .. })`.
             if self.creates.get(name).is_some_and(|c| c.is_empty())
                 && self.props.get(name).is_some_and(|p| !p.is_empty())
-                && !crate::builtins::statics(name)
+                && !self
+                    .builtins
+                    .statics(name)
                     .any(|b| crate::builtins::member_name(b.sig) == "create")
             {
                 s += &format!(
@@ -1023,7 +1032,9 @@ impl Decls {
             if members.is_some_and(|m| m.iter().any(|l| l == "readonly gameObject: GameObject;")) {
                 let has = |n: &str| {
                     members.is_some_and(|m| m.iter().any(|l| member_name(l) == n))
-                        || crate::builtins::members(name)
+                        || self
+                            .builtins
+                            .members(name)
                             .any(|b| crate::builtins::member_name(b.sig) == n)
                 };
                 if !has("transform") {
@@ -1043,7 +1054,9 @@ impl Decls {
             }
             s += &format!("{indent}{prefix}namespace {name} {{\n");
             for m in members {
-                if crate::builtins::statics(name)
+                if self
+                    .builtins
+                    .statics(name)
                     .any(|b| crate::builtins::member_name(b.sig) == member_name(m))
                 {
                     continue;
@@ -1054,7 +1067,11 @@ impl Decls {
                 s += &format!("{indent}  {m}\n");
             }
             // A class of the same name has them as statics already.
-            for b in crate::builtins::statics(name).filter(|_| !self.classes.contains_key(name)) {
+            for b in self
+                .builtins
+                .statics(name)
+                .filter(|_| !self.classes.contains_key(name))
+            {
                 s += &jsdoc(b.doc, &format!("{indent}  "));
                 s += &format!(
                     "{indent}  {}\n",
@@ -1095,7 +1112,10 @@ fn reexports(module: &str, names: &[String]) -> String {
 /// modules `@platypus/engine`, `@platypus/react` and `react` as re-exports of those globals. A game needs
 /// no import; the old imports still work.
 pub fn generate(manifests: &[String]) -> Result<String, String> {
-    let mut d = Decls::default();
+    let mut d = Decls {
+        builtins: crate::builtins::Builtins::from_manifests(manifests)?,
+        ..Decls::default()
+    };
     for m in manifests {
         d.add(m)?;
     }
@@ -1108,7 +1128,7 @@ pub fn generate(manifests: &[String]) -> Result<String, String> {
     out += "\n";
     out += &crate::ui_dts::declarations();
     out += "\n// What the compiler gives a program (`builtins.rs`).\n";
-    out += &crate::builtins::top_level();
+    out += &d.builtins.top_level();
     // The structural `<Value>Like` types (a plain `{ x, y, z }` object does) that the declarations
     // name.
     let mut likes: Vec<String> = Vec::new();
@@ -1130,7 +1150,7 @@ pub fn generate(manifests: &[String]) -> Result<String, String> {
     engine.extend(d.namespaces.keys().filter(|n| !n.is_empty()).cloned());
     engine.extend(d.globals.keys().cloned());
     engine.extend(likes);
-    engine.extend(crate::builtins::top_names().into_iter().map(String::from));
+    engine.extend(d.builtins.top_names().into_iter().map(String::from));
     out += "\n";
     out += &reexports("@platypus/engine", &engine.into_iter().collect::<Vec<_>>());
     out += "\n";
@@ -1248,10 +1268,18 @@ mod tests {
         {"name":"children","symbol":"g3","kind":"get","params":[{"name":"this","type":"handle:GameObject"}],"returns":"f64"}]}],
       "functions":[{"name":"pick","symbol":"r1","kind":"static","params":[],"returns":"f64"}]}"#;
 
+    /// A host's own declarations, as Platypus's components manifest gives them.
+    const HOST_DECLS: &str = r#"{"declarations":[
+      {"top":"Component","sig":"declare abstract class Component {\n  readonly id: number;\n}","doc":""},
+      {"top":"GameObjectOptions","sig":"interface GameObjectOptions {\n  parent?: GameObject | null;\n  position?: Vector3Like;\n}","doc":"Where it goes."},
+      {"ctor":"GameObject","sig":"constructor(name?: string, options?: GameObjectOptions);"},
+      {"member":"GameObject","sig":"readonly children: GameObject[];","doc":"Its children."},
+      {"static":"GameObject","sig":"instantiate(original: GameObject | Prefab, options?: GameObjectOptions): GameObject;","doc":"A copy."}]}"#;
+
     // M9-TS-2311
     #[test]
     fn the_built_ins_replace_members_of_the_same_name_and_add_constructors() {
-        let t = generate(&[BUILT.to_string()]).unwrap();
+        let t = generate(&[BUILT.to_string(), HOST_DECLS.to_string()]).unwrap();
         // The native members of the same names are gone; the built-in ones are in the class.
         assert!(!t.contains("static instantiate(o: GameObject)"), "{t}");
         assert!(

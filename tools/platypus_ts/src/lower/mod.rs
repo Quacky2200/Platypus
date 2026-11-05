@@ -24,6 +24,7 @@ mod dicts;
 mod engine_objs;
 mod enums;
 mod expr;
+pub mod ext;
 mod facade;
 mod fnvalue;
 mod generators;
@@ -35,6 +36,7 @@ mod json;
 mod jsx;
 mod keyed;
 mod literals;
+pub use expr::mk;
 pub use jsx::UI_MANIFEST;
 mod maps;
 mod messages;
@@ -308,6 +310,8 @@ pub struct Lowerer<'a> {
     pub(crate) consts: HashMap<String, ConstInfo>,
     /// The engine API scripts may call (`Namespace.fn(..)`) and its handle types.
     pub(crate) manifest: crate::manifest::Manifest,
+    /// The host's compiler extension, if its manifests name an installed one (`ext.rs`).
+    pub(crate) ext: Option<&'static dyn ext::Extension>,
     /// The structs of the manifest's value classes, made when first named.
     pub(crate) value_structs: HashMap<String, StructId>,
     /// Class declarations by name, and what is known about each once its struct exists.
@@ -467,19 +471,22 @@ pub fn lower_source_opts(src: &str, manifests: &[String], check_unused: bool) ->
     let rewritten3 = temporal::rewrite(src);
     let wants_temporal = rewritten3.is_some();
     let src = rewritten3.as_deref().unwrap_or(src);
-    // `register(Class)` becomes exported constructor and hook functions for the host.
+    // Host classes and the host's compiler extension exist only when a manifest declares them
+    // (`hostClasses`, `ext.rs`).
     let host = manifest.host_classes.clone();
-    let has_go = manifest.host_object().is_some();
-    let with_cic = components::children_helpers(src, has_go).map(|h| format!("{src}{h}"));
-    let src = with_cic.as_deref().unwrap_or(src);
-    let with_tree = components::tree_helpers(src, has_go).map(|h| format!("{src}{h}"));
-    let src = with_tree.as_deref().unwrap_or(src);
-    // The contact hooks get the `Collision` class of the physics manifest.
-    let has_contacts = manifest.classes.contains_key("Collision");
-    // Host classes exist only when a manifest declares them (`hostClasses`).
+    let ext = host
+        .as_ref()
+        .and_then(|h| h.extension.as_deref())
+        .and_then(ext::find);
+    let with_ext = match ext {
+        Some(e) => e.rewrite(src, &manifest)?,
+        None => None,
+    };
+    let src = with_ext.as_deref().unwrap_or(src);
+    // `register(Class)` becomes exported constructor and hook functions for the host.
     let base = host.as_ref().map(|h| h.base.as_str());
-    let rewritten4 = match base {
-        Some(b) => components::desugar(src, b, has_go, has_contacts)?,
+    let rewritten4 = match &host {
+        Some(h) => components::desugar(src, h, ext, &manifest)?,
         None => None,
     };
     let wants_components = base.map(|b| components::wanted(src, b)).unwrap_or_default();
@@ -608,6 +615,7 @@ pub fn lower_source_opts(src: &str, manifests: &[String], check_unused: bool) ->
         fstate: Vec::new(),
         consts: HashMap::new(),
         manifest,
+        ext,
         value_structs: HashMap::new(),
         class_decls: HashMap::new(),
         classes: HashMap::new(),
@@ -695,7 +703,7 @@ impl<'a> Lowerer<'a> {
         matches!(src.kind, FnKind::Free)
             && !src.exported
             && (!name.starts_with("__")
-                || components::is_scene_helper(name)
+                || self.ext.is_some_and(|e| e.is_lazy_helper(name))
                 || asyncs::is_lazy_helper(name))
     }
 
@@ -1285,7 +1293,7 @@ impl<'a> Lowerer<'a> {
 
     // ---- locals and scopes ----
 
-    pub(crate) fn new_local(&mut self, ty: Ty) -> VarId {
+    pub fn new_local(&mut self, ty: Ty) -> VarId {
         self.cur.locals.push(ty);
         (self.cur.locals.len() - 1) as VarId
     }
@@ -1400,7 +1408,7 @@ impl<'a> Lowerer<'a> {
         Ok((stmts, ret))
     }
 
-    pub(crate) fn var_expr(&self, v: VarId) -> Expr {
+    pub fn var_expr(&self, v: VarId) -> Expr {
         Expr {
             kind: ExprKind::Var(v),
             ty: self.cur.locals[v as usize].clone(),

@@ -148,6 +148,11 @@ impl<'a> Lowerer<'a> {
             || (add && self.manifest.is_host_method(m, |h| &h.add))
     }
 
+    /// Is `m` a method of the host's extension that takes a class (`getComponentInChildren`)?
+    pub(crate) fn is_ext_class_method(&self, m: &str) -> bool {
+        self.ext.is_some_and(|e| e.class_methods().contains(&m))
+    }
+
     /// The base-class field that holds a host-class instance's object (`gameObject`).
     pub(crate) fn host_object_field(&self) -> Option<&str> {
         self.manifest.host_classes.as_ref()?.object_field.as_deref()
@@ -209,10 +214,11 @@ impl<'a> Lowerer<'a> {
             let call = ExprKind::Rt(RtFn::Str("ts_rt_host_all_gc"), vec![go.clone(), which]);
             return Ok(Some(mk(call, Ty::Arr(Box::new(Ty::Obj(sid))))));
         }
-        if let Some(helper) = super::components::hierarchy_helper(m, &name) {
-            // A function of TypeScript that walks the hierarchy (`children_helpers`).
-            let e = self.call_helper(&helper, vec![go.clone()])?;
-            return Ok(Some(e));
+        if self.is_ext_class_method(m)
+            && let Some(ext) = self.ext
+        {
+            // The host's own class-taking method (a hierarchy search).
+            return ext.class_call(self, go, m, &name);
         }
         let ty = Ty::Obj(sid);
         let tmp = self.new_local(ty.clone());
@@ -251,39 +257,6 @@ impl<'a> Lowerer<'a> {
         Ok(Some(mk(ExprKind::Seq(stmts, Box::new(result)), ty)))
     }
 
-    /// The `GameObject` properties scene.ts has that the engine API does not declare: `children`
-    /// (a helper that walks `childAt`), `components` (every component of the program on the object)
-    /// and `scene` (`SceneManager.sceneOf`).
-    pub(crate) fn game_object_member(&mut self, obj: Expr, prop: &str) -> R<Expr> {
-        match prop {
-            "children" if self.fids.contains_key("__go_children") => {
-                self.call_helper("__go_children", vec![obj])
-            }
-            "components" => {
-                let base = self.manifest.host_base().unwrap_or_default().to_string();
-                let Ty::Obj(sid) = self.named_type(&base)? else {
-                    bail!("GameObject.components needs the program to use components")
-                };
-                let which = mk(ExprKind::Num(sid as f64), Ty::Num);
-                let call = ExprKind::Rt(RtFn::Str("ts_rt_host_all_gc"), vec![obj, which]);
-                Ok(mk(call, Ty::Arr(Box::new(Ty::Obj(sid)))))
-            }
-            "scene" => {
-                let f = self
-                    .manifest
-                    .namespaces
-                    .get("SceneManager")
-                    .and_then(|n| n.get("sceneOf"))
-                    .cloned();
-                match f {
-                    Some(f) => Ok(self.emit_extern(&f, vec![obj])),
-                    None => bail!("GameObject.scene needs the scene manager API"),
-                }
-            }
-            _ => bail!("GameObject has no property `{prop}`"),
-        }
-    }
-
     /// `go.removeComponent(c)` and `c.destroy()` for a component of this program: it is gone for
     /// `getComponent` at once and its `onDestroy` runs when the calling hook returns.
     pub(crate) fn lower_remove_component(&mut self, component: Expr) -> Expr {
@@ -291,108 +264,6 @@ impl<'a> Lowerer<'a> {
             ExprKind::Rt(RtFn::Str("ts_rt_host_remove"), vec![component]),
             Ty::Void,
         )
-    }
-
-    /// `GameObject.instantiate(original, { position, rotation, parent })`,
-    /// `GameObject.dontDestroyOnLoad(go)` and `prefab.instantiate({ .. })`: calls of the scene
-    /// manager's functions (the options become the numbers it takes; NaN is "left out").
-    pub(crate) fn lower_scene_call(
-        &mut self,
-        method: &str,
-        c: &'a CallExpression<'a>,
-    ) -> R<Option<Expr>> {
-        let at = self.loc(c.span.start);
-        let Some(ns) = self.manifest.namespaces.get("SceneManager").cloned() else {
-            return Ok(None);
-        };
-        if method == "dontDestroyOnLoad" {
-            let f = ns["dontDestroyOnLoad"].clone();
-            return Ok(Some(self.call_ext_args(
-                f,
-                None,
-                "GameObject.dontDestroyOnLoad",
-                c.span.start,
-                &c.arguments,
-            )?));
-        }
-        let Some(first) = c.arguments.first().and_then(|a| a.as_expression()) else {
-            bail!("{at}: instantiate takes an object or a prefab")
-        };
-        let original = self.lower_expr(first, None)?;
-        let (f, lead) = match original.ty.strip() {
-            Ty::Handle(h) if h == "Prefab" => (
-                self.manifest.classes["Prefab"].methods["instantiate"].clone(),
-                vec![original],
-            ),
-            _ => (ns["instantiate"].clone(), vec![original]),
-        };
-        let options = match c.arguments.get(1).and_then(|a| a.as_expression()) {
-            Some(Expression::ObjectExpression(o)) => Some(&**o),
-            Some(_) => bail!("{at}: instantiate options are an object literal"),
-            None => None,
-        };
-        self.finish_instantiate(f, lead, options, &at).map(Some)
-    }
-
-    /// The call of an `instantiate` function (`lead`: the original or the prefab) with the
-    /// options object's `position`, `rotation` and `parent` as arguments.
-    pub(crate) fn finish_instantiate(
-        &mut self,
-        f: ExternFn,
-        lead: Vec<Expr>,
-        options: Option<&'a ObjectExpression<'a>>,
-        at: &str,
-    ) -> R<Expr> {
-        let nan = || mk(ExprKind::Num(f64::NAN), Ty::Num);
-        let (mut position, mut rotation, mut parent) = (None, None, None);
-        for p in options.map(|o| o.properties.iter()).into_iter().flatten() {
-            let ObjectPropertyKind::ObjectProperty(p) = p else {
-                bail!("{at}: spread in options")
-            };
-            let PropertyKey::StaticIdentifier(key) = &p.key else {
-                bail!("{at}: option names are plain names")
-            };
-            match key.name.as_str() {
-                "position" => {
-                    let sid = self.value_struct("Vector3");
-                    position = Some((self.lower_expr(&p.value, Some(&Ty::Obj(sid)))?, sid));
-                }
-                "rotation" => {
-                    let sid = self.value_struct("Quaternion");
-                    rotation = Some((self.lower_expr(&p.value, Some(&Ty::Obj(sid)))?, sid));
-                }
-                "parent" => parent = Some(self.lower_expr(&p.value, None)?),
-                other => bail!("{at}: instantiate has no option `{other}`"),
-            }
-        }
-        let mut args = lead;
-        // A vector or quaternion is read into a temporary once, then its fields are the arguments.
-        let mut pre = Vec::new();
-        let mut parts =
-            |this: &mut Self, v: Option<(Expr, usize)>, n: usize, args: &mut Vec<Expr>| match v {
-                Some((e, sid)) => {
-                    let tmp = this.new_local(Ty::Obj(sid));
-                    pre.push(Stmt::Assign(tmp, e));
-                    for i in 0..n {
-                        args.push(mk(
-                            ExprKind::Field(Box::new(this.var_expr(tmp)), sid, i),
-                            Ty::Num,
-                        ));
-                    }
-                }
-                None => args.extend((0..n).map(|_| mk(ExprKind::Num(f64::NAN), Ty::Num))),
-            };
-        parts(self, position, 3, &mut args);
-        parts(self, rotation, 4, &mut args);
-        let handle_ty = Ty::Handle("GameObject".into());
-        args.push(match parent {
-            Some(p) => p,
-            None => mk(ExprKind::Null, handle_ty),
-        });
-        let _ = nan;
-        let call = self.emit_extern(&f, args);
-        let ty = call.ty.clone();
-        Ok(mk(ExprKind::Seq(pre, Box::new(call)), ty))
     }
 
     /// `GameObject.findObjectOfType(Player)`: the first component of that class on any object.
@@ -643,7 +514,7 @@ impl<'a> Lowerer<'a> {
     }
 
     /// The setters for `{ key: value, .. }` on the handle in `tmp`.
-    pub(crate) fn apply_options(
+    pub fn apply_options(
         &mut self,
         class: &str,
         tmp: VarId,
@@ -670,8 +541,18 @@ impl<'a> Lowerer<'a> {
                 bail!("{at}: option names are plain names")
             };
             let key = key.name.as_str();
-            if class == "GameObject" && self.game_object_option(tmp, key, &p.value, stmts, at)? {
-                continue;
+            if let Some(ext) = self.ext {
+                let o = super::ext::OptionArg {
+                    class,
+                    tmp,
+                    key,
+                    value: &p.value,
+                    stmts,
+                    at,
+                };
+                if ext.option(self, o)? {
+                    continue;
+                }
             }
             let array = matches!(&p.value, Expression::ArrayExpression(_));
             let Some(set) = self.option_setter(class, key, array)? else {

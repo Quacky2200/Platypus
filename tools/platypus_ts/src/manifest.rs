@@ -139,6 +139,8 @@ pub struct HostClasses {
     pub methods: HostMethods,
     /// The hooks the host calls, in the order of its table (`HostClass::hooks`).
     pub hooks: Vec<String>,
+    /// The compiler extension the host installed for its programs (`lower::ext::install`).
+    pub extension: Option<String>,
 }
 
 /// The names of the host-class calls (`HostClasses::methods`); a name left out has no call.
@@ -182,6 +184,7 @@ impl HostClasses {
                 find_any: s(&m["findAny"]),
             },
             hooks,
+            extension: s(&v["extension"]),
         })
     }
 }

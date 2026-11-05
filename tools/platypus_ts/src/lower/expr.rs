@@ -6,7 +6,7 @@
 use super::*;
 use crate::manifest::ExternFn;
 
-pub(crate) fn mk(kind: ExprKind, ty: Ty) -> Expr {
+pub fn mk(kind: ExprKind, ty: Ty) -> Expr {
     Expr { kind, ty }
 }
 
@@ -79,7 +79,7 @@ pub(crate) enum Place {
 }
 
 impl<'a> Lowerer<'a> {
-    pub(crate) fn loc(&self, offset: u32) -> String {
+    pub fn loc(&self, offset: u32) -> String {
         format!("line {}", self.line(offset))
     }
 
@@ -101,7 +101,7 @@ impl<'a> Lowerer<'a> {
                 && matches!(&m.object, Expression::Identifier(id) if id.name == "JSON"))
     }
 
-    pub(crate) fn lower_expr(&mut self, e: &'a Expression<'a>, exp: Option<&Ty>) -> R<Expr> {
+    pub fn lower_expr(&mut self, e: &'a Expression<'a>, exp: Option<&Ty>) -> R<Expr> {
         if self.unions.is_empty() {
             return self.lower_expr_inner(e, exp);
         }
@@ -475,14 +475,13 @@ impl<'a> Lowerer<'a> {
                 _ => bail!("Number.{prop} is not a value"),
             };
         }
-        // `GameObject.roots`: the objects at the world root.
+        // The host's own static members (Platypus: `GameObject.roots`).
         if let Expression::Identifier(id) = &m.object
-            && id.name == "GameObject"
-            && prop == "roots"
-            && self.lookup("GameObject").is_none()
-            && self.fids.contains_key("__go_roots")
+            && let Some(ext) = self.ext
+            && self.lookup(id.name.as_str()).is_none()
+            && let Some(e) = ext.static_member(self, id.name.as_str(), prop)?
         {
-            return self.call_helper("__go_roots", vec![]);
+            return Ok(e);
         }
         if let Expression::Identifier(id) = &m.object
             && self.lookup(id.name.as_str()).is_none()
@@ -654,8 +653,13 @@ impl<'a> Lowerer<'a> {
                     .cloned();
                 match getter {
                     Some(g) => Ok(self.emit_extern(&g, vec![obj])),
-                    None if class == "GameObject" => self.game_object_member(obj, prop),
-                    None => bail!("{class} has no property `{prop}`"),
+                    None => {
+                        let found = match self.ext {
+                            Some(ext) => ext.member(self, &class, obj, prop)?,
+                            None => None,
+                        };
+                        found.ok_or_else(|| format!("{class} has no property `{prop}`"))
+                    }
                 }
             }
             t => bail!("no property `{prop}` on {t}"),
@@ -938,7 +942,7 @@ impl<'a> Lowerer<'a> {
     /// `Namespace.fn(args)` for a function of the engine API: a direct call of its symbol, with
     /// the arguments checked against the manifest and numbers converted at the call.
     /// The struct of a manifest value class (`Vector3`): one `number` field per field, in order.
-    pub(crate) fn value_struct(&mut self, name: &str) -> StructId {
+    pub fn value_struct(&mut self, name: &str) -> StructId {
         if let Some(s) = self.value_structs.get(name) {
             return *s;
         }
@@ -957,7 +961,7 @@ impl<'a> Lowerer<'a> {
     }
 
     /// The IR type scripts see for a boundary type.
-    pub(crate) fn ext_ir(&mut self, t: &ExtTy) -> Ty {
+    pub fn ext_ir(&mut self, t: &ExtTy) -> Ty {
         match t {
             ExtTy::Value(n) => Ty::Obj(self.value_struct(n)),
             ExtTy::ValueArr(n) => Ty::Arr(Box::new(Ty::Obj(self.value_struct(n)))),
@@ -2154,7 +2158,7 @@ impl<'a> Lowerer<'a> {
     }
 
     /// `call_ext_fn` over an argument list (a call's, or a `new`'s).
-    pub(crate) fn call_ext_args(
+    pub fn call_ext_args(
         &mut self,
         f: ExternFn,
         recv: Option<Expr>,
@@ -2388,7 +2392,7 @@ impl<'a> Lowerer<'a> {
 
     /// `coerce` for an argument of the engine API: a string where a handle is expected becomes
     /// the handle's `fromString` (`mesh: "cube"` is `Mesh.fromString("cube")`).
-    pub(crate) fn coerce_ext(&mut self, v: Expr, want: &Ty) -> R<Expr> {
+    pub fn coerce_ext(&mut self, v: Expr, want: &Ty) -> R<Expr> {
         if let Ty::Handle(class) = want.strip()
             && matches!(v.ty.strip(), Ty::Str | Ty::Lit)
             && let Some(from) = self
@@ -2541,7 +2545,7 @@ impl<'a> Lowerer<'a> {
     /// The call of a boundary function with arguments already lowered to the script types. A
     /// value class argument is passed as its fields; a value class result is written into a
     /// new object.
-    pub(crate) fn emit_extern(&mut self, f: &ExternFn, args_in: Vec<Expr>) -> Expr {
+    pub fn emit_extern(&mut self, f: &ExternFn, args_in: Vec<Expr>) -> Expr {
         let any_value = f
             .params
             .iter()
@@ -6045,11 +6049,12 @@ impl<'a> Lowerer<'a> {
                 {
                     return Ok(e);
                 }
+                // The host's own static calls (Platypus: `GameObject.instantiate(..)`,
+                // `GameObject.createPrimitive(..)`).
                 if let Expression::Identifier(id) = &m.object
-                    && id.name == "GameObject"
-                    && matches!(method, "instantiate" | "dontDestroyOnLoad")
-                    && self.lookup("GameObject").is_none()
-                    && let Some(e) = self.lower_scene_call(method, c)?
+                    && let Some(ext) = self.ext
+                    && self.lookup(id.name.as_str()).is_none()
+                    && let Some(e) = ext.static_call(self, id.name.as_str(), method, c)?
                 {
                     return Ok(e);
                 }

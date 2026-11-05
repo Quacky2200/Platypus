@@ -689,26 +689,11 @@ impl<'a> Lowerer<'a> {
     pub(crate) fn ext_getter(&mut self, class: &str, prop: &str, obj: &Expr) -> R<Option<Expr>> {
         let name = Self::x_name("g", class, prop);
         if !self.fids.contains_key(&name) {
-            // `camera.transform`: a component's object's transform.
-            if prop == "transform"
-                && class != "GameObject"
-                && let Some(go) = self
-                    .manifest
-                    .classes
-                    .get(class)
-                    .and_then(|k| k.getters.get("gameObject"))
-                    .cloned()
-                && let Some(tr) = self
-                    .manifest
-                    .classes
-                    .get("GameObject")
-                    .and_then(|k| k.getters.get("transform"))
-                    .cloned()
-            {
-                let owner = self.emit_extern(&go, vec![obj.clone()]);
-                return Ok(Some(self.emit_extern(&tr, vec![owner])));
-            }
-            return Ok(None);
+            // The host's own getters (Platypus: `camera.transform` through its object).
+            return match self.ext {
+                Some(ext) => ext.getter(self, class, obj, prop),
+                None => Ok(None),
+            };
         }
         self.call_helper(&name, vec![obj.clone()]).map(Some)
     }
@@ -731,9 +716,6 @@ impl<'a> Lowerer<'a> {
         m: &str,
         c: &'a CallExpression<'a>,
     ) -> R<Option<Expr>> {
-        if class == "GameObject" && m == "createPrimitive" {
-            return self.lower_create_primitive(c);
-        }
         if class == "Random" && m == "pick" {
             return self.lower_random_pick(c);
         }
@@ -845,40 +827,6 @@ impl<'a> Lowerer<'a> {
         )))
     }
 
-    /// `GameObject.createPrimitive("cube", { position, scale, .. })`: `Primitives.create(kind)`,
-    /// then the options as for `new GameObject`.
-    fn lower_create_primitive(&mut self, c: &'a CallExpression<'a>) -> R<Option<Expr>> {
-        let at = self.loc(c.span.start);
-        let Some(create) = self
-            .manifest
-            .namespaces
-            .get("Primitives")
-            .and_then(|n| n.get("create"))
-            .cloned()
-        else {
-            return Ok(None);
-        };
-        let Some(kind) = c.arguments.first().and_then(|a| a.as_expression()) else {
-            bail!("{at}: createPrimitive takes a kind")
-        };
-        let kind = self.lower_expr(kind, Some(&Ty::Str))?;
-        let kind = self.coerce(kind, &Ty::Str)?;
-        let ty = Ty::Handle("GameObject".to_string());
-        let tmp = self.new_local(ty.clone());
-        let none = mk(ExprKind::Null, Ty::Str.nullable());
-        let made = self.emit_extern(&create, vec![kind, none]);
-        let mut stmts = vec![Stmt::Assign(tmp, made)];
-        match c.arguments.get(1).and_then(|a| a.as_expression()) {
-            Some(Expression::ObjectExpression(o)) => {
-                self.apply_options("GameObject", tmp, o, &mut stmts, &at)?
-            }
-            Some(_) => bail!("{at}: createPrimitive options are an object literal"),
-            None => {}
-        }
-        let result = self.var_expr(tmp);
-        Ok(Some(mk(ExprKind::Seq(stmts, Box::new(result)), ty)))
-    }
-
     /// `Class.prop` through a facade static getter, or a static function of the engine API that
     /// takes nothing (`Camera.main`).
     pub(crate) fn ext_static_prop(&mut self, class: &str, prop: &str) -> R<Option<Expr>> {
@@ -905,80 +853,6 @@ impl<'a> Lowerer<'a> {
             }
             None => Ok(None),
         }
-    }
-
-    /// A `new GameObject(name, { .. })` option the plain setter lookup would not find: `parent`
-    /// (`setParent(p, false)`), and `position` / `rotation` / `scale`, which are local to the
-    /// parent (`localPosition`, ...). `Ok(false)` leaves the key to the default path.
-    pub(crate) fn game_object_option(
-        &mut self,
-        tmp: VarId,
-        key: &str,
-        value: &'a Expression<'a>,
-        stmts: &mut Vec<Stmt>,
-        at: &str,
-    ) -> R<bool> {
-        let go = &self.manifest.classes["GameObject"];
-        if key == "parent" {
-            let Some(f) = go.methods.get("setParent").cloned() else {
-                bail!("{at}: GameObject has no setParent")
-            };
-            let want = self.ext_ir(&f.params[1].1);
-            let v = self.lower_expr(value, Some(&want))?;
-            let v = self.coerce_ext(v, &want)?;
-            let h = self.var_expr(tmp);
-            let keep = mk(ExprKind::Bool(false), Ty::Bool);
-            stmts.push(Stmt::Eval(self.emit_extern(&f, vec![h, v, keep])));
-            return Ok(true);
-        }
-        let local = match key {
-            "position" => "localPosition",
-            "rotation" => "localRotation",
-            "scale" => "localScale",
-            "active" => {
-                let Some(setter) = go.setters.get("enabled").cloned() else {
-                    return Ok(false);
-                };
-                let v = self.lower_expr(value, Some(&Ty::Bool))?;
-                let v = self.coerce(v, &Ty::Bool)?;
-                let h = self.var_expr(tmp);
-                stmts.push(Stmt::Eval(self.emit_extern(&setter, vec![h, v])));
-                return Ok(true);
-            }
-            _ => return Ok(false),
-        };
-        let get = go.getters.get("transform").cloned();
-        let set = self
-            .manifest
-            .classes
-            .get("Transform")
-            .and_then(|t| t.setters.get(local))
-            .cloned();
-        let (Some(get), Some(set)) = (get, set) else {
-            return Ok(false);
-        };
-        let want = self.ext_ir(&set.params[1].1);
-        let v = self.lower_expr(value, None)?;
-        // An optional value (`rotation?: Quaternion` passed on) is left alone when it is not there.
-        // (An optional parameter of an object type is the object type with a null pointer.)
-        if v.ty.is_nullable()
-            || matches!(v.ty.strip(), Ty::Obj(_) if matches!(v.kind, ExprKind::Var(_)))
-        {
-            let tv = v;
-            let is_null = mk(ExprKind::IsNull(Box::new(tv.clone())), Ty::Bool);
-            let present = mk(ExprKind::Un(UnOp::Not, Box::new(is_null)), Ty::Bool);
-            let inner = self.coerce(tv, &want)?;
-            let h = self.var_expr(tmp);
-            let tr = self.emit_extern(&get, vec![h]);
-            let write = Stmt::Eval(self.emit_extern(&set, vec![tr, inner]));
-            stmts.push(Stmt::If(present, vec![write], vec![]));
-            return Ok(true);
-        }
-        let v = self.coerce(v, &want)?;
-        let h = self.var_expr(tmp);
-        let tr = self.emit_extern(&get, vec![h]);
-        stmts.push(Stmt::Eval(self.emit_extern(&set, vec![tr, v])));
-        Ok(true)
     }
 }
 

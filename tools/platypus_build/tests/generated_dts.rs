@@ -144,13 +144,16 @@ fn manifest_names(ms: &[String]) -> BTreeSet<String> {
 // M9-TS-3101
 #[test]
 fn the_built_ins_declare_no_engine_name_again_and_their_owners_exist() {
-    use platypus_ts::builtins::{BUILTINS, Place, top_names};
+    use platypus_ts::builtins::{Builtins, Place};
     let ms: Vec<String> = platypus_build::manifests()
         .into_iter()
         .filter(|m| !m.contains("\"namespace\":\"Ui\""))
         .collect();
+    // The compiler's built-ins and the manifests' own `declarations` (Platypus's components).
+    let builtins = Builtins::from_manifests(&ms).unwrap();
     let engine = manifest_names(&ms);
-    let twice: Vec<_> = top_names()
+    let twice: Vec<_> = builtins
+        .top_names()
         .into_iter()
         .filter(|n| engine.contains(*n))
         .collect();
@@ -160,7 +163,7 @@ fn the_built_ins_declare_no_engine_name_again_and_their_owners_exist() {
     );
     // A member of a class or namespace no manifest has would be dropped silently.
     let mut ownerless = Vec::new();
-    for b in BUILTINS {
+    for b in builtins.all() {
         if let Place::Static(o) | Place::Member(o) | Place::Ctor(o) = b.place
             && !engine.contains(o)
         {

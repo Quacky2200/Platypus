@@ -4217,6 +4217,7 @@ version = "0.1.0"
 dependencies = [
  "platypus_kinds",
  "platypus_physics_api",
+ "platypus_ts",
  "platypus_ts_rt",
  "serde_json",
  "ts_api",
