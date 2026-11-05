@@ -508,6 +508,30 @@ impl GlesRenderer {
         Ok(())
     }
 
+    /// Bytes the frame-sized canvases (and the seed copy of [`render_over`](Self::render_over)) hold now.
+    pub fn canvas_bytes(&self) -> usize {
+        let (w, h) = self.canvas_size;
+        let (sw, sh) = self.seed_size;
+        self.canvases.len() * (w * h * 4) as usize + usize::from(self.seed.is_some()) * (sw * sh * 4) as usize
+    }
+
+    /// Deletes the frame-sized canvases and the seed copy (a window or layer that is idle or hidden: on a software
+    /// rasteriser they are ordinary memory, one frame's worth each). Every frame clears or seeds what it uses, so nothing
+    /// is lost: the next draw makes them again. Glyph pages, images and programs stay. The renderer's GL context must be
+    /// current. Returns the bytes given back.
+    pub fn release_canvases(&mut self) -> usize {
+        let bytes = self.canvas_bytes();
+        unsafe {
+            for c in self.canvases.drain(..).chain(self.seed.take()) {
+                self.gl.delete_framebuffer(c.framebuffer);
+                self.gl.delete_texture(c.texture);
+            }
+        }
+        self.canvas_size = (0, 0);
+        self.seed_size = (0, 0);
+        bytes
+    }
+
     /// (Re)creates `count` canvases of `size` holding `blending`'s values, keeping the ones that fit.
     fn canvases(
         &mut self,
