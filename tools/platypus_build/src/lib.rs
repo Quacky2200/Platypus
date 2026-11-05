@@ -8,7 +8,7 @@
 //! entry file (`platypus_ts::modules`), runs `tsc --noEmit -p .` when `tsc` can be found, compiles the
 //! bundle with all engine manifests (so errors are found now, not when the game starts), and writes
 //! `build/game.pbundle` (the resolved source, the CSS and asset lists, and what the program needs
-//! from the renderer: `platypus_ts::renderer`), `build/game.css`, and the assets the program names.
+//! from the renderer: `platypus_core::renderer`), `build/game.css`, and the assets the program names.
 
 pub mod assets;
 pub mod bench;
@@ -360,7 +360,7 @@ pub struct Report {
     pub object_bytes: usize,
     /// What the program needs from the renderer (`None` when lowering failed under `no_compile`:
     /// the bundle then says nothing, which the host takes as the 3D world).
-    pub usage: Option<platypus_ts::renderer::Usage>,
+    pub usage: Option<platypus_core::renderer::Usage>,
     pub time: Duration,
 }
 
@@ -374,22 +374,22 @@ pub const DEBUG_FILE: &str = "game.pdebug";
 /// The warning for `renderer` (`gles`, `cpu`) chosen for a program that uses the world.
 pub fn renderer_warning(
     renderer: platypus_core::project::Renderer,
-    usage: &Option<platypus_ts::renderer::Usage>,
+    usage: &Option<platypus_core::renderer::Usage>,
 ) -> Option<String> {
     let u = usage.as_ref()?;
     if !renderer.ui_only() {
         return None;
     }
-    platypus_ts::renderer::world_warning(renderer.as_str(), u.tier, &u.uses)
+    platypus_core::renderer::world_warning(renderer.as_str(), u.tier, &u.uses)
 }
 
 /// What `build/game.pbundle` of `game` says the program needs (`None` without one, or for a
 /// bundle without the field).
-pub fn read_usage(game: &Path) -> Option<platypus_ts::renderer::Usage> {
+pub fn read_usage(game: &Path) -> Option<platypus_core::renderer::Usage> {
     let text = std::fs::read_to_string(game.join("build/game.pbundle")).ok()?;
     let v: serde_json::Value = serde_json::from_str(&text).ok()?;
-    Some(platypus_ts::renderer::Usage {
-        tier: platypus_ts::renderer::Tier::parse(v["renderer"].as_str()?)?,
+    Some(platypus_core::renderer::Usage {
+        tier: platypus_core::renderer::Tier::parse(v["renderer"].as_str()?)?,
         uses: v["uses"]
             .as_array()
             .map(|a| {
@@ -410,14 +410,14 @@ fn usage_of(
     manifests: &[String],
     root: &Path,
     plan: &[String],
-) -> platypus_ts::renderer::Usage {
-    let mut usage = platypus_ts::renderer::usage_of_symbols(externs, uses, manifests);
+) -> platypus_core::renderer::Usage {
+    let mut usage = platypus_core::renderer::usage_of_symbols(externs, uses, manifests);
     for f in plan
         .iter()
         .filter(|f| f.ends_with(".scene.json") || f.ends_with(".prefab.json"))
     {
         if let Ok(text) = std::fs::read_to_string(root.join(f)) {
-            let types = platypus_ts::renderer::scene_file_names(&text);
+            let types = platypus_core::renderer::scene_file_names(&text);
             usage.add(types.iter().map(String::as_str));
         }
     }
@@ -782,7 +782,7 @@ pub fn build(root: &Path, opts: &Options) -> Result<Report, String> {
             "glob": p.glob, "at": p.at, "matches": p.matches,
         })).collect::<Vec<_>>(),
     });
-    // What the host chooses its renderer by (`platypus_ts::renderer`); left out when it is not
+    // What the host chooses its renderer by (`platypus_core::renderer`); left out when it is not
     // known, which the host takes as the 3D world.
     if let Some(u) = &usage {
         pbundle["renderer"] = u.tier.as_str().into();

@@ -1,11 +1,11 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The renderer tiers (`platypus_ts::renderer`) against the real engine API, and what the compiler
+//! The renderer tiers (`platypus_core::renderer`) against the real engine API, and what the compiler
 //! finds a program needs.
 
 use platypus_build::manifests;
-use platypus_ts::renderer::{PRELUDE_NAMES, TAGS, Tier, Usage, owner_names, usage_of_symbols};
+use platypus_core::renderer::{PRELUDE_NAMES, TAGS, Tier, Usage, owner_names, usage_of_symbols};
 use std::collections::BTreeSet;
 
 /// The classes and namespaces (not enums) of some manifests.
@@ -48,15 +48,15 @@ fn every_tagged_name_is_a_class_or_namespace_of_the_engine_api() {
 fn every_class_and_namespace_of_the_render_api_needs_the_world() {
     let untagged: Vec<String> = owners(&platypus_render_api::manifests())
         .into_iter()
-        .filter(|n| platypus_ts::renderer::tier_of(n) == Tier::Ui)
+        .filter(|n| platypus_core::renderer::tier_of(n) == Tier::Ui)
         .collect();
     assert!(
         untagged.is_empty(),
-        "platypus_render_api names without a tier (add them to platypus_ts::renderer::TAGS): {untagged:?}"
+        "platypus_render_api names without a tier (add them to platypus_core::renderer::TAGS): {untagged:?}"
     );
     // And the world renderers declared elsewhere.
     for n in ["Camera", "Gizmos"] {
-        assert!(platypus_ts::renderer::tier_of(n) > Tier::Ui, "{n}");
+        assert!(platypus_core::renderer::tier_of(n) > Tier::Ui, "{n}");
     }
 }
 

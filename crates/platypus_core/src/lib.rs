@@ -19,6 +19,7 @@ mod ops;
 pub mod payload;
 pub mod project;
 pub mod project_edit;
+pub mod renderer;
 mod value;
 
 pub use assets::{

@@ -11,7 +11,7 @@
 use std::sync::atomic::{AtomicU8, Ordering};
 
 use platypus_core::project::Renderer;
-use platypus_ts::renderer::Tier;
+use platypus_core::renderer::Tier;
 
 /// The renderer a run starts with.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -61,7 +61,7 @@ pub(crate) fn world_warning(choice: Choice, tier: Tier, uses: &[String]) -> Opti
     if choice == Choice::World {
         return None;
     }
-    platypus_ts::renderer::world_warning(choice.name(), tier, uses)
+    platypus_core::renderer::world_warning(choice.name(), tier, uses)
 }
 
 /// Sets this run's renderer (once, before the window opens).

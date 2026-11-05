@@ -28,9 +28,9 @@
 
 use anyhow::{Context, Result, anyhow, bail};
 use platypus_components::NativeHost;
+use platypus_core::renderer::Tier;
 use platypus_scene::Scene;
 use platypus_ts::jit::{Game, JitOptions, compile_and_load};
-use platypus_ts::renderer::Tier;
 use platypus_ts_rt::{StartupState, startup_state, ts_rt_microtasks_run, ts_rt_timers_advance};
 use platypus_ui::{UiEvent, UiTree};
 use platypus_ui_native::{Event, RootId, Runtime};

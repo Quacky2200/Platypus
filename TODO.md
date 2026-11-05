@@ -1817,7 +1817,7 @@ Research and design: [docs/research/networking-and-files.md](docs/research/netwo
 - [x] **One host, the renderer chosen from what the game uses** (2026-10-28): `platypus-app` and the UI-only `platypus-app`
   are one `platypus-app` (`platypus_editor` stays); `project.json` `type` is replaced by `renderer` (`vulkan` / `gles` /
   `cpu`, left out: automatic; the old `type` warns and is ignored); the compiler finds the program's tier at build time
-  (`ui` / `world2d` / `world3d`, `platypus_ts::renderer`, written into `game.pbundle`) and a `ui` program starts on GLES through
+  (`ui` / `world2d` / `world3d`, `platypus_core::renderer`, written into `game.pbundle`) and a `ui` program starts on GLES through
   ANGLE linked in statically (`static-angle`, default on Windows; needs libclang to build), the rest on wgpu with the world;
   "3D Not Supported" stays as the safety net; `cpu` is an opt-in third path (`platypus_render_cpu`); `--renderer` on
   `platypus-app` and `platypus-build package`; `THIRD-PARTY-NOTICES.md` beside packaged exes; `init` writes a self-contained
@@ -2317,7 +2317,7 @@ What would have been a Platypus app becomes a web-ui app: a TS/TSX/CSS program p
   - [x] The component lifecycle leaves the runtime (`host.rs` -> `crates/platypus_components`); the runtime carries a generic `HostClass`; Platypus declares components in a manifest (`{"hostClasses": ..}`), whose reading registers `ts_rt_host_*`.
   - [x] The compiler takes the base class, object class and field, method names, prelude and hook list from `hostClasses`; runtime calls `ts_rt_host_*`, exports `host_new_` / `host_hook_`. No `hostClasses` manifest: no host classes.
   - [x] Compiler extensions in Rust (`lower/ext.rs`: `Extension`, installed by name, named by `hostClasses.extension`; compile-time only). Platypus's (`platypus_components::compile`): hook slots and thunks (contacts, `..2D`), hierarchy and tree helpers, `GameObject.instantiate` / `dontDestroyOnLoad` / `createPrimitive` / `roots`, `go.children` / `components` / `scene`, `prefab.instantiate`, `component.transform`, the `new GameObject` options. `register()` is generic. Manifests may carry `"declarations"` for `platypus.d.ts` (`builtins::Builtins`); Platypus's `Component` / `GameObject` ones moved there.
-  - [ ] The renderer tier table (`renderer.rs`) moves to Platypus.
+  - [x] The renderer tier table moved to Platypus: `platypus_core::renderer` (from the compiler's `Output::externs` / `uses`).
   - [ ] Still Platypus-specific in the compiler: the option fallback to a component's `transform` (`engine_objs.rs` `option_setter`), the component-handle `transform` / `getComponent` in `types_dts.rs`, and the facades / built-ins of `MeshRenderer.mesh`, `AudioSource.playOneShot`, the `Color` constructor, `Random.pick`.
 - [ ] **Core and render split:** `web_ui_core` from `platypus_core`; `platypus_render` keeps `world/` over `web_ui_render` (`gpu.rs`, `surface.rs`, `offscreen.rs`, `ui/`).
 - [ ] **Move:** the TS and UI crates to `..\web-ui`; Platypus names them once in `[workspace.dependencies]`.

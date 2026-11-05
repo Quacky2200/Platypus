@@ -17,7 +17,6 @@ pub mod layout;
 pub mod lower;
 pub mod manifest;
 pub mod modules;
-pub mod renderer;
 pub mod sroa;
 pub mod throws;
 pub mod timing;
@@ -34,10 +33,10 @@ pub struct Output {
     pub object: Vec<u8>,
     pub bindings: String,
     pub ir: String,
-    /// The engine symbols the compiled code calls (unused top-level functions left out), for
-    /// `renderer::usage_of_symbols`.
+    /// The engine symbols the compiled code calls (unused top-level functions left out), for the
+    /// host's own analysis (Platypus: `platypus_core::renderer::usage_of_symbols`).
     pub externs: Vec<String>,
-    /// Engine names the compiled code uses without an extern call (`renderer::COMPONENT`).
+    /// Engine names the compiled code uses without an extern call (the host-class base).
     pub uses: Vec<String>,
     /// Wall-clock time of each phase.
     pub lower_time: std::time::Duration,

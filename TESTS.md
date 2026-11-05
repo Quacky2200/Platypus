@@ -2255,7 +2255,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 
 | ID | Kind | What |
 |---|---|---|
-| M9-HOST-01 | Unit | The tier of a set of engine names is the highest among them (`ui` < `world2d` < `world3d`); only names above `ui` are listed in `uses`, sorted and once (`platypus_ts::renderer`). |
+| M9-HOST-01 | Unit | The tier of a set of engine names is the highest among them (`ui` < `world2d` < `world3d`); only names above `ui` are listed in `uses`, sorted and once (`platypus_core::renderer`). |
 | M9-HOST-02 | Unit | A scene or prefab file names its component and asset types (`"type"` and `"$type"` at any depth). |
 | M9-HOST-03 | Unit | Each tier parses back from its name (`ui`, `world2d`, `world3d`); anything else is none. |
 | M9-HOST-04 | Unit | Every name of the tier table is a class or namespace of the real engine manifests (no stale tags). |
