@@ -1829,6 +1829,15 @@ Research and design: [docs/research/networking-and-files.md](docs/research/netwo
   - [x] Remove the root `tsconfig.base.json` (2026-10-29, with `js/`; `editor/` has its own tsconfig) together with the packages that still extend it (`js/editor-ui`, `editor/`;
     `js/engine`, `js/react` and the `tests/fixtures` JS are already gone); the examples and `tools/bench/crowd` no longer use it.
   - ANGLE no longer needs scoping to one binary (the old `ui_app_only` idea): there is one host.
+- [x] **A CPU executor of the frame plan** (2026-11-05, asked for by Fluid: apps on a software rasteriser without Mesa):
+  `platypus_render_cpu::plan::PlanRenderer` runs the same `FramePlan`, glyph cache and image cache as the GLES executor with
+  seven kernel families compiled ahead of time (fill, shadow, glyph, image, transform, composite, blur; `plan::kernels`),
+  plain Rust vectorised per target (x86-64 SSE2 and AVX2 + FMA chosen at run time, NEON on arm64 and armv7 with `+neon`),
+  drawn in row bands by one pool per process (at most 4 threads, fewer on fewer cores). Within 2/255 of GLES on its scenes;
+  blurs past radius 8 take three box passes (within 4/255). The vello renderer moved behind the default feature `vello`.
+  Tests `M2-KRN-01..12`. Follow-ups:
+  - [ ] `render_over` (a canvas seeded from the target), for a host that draws over a compositor's windows.
+  - [ ] `platypus-app --renderer cpu` choosing the plan executor (today it's the vello one).
   - [x] The scene counts (2026-10-28): a `GameObject`, `Transform`, scene or prefab (file or API), or a component class
     (`extends Component`, a lowered `register(..)`, found in the parsed code) makes a program `world2d`; the hierarchy
     helpers are lowered only when called. `hello` now logs from a timer (stays `ui`); `physics` became `world2d` (rapier

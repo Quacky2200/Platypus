@@ -159,6 +159,18 @@ See [DESIGN.md](DESIGN.md) for the architecture these tests check.
 | M2-GLES-17 | Integration | A radial gradient from `transparent` 44px to red 52px matches between the two executors and fades without darkening. |
 | M2-GLES-18 | Integration | An absolute dropdown in a static rounded `overflow: hidden` bar shows in full below it while one in a positioned bar is clipped at its height, the same in both executors. |
 | M2-GLES-19 | Integration | After `release_canvases` (an idle window or layer gives back its frame-sized canvases and seed) the next `render_over` with a backdrop blur draws the same pixels, and `canvas_bytes` is 0 in between. |
+| M2-KRN-01 | Integration | The CPU plan executor (`platypus_render_cpu::plan`) draws boxes, solid, dashed and dotted borders, per-side colours and linear, radial and conic gradients as the GLES executor does (into a plain RGBA8 target; skipped without EGL). |
+| M2-KRN-02 | Integration | Outer and inset box shadows match the GLES executor. |
+| M2-KRN-03 | Integration | Children of a rounded `overflow: hidden` box are clipped as by the GLES executor. |
+| M2-KRN-04 | Integration | Text at 1x, light on dark and dark on light, matches the GLES executor (the same glyph atlas, read on the CPU). |
+| M2-KRN-05 | Integration | At scale 2, text, a rounded box, a rotated box and a box in a perspective plane match the GLES executor. |
+| M2-KRN-06 | Integration | PNG and SVG background images (no-repeat, sized, cover, rounded, pixelated, contain, tiled), at 1x and 2x, match the GLES executor. |
+| M2-KRN-07 | Integration | An opacity group and blurs of radius 8 or less (exact Gaussian taps) match the GLES executor. |
+| M2-KRN-08 | Integration | Blurs past radius 8 (three box passes of the Gaussian's spread instead of its taps) stay within 10/255 of the GLES executor everywhere. |
+| M2-KRN-09 | Integration | Drop shadows (hard, soft, at 1.5x) and the eight `filter` colour functions match the GLES executor. |
+| M2-KRN-10 | Integration | The fifteen `mix-blend-mode`s match the GLES executor. |
+| M2-KRN-11 | Integration | Backdrop blur and grayscale, and Fluid's stacked menu glass (no bleed between the boxes), match the GLES executor. |
+| M2-KRN-12 | Integration | Alpha and luminance masks, a tiled mask and a translucent layer in a rounded clip match the GLES executor. |
 | M2-BLEND-01 | Unit | `project.json` `blending` is `srgb` when left out (and isn't written back), `linear` and `srgb` are kept, an unknown value warns and means `srgb`. |
 | M2-BLEND-02 | Unit | The plan premultiplies colours in the frame's blending space (`rgba(128,128,128,0.5)`: 0.251 in sRGB, 0.108 in linear light) and encodes the clear colour for an sRGB canvas; `FramePlan::blending` says which. |
 | M2-BLEND-03 | Integration | `examples/alpha-probe` (25% white fill and borders, square and rounded, 50% red, a 25% black border over it, glass over a backdrop blur, over `#3060c0`) gives the browser's values (100,136,208; 152,48,96; 114,36,72; the field inside borders) within 1 on wgpu and on GLES into sRGB and plain targets, by default. |

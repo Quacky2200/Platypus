@@ -9,14 +9,40 @@ publish.workspace = true
 license.workspace = true
 
 [dependencies]
-image = { version = "0.25.10", default-features = false, features = ["png", "jpeg"] }
+bytemuck = "1.25.2"
 platypus_core = { version = "0.1.0", path = "../platypus_core" }
+# The frame plan, the glyph and image caches the plan executor shares with the GPU executors.
+platypus_render = { version = "0.1.0", path = "../platypus_render" }
 platypus_ui = { version = "0.1.0", path = "../platypus_ui" }
-raw-window-handle = "0.6"
-resvg = { version = "0.48.1", default-features = false, features = ["text"] }
-softbuffer = "0.4.8"
 tracing = "0.1.44"
+# The vello renderer's own.
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg"], optional = true }
+raw-window-handle = { version = "0.6", optional = true }
+resvg = { version = "0.48.1", default-features = false, features = ["text"], optional = true }
+softbuffer = { version = "0.4.8", optional = true }
 # Multithreaded rasterisation (a frame with layer filters uses one thread: vello_cpu's filters
 # need it).
-vello_common = "0.3.0"
-vello_cpu = { version = "0.3.0", features = ["multithreading"] }
+vello_common = { version = "0.3.0", optional = true }
+vello_cpu = { version = "0.3.0", features = ["multithreading"], optional = true }
+
+[features]
+# The vello renderer (`platypus-app`'s `renderer: "cpu"`). A host that only runs the frame plan
+# (`plan::PlanRenderer`) turns it off and links none of it.
+default = ["vello"]
+vello = ["dep:image", "dep:raw-window-handle", "dep:resvg", "dep:softbuffer", "dep:vello_common", "dep:vello_cpu"]
+
+# The vello renderer's own tests.
+[[test]]
+name = "gradients"
+required-features = ["vello"]
+
+[[test]]
+name = "blending"
+required-features = ["vello"]
+
+[dev-dependencies]
+image = { version = "0.25.10", default-features = false, features = ["png"] }
+platypus_core = { path = "../platypus_core" }
+# The plan executor is tested against the GLES one (`tests/vs_gles.rs`), skipped without EGL.
+glow = "0.16"
+platypus_render_gles = { path = "../platypus_render_gles", default-features = false }

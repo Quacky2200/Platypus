@@ -4356,8 +4356,12 @@ dependencies = [
 name = "platypus_render_cpu"
 version = "0.1.0"
 dependencies = [
+ "bytemuck",
+ "glow 0.16.0",
  "image",
  "platypus_core",
+ "platypus_render",
+ "platypus_render_gles",
  "platypus_ui",
  "raw-window-handle",
  "resvg",

@@ -1,19 +1,17 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! A CPU renderer for the UI draw list (`vello_cpu`), shown through `softbuffer`: no GPU API, no
-//! GPU driver. `platypus-app` draws with it when a project asks for `renderer: "cpu"`
+//! The vello renderer: the UI draw list through `vello_cpu`, shown through `softbuffer`. No GPU API,
+//! no GPU driver. `platypus-app` draws with it when a project asks for `renderer: "cpu"`
 //! (`cpu_gfx.rs`; never chosen automatically).
 //!
 //! It draws what the UI draw list holds, except `border-image`, `mask`s (their layer is drawn
 //! unmasked), drop shadows and colour matrices on layers, perspective (the affine part is used) and
 //! border styles other than solid (drawn solid). Each skipped command is logged once.
 
-mod blur;
-mod images;
-mod paint;
-
 use std::num::NonZeroU32;
+
+use crate::{blur, images, paint};
 use std::path::PathBuf;
 use std::sync::Arc;
 
