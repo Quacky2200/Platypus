@@ -84,6 +84,19 @@ Run time: `web_ui_rt` keeps rooting, the microtask queue and struct allocation p
 supplies `ts_rt_component_*` / `ts_rt_register_class` to the JIT symbol table. Hook calls stay
 direct calls through function-pointer tables: no lookup per call.
 
+## Optional APIs
+
+Web APIs (fetch, WebSocket, workers, storage, media, ...) and `ts_os` (files, processes) are not
+part of the core: each is its own crate, a `ts_api` plugin with a manifest and symbols, behind a
+cargo feature of a `web_api` umbrella. An app links only what it uses, and a name it uses without
+linking the crate is a compile error (the generated `platypus.d.ts` lacks it). The roadmap is in
+`TODO.md` ("web-ui").
+
+Host classes are declared the same way: Platypus's `platypus_components::manifests()` returns
+`{"hostClasses": {"base": "Component", "object": "GameObject", "hooks": [..]}}` and registers the
+`ts_rt_component_*` functions when read. The runtime's `HostClass` holds hook addresses in that
+order; Platypus types them once at load (`NativeClass::from_host`).
+
 ## CSS
 
 Today `platypus-build` concatenates imported CSS into `build/game.css`. web-ui embeds it: every

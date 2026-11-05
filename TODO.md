@@ -2308,12 +2308,52 @@ Direction: **no JSX / TSX source editing** (too likely to go wrong). What is wan
 
 Design and decisions: `docs/research/web-ui-split.md`. The library lives in `..\web-ui` (its own repo); Platypus becomes a web-ui app.
 
+What would have been a Platypus app becomes a web-ui app: a TS/TSX/CSS program plus the Rust plugins it links. Platypus is then one web-ui app (the engine is its plugins). Move this list to `..\web-ui\TODO.md` with the crates (step "Move").
+
+### Part 1: the split
+
 - [x] **Rename:** `platypus_api` -> `ts_api` (crates `ts_api`, `ts_api_macros`; `#[ts_api(..)]`; `ts_api_result*`).
-- [ ] **Host extension:** `web_ui_ts::Extension` (rewrites, prelude, host classes, build-time facts); the component lowering, the `Component` prelude and the renderer tier become Platypus's extension; `host.rs` leaves the runtime for `platypus_components`.
+- [ ] **Host extension:**
+  - [x] The component lifecycle leaves the runtime (`host.rs` -> `crates/platypus_components`); the runtime carries a generic `HostClass`; Platypus declares components in a manifest (`{"hostClasses": ..}`), whose reading registers `ts_rt_component_*`.
+  - [ ] The compiler takes `Component` / `GameObject` / hook names / runtime symbols from `hostClasses` (lowering in `arrays.rs`, `engine_objs.rs`, `expr.rs`, `facade.rs`, d.ts in `builtins.rs` / `types_dts.rs`); export names `host_new_` / `host_hook_`.
+  - [ ] Source rewrites (`register()` thunks, contact thunks, hierarchy and tree helpers) move to Platypus as a `web_ui_ts::Extension` installed once per process; the renderer tier table moves to Platypus.
 - [ ] **Core and render split:** `web_ui_core` from `platypus_core`; `platypus_render` keeps `world/` over `web_ui_render` (`gpu.rs`, `surface.rs`, `offscreen.rs`, `ui/`).
 - [ ] **Move:** the TS and UI crates to `..\web-ui`; Platypus names them once in `[workspace.dependencies]`.
-- [ ] **Facade:** `web_ui::App` (Rust), `web_ui_register` / `web_ui_start` (C, `web_ui.h`), cdylib on Linux and static elsewhere; imported CSS embedded in the bundle; `examples/hello-rust`, `examples/hello-c`.
+- [ ] **Facade:** `web_ui::App` (Rust), `web_ui_register` / `web_ui_start` (C, `web_ui.h`), cdylib on Linux (shared by every app, lower PSS) and static on Windows / macOS; `examples/hello-rust`, `examples/hello-c`.
 - [ ] **Docs, CLAUDE.md, full sweep.**
+
+### Part 2: app parity with Platypus apps
+
+- [ ] **CSS embedded:** every `import "./x.css"` the module graph sees (with `@import` and `url()` assets) goes into the bundle and applies at start; a loose `game.css` is still read when the bundle has none.
+- [ ] **Packaging:** `web-ui build` / `web-ui package` as `platypus-build` has them: one executable holding the launcher, the bundle, CSS and assets, icon and version info, licence notices. Windows `.exe`, macOS app; Linux an executable that links the shared `libweb_ui.so` (or a static build on request).
+- [ ] **App layout:** `project.json`, `src/` (entry, `src/modules/` for TS modules), `src/plugins/` (Rust crates: `#[ts_api]` namespaces built into the app's launcher), `assets/`.
+- [ ] **Example Rust plugin:** a small app with one `src/plugins/` crate whose namespace the TS calls (values, a handle class, a callback, a promise).
+
+### Part 3: web APIs, each an optional crate
+
+Every API is a crate of its own (a `ts_api` plugin with its manifest and symbols), gathered behind cargo features of a `web_api` umbrella crate. An app leaves out what it doesn't use; code naming an API that isn't linked fails at compile time (the name isn't in the generated `platypus.d.ts`), never at run time. Promises and events behave as on the web.
+
+- [ ] **Fullscreen API** (`web_api_fullscreen`): `element.requestFullscreen()`, `document.exitFullscreen()`, `fullscreenchange`.
+- [ ] **Workers** (`web_api_worker`): `new Worker(url)`, `postMessage` / `onmessage` with structured clone. Each worker is a thread with its own GC heap (the runtime's heap is already per thread).
+- [ ] **fetch and WebSocket** (`web_api_net`): `fetch` (Request / Response / Headers / streams), `WebSocket`; the M6 design in `docs/research/networking-and-files.md`.
+- [ ] **Service worker** (`web_api_service_worker`): fetch interception and a cache over `web_api_net`.
+- [ ] **Geolocation** (`web_api_geolocation`): the OS location services (Windows.Devices.Geolocation, CoreLocation, GeoClue).
+- [ ] **Clipboard** (`web_api_clipboard`): `navigator.clipboard` read / write text and images (arboard, as the UI already uses).
+- [ ] **Vibration** (`web_api_vibration`): `navigator.vibrate`, gamepad rumble where there is no phone motor.
+- [ ] **Web Storage** (`web_api_storage`): `localStorage` / `sessionStorage`, per app.
+- [ ] **IndexedDB** (`web_api_indexeddb`): object stores, indexes, transactions over an embedded store. Lower priority (see Web Storage); added because the set is meant to be the web's.
+- [ ] **Web Audio** (`web_api_audio`): `AudioContext`, nodes, `AudioWorklet` later (kira, or its own graph).
+- [ ] **File system** (`ts_os`, not a web API): files, folders, paths, process and environment, for apps that are programs rather than pages; removable like the rest.
+
+### Part 4: larger features
+
+- [ ] **WebAssembly:** `WebAssembly.instantiate` / `compile` with imports and exports from TS.
+- [ ] **WASM to native:** translate `.wasm` to Cranelift IR (as `wasmtime` does), compile it ahead of time and pack the native code into the executable; the JIT path for development.
+- [ ] **Audio / video elements** (`web_api_media`): `<audio>` / `<video>` decoded by FFmpeg (LGPL build, dynamically linked; its licence goes in the notices), frames into the UI renderer as textures.
+- [ ] **DRM** (`web_api_eme`): Encrypted Media Extensions as Chromium and Firefox build them (a CDM process behind `navigator.requestMediaKeySystemAccess`). ClearKey first; Widevine needs a licence from Google and their CDM binary, so the user decides that.
+- [ ] **Canvas** (`web_api_canvas`): the Canvas 2D API, and a canvas that Platypus's world renderer can draw into (the "canvas UI element" in Later), so Platypus games keep working.
+- [ ] **WebKit iframe** (`web_ui_webview`, optional): an `<iframe>` element backed by WebKitGTK / WKWebView / WebView2 for real web content.
+- [ ] **Example: v8js port** (to confirm with the user which project "v8js" means): a JavaScript project converted faithfully to TypeScript with a Rust accelerator plugin; its files are not committed but fetched from their original locations at run time with `fetch` / `WebSocket`.
 
 ## QuickJS removed (2026-10-28; was "deprecated; removal plan", 2026-10-22)
 
