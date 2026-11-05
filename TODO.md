@@ -2353,7 +2353,7 @@ Every API is a crate of its own (a `ts_api` plugin with its manifest and symbols
 - [ ] **DRM** (`web_api_eme`): Encrypted Media Extensions as Chromium and Firefox build them (a CDM process behind `navigator.requestMediaKeySystemAccess`). ClearKey first; Widevine needs a licence from Google and their CDM binary, so the user decides that.
 - [ ] **Canvas** (`web_api_canvas`): the Canvas 2D API, and a canvas that Platypus's world renderer can draw into (the "canvas UI element" in Later), so Platypus games keep working.
 - [ ] **WebKit iframe** (`web_ui_webview`, optional): an `<iframe>` element backed by WebKitGTK / WKWebView / WebView2 for real web content.
-- [ ] **Example: v8js port** (to confirm with the user which project "v8js" means): a JavaScript project converted faithfully to TypeScript with a Rust accelerator plugin; its files are not committed but fetched from their original locations at run time with `fetch` / `WebSocket`.
+- [ ] **Example: v86** (github.com/copy/v86, the x86 emulator): its JavaScript converted faithfully to TypeScript, its Rust core (built to WASM upstream) linked natively as an accelerator plugin; none of its files are committed: sources, BIOS and disk images are fetched from their upstream locations with `fetch` / `WebSocket` at build or run time (downloading needs the user's OK first). Needs `web_api_net`, the Canvas and WASM items.
 
 ## QuickJS removed (2026-10-28; was "deprecated; removal plan", 2026-10-22)
 
