@@ -79,12 +79,31 @@ pub struct Blur {
     pub area: PxRect,
     /// The rows the horizontal pass writes.
     pub tall: PxRect,
-    /// Reads clamp to these pixels (first x, first y, last x, last y).
+    /// Reads stay inside these pixels (first x, first y, last x, last y).
     pub bounds: [u32; 4],
+    /// Reads past the bounds reflect back in (a `backdrop-filter`'s box, as Chrome and the GLES
+    /// executor's `u_mirror`); otherwise they clamp.
+    pub mirror: bool,
     pub kernel: Kernel,
     /// Average in linear light on an sRGB canvas.
     pub linear: bool,
     pub space: Space,
+}
+
+/// Where a read at `v` lands with bounds `lo..=hi`: reflected back in first when `mirror` (as the GLES
+/// shader: `2 lo - 1 - v` below, `2 hi + 1 - v` above), then clamped.
+#[inline]
+fn edge(v: i64, lo: i64, hi: i64, mirror: bool) -> u32 {
+    let mut v = v;
+    if mirror {
+        if v < lo {
+            v = 2 * lo - 1 - v;
+        }
+        if v > hi {
+            v = 2 * hi + 1 - v;
+        }
+    }
+    v.clamp(lo, hi) as u32
 }
 
 impl Blur {
@@ -132,8 +151,12 @@ impl Blur {
         for y in y0..y1 {
             let sy = y.clamp(by0, by1);
             for (k, v) in line.iter_mut().enumerate() {
-                let x = (i64::from(a.x) - i64::from(reach) + k as i64)
-                    .clamp(i64::from(bx0), i64::from(bx1)) as u32;
+                let x = edge(
+                    i64::from(a.x) - i64::from(reach) + k as i64,
+                    i64::from(bx0),
+                    i64::from(bx1),
+                    self.mirror,
+                );
                 *v = self.decode(src.pixel(x, sy));
             }
             let out = convolve(&self.kernel, &mut line, &mut spare);
@@ -157,16 +180,20 @@ impl Blur {
         let reach = self.kernel.reach();
         let a = self.area;
         let [_, by0, _, by1] = self.bounds;
-        // Reads stay within the rows the horizontal pass wrote.
-        let (lo, hi) = (by0.max(self.tall.y), by1.min(self.tall.y + self.tall.h - 1));
+        // Reads stay within the rows the horizontal pass wrote (reflected at the bounds first).
+        let (lo, hi) = (
+            i64::from(by0.max(self.tall.y)),
+            i64::from(by1.min(self.tall.y + self.tall.h - 1)),
+        );
+        let (b0, b1) = (i64::from(by0), i64::from(by1));
         let rows = (y1 - y0 + 2 * reach) as usize;
         let mut x0 = a.x;
         while x0 < a.x + a.w {
             let width = STRIP.min(a.x + a.w - x0) as usize;
             let mut block = vec![[0.0f32; 4]; rows * width];
             for r in 0..rows {
-                let y = (i64::from(y0) - i64::from(reach) + r as i64)
-                    .clamp(i64::from(lo), i64::from(hi)) as u32;
+                let at = i64::from(y0) - i64::from(reach) + r as i64;
+                let y = (i64::from(edge(at, b0, b1, self.mirror))).clamp(lo, hi) as u32;
                 for k in 0..width {
                     block[r * width + k] = self.decode(temp.pixel(x0 + k as u32, y));
                 }

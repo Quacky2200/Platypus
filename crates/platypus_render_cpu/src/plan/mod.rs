@@ -327,6 +327,7 @@ impl PlanRenderer {
                         area: *area,
                         tall,
                         bounds: bounds.map(|v| v as u32),
+                        mirror: *contained,
                         kernel: kernels::blur::kernel(*sigma, radius as u32),
                         linear: srgb && self.linear_blur,
                         space,
