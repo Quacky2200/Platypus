@@ -63,7 +63,7 @@ platypus_physics   rapier3d world (bodies, colliders, characters, joints), per-t
 platypus_audio     kira mixer, offline backend
 platypus_render    wgpu: Gpu, surfaces, UiRenderer (consumes platypus_ui::DrawCmd), WorldRenderer (lit meshes, quads, lights, shadows, bloom)
 platypus_render_gles  GLES 3 executor of platypus_render's UI FramePlan, through EGL / ANGLE (platypus-app's renderer, see rendering.md)
-platypus_render_cpu   CPU renderer of the UI draw list (vello_cpu + softbuffer), a reference renderer not used by the hosts
+platypus_render_cpu   CPU renderers of the UI: `plan::PlanRenderer`, a third executor of the FramePlan (seven AOT kernels, no GPU or driver), and the vello renderer (feature `vello`: vello_cpu + softbuffer, `platypus-app`'s `renderer: "cpu"`)
 platypus_app       the host `platypus-app` (every game; renderer chosen per game: GLES for UI-only programs, wgpu with the world otherwise) that wires everything together (world_view, particles, models, physics_sync, cloth_sync, lifecycle, asset_db, cook, info)
 platypus_ui_native  the native React-style reconciler (the only UI runtime)
 platypus_engine_api / platypus_render_api / platypus_physics_api / platypus_math  the script API (#[platypus_api])
