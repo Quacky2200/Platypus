@@ -343,8 +343,10 @@ pub fn plan(cmds: &[DrawCmd], params: &PlanParams, res: &mut dyn PlanResources) 
     let clear = canvas_clear(params.clear, blending);
     let pm = |c: Rgba| canvas_premultiplied(c, blending);
     let mut layers = 0u32;
-    // Textures of the frame's size the steps draw into; 0 is the canvas.
-    let mut textures = 1usize;
+    // Textures of the frame's size the steps draw into; 0 is the canvas. A layer's texture (and its mask, shadow copies
+    // and backdrop copy) is given back once the layer is composited, so a list with many layers side by side (each item
+    // of a list at `opacity: 0.5`) needs as many as are open at once, not one each.
+    let mut textures = TexturePool::default();
     let mut instances: Vec<Instance> = Vec::new();
     let mut gradients: Vec<GpuGradient> = Vec::new();
     // Over the world the canvas is seeded with it (below) rather than cleared.
@@ -839,8 +841,7 @@ pub fn plan(cmds: &[DrawCmd], params: &PlanParams, res: &mut dyn PlanResources) 
             } => {
                 tag(&mut instances, &mut clip_from, clip, xf);
                 flush(&mut steps, &instances, &mut batch_start, current);
-                let layer = textures;
-                textures += 1;
+                let layer = textures.take();
                 steps.push(Step::Clear {
                     target: layer,
                     color: Color::TRANSPARENT,
@@ -867,8 +868,7 @@ pub fn plan(cmds: &[DrawCmd], params: &PlanParams, res: &mut dyn PlanResources) 
                 };
                 tag(&mut instances, &mut clip_from, clip, xf);
                 flush(&mut steps, &instances, &mut batch_start, current);
-                let mask = textures;
-                textures += 1;
+                let mask = textures.take();
                 steps.push(Step::Clear {
                     target: mask,
                     color: Color::TRANSPARENT,
@@ -897,6 +897,9 @@ pub fn plan(cmds: &[DrawCmd], params: &PlanParams, res: &mut dyn PlanResources) 
                 flush(&mut steps, &instances, &mut batch_start, current);
                 // Drawing may have moved on to the mask; the layer is its own texture.
                 let current_layer = layer_texture;
+                // What only this layer uses, free again once it is composited.
+                let mut spent: Vec<usize> = vec![layer_texture];
+                spent.extend(mask.map(|(m, _)| m));
                 clip_stack = outer_clips;
                 let layer_clip = clip_stack.last().copied().unwrap_or(0);
                 let visible = match clips.bounds(layer_clip) {
@@ -907,8 +910,7 @@ pub fn plan(cmds: &[DrawCmd], params: &PlanParams, res: &mut dyn PlanResources) 
                 // composite is limited to what the clip shows.
                 if let (Some(area), Some(visible_area)) = (to_px(bounds), to_px(visible)) {
                     if blur > 0.0 {
-                        let temp = textures;
-                        textures += 1;
+                        let temp = textures.fresh();
                         steps.push(Step::Blur {
                             tex: current_layer,
                             temp,
@@ -920,15 +922,14 @@ pub fn plan(cmds: &[DrawCmd], params: &PlanParams, res: &mut dyn PlanResources) 
                     // Drop shadows: blurred, tinted, shifted copies of the layer,
                     // beneath it (the first listed ends up on top).
                     for s in shadows.iter().rev() {
-                        let shadow = textures;
-                        textures += 1;
+                        let shadow = textures.take();
+                        spent.push(shadow);
                         steps.push(Step::Copy {
                             src: current_layer,
                             dst: shadow,
                         });
                         if s.sigma > 0.0 {
-                            let temp = textures;
-                            textures += 1;
+                            let temp = textures.fresh();
                             steps.push(Step::Blur {
                                 tex: shadow,
                                 temp,
@@ -954,8 +955,8 @@ pub fn plan(cmds: &[DrawCmd], params: &PlanParams, res: &mut dyn PlanResources) 
                     }
                     let blend = (blend != 0).then(|| {
                         // The shader reads what's beneath from a copy of the parent.
-                        let backdrop = textures;
-                        textures += 1;
+                        let backdrop = textures.take();
+                        spent.push(backdrop);
                         steps.push(Step::Copy {
                             src: parent,
                             dst: backdrop,
@@ -975,6 +976,9 @@ pub fn plan(cmds: &[DrawCmd], params: &PlanParams, res: &mut dyn PlanResources) 
                         mask,
                     });
                 }
+                for t in spent {
+                    textures.give(t);
+                }
                 current = parent;
             }
             DrawCmd::BackdropBlur {
@@ -992,10 +996,8 @@ pub fn plan(cmds: &[DrawCmd], params: &PlanParams, res: &mut dyn PlanResources) 
                 let (Some(area), Some(blur_area)) = (to_px(visible), to_px(world(*rect))) else {
                     continue;
                 };
-                let copy = textures;
-                textures += 1;
-                let temp = textures;
-                textures += 1;
+                let copy = textures.take();
+                let temp = textures.fresh();
                 steps.push(Step::Copy {
                     src: current,
                     dst: copy,
@@ -1021,6 +1023,7 @@ pub fn plan(cmds: &[DrawCmd], params: &PlanParams, res: &mut dyn PlanResources) 
                     shift: [0.0; 2],
                     mask: None,
                 });
+                textures.give(copy);
             }
         }
     }
@@ -1060,9 +1063,47 @@ pub fn plan(cmds: &[DrawCmd], params: &PlanParams, res: &mut dyn PlanResources) 
         gradients,
         clips: clips.table,
         steps,
-        textures,
+        textures: textures.count(),
         layers,
         blending,
+    }
+}
+
+/// The frame-sized textures a plan's steps use: 0 is the canvas; others are handed out and given back.
+struct TexturePool {
+    /// How many there are (the next new one's index).
+    count: usize,
+    /// Given back, to be handed out again (each is cleared or copied over by the step that takes it).
+    free: Vec<usize>,
+}
+
+impl Default for TexturePool {
+    fn default() -> Self {
+        Self {
+            count: 1,
+            free: Vec::new(),
+        }
+    }
+}
+
+impl TexturePool {
+    /// A texture for a layer, mask or copy: one given back if there is one.
+    fn take(&mut self) -> usize {
+        self.free.pop().unwrap_or_else(|| self.fresh())
+    }
+
+    /// A texture no step has used yet in this frame (a blur's scratch).
+    fn fresh(&mut self) -> usize {
+        self.count += 1;
+        self.count - 1
+    }
+
+    fn give(&mut self, texture: usize) {
+        self.free.push(texture);
+    }
+
+    fn count(&self) -> usize {
+        self.count
     }
 }
 
