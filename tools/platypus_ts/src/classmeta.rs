@@ -6,6 +6,7 @@
 
 use crate::ir::*;
 use crate::layout::prop_kind;
+use crate::lower::components::{HOST_HOOK, HOST_NEW};
 
 /// One registered component class. Symbols are exported function names: a JIT looks up their
 /// addresses.
@@ -17,18 +18,11 @@ pub struct ClassMeta {
     /// The struct ids of the class's ancestors.
     pub bases: Vec<u64>,
     pub create: String,
-    /// The hook thunks in the order of the host's hook list (`hook_list`), `None` where the class
-    /// has none.
+    /// The hook thunks in the order of the host's hook list (`Module::host_hooks`), `None` where
+    /// the class has none.
     pub hooks: Vec<Option<String>>,
     /// The `@property` table: name, byte offset, type name.
     pub props: Vec<(String, usize, String)>,
-}
-
-/// The host's hook list: the lifecycle hooks, then the contact hooks.
-pub fn hook_list() -> impl Iterator<Item = &'static str> {
-    crate::lower::components::HOOKS
-        .into_iter()
-        .chain(crate::lower::components::CONTACT_HOOKS)
 }
 
 /// The table `layout::component_table` writes as Rust text, as data.
@@ -36,17 +30,17 @@ pub fn class_meta(m: &Module) -> Vec<ClassMeta> {
     let sym = |n: &str| format!("ts_{}{}", m.prefix, n);
     let mut out = Vec::new();
     for f in m.funcs.iter().filter(|f| f.exported) {
-        let Some(class) = f.name.strip_prefix("platypus_new_") else {
+        let Some(class) = f.name.strip_prefix(HOST_NEW) else {
             continue;
         };
         let find = |h: &str| {
-            let name = format!("platypus_hook_{class}_{h}");
+            let name = format!("{HOST_HOOK}{class}_{h}");
             m.funcs
                 .iter()
                 .any(|g| g.exported && g.name == name)
                 .then(|| sym(&name))
         };
-        let hooks = hook_list().map(find).collect();
+        let hooks = m.host_hooks.iter().map(|h| find(h)).collect();
         let sid = match f.ret.strip() {
             Ty::Obj(sid) => *sid,
             _ => 0,

@@ -1178,7 +1178,7 @@ To add a test module:
 ([components.rs](../tools/platypus_ts/src/lower/components.rs)). `Component` is a prelude class with `id` and, when
 the manifest has the `GameObject` handle, `gameObject: GameObject | null`. `register(X)` becomes a run-time call
 (`__registerClass("X", spawn)`, wherever it is written) and exported functions are appended for every component class of the
-program, registered or not: `platypus_new_X(id, gameObject)` and one `platypus_hook_X_<hook>(this, dt)`
+program, registered or not: `host_new_X(id, gameObject)` and one `host_hook_X_<hook>(this, dt)`
 for each hook the class or an ancestor defines (`onAwake`, `onStart`, `onUpdate`, `onLateUpdate`,
 `onFixedUpdate`, `onPreRender`, `onDestroy`; all take `dt` so the host calls them alike).
 
@@ -1212,7 +1212,7 @@ the hook the one it asks for; `NativeClass.contact_hooks` holds the thunks and `
 
 The `GameObject` properties that are arrays or not in the engine API are done by the compiler: `go.children` and `GameObject.roots`
 (TypeScript helpers over `childAt` / `rootAt`, appended when the source names them), `go.components` (every component of the program on
-the object, `ts_rt_component_all_gc` with `Component`'s class id) and `go.scene` (`SceneManager.sceneOf`). `x === null` on an engine
+the object, `ts_rt_host_all_gc` with `Component`'s class id) and `go.scene` (`SceneManager.sceneOf`). `x === null` on an engine
 handle tests the raw 0 (`go.parent`, `GameObject.find`). Tests `M9-TS-1010..1013`.
 
 ## Generics
@@ -1352,7 +1352,7 @@ The host edits components without a script running. `platypus_ts_rt::NativeHost`
 `string`, `object:Class?`; other kinds are not saved yet).
 
 `go.getComponent(Player)` and `go.addComponent(Player, { speed: 3 })` (also on `this`, through its `gameObject`) are compiler
-intrinsics for classes of the program: the class becomes its struct id, and `ts_rt_component_get` / `ts_rt_component_add_gc` search and
+intrinsics for classes of the program: the class becomes its struct id, and `ts_rt_host_get` / `ts_rt_host_add_gc` search and
 extend a per-thread registry the host keeps in step. `addComponent` builds the object at once and applies the options; its `onAwake`
 runs when the calling hook returns (the removed QuickJS host ran it immediately). `getComponent(Base)` finds exact classes only, not subclass
 instances. Tests `M9-TS-601..604`.

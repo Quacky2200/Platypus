@@ -569,9 +569,11 @@ pub struct Module {
     pub struct_base: u32,
     /// The structs of the engine's value classes (`Vector3`, ...): all `number` fields.
     pub value_structs: Vec<StructId>,
-    /// Engine names the compiled code uses without an extern call (`renderer::COMPONENT`), for
+    /// Engine names the compiled code uses without an extern call (the host-class base), for
     /// the renderer tier.
     pub uses: Vec<String>,
+    /// The host's hook list (`hostClasses.hooks`): the order of `HostClass::hooks`.
+    pub host_hooks: Vec<String>,
     /// Debug builds: the address of the byte that arms the per-statement hook (`debug.rs`); 0 =
     /// no hook code at all.
     pub debug_armed: usize,

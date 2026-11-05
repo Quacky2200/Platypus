@@ -9,6 +9,7 @@ use platypus_ts_rt::{StartupState, registered_classes, startup_state, ts_rt_run_
 fn manifests() -> Vec<String> {
     let mut v = vec![platypus_scene::api::scene_api::MANIFEST.to_json()];
     v.extend(platypus_engine_api::platypus_math::manifests());
+    v.extend(platypus_components::manifests());
     v
 }
 

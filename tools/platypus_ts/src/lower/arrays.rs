@@ -763,17 +763,18 @@ impl<'a> Lowerer<'a> {
             {
                 return self.lower_promise_method(recv, &key, value, m, c);
             }
-            if (matches!(m, "getComponent" | "addComponent" | "getComponents")
-                || components::is_hierarchy_search(m))
+            if (self.is_host_lookup(m, true) || components::is_hierarchy_search(m))
                 && let Some(go) = self.component_target(recv.clone())
                 && let Some(e) = self.lower_user_component_call(&go, m, c)?
             {
                 return Ok(e);
             }
-            // `this.destroy()` on a component of the program.
+            // `this.destroy()` on a host-class instance of the program.
             if m == "destroy"
                 && c.arguments.is_empty()
-                && self.m.structs[sid].field("gameObject").is_some()
+                && self
+                    .host_object_field()
+                    .is_some_and(|f| self.m.structs[sid].field(f).is_some())
                 && self.m.structs[sid].field("id").is_some()
                 && self.find_generic_method(sid, m).is_none()
                 && self.resolve_in(sid, Which::Method, m).is_none()
@@ -883,15 +884,15 @@ impl<'a> Lowerer<'a> {
             {
                 return Ok(e);
             }
-            if m == "addComponent" {
+            if self.manifest.is_host_method(m, |h| &h.add) {
                 return self.lower_add_component(recv, c);
             }
-            if (matches!(m, "getComponent" | "getComponents") || components::is_hierarchy_search(m))
+            if (self.is_host_lookup(m, false) || components::is_hierarchy_search(m))
                 && let Some(e) = self.lower_user_component_call(&recv, m, c)?
             {
                 return Ok(e);
             }
-            if m == "removeComponent"
+            if self.manifest.is_host_method(m, |h| &h.remove)
                 && let Some(Expression::Identifier(_) | Expression::ThisExpression(_)) =
                     c.arguments.first().and_then(|a| a.as_expression())
                 && let Some(a) = c.arguments.first().and_then(|a| a.as_expression())

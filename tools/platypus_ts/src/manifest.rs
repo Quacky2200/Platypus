@@ -88,20 +88,67 @@ pub struct Manifest {
     pub host_classes: Option<HostClasses>,
 }
 
+impl Manifest {
+    /// The host class base name (`Component`), if the host declares host classes.
+    pub fn host_base(&self) -> Option<&str> {
+        self.host_classes.as_ref().map(|h| h.base.as_str())
+    }
+
+    /// The handle class host-class instances are attached to (`GameObject`).
+    pub fn host_object(&self) -> Option<&str> {
+        self.host_classes.as_ref()?.object.as_deref()
+    }
+
+    /// Is `class` the host's object class?
+    pub fn is_host_object(&self, class: &str) -> bool {
+        self.host_object() == Some(class)
+    }
+
+    /// Is `m` the host-class method named `which` picks (`|h| &h.get`)?
+    pub fn is_host_method(&self, m: &str, which: fn(&HostMethods) -> &Option<String>) -> bool {
+        self.host_classes
+            .as_ref()
+            .is_some_and(|h| which(&h.methods).as_deref() == Some(m))
+    }
+}
+
 /// Script classes the host makes instances of and calls hooks on (Platypus: `class Player extends
 /// Component`). A manifest declares them:
 ///
 /// ```json
-/// {"hostClasses":{"base":"Component","object":"GameObject","hooks":["onAwake","onUpdate"]}}
+/// {"hostClasses":{"base":"Component","object":"GameObject","objectField":"gameObject",
+///   "prelude":"class Component { id: number = 0; }",
+///   "methods":{"get":"getComponent","getAll":"getComponents","add":"addComponent",
+///              "remove":"removeComponent","findAny":"findObjectOfType"},
+///   "hooks":["onAwake","onUpdate"]}}
 /// ```
+///
+/// Calls of `methods` on an object (or on an instance, through `objectField`) with a class of the
+/// program become calls of the runtime's `ts_rt_host_*` functions, which the host provides.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct HostClasses {
     /// The base class scripts extend.
     pub base: String,
     /// The handle class instances are attached to, if any (`GameObject`).
     pub object: Option<String>,
+    /// The field of the base class that holds the object (`gameObject`).
+    pub object_field: Option<String>,
+    /// TypeScript declaring the base class, put in front of programs that use it.
+    pub prelude: String,
+    /// The method names scripts call (on the object class, or `findAny` on it statically).
+    pub methods: HostMethods,
     /// The hooks the host calls, in the order of its table (`HostClass::hooks`).
     pub hooks: Vec<String>,
+}
+
+/// The names of the host-class calls (`HostClasses::methods`); a name left out has no call.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct HostMethods {
+    pub get: Option<String>,
+    pub get_all: Option<String>,
+    pub add: Option<String>,
+    pub remove: Option<String>,
+    pub find_any: Option<String>,
 }
 
 impl HostClasses {
@@ -120,9 +167,20 @@ impl HostClasses {
                     .ok_or("manifest: a hook is a name")
             })
             .collect::<Result<_, _>>()?;
+        let s = |v: &serde_json::Value| v.as_str().map(str::to_string);
+        let m = &v["methods"];
         Ok(HostClasses {
+            prelude: s(&v["prelude"]).unwrap_or_else(|| format!("class {base} {{}}\n")),
             base,
-            object: v["object"].as_str().map(str::to_string),
+            object: s(&v["object"]),
+            object_field: s(&v["objectField"]),
+            methods: HostMethods {
+                get: s(&m["get"]),
+                get_all: s(&m["getAll"]),
+                add: s(&m["add"]),
+                remove: s(&m["remove"]),
+                find_any: s(&m["findAny"]),
+            },
             hooks,
         })
     }

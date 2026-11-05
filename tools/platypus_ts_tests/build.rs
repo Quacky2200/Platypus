@@ -153,6 +153,7 @@ impl Manifests {
     fn new() -> Self {
         let mut scene = vec![platypus_scene::api::scene_api::MANIFEST.to_json()];
         scene.extend(platypus_engine_api::platypus_math::manifests());
+        scene.extend(platypus_components::manifests());
         Manifests {
             demo: vec![platypus_demo_api::manifest_json()],
             ui: vec![platypus_ts_ui::manifest_json()],

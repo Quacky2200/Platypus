@@ -54,7 +54,7 @@ Measured on `main` (`40f1bfe9`): the compiler knows the engine in these places o
   `Component` prelude, hook names (`HOOKS`, `CONTACT_HOOKS`), helper names kept from dead-code
   removal (`is_scene_helper`).
 - `lower/arrays.rs`, `lower/engine_objs.rs`: `getComponent` / `addComponent` / `getComponents` /
-  hierarchy searches lowered to `ts_rt_component_*` runtime calls by class struct id.
+  hierarchy searches lowered to `ts_rt_host_*` runtime calls by class struct id.
 - `lower/strings.rs`: `__registerClass` -> `ts_rt_register_class`.
 - `layout.rs`, `classmeta.rs`, `builtins.rs`: the hook tables of exported classes, d.ts text.
 - `renderer.rs`: the tier table (`Camera` -> world2d ...).
@@ -81,7 +81,7 @@ pub trait Extension: Sync {
 
 Run time: `web_ui_rt` keeps rooting, the microtask queue and struct allocation public; Platypus's
 `platypus_components` crate (from `host.rs`) owns the class table and the Unity-order lifecycle and
-supplies `ts_rt_component_*` / `ts_rt_register_class` to the JIT symbol table. Hook calls stay
+supplies `ts_rt_host_*` / `ts_rt_register_class` to the JIT symbol table. Hook calls stay
 direct calls through function-pointer tables: no lookup per call.
 
 ## Optional APIs
@@ -94,7 +94,7 @@ linking the crate is a compile error (the generated `platypus.d.ts` lacks it). T
 
 Host classes are declared the same way: Platypus's `platypus_components::manifests()` returns
 `{"hostClasses": {"base": "Component", "object": "GameObject", "hooks": [..]}}` and registers the
-`ts_rt_component_*` functions when read. The runtime's `HostClass` holds hook addresses in that
+`ts_rt_host_*` functions when read. The runtime's `HostClass` holds hook addresses in that
 order; Platypus types them once at load (`NativeClass::from_host`).
 
 ## CSS

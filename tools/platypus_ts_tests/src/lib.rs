@@ -5,6 +5,9 @@
 //! (layouts, tags, extern functions) plus helpers to build state from Rust.
 #![allow(non_snake_case, clippy::not_unsafe_ptr_arg_deref)] // a test harness: every pointer comes from the generated code
 
+// The `ts_rt_host_*` functions the linked programs call.
+use platypus_components as _;
+
 #[allow(
     dead_code,
     non_camel_case_types,

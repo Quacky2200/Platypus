@@ -198,7 +198,7 @@ thread_local! {
 
 /// `go.getComponent(Class)`: the first live component of that class on the object, or null.
 #[unsafe(no_mangle)]
-pub extern "C" fn ts_rt_component_get(object: u64, sid: f64) -> *mut u8 {
+pub extern "C" fn ts_rt_host_get(object: u64, sid: f64) -> *mut u8 {
     REG.with(|r| {
         r.borrow()
             .live
@@ -210,7 +210,7 @@ pub extern "C" fn ts_rt_component_get(object: u64, sid: f64) -> *mut u8 {
 
 /// How many components of class `sid` (or a subclass) are on the object.
 #[unsafe(no_mangle)]
-pub extern "C" fn ts_rt_component_count(object: u64, sid: f64) -> f64 {
+pub extern "C" fn ts_rt_host_count(object: u64, sid: f64) -> f64 {
     REG.with(|r| {
         r.borrow()
             .live
@@ -223,7 +223,7 @@ pub extern "C" fn ts_rt_component_count(object: u64, sid: f64) -> f64 {
 /// A new array of the object components of class `sid` (or a subclass), in the order they were
 /// added. May collect first.
 #[unsafe(no_mangle)]
-pub extern "C" fn ts_rt_component_all_gc(object: u64, sid: f64) -> *mut Array {
+pub extern "C" fn ts_rt_host_all_gc(object: u64, sid: f64) -> *mut Array {
     let ptrs: Vec<u64> = REG.with(|r| {
         r.borrow()
             .live
@@ -237,7 +237,7 @@ pub extern "C" fn ts_rt_component_all_gc(object: u64, sid: f64) -> *mut Array {
 
 /// The first component of class `sid` (or a subclass) on any object, or null.
 #[unsafe(no_mangle)]
-pub extern "C" fn ts_rt_component_find_any(sid: f64) -> *mut u8 {
+pub extern "C" fn ts_rt_host_find_any(sid: f64) -> *mut u8 {
     REG.with(|r| {
         r.borrow()
             .live
@@ -250,7 +250,7 @@ pub extern "C" fn ts_rt_component_find_any(sid: f64) -> *mut u8 {
 /// `removeComponent` / `destroy()` on a component: it is gone for `getComponent` at once and its
 /// `onDestroy` runs when the calling hook returns.
 #[unsafe(no_mangle)]
-pub extern "C" fn ts_rt_component_remove(ptr: *mut u8) {
+pub extern "C" fn ts_rt_host_remove(ptr: *mut u8) {
     platypus_kinds::components_changed();
     REG.with(|r| {
         let mut r = r.borrow_mut();
@@ -296,7 +296,7 @@ fn component_array(ptrs: &[u64]) -> *mut Array {
 /// `go.addComponent(Class)`: makes the component now (fields default) and queues its `onAwake` for
 /// the host, which runs it when the calling hook returns. May collect (it runs the constructor).
 #[unsafe(no_mangle)]
-pub extern "C" fn ts_rt_component_add_gc(object: u64, sid: f64) -> *mut u8 {
+pub extern "C" fn ts_rt_host_add_gc(object: u64, sid: f64) -> *mut u8 {
     let sid = sid as u64;
     let found = REG.with(|r| {
         let mut r = r.borrow_mut();
@@ -1122,7 +1122,7 @@ fn register_kind(name: &'static str) {
                     "the component class `{name}` was never registered: call `register({name})`"
                 ));
             }
-            let ptr = ts_rt_component_add_gc(object, sid as f64);
+            let ptr = ts_rt_host_add_gc(object, sid as f64);
             REG.with(|r| {
                 r.borrow()
                     .live
@@ -1178,7 +1178,7 @@ fn register_kind(name: &'static str) {
         }),
         destroy: Box::new(|handle| {
             if let Ok((ptr, _)) = locate(handle as u32) {
-                ts_rt_component_remove(ptr);
+                ts_rt_host_remove(ptr);
             }
         }),
     });

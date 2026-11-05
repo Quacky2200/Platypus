@@ -1315,8 +1315,8 @@ impl<'a> Lowerer<'a> {
     fn lower_extern_call(&mut self, ns: &str, name: &str, c: &'a CallExpression<'a>) -> R<Expr> {
         // `X.name$n(..)` inside the facade is the native function of that name.
         let name = name.strip_suffix("$n").unwrap_or(name);
-        if ns == "GameObject"
-            && name == "findObjectOfType"
+        if self.manifest.is_host_object(ns)
+            && self.manifest.is_host_method(name, |h| &h.find_any)
             && let Some(e) = self.lower_find_object_of_type(c)?
         {
             return Ok(e);
@@ -6038,9 +6038,9 @@ impl<'a> Lowerer<'a> {
                     return self.lower_super_method(method, c);
                 }
                 if let Expression::Identifier(id) = &m.object
-                    && id.name == "GameObject"
-                    && method == "findObjectOfType"
-                    && self.lookup("GameObject").is_none()
+                    && self.manifest.is_host_object(id.name.as_str())
+                    && self.manifest.is_host_method(method, |h| &h.find_any)
+                    && self.lookup(id.name.as_str()).is_none()
                     && let Some(e) = self.lower_find_object_of_type(c)?
                 {
                     return Ok(e);

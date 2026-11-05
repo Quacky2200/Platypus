@@ -119,6 +119,7 @@ fn an_unresolved_engine_function_is_an_error_naming_it() {
 fn scene_manifests() -> Vec<String> {
     let mut v = vec![platypus_scene::api::scene_api::MANIFEST.to_json()];
     v.extend(platypus_engine_api::platypus_math::manifests());
+    v.extend(platypus_components::manifests());
     v
 }
 
@@ -145,7 +146,9 @@ fn a_jit_compiled_component_table_drives_the_native_host() {
     let _scope = platypus_scene::api::enter(&mut scene);
     game.init().unwrap();
     let classes = game.classes().unwrap();
-    let have = |c: usize| -> Vec<bool> { classes[c].hooks.iter().map(|h| h.is_some()).collect() };
+    // The host's hook list: nine lifecycle hooks, then the contact hooks.
+    let have =
+        |c: usize| -> Vec<bool> { classes[c].hooks[..9].iter().map(|h| h.is_some()).collect() };
     assert_eq!(
         have(0),
         [true, true, true, true, false, false, true, false, false]

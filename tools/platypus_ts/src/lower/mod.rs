@@ -468,15 +468,21 @@ pub fn lower_source_opts(src: &str, manifests: &[String], check_unused: bool) ->
     let wants_temporal = rewritten3.is_some();
     let src = rewritten3.as_deref().unwrap_or(src);
     // `register(Class)` becomes exported constructor and hook functions for the host.
-    let has_go = manifests.iter().any(|m| m.contains("\"GameObject\""));
+    let host = manifest.host_classes.clone();
+    let has_go = manifest.host_object().is_some();
     let with_cic = components::children_helpers(src, has_go).map(|h| format!("{src}{h}"));
     let src = with_cic.as_deref().unwrap_or(src);
     let with_tree = components::tree_helpers(src, has_go).map(|h| format!("{src}{h}"));
     let src = with_tree.as_deref().unwrap_or(src);
     // The contact hooks get the `Collision` class of the physics manifest.
     let has_contacts = manifest.classes.contains_key("Collision");
-    let rewritten4 = components::desugar(src, has_go, has_contacts)?;
-    let wants_components = components::wanted(src);
+    // Host classes exist only when a manifest declares them (`hostClasses`).
+    let base = host.as_ref().map(|h| h.base.as_str());
+    let rewritten4 = match base {
+        Some(b) => components::desugar(src, b, has_go, has_contacts)?,
+        None => None,
+    };
+    let wants_components = base.map(|b| components::wanted(src, b)).unwrap_or_default();
     let src = rewritten4.as_deref().unwrap_or(src);
     // Programs that use errors get the `Error` classes compiled in front of them.
     let mut head = String::new();
@@ -532,8 +538,10 @@ pub fn lower_source_opts(src: &str, manifests: &[String], check_unused: bool) ->
     if src.contains("Intl.DateTimeFormat") {
         head += prelude::INTL_DATETIME;
     }
-    if wants_components.any() {
-        head += &components::prelude(has_go);
+    if wants_components.any()
+        && let Some(h) = &host
+    {
+        head += &h.prelude;
     }
     if wants_ui {
         head += jsx::UI_PRELUDE;
@@ -650,9 +658,12 @@ pub fn lower_source_opts(src: &str, manifests: &[String], check_unused: bool) ->
     l.lower_program(&program)?;
     lap.mark("type inference and lowering to IR");
     let mut m = l.m;
-    // A component class is compiled whether or not anything registers it.
-    if wants_components.extends {
-        m.note_use(crate::renderer::COMPONENT);
+    // A host class is compiled whether or not anything registers it.
+    if let Some(h) = &host {
+        if wants_components.extends {
+            m.note_use(&h.base);
+        }
+        m.host_hooks = h.hooks.clone();
     }
     m.value_structs = l.value_structs.values().copied().collect();
     m.value_structs.sort_unstable();

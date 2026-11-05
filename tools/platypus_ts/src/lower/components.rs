@@ -6,8 +6,8 @@
 //! `Component` is a prelude class (an `id` and the object it is on). `register(Player)` is erased
 //! from the program and replaced by exported functions the engine calls without any script engine:
 //!
-//! - `platypus_new_Player(id, gameObject)` makes the instance and fills the base fields;
-//! - `platypus_hook_Player_onUpdate(this, dt)` for every hook the class has, its own or inherited.
+//! - `host_new_Player(id, gameObject)` makes the instance and fills the base fields;
+//! - `host_hook_Player_onUpdate(this, dt)` for every hook the class has, its own or inherited.
 //!
 //! Every hook thunk takes `(this, dt)` so the host calls them all alike; `layout.rs` turns these
 //! exports into a class table. Design: `docs/research/platypus-ts-engine-boundary.md` section 5.
@@ -57,15 +57,10 @@ pub const CONTACT_HOOKS: [&str; 6] = [
     "onTriggerStay",
 ];
 
-/// The base class. `gameObject` is there when the manifest has the `GameObject` handle.
-pub fn prelude(has_game_object: bool) -> String {
-    let go = if has_game_object {
-        "  gameObject: GameObject | null = null;\n  get transform(): Transform {\n    return this.gameObject!.transform;\n  }\n"
-    } else {
-        ""
-    };
-    format!("class Component {{\n  id: number = 0;\n{go}}}\n")
-}
+/// The prefix of a host class's exported constructor thunk: `host_new_Player(id, object)`.
+pub const HOST_NEW: &str = "host_new_";
+/// The prefix of a host class's exported hook thunks: `host_hook_Player_onUpdate(this, dt)`.
+pub const HOST_HOOK: &str = "host_hook_";
 
 /// The searches up and down the hierarchy and the prefix of the TypeScript helper that does each
 /// (`children_helpers`): Unity's `GetComponent[s]In{Children,Parent}`.
@@ -169,16 +164,18 @@ impl Wanted {
     }
 }
 
-/// Finds `class X extends Component` and `register(..)` calls in the code.
-#[derive(Default)]
-struct UseFinder(Wanted);
+/// Finds `class X extends <base>` and `register(..)` calls in the code.
+struct UseFinder<'b> {
+    base: &'b str,
+    found: Wanted,
+}
 
-impl<'a> Visit<'a> for UseFinder {
+impl<'a> Visit<'a> for UseFinder<'_> {
     fn visit_class(&mut self, c: &Class<'a>) {
         if let Some(Expression::Identifier(p)) = c.heritage.as_ref().map(|h| &h.expression)
-            && p.name == "Component"
+            && p.name == self.base
         {
-            self.0.extends = true;
+            self.found.extends = true;
         }
         walk::walk_class(self, c);
     }
@@ -187,17 +184,18 @@ impl<'a> Visit<'a> for UseFinder {
         if let Expression::Identifier(f) = &call.callee
             && f.name == "register"
         {
-            self.0.registers = true;
+            self.found.registers = true;
         }
         walk::walk_call_expression(self, call);
     }
 }
 
-/// Does the program use components? Only code counts: a program whose strings or comments show
-/// `extends Component` (the md-reader's bundled docs) gets no prelude class, and so no tier from it
-/// (`renderer.rs`).
-pub fn wanted(src: &str) -> Wanted {
-    if !(src.contains("extends Component") || src.contains("register(")) {
+/// Does the program use host classes (`base` is the base class)? Only code counts: a program
+/// whose strings or comments show `extends Component` (the md-reader's bundled docs) gets no
+/// prelude class, and so no tier from it.
+pub fn wanted(src: &str, base: &str) -> Wanted {
+    let extends = format!("extends {base}");
+    if !(src.contains(&extends) || src.contains("register(")) {
         return Wanted::default();
     }
     let alloc = Allocator::default();
@@ -205,13 +203,16 @@ pub fn wanted(src: &str) -> Wanted {
     if !ret.diagnostics.is_empty() {
         // The real parse reports it; until then, assume the text means it.
         return Wanted {
-            extends: src.contains("extends Component"),
+            extends: src.contains(&extends),
             registers: src.contains("register("),
         };
     }
-    let mut f = UseFinder::default();
+    let mut f = UseFinder {
+        base,
+        found: Wanted::default(),
+    };
     f.visit_program(&ret.program);
-    f.0
+    f.found
 }
 
 /// One `register(..)` call: where it is, the classes it names and its `spawn` option as source text.
@@ -284,8 +285,13 @@ impl<'a> Visit<'a> for RegisterFinder<'_> {
 
 /// The program with every `register(Class)` call turned into a run-time call that records the
 /// class (`__registerClass`, so registration works in a branch, a loop or after an `await`) and
-/// the thunks appended. `None` when there is nothing to register.
-pub fn desugar(src: &str, has_game_object: bool, has_contacts: bool) -> R<Option<String>> {
+/// the thunks appended. `None` when there is nothing to register. `base` is the host-class base.
+pub fn desugar(
+    src: &str,
+    base: &str,
+    has_game_object: bool,
+    has_contacts: bool,
+) -> R<Option<String>> {
     if !src.contains("register(") {
         return Ok(None);
     }
@@ -420,7 +426,7 @@ pub fn desugar(src: &str, has_game_object: bool, has_contacts: bool) -> R<Option
         let mut guard = 0;
         while let Some(p) = cur {
             guard += 1;
-            if p == "Component" {
+            if p == base {
                 unregistered.push(n.clone());
                 break;
             }
@@ -443,7 +449,7 @@ pub fn desugar(src: &str, has_game_object: bool, has_contacts: bool) -> R<Option
             ""
         };
         tail += &format!(
-            "export function platypus_new_{name}(id: number{go}): {name} {{ const c = new {name}(); c.id = id;{set_go} return c; }}\n"
+            "export function host_new_{name}(id: number{go}): {name} {{ const c = new {name}(); c.id = id;{set_go} return c; }}\n"
         );
         // The hooks the class or an ancestor defines.
         let mut chain = Some(name.clone());
@@ -493,7 +499,7 @@ pub fn desugar(src: &str, has_game_object: bool, has_contacts: bool) -> R<Option
             if have.contains(&h) {
                 let call = hook_param(h).map_or("", |(arg, _)| arg);
                 tail += &format!(
-                    "export function platypus_hook_{name}_{h}(c: {name}, dt: number): void {{ c.{h}({call}); }}\n"
+                    "export function host_hook_{name}_{h}(c: {name}, dt: number): void {{ c.{h}({call}); }}\n"
                 );
             }
         }
@@ -536,6 +542,6 @@ fn contact_thunk(name: &str, h: &str, method: &str, param: Option<&str>) -> Stri
         "collider"
     };
     format!(
-        "export function platypus_hook_{name}_{h}(c: {name}, collision: {collision_ty}, collider: {collider_ty}): void {{ c.{method}({arg}); }}\n"
+        "export function host_hook_{name}_{h}(c: {name}, collision: {collision_ty}, collider: {collider_ty}): void {{ c.{method}({arg}); }}\n"
     )
 }

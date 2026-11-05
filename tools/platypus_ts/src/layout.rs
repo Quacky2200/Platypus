@@ -156,12 +156,12 @@ pub fn rust_bindings(m: &Module) -> String {
 }
 
 /// The class table of `register(Class)`: wrappers that erase the object type, and `classes()`.
-/// Built from the exports `components.rs` generated (`platypus_new_X`, `platypus_hook_X_onUpdate`).
+/// Built from the exports `components.rs` generated (`host_new_X`, `host_hook_X_onUpdate`).
 fn component_table(m: &Module) -> String {
     let mut out = String::new();
     let mut entries = Vec::new();
     for f in m.funcs.iter().filter(|f| f.exported) {
-        let Some(class) = f.name.strip_prefix("platypus_new_") else {
+        let Some(class) = f.name.strip_prefix(crate::lower::components::HOST_NEW) else {
             continue;
         };
         let sym = format!("ts_{}{}", m.prefix, f.name);
@@ -177,8 +177,8 @@ fn component_table(m: &Module) -> String {
         // Hook thunks take (this, dt) or, for contacts, (this, the Collision handle, the other
         // Collider handle); the table holds their addresses in the host's order.
         let mut hooks = Vec::new();
-        for h in crate::classmeta::hook_list() {
-            let name = format!("platypus_hook_{class}_{h}");
+        for h in &m.host_hooks {
+            let name = format!("{}{class}_{h}", crate::lower::components::HOST_HOOK);
             let Some(hf) = m.funcs.iter().find(|g| g.exported && g.name == name) else {
                 hooks.push("None".to_string());
                 continue;

@@ -2314,8 +2314,9 @@ What would have been a Platypus app becomes a web-ui app: a TS/TSX/CSS program p
 
 - [x] **Rename:** `platypus_api` -> `ts_api` (crates `ts_api`, `ts_api_macros`; `#[ts_api(..)]`; `ts_api_result*`).
 - [ ] **Host extension:**
-  - [x] The component lifecycle leaves the runtime (`host.rs` -> `crates/platypus_components`); the runtime carries a generic `HostClass`; Platypus declares components in a manifest (`{"hostClasses": ..}`), whose reading registers `ts_rt_component_*`.
-  - [ ] The compiler takes `Component` / `GameObject` / hook names / runtime symbols from `hostClasses` (lowering in `arrays.rs`, `engine_objs.rs`, `expr.rs`, `facade.rs`, d.ts in `builtins.rs` / `types_dts.rs`); export names `host_new_` / `host_hook_`.
+  - [x] The component lifecycle leaves the runtime (`host.rs` -> `crates/platypus_components`); the runtime carries a generic `HostClass`; Platypus declares components in a manifest (`{"hostClasses": ..}`), whose reading registers `ts_rt_host_*`.
+  - [x] The compiler takes the base class, object class and field, method names, prelude and hook list from `hostClasses`; runtime calls `ts_rt_host_*`, exports `host_new_` / `host_hook_`. No `hostClasses` manifest: no host classes.
+  - [ ] Still Platypus-specific in the compiler: the `GameObject` sugar in `expr.rs` / `facade.rs` / `engine_objs.rs` (`createPrimitive`, `instantiate`, `dontDestroyOnLoad`, `roots`, `children`, `components`, `scene`, the `parent` option, `component.transform`) and the d.ts text in `builtins.rs` / `types_dts.rs`: these go to Platypus's `Extension` (lowering hooks), with the rewrites below.
   - [ ] Source rewrites (`register()` thunks, contact thunks, hierarchy and tree helpers) move to Platypus as a `web_ui_ts::Extension` installed once per process; the renderer tier table moves to Platypus.
 - [ ] **Core and render split:** `web_ui_core` from `platypus_core`; `platypus_render` keeps `world/` over `web_ui_render` (`gpu.rs`, `surface.rs`, `offscreen.rs`, `ui/`).
 - [ ] **Move:** the TS and UI crates to `..\web-ui`; Platypus names them once in `[workspace.dependencies]`.

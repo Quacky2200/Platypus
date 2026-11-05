@@ -140,13 +140,26 @@ impl<'a> Lowerer<'a> {
         Ok(mk(ExprKind::Seq(stmts, Box::new(result)), ty))
     }
 
-    /// The object a component call is on: a `GameObject` handle, or a component (its `gameObject`).
+    /// Is `m` a host-class call that looks a class up: `get`, `getAll` or, with `add`, `add`
+    /// (`getComponent`, `getComponents`, `addComponent`)?
+    pub(crate) fn is_host_lookup(&self, m: &str, add: bool) -> bool {
+        self.manifest.is_host_method(m, |h| &h.get)
+            || self.manifest.is_host_method(m, |h| &h.get_all)
+            || (add && self.manifest.is_host_method(m, |h| &h.add))
+    }
+
+    /// The base-class field that holds a host-class instance's object (`gameObject`).
+    pub(crate) fn host_object_field(&self) -> Option<&str> {
+        self.manifest.host_classes.as_ref()?.object_field.as_deref()
+    }
+
+    /// The object a host-class call is on: an object handle, or an instance (its object field).
     pub(crate) fn component_target(&self, recv: Expr) -> Option<Expr> {
         match recv.ty.strip() {
             Ty::Handle(_) => Some(recv),
             Ty::Obj(sid) => {
                 let sid = *sid;
-                let idx = self.m.structs[sid].field("gameObject")?;
+                let idx = self.m.structs[sid].field(self.host_object_field()?)?;
                 let ty = self.m.structs[sid].fields[idx].ty.strip().clone();
                 Some(mk(ExprKind::Field(Box::new(recv), sid, idx), ty))
             }
@@ -170,7 +183,7 @@ impl<'a> Lowerer<'a> {
         let name = cls.name.to_string();
         if !self.class_decls.contains_key(&name) {
             // An engine component (`Camera`): its static `findOn(go)`.
-            if m == "getComponent"
+            if self.manifest.is_host_method(m, |h| &h.get)
                 && let Some(find) = self
                     .manifest
                     .classes
@@ -188,12 +201,12 @@ impl<'a> Lowerer<'a> {
             return Ok(None);
         };
         let which = mk(ExprKind::Num(sid as f64), Ty::Num);
-        if m == "getComponent" {
-            let call = ExprKind::Rt(RtFn::Str("ts_rt_component_get"), vec![go.clone(), which]);
+        if self.manifest.is_host_method(m, |h| &h.get) {
+            let call = ExprKind::Rt(RtFn::Str("ts_rt_host_get"), vec![go.clone(), which]);
             return Ok(Some(mk(call, Ty::Obj(sid).nullable())));
         }
-        if m == "getComponents" {
-            let call = ExprKind::Rt(RtFn::Str("ts_rt_component_all_gc"), vec![go.clone(), which]);
+        if self.manifest.is_host_method(m, |h| &h.get_all) {
+            let call = ExprKind::Rt(RtFn::Str("ts_rt_host_all_gc"), vec![go.clone(), which]);
             return Ok(Some(mk(call, Ty::Arr(Box::new(Ty::Obj(sid))))));
         }
         if let Some(helper) = super::components::hierarchy_helper(m, &name) {
@@ -203,7 +216,7 @@ impl<'a> Lowerer<'a> {
         }
         let ty = Ty::Obj(sid);
         let tmp = self.new_local(ty.clone());
-        let made = ExprKind::Rt(RtFn::Str("ts_rt_component_add_gc"), vec![go.clone(), which]);
+        let made = ExprKind::Rt(RtFn::Str("ts_rt_host_add_gc"), vec![go.clone(), which]);
         let mut stmts = vec![Stmt::Assign(tmp, mk(made, ty.clone()))];
         if let Some(e) = c.arguments.get(1).and_then(|a| a.as_expression()) {
             let Expression::ObjectExpression(o) = e else {
@@ -247,11 +260,12 @@ impl<'a> Lowerer<'a> {
                 self.call_helper("__go_children", vec![obj])
             }
             "components" => {
-                let Ty::Obj(sid) = self.named_type("Component")? else {
+                let base = self.manifest.host_base().unwrap_or_default().to_string();
+                let Ty::Obj(sid) = self.named_type(&base)? else {
                     bail!("GameObject.components needs the program to use components")
                 };
                 let which = mk(ExprKind::Num(sid as f64), Ty::Num);
-                let call = ExprKind::Rt(RtFn::Str("ts_rt_component_all_gc"), vec![obj, which]);
+                let call = ExprKind::Rt(RtFn::Str("ts_rt_host_all_gc"), vec![obj, which]);
                 Ok(mk(call, Ty::Arr(Box::new(Ty::Obj(sid)))))
             }
             "scene" => {
@@ -274,7 +288,7 @@ impl<'a> Lowerer<'a> {
     /// `getComponent` at once and its `onDestroy` runs when the calling hook returns.
     pub(crate) fn lower_remove_component(&mut self, component: Expr) -> Expr {
         mk(
-            ExprKind::Rt(RtFn::Str("ts_rt_component_remove"), vec![component]),
+            ExprKind::Rt(RtFn::Str("ts_rt_host_remove"), vec![component]),
             Ty::Void,
         )
     }
@@ -398,7 +412,7 @@ impl<'a> Lowerer<'a> {
             return Ok(None);
         };
         let which = mk(ExprKind::Num(sid as f64), Ty::Num);
-        let call = ExprKind::Rt(RtFn::Str("ts_rt_component_find_any"), vec![which]);
+        let call = ExprKind::Rt(RtFn::Str("ts_rt_host_find_any"), vec![which]);
         Ok(Some(mk(call, Ty::Obj(sid).nullable())))
     }
 

@@ -30,5 +30,5 @@ mod typed;
 mod uri;
 mod zoned;
 
-// The `ts_rt_component_*` functions the linked programs call.
+// The `ts_rt_host_*` functions the linked programs call.
 use platypus_components as _;
