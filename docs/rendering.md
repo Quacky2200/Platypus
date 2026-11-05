@@ -1,6 +1,8 @@
 # Rendering
 
-Crate: [platypus_render](../crates/platypus_render/src) (wgpu). It consumes the GPU-free
+Crates: [web_ui_render](../crates/web_ui_render/src) (wgpu: the GPU, surfaces and the UI renderer) and
+[platypus_render](../crates/platypus_render/src) (the 3D `world/`; it re-exports all of `web_ui_render`, so
+`platypus_render::UiRenderer` still works). The UI renderer consumes the GPU-free
 `Vec<platypus_ui::DrawCmd>` described in [ui-tree.md](ui-tree.md) and does not depend on winit. Design
 background: [DESIGN.md](../DESIGN.md) section 5.2; milestone tests `M2-DRW-*`, `M3-TXT-*`,
 `M3-EVT-05` in [TESTS.md](../TESTS.md).
@@ -9,23 +11,24 @@ background: [DESIGN.md](../DESIGN.md) section 5.2; milestone tests `M2-DRW-*`, `
 
 | File | Role |
 |---|---|
-| [gpu.rs](../crates/platypus_render/src/gpu.rs) | `Gpu` (instance, adapter, device, queue). `headless()` and `with_surface()` |
-| [surface.rs](../crates/platypus_render/src/surface.rs) | `WindowSurface`: swapchain, resize, `present_with` |
-| [offscreen.rs](../crates/platypus_render/src/offscreen.rs) | `OffscreenTarget`: texture + `read_pixels` (tests, screenshots) |
-| [lib.rs](../crates/platypus_render/src/lib.rs) | `Color`, re-exports, `encode_clear` |
-| [ui/mod.rs](../crates/platypus_render/src/ui/mod.rs) | `UiRenderer`, the **wgpu executor**: uploads a `FramePlan`, records and submits it |
-| [ui/pipelines.rs](../crates/platypus_render/src/ui/pipelines.rs) | `pipelines::Sources` and `CanvasPipelines`: the canvas pipelines, made lazily per blending (`canvas_format(blending)`) |
-| [ui/plan.rs](../crates/platypus_render/src/ui/plan.rs) | The **backend-neutral plan**: `plan()` turns a draw list into a `FramePlan` (no GPU object); `PlanResources` |
-| [ui/backend.rs](../crates/platypus_render/src/ui/backend.rs) | The `UiBackend` trait the app-facing renderers implement (`UiRenderer` today) |
+| [gpu.rs](../crates/web_ui_render/src/gpu.rs) | `Gpu` (instance, adapter, device, queue). `headless()` and `with_surface()` |
+| [surface.rs](../crates/web_ui_render/src/surface.rs) | `WindowSurface`: swapchain, resize, `present_with` |
+| [offscreen.rs](../crates/web_ui_render/src/offscreen.rs) | `OffscreenTarget`: texture + `read_pixels` (tests, screenshots) |
+| [lib.rs](../crates/web_ui_render/src/lib.rs) | `Color`, re-exports, `encode_clear` |
+| [ui/mod.rs](../crates/web_ui_render/src/ui/mod.rs) | `UiRenderer`, the **wgpu executor**: uploads a `FramePlan`, records and submits it |
+| [ui/pipelines.rs](../crates/web_ui_render/src/ui/pipelines.rs) | `pipelines::Sources` and `CanvasPipelines`: the canvas pipelines, made lazily per blending (`canvas_format(blending)`) |
+| [ui/plan.rs](../crates/web_ui_render/src/ui/plan.rs) | The **backend-neutral plan**: `plan()` turns a draw list into a `FramePlan` (no GPU object); `PlanResources` |
+| [ui/backend.rs](../crates/web_ui_render/src/ui/backend.rs) | The `UiBackend` trait the app-facing renderers implement (`UiRenderer` today) |
 | [platypus_render_gles](../crates/platypus_render_gles/src/lib.rs) | `GlesRenderer`: executes a `FramePlan` with GLES 3 through EGL / ANGLE (`egl.rs`, `shaders.rs`) |
-| [ui/glyphs.rs](../crates/platypus_render/src/ui/glyphs.rs) | `GlyphCache`: GPU-free glyph rasterizing and packing, with a queue of pixel uploads. A character the font lacks (glyph 0) is drawn as a red box of Inter's own `.notdef` letters, "NO GLYPH", cut out, stood up and stacked one per row (colour page, cached per size like any glyph) |
-| [ui/quad.wgsl](../crates/platypus_render/src/ui/quad.wgsl) | Instanced shader: boxes, shadows, glyphs, gradients, clips, images |
-| [ui/effects.wgsl](../crates/platypus_render/src/ui/effects.wgsl) | Fullscreen passes: blur, composite, blit |
-| [ui/atlas.rs](../crates/platypus_render/src/ui/atlas.rs) | The wgpu glyph atlas: the page textures a `GlyphCache` fills |
-| [ui/gradient.rs](../crates/platypus_render/src/ui/gradient.rs) | `platypus_ui` gradients to the GPU struct |
-| [ui/image_cache.rs](../crates/platypus_render/src/ui/image_cache.rs) | `ImageCache`, GPU-free: `url()` images decoded, SVGs rasterized at a size, keys, eviction, a queue of `ImageUpload`s |
-| [ui/images.rs](../crates/platypus_render/src/ui/images.rs) | The wgpu side: `ImageTextures` (a texture and both samplers' bind groups per key) |
-| [testing.rs](../crates/platypus_render/src/testing.rs) | Golden helpers and the shared test GPU |
+| [ui/glyphs.rs](../crates/web_ui_render/src/ui/glyphs.rs) | `GlyphCache`: GPU-free glyph rasterizing and packing, with a queue of pixel uploads. A character the font lacks (glyph 0) is drawn as a red box of Inter's own `.notdef` letters, "NO GLYPH", cut out, stood up and stacked one per row (colour page, cached per size like any glyph) |
+| [ui/quad.wgsl](../crates/web_ui_render/src/ui/quad.wgsl) | Instanced shader: boxes, shadows, glyphs, gradients, clips, images |
+| [ui/effects.wgsl](../crates/web_ui_render/src/ui/effects.wgsl) | Fullscreen passes: blur, composite, blit |
+| [ui/atlas.rs](../crates/web_ui_render/src/ui/atlas.rs) | The wgpu glyph atlas: the page textures a `GlyphCache` fills |
+| [ui/gradient.rs](../crates/web_ui_render/src/ui/gradient.rs) | `platypus_ui` gradients to the GPU struct |
+| [ui/image_cache.rs](../crates/web_ui_render/src/ui/image_cache.rs) | `ImageCache`, GPU-free: `url()` images decoded, SVGs rasterized at a size, keys, eviction, a queue of `ImageUpload`s |
+| [ui/images.rs](../crates/web_ui_render/src/ui/images.rs) | The wgpu side: `ImageTextures` (a texture and both samplers' bind groups per key) |
+| [testing.rs](../crates/web_ui_render/src/testing.rs) | Golden helpers and the shared test GPU |
+| [platypus_render](../crates/platypus_render/src/lib.rs) | The 3D `world/` pass ([world-rendering.md](world-rendering.md)) and `pub use web_ui_render::*` |
 
 ## GPU setup
 
@@ -301,7 +304,7 @@ resize before the next frame is black, not white.
 
 ### Blending: sRGB (default) or linear light
 
-How translucent UI colours combine is one setting for a whole frame, `platypus_core::project::Blending`:
+How translucent UI colours combine is one setting for a whole frame, `web_ui_core::Blending` (re-exported as `platypus_core::Blending` and `platypus_core::project::Blending`):
 
 - **`srgb`** (the default, as browsers): `out = src * a + dst * (1 - a)` on the 0-255 sRGB values. A 25%
   white fill over `#3060c0` gives `100,136,208`.
@@ -508,7 +511,7 @@ no layer is created).
 
 ## Shaders
 
-[quad.wgsl](../crates/platypus_render/src/ui/quad.wgsl):
+[quad.wgsl](../crates/web_ui_render/src/ui/quad.wgsl):
 
 - `vs_main`: six vertices per instance (two triangles), no vertex buffer data besides the instance;
   growth for AA and for outer shadows (`3 * sigma`); clipped to the clip bounds.
@@ -531,18 +534,18 @@ no layer is created).
   the box shape. For `border-image` it draws pieces as `KIND_IMAGE` with a texture sub-rect in
   `color0` (`images::border_image_axis` tiles an edge); piece edges are snapped to pixels.
 
-[effects.wgsl](../crates/platypus_render/src/ui/effects.wgsl): `vs_fullscreen` (one oversized triangle),
+[effects.wgsl](../crates/web_ui_render/src/ui/effects.wgsl): `vs_fullscreen` (one oversized triangle),
 `fs_blur` (1D Gaussian with `radius = ceil(3 sigma)`, max `MAX_BLUR_RADIUS` = 128; texel reads clamp to a bounds uniform), `fs_composite`
 (`filtered_source`, opacity, `mask_at` and clip coverage), `fs_composite_blend` (the same against a backdrop copy), `fs_blit` / `fs_blit_decode` / `fs_blit_encode`. Both files read the blending from `Globals.srgb` (`srgb_canvas()`, `sampled()`, `canvas_to_srgb` / `canvas_from_srgb` skip or apply the conversions; the composite's `CompositeParams.mask.y` carries it); the GLES ports in `shaders.rs` and `effects.rs` do the same through `u_globals.w`. The same `Clip` struct and coverage function are duplicated
 in both shader files; keep them in sync with `GpuClip` in mod.rs.
 
 ## Glyph atlas and images
 
-- [glyphs.rs](../crates/platypus_render/src/ui/glyphs.rs) (GPU-free) and [atlas.rs](../crates/platypus_render/src/ui/atlas.rs) (wgpu): `GlyphCache` places glyphs and queues their pixels as `GlyphUpload`s, `GlyphAtlas` writes them into two page textures before the frame's draws. Two pages (2048 R8 coverage, 1024 RGBA colour),
+- [glyphs.rs](../crates/web_ui_render/src/ui/glyphs.rs) (GPU-free) and [atlas.rs](../crates/web_ui_render/src/ui/atlas.rs) (wgpu): `GlyphCache` places glyphs and queues their pixels as `GlyphUpload`s, `GlyphAtlas` writes them into two page textures before the frame's draws. Two pages (2048 R8 coverage, 1024 RGBA colour),
   `etagere` bucketed allocation, 1 px padding. Keys include font blob id, glyph id, size x 4,
   subpixel bin, variable-font coordinates, synthetic bold/skew, stroke width (x4; 0 for the fill). Strokes use swash's `Stroke`. Rasterized with `swash`. When a page
   fills, the whole atlas is cleared at the start of the next frame and visible glyphs re-rasterize.
-- [images.rs](../crates/platypus_render/src/ui/images.rs): `ImageCache` keyed by URL; failures are
+- [images.rs](../crates/web_ui_render/src/ui/images.rs): `ImageCache` keyed by URL; failures are
   cached too so they are reported once. `url()` values are `data:` URLs (decoded with
   `decode_data_url`) or paths resolved by `platypus_core::resolve_asset` against `set_asset_root` (the
   app sets it to the game folder). `UiRenderer::image_size(gpu, url)` loads through this cache so the app can report natural sizes for `image` elements. `tile_rect` implements `background-size`
@@ -566,7 +569,7 @@ pixel into the tile on repeating axes, skips the gradient outside the tile on ot
 (top row first). The app's `--screenshot` path ([main.rs](../crates/platypus_app/src/main.rs)
 `save_screenshot`) renders the draw list again into an `Rgba8UnormSrgb` offscreen target (the blit decodes the
 `srgb` canvas into it, so the PNG holds the same sRGB values the window shows) and writes
-a PNG with `platypus_render::testing::write_png`. It still opens a window (frames run until the target
+a PNG with `web_ui_render::testing::write_png` (also `platypus_render::testing`). It still opens a window (frames run until the target
 count), unlike tests, which are fully headless.
 
 ## Image tint
@@ -579,6 +582,8 @@ on both the tiled and the repeating path. Golden M3-GAME-01.
 ## Golden testing
 
 See [testing.md](testing.md). In short: `assert_golden(id, w, h, &pixels, tolerance)` in
-[testing.rs](../crates/platypus_render/src/testing.rs) compares against `tests/golden/<id>.png`;
+[testing.rs](../crates/web_ui_render/src/testing.rs) compares against `tests/golden/<id>.png`;
 `PLATYPUS_UPDATE_GOLDEN=1` rewrites references. `shared_gpu()` returns one `Gpu` per test binary behind a
-mutex because creating devices from parallel threads can deadlock some Vulkan layers.
+mutex because creating devices from parallel threads can deadlock some Vulkan layers. The GLES tests
+likewise share one lock (`platypus_render_gles/tests/common/mod.rs`, ANGLE crashes with contexts on parallel
+threads); the crates' tests are one executable each, see [testing.md](testing.md#running).

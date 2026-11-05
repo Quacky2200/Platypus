@@ -2,7 +2,7 @@
 
 How the window's mode, vsync, the frame cap and `PlayerPrefs` work. Code: `platypus_platform`
 ([display.rs](../crates/platypus_platform/src/display.rs), [platform.rs](../crates/platypus_platform/src/platform.rs)),
-`platypus_render` ([surface.rs](../crates/platypus_render/src/surface.rs)), `platypus_app`
+`web_ui_render` ([surface.rs](../crates/web_ui_render/src/surface.rs)), `platypus_app`
 ([display.rs](../crates/platypus_app/src/display.rs), [prefs.rs](../crates/platypus_app/src/prefs.rs),
 [logging.rs](../crates/platypus_app/src/logging.rs),
 [main.rs](../crates/platypus_app/src/main.rs)) and the native script API (`Screen`, `PlayerPrefs`,

@@ -599,7 +599,7 @@ views, things showing it draw plain colour; other render textures show their lat
 
 ## Screen UI over the world
 
-`UiRenderer::render_overlay(gpu, target, cmds)` ([ui/mod.rs](../crates/platypus_render/src/ui/mod.rs)) is
+`UiRenderer::render_overlay(gpu, target, cmds)` ([ui/mod.rs](../crates/web_ui_render/src/ui/mod.rs)) is
 `render` with two changes: the canvas starts **transparent** instead of cleared, and its final blit
 **blends** (premultiplied alpha) onto what the target holds, with `LoadOp::Load`. The blit pipeline is
 cached by `(format, overlay)`.

@@ -34,7 +34,7 @@ Where the code differs from DESIGN.md the pages say so ("Difference from DESIGN.
 | [windows.md](windows.md) | User guide to `Window`: opening tool windows, dialogs and isolated windows from TypeScript, options and styles, parent/child, events, keys and hot reload, messages (`postMessage`, `request`, `broadcast`) and their limits, families and event domains, how `Window` relates to `Screen` and `Application` (and Unity and Godot), platform support table, screenshots |
 | [crashes.md](crashes.md) | User guide to crashes: what a player sees (Platypus's crash dialog, the plain fallback), where crash reports go and what is in them, `Application.crash(message?, plain?)`, trying the dialogs, when no dialog shows, reading a report and chasing a crash that only happens sometimes, flags and platforms |
 | [debugger.md](debugger.md) | Debugging a game: `--debug-port`, debug builds (a check before every statement), breakpoints, pause and stepping over a text protocol and the Debug Adapter Protocol (VS Code), how files and lines map and survive hot reload, what is not there yet |
-| [rendering.md](rendering.md) | `platypus_render`: GPU setup, `UiRenderer` planning and passes, shaders, offscreen path |
+| [rendering.md](rendering.md) | `web_ui_render` (and `platypus_render`, which re-exports it): GPU setup, `UiRenderer` planning and passes, shaders, offscreen path |
 | [editor.md](editor.md) | The native editor (`editor/`, run as `platypus-app editor --project <folder>`): the `Editor` namespace (log feed, code links, project files), its components in `editor/src` (menubar, docking, virtual list, tree view, console, project browser), the Scene view (editor camera, orientation gizmo, SceneIcons, wire gizmos, transform handles, `onEditorFrame`) and the editor UI in `editor/` (demo scene, live Hierarchy, Game tab) |
 | [platypus-build.md](platypus-build.md) | `tools/platypus_build`, the build tool for games compiled by platypus_ts: config, module graph, `game.pbundle`, CSS bundling, assets and `.meta` files, `types/platypus.d.ts`, `src/modules` imports, the dev loop protocol |
 | [platypus-ts.md](platypus-ts.md) | `tools/platypus_ts`, the experimental ahead-of-time TypeScript compiler (oxc to typed IR to Cranelift object): how to run it and its tests (incl. GC stress mode), the pipeline, source files, the supported language, `platypus_ts_rt` (mark-sweep GC, shadow-stack roots, `ts_rt_*`), adding a test module |
@@ -54,14 +54,16 @@ Where the code differs from DESIGN.md the pages say so ("Difference from DESIGN.
 ## Crate map
 
 ```
-platypus_core      Value, ids, Commit/Op, asset path safety, the renderer tier table (renderer.rs)   (no deps on other Platypus crates)
+web_ui_core        Value, ids (NodeId, EntityId, ComponentId), Commit/Op/OpBuffer, asset reading (read_asset, AssetFs, resolve_asset, decode_data_url), Blending   (no deps on other crates of the workspace)
+web_ui_render      wgpu: Gpu, WindowSurface, OffscreenTarget, the UI renderer (plan, GlyphCache, ImageCache, UiRenderer), golden test helpers (testing.rs), and the UI render tests (see rendering.md)
+platypus_core      project.json, the renderer tier table (renderer.rs), meta, icon, payload; re-exports web_ui_core (Value, ids, Commit/Op, assets, Blending)
 platypus_platform  winit window + event loop, InputEvent (keys, pointer, IME, gamepads), gilrs,
                    window modes and resolutions (display.rs, see platform.md)
 platypus_scene     GameObject hierarchy (Scene), ScriptScene (the scene as the game sees it)
 platypus_ui        UiTree, styles, CSS, layout, text, draw list, events/interaction
 platypus_physics   rapier3d world (bodies, colliders, characters, joints), per-tick batches (no deps on other Platypus crates but platypus_core)
 platypus_audio     kira mixer, offline backend
-platypus_render    wgpu: Gpu, surfaces, UiRenderer (consumes platypus_ui::DrawCmd), WorldRenderer (lit meshes, quads, lights, shadows, bloom)
+platypus_render    WorldRenderer (lit meshes, quads, lights, shadows, bloom, post-processing); re-exports all of web_ui_render (Gpu, surfaces, UiRenderer)
 platypus_render_gles  GLES 3 executor of platypus_render's UI FramePlan, through EGL / ANGLE (platypus-app's renderer, see rendering.md)
 platypus_render_cpu   CPU renderers of the UI: `plan::PlanRenderer`, a third executor of the FramePlan (seven AOT kernels, no GPU or driver), and the vello renderer (feature `vello`: vello_cpu + softbuffer, `platypus-app`'s `renderer: "cpu"`)
 platypus_app       the host `platypus-app` (every game; renderer chosen per game: GLES for UI-only programs, wgpu with the world otherwise) that wires everything together (world_view, particles, models, physics_sync, cloth_sync, lifecycle, asset_db, cook, info)
@@ -140,4 +142,4 @@ Key ideas to keep in mind:
 | Change cloth | [cloth.rs](../crates/platypus_physics/src/cloth.rs), [cloth_sync.rs](../crates/platypus_app/src/cloth_sync.rs), [physics-and-audio.md](physics-and-audio.md#cloth) |
 | Change particles | [particles.rs](../crates/platypus_app/src/particles.rs), [particles.md](particles.md) |
 | Change cameras, planes, the editor grid, gizmo lines or world panels | [world/mod.rs](../crates/platypus_render/src/world/mod.rs), [world_view.rs](../crates/platypus_app/src/world_view.rs), [panels.rs](../crates/platypus_app/src/panels.rs), [world-rendering.md](world-rendering.md) |
-| Add a draw command | [draw.rs](../crates/platypus_ui/src/draw.rs), [ui/mod.rs](../crates/platypus_render/src/ui/mod.rs), [rendering.md](rendering.md) |
+| Add a draw command | [draw.rs](../crates/platypus_ui/src/draw.rs), [ui/mod.rs](../crates/web_ui_render/src/ui/mod.rs), [rendering.md](rendering.md) |

@@ -11,8 +11,8 @@ in [differences.md](differences.md).
 
 ## SVG files as images (step 5.1a)
 
-Code: [images.rs](../crates/platypus_render/src/ui/images.rs), call site in
-[ui/mod.rs](../crates/platypus_render/src/ui/mod.rs). Uses resvg 0.48 (default features off, only
+Code: [images.rs](../crates/web_ui_render/src/ui/images.rs), call site in
+[ui/mod.rs](../crates/web_ui_render/src/ui/mod.rs). Uses resvg 0.48 (default features off, only
 `text` on, so no system fonts).
 
 - `is_svg(url)`: a `data:image/svg+xml` URL, or a path ending in `.svg` (query and fragment ignored).
@@ -119,6 +119,6 @@ one per frame), so the cache would grow without bound. In the renderer:
 
 | ID | What | Where |
 |---|---|---|
-| `M3-SVG-01` | SVG file as `background-image` (golden, fixture `tests/fixtures/images/icon.svg`) | `crates/platypus_render/tests/ui.rs` |
+| `M3-SVG-01` | SVG file as `background-image` (golden, fixture `tests/fixtures/images/icon.svg`) | `crates/web_ui_render/tests/ui.rs` |
 | `M3-SVG-02` | `svg` measuring and serialization, `url(#id)` clips, `svg.rs` helper units | `crates/platypus_ui/tests/svg.rs`, unit tests in `crates/platypus_ui/src/svg.rs`, `crates/platypus_ui/tests/clip.rs` |
-| `M3-SVG-03` | Inline SVG drawn through the renderer (golden) | `crates/platypus_render/tests/ui.rs` |
+| `M3-SVG-03` | Inline SVG drawn through the renderer (golden) | `crates/web_ui_render/tests/ui.rs` |
