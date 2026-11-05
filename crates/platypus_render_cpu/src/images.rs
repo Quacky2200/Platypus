@@ -88,8 +88,10 @@ impl Images {
         self.svg_options.get_or_insert_with(|| {
             let mut options = usvg::Options::default();
             let db = Arc::make_mut(&mut options.fontdb);
-            db.load_font_data(platypus_ui::text::INTER.to_vec());
-            db.load_font_data(platypus_ui::text::INTER_ITALIC.to_vec());
+            // The built-in files as they are in the binary, not a 1.7 MB copy on the heap.
+            for font in [platypus_ui::text::INTER, platypus_ui::text::INTER_ITALIC] {
+                db.load_font_source(usvg::fontdb::Source::Binary(Arc::new(font)));
+            }
             let family = db
                 .faces()
                 .next()
