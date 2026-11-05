@@ -170,7 +170,49 @@ ANGLE is BSD-3-Clause and bundles more third-party code: `THIRD-PARTY-NOTICES.md
 `tools/platypus_notices`; its ANGLE part is `tools/platypus_notices/hand-written.md`) has their notices, the host prints
 it with `platypus-app --licenses`, and `platypus-build package` writes it beside every packaged exe.
 
-`crates/platypus_render_cpu` is a second consumer of that draw list: `vello_cpu` + `softbuffer`, no GPU API at all. It
+### The CPU plan executor (`crates/platypus_render_cpu`, `plan`)
+
+`platypus_render_cpu::plan::PlanRenderer` is a third executor of the `FramePlan`, beside wgpu and GLES. It shares the
+plan, the `GlyphCache` and the `ImageCache` with them, so it draws what they draw, and runs the steps as the GLES
+executor does (`Clear` on first use of a canvas, `Draw`, `Copy`, `Blur` in two passes, `Composite`). It needs no GPU
+API, driver or shader compiler: nothing is compiled at run time, so on a machine whose GL is a software rasteriser it
+does not map Mesa or LLVM. The canvases are plain memory.
+
+Seven kernel families (`plan/kernels/`), each a line-for-line port of a GLES shader, written once and compiled ahead of
+time with the plan's state as arguments (no variant per state):
+
+| Kernel | Draws | Ports |
+|---|---|---|
+| fill | boxes, gradients, solid and styled borders, wavy lines, gradient pieces | `shade` |
+| shadow | outer and inset box shadows | `blurred_box` |
+| glyph | text from the glyph atlas (mask, colour, gradient) | `glyph` |
+| image | background and border images, bilinear or nearest | `IMAGE_MAIN` |
+| transform | any of the four above in a transformed plane (affine or perspective) | the vertex shader's homography |
+| composite | layers: opacity, clip, colour matrix, drop shadow, mask, blend modes | the `effects.rs` composites |
+| blur | the separable blur of layers and backdrop filters | `BLUR_FRAGMENT` |
+
+- **Bands and threads.** A `Draw` step prepares each instance once, then splits the target's rows into bands. Each band
+  draws every instance that crosses it, in plan order, and never writes another band's rows, so the order per pixel is
+  the plan's. One pool per process draws the bands (at most 4 threads, fewer on fewer cores, none on one core;
+  several renderers share it). `PLATYPUS_CPU_THREADS` sets the count.
+- **Spans.** A convex inside goes a run at a time: a box's background is one span fill, and a shadow skips the inside it
+  does not draw.
+- **SIMD.** The kernels are plain Rust, vectorised per target. On x86-64 the band loop is built twice (SSE2, and AVX2 with
+  FMA) and the second is picked at run time where the processor has it. arm64 always has NEON and armv7 has it when built
+  with `+neon`, so their one build is already vectorised. `PLATYPUS_CPU_SIMD=off` forces the baseline build, to compare.
+- **Blur differs from GLES.** Radius 8 or less uses GLES's exact taps. Larger blurs use three box passes of the same
+  spread, so the cost does not depend on the radius. The result is close to the Gaussian, not equal.
+- **Accuracy.** `tests/vs_gles.rs` (`M2-KRN-01..12`) draws the `vs_wgpu` scenes through this executor and through GLES
+  on llvmpipe: within 2/255 everywhere, and the box-pass blurs within 4/255. The test is skipped without EGL.
+- **Not done.** `render_over` (a canvas seeded from the target, for backdrop filters over a compositor's windows) is not
+  implemented; a window that draws only itself does not need it. No host chooses this executor yet: `platypus-app` is
+  unchanged.
+
+### The vello renderer (`crates/platypus_render_cpu`, feature `vello`)
+
+The older CPU renderer is behind the crate's default feature `vello`. A host that only runs the plan turns it off
+(`default-features = false`) and links none of `vello_cpu`, `softbuffer`, `resvg` or `image`. `platypus-app` still uses it
+for `renderer: "cpu"`. It is a second consumer of that draw list: `vello_cpu` + `softbuffer`, no GPU API at all. It
 draws boxes, borders (also per side), gradients, images and SVGs (decoded lazily, downscaled to the size drawn,
 dropped when unused), shadows, text, clips, layers, blur and backdrop blur (only inside the element's box), and affine and perspective transforms (a
 perspective subtree is drawn flat, cached and warped). **`renderer: "cpu"`** (or `--renderer cpu`; never chosen
