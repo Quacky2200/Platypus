@@ -41,6 +41,9 @@ struct Shared {
 pub struct Pool {
     shared: Arc<Shared>,
     workers: Vec<JoinHandle<()>>,
+    /// Held while a job runs: the workers take one job at a time, so a second caller (two renderers drawing on
+    /// two threads at once) draws its bands itself instead of replacing the first caller's job.
+    running: std::sync::Mutex<()>,
 }
 
 /// Most threads a process rasterises with, the caller included (llvmpipe's budget in Fluid's apps).
@@ -82,7 +85,11 @@ impl Pool {
                     .expect("spawning a raster thread")
             })
             .collect();
-        Pool { shared, workers }
+        Pool {
+            shared,
+            workers,
+            running: std::sync::Mutex::new(()),
+        }
     }
 
     /// Threads that run bands, the caller included.
@@ -90,12 +97,17 @@ impl Pool {
         self.workers.len() + 1
     }
 
-    /// Runs `f(i)` for every `i < count`, spread over the pool, and returns when all have run.
+    /// Runs `f(i)` for every `i < count`, spread over the pool, and returns when all have run. While another thread's
+    /// job runs, this one runs on the calling thread alone.
     pub fn run(&self, count: usize, f: &(dyn Fn(usize) + Sync)) {
         if self.workers.is_empty() || count <= 1 {
             (0..count).for_each(f);
             return;
         }
+        let Ok(_running) = self.running.try_lock() else {
+            (0..count).for_each(f);
+            return;
+        };
         let next = AtomicUsize::new(0);
         // SAFETY: only to erase the lifetime; `f` outlives the job, as this waits for it below.
         let f: *const (dyn Fn(usize) + Sync) = unsafe { std::mem::transmute(f) };
@@ -182,6 +194,32 @@ mod tests {
                 });
                 assert!(hits.iter().all(|h| h.load(Ordering::Relaxed) == 1));
             }
+        }
+    }
+
+    // M2-KRN-13
+    #[test]
+    fn two_threads_running_jobs_at_once_both_finish_with_every_band_once() {
+        let pool = Arc::new(Pool::new(4));
+        let (done, finished) = std::sync::mpsc::channel();
+        for _ in 0..2 {
+            let (pool, done) = (pool.clone(), done.clone());
+            std::thread::spawn(move || {
+                for _ in 0..200 {
+                    let hits: Vec<AtomicUsize> = (0..37).map(|_| AtomicUsize::new(0)).collect();
+                    pool.run(hits.len(), &|i| {
+                        hits[i].fetch_add(1, Ordering::Relaxed);
+                    });
+                    assert!(hits.iter().all(|h| h.load(Ordering::Relaxed) == 1));
+                }
+                done.send(()).unwrap();
+            });
+        }
+        // Before the pool took one job at a time, the second caller replaced the first's job and both waited for ever.
+        for _ in 0..2 {
+            finished
+                .recv_timeout(std::time::Duration::from_secs(30))
+                .expect("both callers finish");
         }
     }
 }
