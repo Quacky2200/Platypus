@@ -2355,3 +2355,5 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WAPI-STO-02 | Unit | `localStorage` with a file: items (including astral characters) are read back by a new area in order, a removal is saved, and a damaged file starts empty. |
 | WAPI-STO-03 | Unit | A write that would pass the 5 MiB quota (UTF-16 units of keys and values) is dropped; replacing an item counts its old size out first. |
 | WAPI-STO-04 | Unit | The declarations: `declare namespace localStorage` / `sessionStorage`, `getItem(key: string): string \| null`, `setItem(key: string, value: string): void`, `length`. |
+| WAPI-CLP-01 | Unit | The manifest declares `navigator.clipboard` (a `const clipboard: Clipboard` and `declare class Clipboard`) with `readText` and `writeText` marked `promise` (the compiler declares them `Promise<string>` / `Promise<void>`). |
+| WAPI-CLP-02 | Unit (ignored: touches the real clipboard) | Text with an emoji round-trips through the OS clipboard; the text that was there is put back. |
