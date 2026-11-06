@@ -54,12 +54,13 @@ fn tex(id: u32) -> Value {
     }
 }
 
+/// World colours go through `colorSpace` (see `color_space.rs`).
 fn rgba(c: platypus_engine_api::color::Rgba) -> Value {
-    arr(&[c.r, c.g, c.b, c.a])
+    arr(&crate::color_space::rgba(c))
 }
 
 fn rgb(c: platypus_engine_api::color::Rgba) -> Value {
-    arr(&[c.r, c.g, c.b])
+    arr(&crate::color_space::rgba(c)[..3])
 }
 
 /// What the sync remembers between frames.
@@ -192,11 +193,19 @@ fn renderer(
         other => return Err(format!("unknown rendering mode `{other}`")),
     };
     let c = |v: f64| v as f32;
+    // Colours (not other numbers) go through `colorSpace`.
+    let col = |v: platypus_engine_api::color::Rgba| {
+        let l = crate::color_space::rgba(v);
+        [c(l[0]), c(l[1]), c(l[2]), c(l[3])]
+    };
     Ok(Renderer {
         object,
         mesh: mesh_id(mesh)?,
-        color: [c(m.color.r), c(m.color.g), c(m.color.b), c(m.color.a)],
-        emission: [c(m.emission.r), c(m.emission.g), c(m.emission.b)],
+        color: col(m.color),
+        emission: {
+            let e = col(m.emission);
+            [e[0], e[1], e[2]]
+        },
         smoothness: fin(m.smoothness, 0.5),
         metallic: fin(m.metallic, 0.0).clamp(0.0, 1.0),
         unlit: m.unlit,
@@ -227,11 +236,8 @@ fn renderer(
                 reflection: None,
             },
             specular: m.has_specular_color.then(|| {
-                [
-                    c(m.specular_color.r),
-                    c(m.specular_color.g),
-                    c(m.specular_color.b),
-                ]
+                let s = col(m.specular_color);
+                [s[0], s[1], s[2]]
             }),
             mode,
             alpha_cutoff: fin(m.alpha_cutoff, 0.5),
@@ -488,12 +494,7 @@ fn components(
                             n(f64::from(d.fov)),
                             n(f64::from(d.near)),
                             n(f64::from(d.far)),
-                            arr(&[
-                                d.background.r,
-                                d.background.g,
-                                d.background.b,
-                                d.background.a,
-                            ]),
+                            rgba(d.background),
                             n(f64::from(d.depth)),
                             Value::Bool(d.orthographic),
                             n(f64::from(d.orthographic_size)),
@@ -712,6 +713,17 @@ fn components(
                                 Value::Bool(d.flip_x),
                                 Value::Bool(d.flip_y),
                                 n(f64::from(d.sorting_order)),
+                                Value::String(d.draw_mode.clone()),
+                                if d.size.x > 0.0 && d.size.y > 0.0 {
+                                    arr(&[d.size.x, d.size.y])
+                                } else {
+                                    Value::Null
+                                },
+                                if s.border == [0.0; 4] {
+                                    Value::Null
+                                } else {
+                                    arr(&s.border)
+                                },
                             ],
                         )
                     },
@@ -745,7 +757,7 @@ fn components(
                     let points: Vec<[f32; 2]> =
                         d.points.iter().map(|p| [p.x as f32, p.y as f32]).collect();
                     let c = |c: platypus_engine_api::color::Rgba| {
-                        [c.r as f32, c.g as f32, c.b as f32, c.a as f32]
+                        crate::color_space::rgba(c).map(|v| v as f32)
                     };
                     if !d.width.is_finite() {
                         return Err("argument 2 must be a number".into());
@@ -1172,14 +1184,9 @@ fn particle_pairs(d: &platypus_render_api::ParticleData) -> Vec<Value> {
     let range = |m: [f64; 2]| {
         if m[0] == m[1] { n(m[0]) } else { arr(&m) }
     };
-    let mut colors = vec![
-        d.start_color.r,
-        d.start_color.g,
-        d.start_color.b,
-        d.start_color.a,
-    ];
+    let mut colors = crate::color_space::rgba(d.start_color).to_vec();
     if let Some(c) = d.start_color2 {
-        colors.extend([c.r, c.g, c.b, c.a]);
+        colors.extend(crate::color_space::rgba(c));
     }
     let shape = match d.shape_type.as_str() {
         "point" => vec![Value::String("point".into())],
@@ -1233,7 +1240,10 @@ fn particle_pairs(d: &platypus_render_api::ParticleData) -> Vec<Value> {
     if let Some(k) = &d.color_over_lifetime {
         let flat: Vec<f64> = k
             .iter()
-            .flat_map(|(t, c)| [*t, c.r, c.g, c.b, c.a])
+            .flat_map(|(t, c)| {
+                let l = crate::color_space::rgba(*c);
+                [*t, l[0], l[1], l[2], l[3]]
+            })
             .collect();
         out.extend(kv("colorOverLifetime", arr(&flat)));
     }

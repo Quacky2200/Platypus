@@ -46,6 +46,10 @@ pub struct Manifest {
     /// `platypus.lightUnits`: `physical` for real-world units (the sun in lux, lamps in lumens,
     /// glowing surfaces in nits, as Unity 7 and HDRP), or `legacy` (the default: Platypus's own).
     pub physical_units: bool,
+    /// `colorSpace`: `srgb` when the game writes world colours as sRGB (as Unity's inspector
+    /// does); they are converted to linear for the renderer. `linear` (the default): colours are
+    /// linear values already.
+    pub srgb_colors: bool,
     /// `renderer`: `vulkan`, `gles`, `cpu` or (left out) chosen from the bundle's tier.
     pub renderer: platypus_core::project::Renderer,
     /// `blending`: how translucent UI colours combine (`srgb`, the default, or `linear`).
@@ -107,6 +111,7 @@ impl Manifest {
 
     pub fn from_project(p: Project) -> Self {
         let physical_units = light_units(&p.extra);
+        let srgb_colors = color_space(&p.extra);
         for w in &p.warnings {
             tracing::warn!("project.json: {w}");
         }
@@ -126,9 +131,22 @@ impl Manifest {
             fps: p.fps,
             video_settings_prompt: p.video_settings_prompt,
             physical_units,
+            srgb_colors,
             renderer: p.renderer,
             blending: p.blending,
             theme: p.theme,
+        }
+    }
+}
+
+/// `colorSpace`: `srgb` or `linear` (the default).
+fn color_space(platypus: &serde_json::Map<String, Value>) -> bool {
+    match platypus.get("colorSpace").and_then(Value::as_str) {
+        None | Some("linear") => false,
+        Some("srgb") => true,
+        Some(other) => {
+            tracing::warn!("colorSpace `{other}`: not srgb or linear");
+            false
         }
     }
 }
@@ -199,6 +217,7 @@ impl Info {
                 "startScene": manifest.start_scene,
                 "runInBackground": manifest.run_in_background,
                 "lightUnits": if manifest.physical_units { "physical" } else { "legacy" },
+                "colorSpace": if manifest.srgb_colors { "srgb" } else { "linear" },
                 "targetFrameRate": -1,
             }),
         );
@@ -426,6 +445,12 @@ mod tests {
         assert!(!units(json!({ "lightUnits": "legacy" })));
         assert!(!units(json!({})));
         assert!(!units(json!({ "lightUnits": "candles" })));
+        // RDY-RND-01: the colour space.
+        let srgb = |v: Value| Manifest::from_json(&json!({ "platypus": v }), "g").srgb_colors;
+        assert!(srgb(json!({ "colorSpace": "srgb" })));
+        assert!(!srgb(json!({})));
+        assert!(!srgb(json!({ "colorSpace": "linear" })));
+        assert!(!srgb(json!({ "colorSpace": "hsv" })));
         // The old pipeline choice no longer picks anything (it only warns).
         assert!(!units(json!({ "renderPipeline": "hd" })));
         let script = text(&Info::new(&Manifest::from_json(

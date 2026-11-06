@@ -318,6 +318,22 @@ struct Sprite {
     flip: (bool, bool),
     /// Higher draws over lower (Unity's `sortingOrder`).
     order: i32,
+    mode: SpriteMode,
+    /// The area a sliced or tiled sprite fills, in world units (the rect's size when `None`).
+    size: Option<[f32; 2]>,
+    /// Left, bottom, right and top borders in pixels, for sliced sprites.
+    border: [f32; 4],
+}
+
+/// How a sprite fills its area (Unity's `SpriteDrawMode`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum SpriteMode {
+    /// One quad at the sprite's own size.
+    Simple,
+    /// Nine parts: corners keep their size, edges and the middle stretch.
+    Sliced,
+    /// The sprite repeated across the area, cut off at the top and right.
+    Tiled,
 }
 
 /// A `LineRenderer2D`: a polyline on its object's local XY plane, drawn as thick strokes.
@@ -545,6 +561,103 @@ fn sprite_quad(s: &Sprite, (tw, th): (u32, u32)) -> (Mat4, [f32; 4]) {
     )
 }
 
+/// Most quads one tiled sprite may make (a huge area of a tiny tile stops here).
+const MAX_SPRITE_TILES: usize = 4096;
+
+/// The quads a sprite draws (their places in its object's space and UV rects): one for
+/// simple sprites, nine for sliced ones, a grid for tiled ones.
+fn sprite_quads(s: &Sprite, tex: (u32, u32)) -> Vec<(Mat4, [f32; 4])> {
+    if s.mode == SpriteMode::Simple {
+        return vec![sprite_quad(s, tex)];
+    }
+    let (tw, th) = (tex.0 as f32, tex.1 as f32);
+    let [x, y, w, h] = s.rect.unwrap_or([0.0, 0.0, tw, th]);
+    let ppu = s.pixels_per_unit.max(1e-6);
+    let [width, height] = s.size.unwrap_or([w / ppu, h / ppu]);
+    // The area's bottom-left, so the pivot lands on the object's origin.
+    let (left, bottom) = (-s.pivot[0] * width, -s.pivot[1] * height);
+    // `px` x `py`: pixels of the rect (from its bottom-left) shown in the area's `xs` x `ys` units.
+    let cell = |px: [f32; 2], py: [f32; 2], xs: [f32; 2], ys: [f32; 2]| {
+        let mut uv = [
+            (x + px[0]) / tw,
+            1.0 - (y + py[1]) / th,
+            (px[1] - px[0]) / tw,
+            (py[1] - py[0]) / th,
+        ];
+        if s.flip.0 {
+            uv[0] += uv[2];
+            uv[2] = -uv[2];
+        }
+        if s.flip.1 {
+            uv[1] += uv[3];
+            uv[3] = -uv[3];
+        }
+        let size = Vec3::new(xs[1] - xs[0], ys[1] - ys[0], 1.0);
+        let centre = Vec3::new(
+            left + (xs[0] + xs[1]) / 2.0,
+            bottom + (ys[0] + ys[1]) / 2.0,
+            0.0,
+        );
+        (
+            Mat4::from_scale_rotation_translation(size, Quat::IDENTITY, centre),
+            uv,
+        )
+    };
+    let mut quads = Vec::new();
+    if s.mode == SpriteMode::Tiled {
+        let (cw, ch) = (w / ppu, h / ppu);
+        if cw <= 0.0 || ch <= 0.0 {
+            return quads;
+        }
+        let (nx, ny) = ((width / cw).ceil() as usize, (height / ch).ceil() as usize);
+        for iy in 0..ny {
+            for ix in 0..nx {
+                if quads.len() >= MAX_SPRITE_TILES {
+                    return quads;
+                }
+                let (x0, y0) = (ix as f32 * cw, iy as f32 * ch);
+                let (x1, y1) = ((x0 + cw).min(width), (y0 + ch).min(height));
+                quads.push(cell(
+                    [0.0, (x1 - x0) * ppu],
+                    [0.0, (y1 - y0) * ppu],
+                    [x0, x1],
+                    [y0, y1],
+                ));
+            }
+        }
+        return quads;
+    }
+    // Sliced: the borders shrink together when the area is smaller than they are.
+    let [bl, bb, br, bt] = s.border;
+    let fit = |a: f32, b: f32, total: f32| {
+        let need = (a + b) / ppu;
+        if need > total && need > 0.0 {
+            total / need
+        } else {
+            1.0
+        }
+    };
+    let (kx, ky) = (fit(bl, br, width), fit(bb, bt, height));
+    let xs = [0.0, bl * kx / ppu, width - br * kx / ppu, width];
+    let ys = [0.0, bb * ky / ppu, height - bt * ky / ppu, height];
+    let pxs = [0.0, bl, w - br, w];
+    let pys = [0.0, bb, h - bt, h];
+    for j in 0..3 {
+        for i in 0..3 {
+            if xs[i + 1] - xs[i] <= 0.0 || ys[j + 1] - ys[j] <= 0.0 {
+                continue;
+            }
+            quads.push(cell(
+                [pxs[i], pxs[i + 1]],
+                [pys[j], pys[j + 1]],
+                [xs[i], xs[i + 1]],
+                [ys[j], ys[j + 1]],
+            ));
+        }
+    }
+    quads
+}
+
 impl WorldViews {
     /// Carries the cloud layer on the wind for `dt` seconds.
     pub fn advance_clouds(&mut self, dt: f32) {
@@ -763,10 +876,12 @@ impl WorldViews {
                 } else {
                     platypus_core::read_asset(root, src).map_err(|e| e.to_string())?
                 };
-                let image = image::load_from_memory(&bytes)
+                let mut image = image::load_from_memory(&bytes)
                     .map_err(|e| format!("`{src}`: {e}"))?
                     .to_rgba8();
                 let (w, h) = image.dimensions();
+                // Colour for transparent pixels, so filtering doesn't leave a pale halo.
+                platypus_core::bleed_transparent(&mut image, w as usize, h as usize, 8);
                 (w, h, image.into_raw())
             }
             _ => {
@@ -1143,6 +1258,13 @@ impl WorldViews {
                         matches!(args.get(8), Some(Value::Bool(true))),
                     ),
                     order: num(9).unwrap_or(0.0) as i32,
+                    mode: match args.get(10).and_then(Value::as_str) {
+                        Some("sliced") => SpriteMode::Sliced,
+                        Some("tiled") => SpriteMode::Tiled,
+                        _ => SpriteMode::Simple,
+                    },
+                    size: nums::<2>(args.get(11)),
+                    border: nums::<4>(args.get(12)).unwrap_or([0.0; 4]),
                 };
                 self.sprites.insert(id, sprite);
             }
@@ -1677,20 +1799,29 @@ impl WorldViews {
                 self.sprites
                     .values()
                     .filter(|s| scene.active(s.object))
-                    .filter_map(|s| {
+                    .flat_map(|s| {
                         // Drawn once its texture has loaded.
-                        let size = *self.texture_sizes.get(&s.texture)?;
-                        let (local, uv) = sprite_quad(s, size);
-                        let quad = WorldQuad {
-                            model: Mat4::from(world(s.object)?) * local,
-                            color: s.color,
-                            texture: Some(WorldTexture::Asset(s.texture)),
-                            uv,
-                            additive: false,
-                            order: s.order,
-                            layer: 0,
-                        };
-                        Tagged::new(scene, s.object, quad)
+                        let size = self.texture_sizes.get(&s.texture).copied();
+                        let to_world = world(s.object).map(Mat4::from);
+                        size.zip(to_world)
+                            .into_iter()
+                            .flat_map(move |(size, to_world)| {
+                                sprite_quads(s, size)
+                                    .into_iter()
+                                    .filter_map(move |(local, uv)| {
+                                        let quad = WorldQuad {
+                                            model: to_world * local,
+                                            color: s.color,
+                                            texture: Some(WorldTexture::Asset(s.texture)),
+                                            uv,
+                                            additive: false,
+                                            flat: true,
+                                            order: s.order,
+                                            layer: 0,
+                                        };
+                                        Tagged::new(scene, s.object, quad)
+                                    })
+                            })
                     }),
             )
             .chain(
@@ -1958,6 +2089,7 @@ impl WorldViews {
                         texture: Some(WorldTexture::Asset(particles::DEFAULT_TEXTURE)),
                         uv: [0.0, 0.0, 1.0, 1.0],
                         additive: true,
+                        flat: false,
                         order: 0,
                         layer: halo.layer,
                     });
@@ -2165,7 +2297,62 @@ mod tests {
             color: [1.0; 4],
             flip,
             order: 0,
+            mode: SpriteMode::Simple,
+            size: None,
+            border: [0.0; 4],
         }
+    }
+
+    // RDY-TEX-01
+    #[test]
+    fn tiled_sprites_repeat_across_their_size_and_cut_off_at_the_edge() {
+        // A 16 px tile is a metre; a 2.5 x 1 m area is two whole tiles and a half one.
+        let mut s = sprite(None, [0.0, 0.0], (false, false));
+        s.mode = SpriteMode::Tiled;
+        s.size = Some([2.5, 1.0]);
+        let quads = sprite_quads(&s, (16, 16));
+        assert_eq!(quads.len(), 3);
+        let place = |(m, _): &(Mat4, [f32; 4])| {
+            let (scale, _, pos) = m.to_scale_rotation_translation();
+            (scale.x, pos.x)
+        };
+        assert_eq!(place(&quads[0]), (1.0, 0.5));
+        assert_eq!(place(&quads[2]), (0.5, 2.25));
+        // The cut tile shows the left half of the texture.
+        assert_eq!(quads[2].1, [0.0, 0.0, 0.5, 1.0]);
+        // A huge area of a tiny tile is capped, not unbounded.
+        s.size = Some([1.0e6, 1.0e6]);
+        assert_eq!(sprite_quads(&s, (16, 16)).len(), MAX_SPRITE_TILES);
+    }
+
+    // RDY-TEX-01
+    #[test]
+    fn sliced_sprites_keep_their_corners_and_stretch_the_rest() {
+        // A 48 px sprite (3 m) with 16 px borders, drawn 8 x 5 m: corners stay a metre.
+        let mut s = sprite(None, [0.5, 0.5], (false, false));
+        s.mode = SpriteMode::Sliced;
+        s.size = Some([8.0, 5.0]);
+        s.border = [16.0; 4];
+        let quads = sprite_quads(&s, (48, 48));
+        assert_eq!(quads.len(), 9);
+        let (scale, _, pos) = quads[0].0.to_scale_rotation_translation();
+        assert_eq!((scale.x, scale.y), (1.0, 1.0));
+        assert_eq!((pos.x, pos.y), (-3.5, -2.0));
+        let (middle, _, _) = quads[4].0.to_scale_rotation_translation();
+        assert_eq!((middle.x, middle.y), (6.0, 3.0));
+        // The middle shows the middle third of the texture.
+        assert_eq!(quads[4].1[2], 1.0 / 3.0);
+        // Smaller than its borders: they shrink together instead of overlapping.
+        s.size = Some([1.0, 5.0]);
+        let narrow = sprite_quads(&s, (48, 48));
+        let bottom = narrow[0].0.to_scale_rotation_translation().2.y;
+        let widths: f32 = narrow
+            .iter()
+            .map(|(m, _)| m.to_scale_rotation_translation())
+            .filter(|(_, _, pos)| pos.y == bottom)
+            .map(|(scale, _, _)| scale.x)
+            .sum();
+        assert!((widths - 1.0).abs() < 1e-5, "{widths}");
     }
 
     // M5-TEX-02

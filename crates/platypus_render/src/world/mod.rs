@@ -901,6 +901,9 @@ pub struct WorldQuad {
     pub uv: [f32; 4],
     /// Adds light instead of covering what's behind (glows, fire, sparks).
     pub additive: bool,
+    /// A 2D sprite: depth-tested against solid geometry but writing no depth, so overlapping
+    /// sprites are ordered by `order` (then distance) alone, whatever their tilt.
+    pub flat: bool,
     /// Draw order among see-through things: higher draws later (over), whatever the
     /// distance (Unity's `sortingOrder`; meshes are 0).
     pub order: i32,
@@ -916,6 +919,7 @@ impl WorldQuad {
             texture: None,
             uv: [0.0, 0.0, 1.0, 1.0],
             additive: false,
+            flat: false,
             order: 0,
             layer: 0,
         }
@@ -1202,7 +1206,7 @@ struct Run {
     skinned: bool,
     /// The reflection probe its meshes use (`None`: the sky).
     probe: Option<u32>,
-    /// Additive quads (drawn without depth writes).
+    /// Additive or flat (sprite) quads: drawn without depth writes.
     glow: bool,
     range: Range<u32>,
 }
@@ -2664,8 +2668,11 @@ impl WorldRenderer {
                 })
         };
         let less = wgpu::CompareFunction::Less;
-        // Quads at the same depth (2D sprites) draw in their sorted order: a later one
-        // isn't hidden by the depth an earlier one's soft edge wrote.
+        // Quads at the same depth (planes) draw in their sorted order: a later one isn't hidden
+        // by the depth an earlier one's soft edge wrote. Flat quads (2D sprites) and glows write no
+        // depth at all (the `quad_glow` pipeline): among themselves only their sorted order
+        // decides, so a spinning sprite that tilts by a rounding error isn't cut in half by
+        // another at the same depth.
         let less_equal = wgpu::CompareFunction::LessEqual;
         self.pipelines
             .entry((format, samples))
@@ -3547,7 +3554,7 @@ impl WorldRenderer {
                         match blended.last_mut() {
                             Some((false, run))
                                 if run.material == MaterialKey::texture(q.texture)
-                                    && run.glow == q.additive
+                                    && run.glow == (q.additive || q.flat)
                                     && run.range.end == i =>
                             {
                                 run.range.end += 1
@@ -3561,7 +3568,7 @@ impl WorldRenderer {
                                     cutout: false,
                                     skinned: false,
                                     probe: None,
-                                    glow: q.additive,
+                                    glow: q.additive || q.flat,
                                     range: i..i + 1,
                                 },
                             )),

@@ -102,7 +102,7 @@ class Player extends Component {
   idle = 0;
 
   override onUpdate(dt: number) {
-    let steer = new Vector3(input.getAxis("Horizontal"), 0, -input.getAxis("Vertical"));
+    let steer = new Vector3(input.getAxisRaw("Horizontal"), 0, -input.getAxisRaw("Vertical"));
     this.idle = steer.magnitude > 0.1 ? 0 : this.idle + dt;
     if (this.idle > 1.5) {
       // Attract mode: head for the nearest pickup.

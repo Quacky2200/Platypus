@@ -273,12 +273,14 @@ declare class BoxCollider :: static attach(object: GameObject): BoxCollider;
 declare class BoxCollider :: static findOn(object: GameObject): BoxCollider;
 declare class BoxCollider2D
 declare class BoxCollider2D :: bounciness: number;
+declare class BoxCollider2D :: closestPoint(position: Vector2): Vector2;
 declare class BoxCollider2D :: destroy(): void;
 declare class BoxCollider2D :: dynamicFriction: number;
 declare class BoxCollider2D :: getComponent<T>(cls: { prototype: T }): T | undefined;
 declare class BoxCollider2D :: isTrigger: boolean;
 declare class BoxCollider2D :: offset: Vector2;
 declare class BoxCollider2D :: readonly attachedRigidbody: Rigidbody2D;
+declare class BoxCollider2D :: readonly bounds: Bounds;
 declare class BoxCollider2D :: readonly gameObject: GameObject;
 declare class BoxCollider2D :: readonly transform: Transform;
 declare class BoxCollider2D :: size: Vector2;
@@ -330,6 +332,7 @@ declare class Camera :: setRect(x: number, y: number, width: number, height: num
 declare class Camera :: shutterSpeed: number;
 declare class Camera :: static attach(object: GameObject): Camera;
 declare class Camera :: static findOn(object: GameObject): Camera;
+declare class Camera :: static readonly allCameras: Camera[];
 declare class Camera :: static readonly main: Camera | undefined;
 declare class Camera :: targetTexture: Texture;
 declare class Camera :: worldToScreenPoint(p: Vector3Like): Vector3;
@@ -374,6 +377,7 @@ declare class CapsuleCollider :: static attach(object: GameObject): CapsuleColli
 declare class CapsuleCollider :: static findOn(object: GameObject): CapsuleCollider;
 declare class CapsuleCollider2D
 declare class CapsuleCollider2D :: bounciness: number;
+declare class CapsuleCollider2D :: closestPoint(position: Vector2): Vector2;
 declare class CapsuleCollider2D :: destroy(): void;
 declare class CapsuleCollider2D :: direction: string;
 declare class CapsuleCollider2D :: dynamicFriction: number;
@@ -381,6 +385,7 @@ declare class CapsuleCollider2D :: getComponent<T>(cls: { prototype: T }): T | u
 declare class CapsuleCollider2D :: isTrigger: boolean;
 declare class CapsuleCollider2D :: offset: Vector2;
 declare class CapsuleCollider2D :: readonly attachedRigidbody: Rigidbody2D;
+declare class CapsuleCollider2D :: readonly bounds: Bounds;
 declare class CapsuleCollider2D :: readonly gameObject: GameObject;
 declare class CapsuleCollider2D :: readonly transform: Transform;
 declare class CapsuleCollider2D :: size: Vector2;
@@ -419,6 +424,7 @@ declare class CharacterJoint :: static attach(object: GameObject): CharacterJoin
 declare class CharacterJoint :: static findOn(object: GameObject): CharacterJoint;
 declare class CircleCollider2D
 declare class CircleCollider2D :: bounciness: number;
+declare class CircleCollider2D :: closestPoint(position: Vector2): Vector2;
 declare class CircleCollider2D :: destroy(): void;
 declare class CircleCollider2D :: dynamicFriction: number;
 declare class CircleCollider2D :: getComponent<T>(cls: { prototype: T }): T | undefined;
@@ -426,6 +432,7 @@ declare class CircleCollider2D :: isTrigger: boolean;
 declare class CircleCollider2D :: offset: Vector2;
 declare class CircleCollider2D :: radius: number;
 declare class CircleCollider2D :: readonly attachedRigidbody: Rigidbody2D;
+declare class CircleCollider2D :: readonly bounds: Bounds;
 declare class CircleCollider2D :: readonly gameObject: GameObject;
 declare class CircleCollider2D :: readonly transform: Transform;
 declare class CircleCollider2D :: static attach(object: GameObject): CircleCollider2D;
@@ -568,6 +575,7 @@ declare class DateTime :: toUniversalTime(): DateTime;
 declare class DateTime :: utc: number;
 declare class EdgeCollider2D
 declare class EdgeCollider2D :: bounciness: number;
+declare class EdgeCollider2D :: closestPoint(position: Vector2): Vector2;
 declare class EdgeCollider2D :: destroy(): void;
 declare class EdgeCollider2D :: dynamicFriction: number;
 declare class EdgeCollider2D :: get points(): Vector2[];
@@ -576,6 +584,7 @@ declare class EdgeCollider2D :: isTrigger: boolean;
 declare class EdgeCollider2D :: offset: Vector2;
 declare class EdgeCollider2D :: pointAt(i: number): Vector2;
 declare class EdgeCollider2D :: readonly attachedRigidbody: Rigidbody2D;
+declare class EdgeCollider2D :: readonly bounds: Bounds;
 declare class EdgeCollider2D :: readonly gameObject: GameObject;
 declare class EdgeCollider2D :: readonly pointCount: number;
 declare class EdgeCollider2D :: readonly transform: Transform;
@@ -588,6 +597,14 @@ declare class Emitter :: setPosition(position: Vector3, glide?: number): void;
 declare class Emitter :: setPosition(position: Vector3, options?: { glide?: number }): void;
 declare class Emitter :: setVolume(volume: number, fade?: number): void;
 declare class Emitter :: setVolume(volume: number, options?: { fade?: number }): void;
+declare class EventList
+declare class EventList :: addListener(f: () => void): number;
+declare class EventList :: constructor();
+declare class EventList :: invoke(): void;
+declare class EventList :: readonly listenerCount: number;
+declare class EventList :: removeAllListeners(): void;
+declare class EventList :: removeListener(token: number): boolean;
+declare class EventList :: static create(): EventList;
 declare class FixedJoint
 declare class FixedJoint :: anchor: Vector3;
 declare class FixedJoint :: autoConfigureConnectedAnchor: boolean;
@@ -674,6 +691,23 @@ declare class HingeJoint :: static attach(object: GameObject): HingeJoint;
 declare class HingeJoint :: static findOn(object: GameObject): HingeJoint;
 declare class HingeJoint :: useLimits: boolean;
 declare class HingeJoint :: useMotor: boolean;
+declare class HingeJoint2D
+declare class HingeJoint2D :: anchor: Vector2;
+declare class HingeJoint2D :: autoConfigureConnectedAnchor: boolean;
+declare class HingeJoint2D :: connectedAnchor: Vector2;
+declare class HingeJoint2D :: connectedBody: Rigidbody2D;
+declare class HingeJoint2D :: destroy(): void;
+declare class HingeJoint2D :: getComponent<T>(cls: { prototype: T }): T | undefined;
+declare class HingeJoint2D :: limitsMax: number;
+declare class HingeJoint2D :: limitsMin: number;
+declare class HingeJoint2D :: motorForce: number;
+declare class HingeJoint2D :: motorTargetVelocity: number;
+declare class HingeJoint2D :: readonly gameObject: GameObject;
+declare class HingeJoint2D :: readonly transform: Transform;
+declare class HingeJoint2D :: static attach(object: GameObject): HingeJoint2D;
+declare class HingeJoint2D :: static findOn(object: GameObject): HingeJoint2D;
+declare class HingeJoint2D :: useLimits: boolean;
+declare class HingeJoint2D :: useMotor: boolean;
 declare class Keyframe
 declare class Keyframe :: constructor(time: number, value: number, inTangent: number, outTangent: number);
 declare class Keyframe :: inTangent: number;
@@ -1047,6 +1081,7 @@ declare class Playback :: stop(fade?: number): void;
 declare class Playback :: stop(options?: { fade?: number }): void;
 declare class PolygonCollider2D
 declare class PolygonCollider2D :: bounciness: number;
+declare class PolygonCollider2D :: closestPoint(position: Vector2): Vector2;
 declare class PolygonCollider2D :: destroy(): void;
 declare class PolygonCollider2D :: dynamicFriction: number;
 declare class PolygonCollider2D :: get points(): Vector2[];
@@ -1055,6 +1090,7 @@ declare class PolygonCollider2D :: isTrigger: boolean;
 declare class PolygonCollider2D :: offset: Vector2;
 declare class PolygonCollider2D :: pointAt(i: number): Vector2;
 declare class PolygonCollider2D :: readonly attachedRigidbody: Rigidbody2D;
+declare class PolygonCollider2D :: readonly bounds: Bounds;
 declare class PolygonCollider2D :: readonly gameObject: GameObject;
 declare class PolygonCollider2D :: readonly pointCount: number;
 declare class PolygonCollider2D :: readonly transform: Transform;
@@ -1408,6 +1444,7 @@ declare class Sprite :: hasRect: boolean;
 declare class Sprite :: pivot: Vector2;
 declare class Sprite :: pixelsPerUnit: number;
 declare class Sprite :: readonly size: Vector2;
+declare class Sprite :: setBorder(left: number, bottom: number, right: number, top: number): void;
 declare class Sprite :: setRect(x: number, y: number, width: number, height: number): void;
 declare class Sprite :: static create(texture: Texture, options?: { pixelsPerUnit?: number }): Sprite;
 declare class Sprite :: static create(texture: Texture, pixelsPerUnit?: number): Sprite;
@@ -1422,9 +1459,12 @@ declare class SpriteRenderer
 declare class SpriteRenderer :: color: Color;
 declare class SpriteRenderer :: flipX: boolean;
 declare class SpriteRenderer :: flipY: boolean;
+declare class SpriteRenderer :: get drawMode(): "simple" | "sliced" | "tiled";
 declare class SpriteRenderer :: getComponent<T>(cls: { prototype: T }): T | undefined;
 declare class SpriteRenderer :: readonly gameObject: GameObject;
 declare class SpriteRenderer :: readonly transform: Transform;
+declare class SpriteRenderer :: set drawMode(v: string);
+declare class SpriteRenderer :: size: Vector2;
 declare class SpriteRenderer :: sortingOrder: number;
 declare class SpriteRenderer :: sprite: Sprite | null;
 declare class SpriteRenderer :: static attach(object: GameObject): SpriteRenderer;
@@ -2059,6 +2099,7 @@ declare module "@platypus/engine" :: export import EdgeCollider2D = globalThis.E
 declare module "@platypus/engine" :: export import Editor = globalThis.Editor;
 declare module "@platypus/engine" :: export import EditorScene = globalThis.EditorScene;
 declare module "@platypus/engine" :: export import Emitter = globalThis.Emitter;
+declare module "@platypus/engine" :: export import EventList = globalThis.EventList;
 declare module "@platypus/engine" :: export import ExposureMetering = globalThis.ExposureMetering;
 declare module "@platypus/engine" :: export import FieldInfo = globalThis.FieldInfo;
 declare module "@platypus/engine" :: export import FileStat = globalThis.FileStat;
@@ -2069,6 +2110,7 @@ declare module "@platypus/engine" :: export import FogMode = globalThis.FogMode;
 declare module "@platypus/engine" :: export import FogVolume = globalThis.FogVolume;
 declare module "@platypus/engine" :: export import FontFace = globalThis.FontFace;
 declare module "@platypus/engine" :: export import ForceMode = globalThis.ForceMode;
+declare module "@platypus/engine" :: export import ForceMode2D = globalThis.ForceMode2D;
 declare module "@platypus/engine" :: export import FullScreenMode = globalThis.FullScreenMode;
 declare module "@platypus/engine" :: export import GameObject = globalThis.GameObject;
 declare module "@platypus/engine" :: export import GameObjectOptions = globalThis.GameObjectOptions;
@@ -2078,6 +2120,7 @@ declare module "@platypus/engine" :: export import GraphicsSettings = globalThis
 declare module "@platypus/engine" :: export import HeightFogSettings = globalThis.HeightFogSettings;
 declare module "@platypus/engine" :: export import HideFlags = globalThis.HideFlags;
 declare module "@platypus/engine" :: export import HingeJoint = globalThis.HingeJoint;
+declare module "@platypus/engine" :: export import HingeJoint2D = globalThis.HingeJoint2D;
 declare module "@platypus/engine" :: export import InputEvent = globalThis.InputEvent;
 declare module "@platypus/engine" :: export import InputEventType = globalThis.InputEventType;
 declare module "@platypus/engine" :: export import InstantiateObjectOptions = globalThis.InstantiateObjectOptions;
@@ -2406,6 +2449,9 @@ declare namespace ForceMode :: const Acceleration: number;
 declare namespace ForceMode :: const Force: number;
 declare namespace ForceMode :: const Impulse: number;
 declare namespace ForceMode :: const VelocityChange: number;
+declare namespace ForceMode2D
+declare namespace ForceMode2D :: const Force: number;
+declare namespace ForceMode2D :: const Impulse: number;
 declare namespace FullScreenMode
 declare namespace FullScreenMode :: function name(index: number): FullScreenMode;
 declare namespace FullScreenMode :: function parse(name: string): number;
@@ -2511,6 +2557,8 @@ declare namespace Physics :: function raycastAll(origin: Vector3, direction: Vec
 declare namespace Physics :: function step(): void;
 declare namespace Physics :: let gravity: Vector3;
 declare namespace Physics2D
+declare namespace Physics2D :: function ignoreCollision(a: Collider2D, b: Collider2D, ignore?: boolean): void;
+declare namespace Physics2D :: function ignoreCollision(a: Collider2D, b: Collider2D, options?: { ignore?: boolean }): void;
 declare namespace Physics2D :: function raycast(origin: Vector2, direction: Vector2, distance?: number): RaycastHit2D;
 declare namespace Physics2D :: function raycast(origin: Vector2, direction: Vector2, options?: { distance?: number }): RaycastHit2D;
 declare namespace Physics2D :: function rigidbody2dCount(): number;
@@ -3002,6 +3050,7 @@ declare namespace input :: function gamepadId(index: number): number;
 declare namespace input :: function gamepadName(id: number): string;
 declare namespace input :: function gamepads(): Gamepad[];
 declare namespace input :: function getAxis(name: string): number;
+declare namespace input :: function getAxisRaw(name: string): number;
 declare namespace input :: function getButton(name: string): boolean;
 declare namespace input :: function getButtonDown(name: string): boolean;
 declare namespace input :: function getKey(code: string): boolean;
@@ -3461,7 +3510,9 @@ interface PlatypusStyle :: textDecorationLine?: string;
 interface PlatypusStyle :: textDecorationSkipInk?: "auto" | "none" | "all";
 interface PlatypusStyle :: textDecorationStyle?: "solid" | "double" | "dotted" | "dashed" | "wavy";
 interface PlatypusStyle :: textDecorationThickness?: Length | "auto" | "from-font";
+interface PlatypusStyle :: textEffect?: string;
 interface PlatypusStyle :: textOverflow?: "clip" | "ellipsis";
+interface PlatypusStyle :: textReveal?: number | "all";
 interface PlatypusStyle :: textShadow?: string;
 interface PlatypusStyle :: textStroke?: string;
 interface PlatypusStyle :: textStrokeColor?: string;

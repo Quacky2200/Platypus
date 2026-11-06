@@ -87,6 +87,11 @@ terminal, it also logs there: on Windows `attach_console` attaches to the parent
 is not already redirected, and piped output (scripts, tests) works as before. A panic hook writes the
 panic to the log (`M5-APP-04`).
 
+### Frame profiler
+
+`PLATYPUS_PROFILE=1` makes the app log the frame time and the CPU cost of each stage (`crates/platypus_app/src/profile.rs`),
+for finding what a slow frame spends its time on.
+
 ### Crash report (Windows)
 
 A crash that is not a Rust panic (an access violation in compiled TypeScript, the runtime or a driver) used to end the

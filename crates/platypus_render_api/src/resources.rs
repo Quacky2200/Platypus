@@ -295,7 +295,7 @@ pub fn load_texture(
     } else {
         aniso_level
     };
-    new_texture(TextureInfo {
+    let info = TextureInfo {
         src: Some(path),
         filter_mode: text(filter_mode, "filterMode", "bilinear"),
         wrap_mode: text(wrap_mode, "wrapMode", "repeat"),
@@ -317,7 +317,27 @@ pub fn load_texture(
         failed: false,
         pixels: None,
         render_texture: false,
-    })
+    };
+    // The same file with the same settings is one texture: a scene loaded again (or two scenes
+    // using the same art) doesn't decode and upload it again.
+    let same = |t: &TextureInfo| {
+        t.src == info.src
+            && t.filter_mode == info.filter_mode
+            && t.wrap_mode == info.wrap_mode
+            && t.mipmaps == info.mipmaps
+            && t.aniso_level == info.aniso_level
+            && t.linear == info.linear
+            && t.pixels.is_none()
+            && !t.render_texture
+            && !t.failed
+    };
+    let cached = st(|s| {
+        s.textures
+            .iter()
+            .position(|t| t.as_ref().is_some_and(same))
+            .map(|i| TextureRef(i as u32 + 1))
+    });
+    cached.unwrap_or_else(|| new_texture(info))
 }
 
 /// How a texture is sampled between texels.

@@ -123,6 +123,7 @@ unknown or copyleft licence, or with a licence file inside it, fails until revie
 - Benchmarks: `cargo bench -p web_ui_dom --bench restyle` (and the other benches in `crates/web_ui_dom/benches`).
 
 ## Working agreements
+- **Default mode:** follow the `iterate-to-target` skill (`.claude/skills/`): keep going until the conversation's target is met unless told to stop, and compact between unrelated tasks. For a plan of two or more tasks, run `multi-agent-lead` once to decide between parallel agents and working in order. When the target is met, run `merge-on-target`, then `clean-branches`, before archiving or closing a chat.
 - **Commits:** work milestone by milestone, one commit per step, without asking.
   - Run every check above before each commit.
   - End commit messages with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.

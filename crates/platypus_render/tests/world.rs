@@ -124,6 +124,7 @@ fn planes_in_perspective_with_ui_over_them() {
             additive: false,
             order: 0,
             layer: 0,
+            flat: false,
         },
     ];
     let checker = checker(&gpu);
@@ -572,6 +573,7 @@ fn textured_meshes_and_sprites() {
         additive: false,
         order: 0,
         layer: 0,
+        flat: false,
     };
     v.quads = vec![
         sprite(-0.6, [0.0, 0.0, 1.0, 1.0]),
@@ -703,6 +705,7 @@ fn glows_bloom_and_spot_beams() {
         additive: true,
         order: 0,
         layer: 0,
+        flat: false,
     };
     v.quads = vec![
         glow(Vec3::new(-0.6, 0.6, 0.8), 0.8, [1.0, 0.5, 0.2, 1.0]),
@@ -4890,4 +4893,73 @@ fn orthographic_fog_goes_by_depth_and_covers_quads_shapes_and_strokes() {
     assert!(close_to(fill, half, 3), "the fill: {fill:?}");
     let stroke = at(1.2, -1.0, 0.0);
     assert!(close_to(stroke, half, 3), "the stroke: {stroke:?}");
+}
+
+// RDY-RND-03
+#[test]
+fn flat_sprites_at_one_depth_are_not_cut_by_a_tilt() {
+    let gpu = shared_gpu();
+    let size = (160, 120);
+    let target =
+        OffscreenTarget::with_format(&gpu, size.0, size.1, wgpu::TextureFormat::Rgba8UnormSrgb);
+    let view = target.view().unwrap();
+    let rt = RenderTarget {
+        view: &view,
+        format: target.format(),
+        size,
+        scale: 1.0,
+    };
+    // A big green sprite, and over it (order 1) a red one at the same depth that is spinning:
+    // its turn about z carries a rounding error about x and y, so parts of it are a hair behind.
+    let red_pixels = |flat: bool, spin: f32, error: f32| {
+        let camera = WorldCamera::perspective(
+            platypus_core::glam::camera::rh::view::look_at_mat4(
+                Vec3::new(0.0, 0.0, 6.0),
+                Vec3::ZERO,
+                Vec3::Y,
+            )
+            .inverse(),
+            40.0,
+            0.1,
+            50.0,
+            size,
+            Color::rgb(0.0, 0.0, 0.0),
+        );
+        let mut v = platypus_render::WorldView::new(camera, [0.0, 0.0, 1.0, 1.0]);
+        v.ambient = [1.0; 3];
+        let green = WorldQuad {
+            flat,
+            order: 0,
+            ..WorldQuad::colored(
+                place(Vec3::ZERO, Quat::IDENTITY, (4.0, 3.0)),
+                [0.0, 0.8, 0.0, 1.0],
+            )
+        };
+        let rotation = Quat::from_euler(platypus_core::glam::EulerRot::XYZ, error, error, spin);
+        let red = WorldQuad {
+            flat,
+            order: 1,
+            ..WorldQuad::colored(
+                place(Vec3::ZERO, rotation, (1.0, 1.0)),
+                [0.9, 0.0, 0.0, 1.0],
+            )
+        };
+        v.quads = vec![green, red];
+        let mut world = WorldRenderer::new(&gpu);
+        world.render_views(&gpu, &rt, &[v], &[]);
+        let pixels = target.read_pixels(&gpu).unwrap();
+        pixels
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .filter(|p| p[0] > 150 && p[1] < 60)
+            .count()
+    };
+    let flat = red_pixels(true, 0.6, 1e-4);
+    let depth_written = red_pixels(false, 0.6, 1e-4);
+    // The whole red square shows (about 756 pixels), however it is turned...
+    assert!(flat > 740, "a flat sprite lost pixels: {flat}");
+    assert_eq!(flat, red_pixels(true, 0.6, 0.0));
+    // ...where a quad that writes depth loses a good part of it to the other's depth.
+    assert!(depth_written < flat - 100, "{depth_written} vs {flat}");
 }

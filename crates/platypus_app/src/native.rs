@@ -747,6 +747,7 @@ impl Native {
         platypus_engine_api::audio::reset();
         platypus_engine_api::audio_components::reset();
         platypus_engine_api::spline::reset();
+        platypus_engine_api::event_list::reset();
         platypus_engine_api::animation::reset();
         platypus_engine_api::camera::reset();
         platypus_render_api::reset();
@@ -854,6 +855,7 @@ impl Native {
         platypus_engine_api::audio::reset();
         platypus_engine_api::audio_components::reset();
         platypus_engine_api::spline::reset();
+        platypus_engine_api::event_list::reset();
         platypus_engine_api::animation::reset();
         platypus_engine_api::camera::reset();
         platypus_render_api::reset();

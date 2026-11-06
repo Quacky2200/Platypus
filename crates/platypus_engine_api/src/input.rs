@@ -145,8 +145,13 @@ fn set_value(list: &mut Vec<(String, f64)>, name: &str, v: f64) {
     }
 }
 
+/// Unity's sensitivity and gravity for the default axes' keys, per second.
+const AXIS_SPEED: f64 = 3.0;
+
 #[derive(Default)]
 struct State {
+    /// The eased key values behind `getAxis("Horizontal")` and `("Vertical")`.
+    eased: [f64; 2],
     keys: HashSet<String>,
     pressed_pending: HashSet<String>,
     released_pending: HashSet<String>,
@@ -185,6 +190,54 @@ impl State {
 
     fn connected(&self, id: i64) -> Option<&Pad> {
         self.pads.iter().find(|p| p.id == id && p.connected)
+    }
+
+    /// The keys of a virtual axis as -1, 0 or 1 (no easing).
+    fn key_axis(&self, neg: &[&str], pos: &[&str]) -> f64 {
+        let held = |ks: &[&str]| ks.iter().any(|k| self.keys.contains(*k));
+        f64::from(u8::from(held(pos))) - f64::from(u8::from(held(neg)))
+    }
+
+    /// The left stick of the connected pad pushed furthest on `axis`.
+    fn stick(&self, axis: &str) -> f64 {
+        let mut stick = 0.0f64;
+        for p in self.pads.iter().filter(|p| p.connected) {
+            let v = value_of(&p.axes, axis);
+            if v.abs() > stick.abs() {
+                stick = v;
+            }
+        }
+        stick
+    }
+
+    /// Eases the key values of Horizontal and Vertical towards their keys over `dt` seconds.
+    fn ease_axes(&mut self, dt: f64) {
+        for (i, name) in ["Horizontal", "Vertical"].into_iter().enumerate() {
+            let Some((neg, pos, _)) = axis_def(name) else {
+                continue;
+            };
+            let target = self.key_axis(neg, pos);
+            let mut v = self.eased[i];
+            let step = AXIS_SPEED * dt;
+            if target != 0.0 {
+                // Reversing starts again from 0.
+                if v != 0.0 && v.signum() != target {
+                    v = 0.0;
+                }
+                v = if (target - v).abs() <= step {
+                    target
+                } else {
+                    v + (target - v).signum() * step
+                };
+            } else {
+                v = if v.abs() <= step {
+                    0.0
+                } else {
+                    v - v.signum() * step
+                };
+            }
+            self.eased[i] = v;
+        }
     }
 
     fn button_down_on_a_pad(&self, button: &str) -> bool {
@@ -457,6 +510,7 @@ pub fn tick() {
         s.released = std::mem::take(&mut s.released_pending);
         s.delta = std::mem::take(&mut s.delta_pending);
         s.wheel = std::mem::take(&mut s.wheel_pending);
+        s.ease_axes(crate::time::state().unscaled_delta_time);
     });
 }
 
@@ -485,6 +539,33 @@ fn axis_def(
         "Vertical" => Some((&["KeyS", "ArrowDown"], &["KeyW", "ArrowUp"], "LeftStickY")),
         _ => None,
     }
+}
+
+/// An axis' value, with the keys eased or not.
+fn axis_value(name: &str, eased: bool) -> f64 {
+    STATE.with(|s| {
+        let s = s.borrow();
+        match name {
+            "Mouse X" => return s.delta.0 * MOUSE_SENSITIVITY,
+            "Mouse Y" => return -s.delta.1 * MOUSE_SENSITIVITY,
+            "Mouse ScrollWheel" => return s.wheel.1 * MOUSE_SENSITIVITY,
+            _ => {}
+        }
+        let Some((neg, pos, stick_axis)) = axis_def(name) else {
+            return 0.0;
+        };
+        let key_value = if eased {
+            s.eased[usize::from(name == "Vertical")]
+        } else {
+            s.key_axis(neg, pos)
+        };
+        let stick = s.stick(stick_axis);
+        if stick.abs() > key_value.abs() {
+            stick
+        } else {
+            key_value
+        }
+    })
 }
 
 /// Virtual buttons: keys and gamepad buttons.
@@ -543,8 +624,8 @@ const MOUSE_SENSITIVITY: f64 = 0.1;
 )]
 pub mod input_api {
     use super::{
-        InputEvent, InputEventType, MOUSE_SENSITIVITY, PadState, STATE, axis_def, button_def,
-        mouse_code, pad_state, value_of,
+        InputEvent, InputEventType, PadState, STATE, axis_value, button_def, mouse_code, pad_state,
+        value_of,
     };
     use platypus_math::V2;
     use ts_api::Callback;
@@ -735,35 +816,17 @@ pub mod input_api {
     }
 
     /// Unity's `GetAxis` for `"Horizontal"` (A/D, arrows, left stick X), `"Vertical"` (S/W, arrows,
-    /// left stick Y), `"Mouse X"`, `"Mouse Y"` and `"Mouse ScrollWheel"`: -1 to 1 for the keys
-    /// (the stick wins when pushed further).
+    /// left stick Y), `"Mouse X"`, `"Mouse Y"` and `"Mouse ScrollWheel"`: -1 to 1. The keys ease in
+    /// and out as Unity's default axes do (sensitivity 3 and gravity 3 per second, and pressing the
+    /// opposite key restarts from 0), so the value takes a third of a second to reach 1; the stick
+    /// is read as it is and wins when pushed further. `getAxisRaw` has no easing.
     pub fn get_axis(name: &str) -> f64 {
-        STATE.with(|s| {
-            let s = s.borrow();
-            match name {
-                "Mouse X" => return s.delta.0 * MOUSE_SENSITIVITY,
-                "Mouse Y" => return -s.delta.1 * MOUSE_SENSITIVITY,
-                "Mouse ScrollWheel" => return s.wheel.1 * MOUSE_SENSITIVITY,
-                _ => {}
-            }
-            let Some((neg, pos, stick_axis)) = axis_def(name) else {
-                return 0.0;
-            };
-            let held = |ks: &[&str]| ks.iter().any(|k| s.keys.contains(*k));
-            let key_value = f64::from(u8::from(held(pos))) - f64::from(u8::from(held(neg)));
-            let mut stick = 0.0f64;
-            for p in s.pads.iter().filter(|p| p.connected) {
-                let v = value_of(&p.axes, stick_axis);
-                if v.abs() > stick.abs() {
-                    stick = v;
-                }
-            }
-            if stick.abs() > key_value.abs() {
-                stick
-            } else {
-                key_value
-            }
-        })
+        axis_value(name, true)
+    }
+
+    /// `getAxis` without easing: the keys are -1, 0 or 1 at once (Unity's `GetAxisRaw`).
+    pub fn get_axis_raw(name: &str) -> f64 {
+        axis_value(name, false)
     }
 
     /// Unity's `GetButton` for `"Jump"`, `"Fire1"`, `"Fire2"`, `"Submit"`, `"Cancel"`: keys or

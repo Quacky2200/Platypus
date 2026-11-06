@@ -16,7 +16,7 @@ use platypus_scene::ObjectId;
 use serde_json::{Map, Value, json};
 use ts_api::Handle;
 
-const CLASSES: [&str; 18] = [
+const CLASSES: [&str; 19] = [
     "Rigidbody",
     "BoxCollider",
     "SphereCollider",
@@ -26,6 +26,7 @@ const CLASSES: [&str; 18] = [
     "FixedJoint",
     "CharacterJoint",
     "HingeJoint",
+    "HingeJoint2D",
     "SpringJoint",
     "RopeJoint",
     "Rope",
@@ -58,6 +59,7 @@ fn joint_kind(class: &str) -> Option<&'static str> {
         "FixedJoint" => "fixed",
         "CharacterJoint" => "ball",
         "HingeJoint" => "hinge",
+        "HingeJoint2D" => "hinge2d",
         "SpringJoint" => "spring",
         "RopeJoint" => "rope",
         _ => return None,
@@ -314,7 +316,7 @@ fn save(h: u32) -> Map<String, Value> {
             m.insert("connectedAnchor".into(), vec3_json(j.connected_anchor));
             m.insert("autoConfigureConnectedAnchor".into(), json!(j.auto_anchor));
             match j.kind {
-                "hinge" => {
+                "hinge" | "hinge2d" => {
                     m.insert("axis".into(), vec3_json(j.axis));
                     m.insert("useLimits".into(), json!(j.use_limits));
                     m.insert("limits".into(), json!({ "min": j.min, "max": j.max }));

@@ -38,7 +38,7 @@ Why TypeScript, and why a compiler
 Platypus started on QuickJS, a small JavaScript interpreter (removed since). It was easy to embed, but without a JIT its
 performance was poor, and shipping a JIT runtime (V8, or Bun's JavaScriptCore) inside every game is heavy. The goal was
 performance in the range of ahead-of-time compiled C#, so instead of embedding a runtime we wrote a compiler:
-`web_ui_ts` turns a typed subset of TypeScript into native code ([docs/platypus-ts-native.md](docs/platypus-ts-native.md)).
+`web_ui_ts` turns a typed subset of TypeScript into native code (web-ui `docs/platypus-ts-native.md`).
 Perhaps it is the first game engine to do this: TypeScript compiled natively as its scripting language, an
 alternative to the .NET route taken by Unity, Godot's C# support and Stride.
 
@@ -90,7 +90,7 @@ What exists today; the dated overview with a picture of every example is [docs/P
 - Stylesheets with the cascade, specificity and `!important`, custom properties, `@media`, `@font-face`, transitions,
   `@keyframes`, pseudo-classes and pseudo-elements, gradients, shadows, filters, masks, blend modes, backdrop blur.
 - Pointer, keyboard and focus, gamepad navigation, scrolling, text fields with clipboard and IME, drag and drop.
-- UI on planes in the 3D world (`WorldPanel`). Known differences from browsers: [docs/differences.md](docs/differences.md).
+- UI on planes in the 3D world (`WorldPanel`). Known differences from browsers: web-ui `docs/differences.md`.
 
 **2D and 3D rendering**
 - PBR (metallic and specular), material maps, cutout / fade / transparent modes, a procedural sky, reflection probes,
@@ -191,7 +191,7 @@ time zones) through ICU4X, the Unicode Consortium's Rust library, rather than IC
 - Its data is split by locale and feature, so a game can carry only the languages it lists. Today the build still
   links every locale's data; trimming it to the game's list is planned.
 - ICU4X has no `availableFormats` table: common date options give the same text as the browsers (compared against bun
-  in the tests), but unusual combinations can differ or be refused ([docs/differences.md](docs/differences.md)). An
+  in the tests), but unusual combinations can differ or be refused (web-ui `docs/differences.md`). An
   optional ICU4C build for exact browser behaviour is planned
   ([docs/research/platypus-ts-intl-datetime.md](docs/research/platypus-ts-intl-datetime.md)).
 

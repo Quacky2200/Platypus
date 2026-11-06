@@ -10,6 +10,7 @@ pub use glam;
 /// (0 is the screen, smaller ids are world panels).
 pub const WINDOW_TARGET: u32 = 0x4000_0000;
 
+mod alpha;
 pub mod glob;
 pub mod icon;
 pub mod meta;
@@ -18,6 +19,7 @@ pub mod project;
 pub mod project_edit;
 pub mod renderer;
 
+pub use alpha::bleed_transparent;
 // The shared types moved to web-ui's `web_ui_core`; the engine keeps its paths.
 pub use web_ui_core::{
     AssetFs, Commit, ComponentId, EntityId, NodeId, Op, OpBuffer, RangeRead, Value, asset_fs,

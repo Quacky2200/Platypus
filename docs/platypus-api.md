@@ -173,6 +173,11 @@ puts the 18 classes into `platypus_kinds` for scene files and `instantiate`).
   `docs/differences.md` ("Collisions"). Tests `M4-PHY-08`, `M9-TS-1004`, `M9-TS-1005`.
 - Differences to the TypeScript are listed in `tools/web_ui_ts/TODO.md` ("Physics components"). Tests `M9-API-200..209`,
   `M9-TS-1100..1105`.
+Readiness port: `Physics2D.ignoreCollision`, `ForceMode2D`, 2D collider `bounds` / `closestPoint` and `HingeJoint2D` are
+in `platypus_physics_api` (details in [physics-and-audio.md](physics-and-audio.md#2d-physics)). `Camera.allCameras` and
+`EventList` (`platypus_engine_api/src/event_list.rs`: no type arguments; `addListener` returns a token for
+`removeListener(token)`; `RDY-EVT-01`) are in the engine API.
+
 ## Audio (`audio`, `AudioSource`, `AudioListener`)
 
 `audio.rs` (it replaced the deleted `js/engine/src/audio.ts`) has `audio.load(path, stream?)`, `audio.play(path, {..})`, `Sound.play({ volume, rate, pan, loop,

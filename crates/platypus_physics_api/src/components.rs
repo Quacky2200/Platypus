@@ -1028,6 +1028,24 @@ pub mod force_mode_api {
     }
 }
 
+/// `ForceMode2D` for `Rigidbody2D.addForce(force, mode)`.
+#[ts_api(namespace = "ForceMode2D")]
+pub mod force_mode_2d_api {
+    /// A force in newtons, over one fixed step.
+    #[property]
+    #[js_name = "Force"]
+    pub fn force() -> f64 {
+        0.0
+    }
+
+    /// An instant change in momentum (N·s): hits, jumps.
+    #[property]
+    #[js_name = "Impulse"]
+    pub fn impulse() -> f64 {
+        1.0
+    }
+}
+
 #[ts_api(namespace = "RigidbodyConstraints")]
 pub mod constraints_api {
     #[property]

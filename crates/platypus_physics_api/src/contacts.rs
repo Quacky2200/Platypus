@@ -182,6 +182,24 @@ fn bounds_of(h: u32) -> Bounds {
     }
 }
 
+/// `bounds` of a collider component (the 2D collider classes share it).
+pub(crate) fn collider_bounds(h: u32) -> Bounds {
+    bounds_of(h)
+}
+
+/// `closestPoint` of a 2D collider component.
+pub(crate) fn collider_closest_2d(h: u32, position: V2) -> V2 {
+    let z = comp::world_transform(comp::comp_object(h)).map_or(0.0, |t| f64::from(t.position.z));
+    xy(closest_of(
+        h,
+        V3 {
+            x: position.x,
+            y: position.y,
+            z,
+        },
+    ))
+}
+
 fn closest_of(h: u32, p: V3) -> V3 {
     let cid = with_col(h, |c| c.cid).unwrap_or(0);
     st(|s| {
@@ -393,16 +411,7 @@ pub mod contacts_api {
 
         /// The point of the shape closest to `position` (`position` itself when it is inside).
         pub fn closest_point(self, position: V2) -> V2 {
-            let z = comp::world_transform(comp::comp_object(self.0))
-                .map_or(0.0, |t| f64::from(t.position.z));
-            xy(closest_of(
-                self.0,
-                V3 {
-                    x: position.x,
-                    y: position.y,
-                    z,
-                },
-            ))
+            collider_closest_2d(self.0, position)
         }
     }
 

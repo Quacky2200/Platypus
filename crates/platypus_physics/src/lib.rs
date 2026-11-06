@@ -188,6 +188,42 @@ impl EventHandler for Events {
     fn handle_soft_body_tear_event(&self, _soft_bodies: &SoftBodySet, _event: &SoftBodyTearEvent) {}
 }
 
+/// Colliders (by script id, smaller first) that must not touch each other
+/// (`Physics.IgnoreCollision`).
+type IgnoredPairs = std::collections::HashSet<(ScriptId, ScriptId)>;
+
+/// Applies the ignored pairs. Setting the hook flag on a collider replaces rapier's default
+/// pair filter (no contacts between two bodies that can't move), so that is repeated here.
+struct IgnoreHooks<'a>(&'a IgnoredPairs);
+
+impl IgnoreHooks<'_> {
+    fn ignored(&self, colliders: &ColliderSet, a: ColliderHandle, b: ColliderHandle) -> bool {
+        let (Some(a), Some(b)) = (colliders.get(a), colliders.get(b)) else {
+            return false;
+        };
+        let (a, b) = (a.user_data as ScriptId, b.user_data as ScriptId);
+        self.0.contains(&(a.min(b), a.max(b)))
+    }
+}
+
+impl PhysicsHooks for IgnoreHooks<'_> {
+    fn filter_contact_pair(&self, c: &PairFilterContext) -> Option<SolverFlags> {
+        if self.ignored(c.colliders, c.collider1, c.collider2) {
+            return None;
+        }
+        let dynamic = |h: Option<RigidBodyHandle>| {
+            h.and_then(|h| c.bodies.get(h))
+                .is_some_and(|b| b.is_dynamic())
+        };
+        (dynamic(c.rigid_body1) || dynamic(c.rigid_body2))
+            .then_some(SolverFlags::COMPUTE_RIGID_IMPULSES)
+    }
+
+    fn filter_intersection_pair(&self, c: &PairFilterContext) -> bool {
+        !self.ignored(c.colliders, c.collider1, c.collider2)
+    }
+}
+
 /// The physics world scripts drive.
 pub struct Physics {
     world: PhysicsWorld,
@@ -204,6 +240,8 @@ pub struct Physics {
     /// A fixed body for joints to the world (`null` for the second body), made when
     /// first needed.
     world_anchor: Option<RigidBodyHandle>,
+    /// Collider pairs that don't collide (`physics.ignore`).
+    ignored: IgnoredPairs,
     /// Raycasts queued this tick, answered after the step.
     rays: Vec<(u32, Ray, f32)>,
     /// Colliders were added or removed since the last step: they aren't in the query
@@ -233,6 +271,7 @@ impl Physics {
             joints: HashMap::new(),
             pins: HashMap::new(),
             world_anchor: None,
+            ignored: IgnoredPairs::new(),
             dirty: false,
             batch: Batch::default(),
         }
@@ -518,8 +557,21 @@ impl Physics {
                 }
             }
             "removeCollider" => {
-                if let Some(h) = self.colliders.remove(&a.id(0)?) {
+                let id = a.id(0)?;
+                self.ignored.retain(|&(x, y)| x != id && y != id);
+                if let Some(h) = self.colliders.remove(&id) {
                     self.world.remove_collider(h);
+                }
+            }
+            "ignore" => {
+                let (x, y) = (a.id(0)?, a.id(1)?);
+                let pair = (x.min(y), x.max(y));
+                if matches!(args.get(2), Some(Value::Bool(false))) {
+                    self.ignored.remove(&pair);
+                } else {
+                    self.ignored.insert(pair);
+                    self.flag_hooks(x);
+                    self.flag_hooks(y);
                 }
             }
             "set" => self.set(&a)?,
@@ -707,6 +759,9 @@ impl Physics {
             self.world.remove_collider(old);
         }
         let handle = self.world.insert_collider(collider, parent);
+        if self.ignored.iter().any(|&(x, y)| x == id || y == id) {
+            self.flag_hooks_of(handle);
+        }
         self.colliders.insert(id, handle);
         Ok(())
     }
@@ -721,7 +776,7 @@ impl Physics {
         let id = a.id(0)?;
         let flag = |i: usize| matches!(a.0.get(i), Some(Value::Bool(true)));
         match a.str(1)? {
-            "mass" => return self.set_mass(id, a.num(2)?.max(0.0)),
+            "mass" => return self.set_mass(id, a.num(2)?.max(0.0), a.vec3(3).ok()),
             "constraints" => return self.set_constraints(id, a.list(2)?),
             _ => {}
         }
@@ -754,7 +809,12 @@ impl Physics {
                 },
                 true,
             ),
-            "gravityScale" => body.set_gravity_scale(a.num(2)?, true),
+            "gravityScale" => {
+                body.set_gravity_scale(a.num(2)?, true);
+                // A body that fell asleep floating (scale 0) must wake when gravity returns;
+                // rapier's own wake isn't enough.
+                body.wake_up(true);
+            }
             "linearDamping" => body.set_linear_damping(a.num(2)?.max(0.0)),
             "angularDamping" => body.set_angular_damping(a.num(2)?.max(0.0)),
             "ccd" => body.enable_ccd(flag(2)),
@@ -767,22 +827,55 @@ impl Physics {
 
     /// Gives a body `mass` kg, split evenly over its colliders (their shapes still set
     /// how it turns); a body without colliders gets it as extra mass.
-    fn set_mass(&mut self, id: ScriptId, mass: f32) -> Result<(), String> {
+    ///
+    /// A body without colliders has no shape to turn, so `size` (the box it stands for, from its
+    /// object's scale) gives it the inertia of a box of that much mass: without one it could
+    /// move but never rotate, and a hinged chain or door would stay put when pushed.
+    fn set_mass(&mut self, id: ScriptId, mass: f32, size: Option<Vector>) -> Result<(), String> {
         let handle = *self
             .bodies
             .get(&id)
             .ok_or_else(|| format!("no body {id}"))?;
         let colliders: Vec<ColliderHandle> = self.world.bodies[handle].colliders().to_vec();
         if colliders.is_empty() {
-            self.world.bodies[handle].set_additional_mass(mass, true);
+            let body = self.world.bodies.get_mut(handle).ok_or("no body")?;
+            match size {
+                Some(s) if mass > 0.0 => {
+                    let (x, y, z) = (
+                        s.x.abs().max(0.05),
+                        s.y.abs().max(0.05),
+                        s.z.abs().max(0.05),
+                    );
+                    let inertia = Vector::new(
+                        mass * (y * y + z * z) / 12.0,
+                        mass * (x * x + z * z) / 12.0,
+                        mass * (x * x + y * y) / 12.0,
+                    );
+                    body.set_additional_mass_properties(
+                        MassProperties::new(Vector::ZERO, mass, inertia),
+                        true,
+                    );
+                }
+                _ => body.set_additional_mass(mass, true),
+            }
+            // Rapier works the body's mass out on the next step; an impulse before it (a script's
+            // `Awake`) would meet zero mass and do nothing.
+            body.recompute_mass_properties_from_colliders(&self.world.colliders);
             return Ok(());
         }
+        // The mass a body had before it got colliders (the box its scale stood for) is theirs now.
+        self.world.bodies[handle].set_additional_mass_properties(
+            MassProperties::new(Vector::ZERO, 0.0, Vector::ZERO),
+            false,
+        );
         let share = mass / colliders.len() as f32;
         for c in colliders {
             if let Some(collider) = self.world.colliders.get_mut(c) {
                 collider.set_mass(share);
             }
         }
+        // Worked out now, so an impulse right after (a script's `Awake`) sees the new mass.
+        self.world.bodies[handle].recompute_mass_properties_from_colliders(&self.world.colliders);
         self.world.bodies[handle].wake_up(true);
         Ok(())
     }
@@ -987,13 +1080,29 @@ impl Physics {
         }
     }
 
+    /// Makes rapier ask the ignore hooks about a collider's pairs.
+    fn flag_hooks(&mut self, id: ScriptId) {
+        if let Some(&h) = self.colliders.get(&id) {
+            self.flag_hooks_of(h);
+        }
+    }
+
+    fn flag_hooks_of(&mut self, h: ColliderHandle) {
+        if let Some(c) = self.world.colliders.get_mut(h) {
+            c.set_active_hooks(
+                ActiveHooks::FILTER_CONTACT_PAIRS | ActiveHooks::FILTER_INTERSECTION_PAIR,
+            );
+        }
+    }
+
     /// Advances the world by one timestep (`physics.timestep`, 1/60 s by default):
     /// moves character controllers, steps, then answers raycasts and records what moved.
     pub fn step(&mut self) {
         self.move_characters();
         self.hold_pins();
         let events = Events::default();
-        self.world.step_with_events(&(), &events);
+        self.world
+            .step_with_events(&IgnoreHooks(&self.ignored), &events);
         self.hold_pins();
 
         let script_id = |h: ColliderHandle| self.world.colliders.get(h).map(|c| c.user_data as u32);

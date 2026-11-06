@@ -19,6 +19,7 @@ mod bench;
 pub(crate) mod bone_cache;
 mod cdp;
 mod cloth_sync;
+pub(crate) mod color_space;
 pub(crate) mod cook;
 mod cpu_gfx;
 mod crash;
@@ -52,6 +53,7 @@ mod payload;
 mod physics_sync;
 pub(crate) mod postfx;
 mod prefs;
+mod profile;
 pub(crate) mod reload;
 mod render_sync;
 pub(crate) mod sync_profile;
@@ -689,6 +691,7 @@ fn run() -> Result<()> {
         physical_units: manifest.physical_units,
         blending: manifest.blending,
         pipeline_warned: false,
+        profile: profile::Profile::default(),
         frames: 0,
         fps_on: fps::enabled(
             args.fps,
@@ -1000,6 +1003,8 @@ struct App {
     /// How translucent UI colours combine (`blending` in `project.json`), on every renderer.
     blending: platypus_core::project::Blending,
     pipeline_warned: bool,
+    /// `PLATYPUS_PROFILE` timings.
+    profile: profile::Profile,
     /// Scripts' `Cursor`: shown or not, how it's held, and their default image.
     script_cursor: ScriptCursor,
     /// Whether the window has focus (raw mouse motion only counts then).
@@ -2385,7 +2390,9 @@ impl PlatformApp for App {
                 )
             });
         }
+        let t_tick = Instant::now();
         self.tick();
+        let d_tick = t_tick.elapsed();
         let now_ms = self.now_ms();
         self.pump_domains(now_ms);
         platypus_engine_api::window::end_frame();
@@ -2472,7 +2479,9 @@ impl PlatformApp for App {
             ..self.ui.media_env()
         });
         load_images(&mut self.ui, &mut gfx.renderer, &gfx.gpu);
+        let t_draw = Instant::now();
         let cmds = self.ui.draw_list();
+        let d_draw = t_draw.elapsed();
         self.scene.scene.update_world();
         // Screenshot runs never wait for the display (as before vsync was on by default).
         gfx.surface
@@ -2514,6 +2523,7 @@ impl PlatformApp for App {
             .then(|| self.fps.text(self.started.elapsed().as_secs_f64()));
         let fps_overlay = &mut self.fps_overlay;
         let mut cmds = cmds;
+        let t_render = Instant::now();
         surface.present_with(gpu, |view, format, size| {
             let target = RenderTarget {
                 view,
@@ -2535,6 +2545,10 @@ impl PlatformApp for App {
                 &cmds,
             );
         });
+        if profile::enabled() {
+            self.profile
+                .record(d_tick, d_draw, t_render.elapsed(), cmds.len());
+        }
         self.world_view.probes_rendered();
         // What it saw of the renderers animation culling watches (nothing if no view drew).
         if let Some(gfx) = &mut self.gfx {

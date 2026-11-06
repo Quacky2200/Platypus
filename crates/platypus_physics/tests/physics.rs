@@ -641,3 +641,155 @@ fn contact_points_are_read_from_either_side() {
     p.contact_points(2, 99, &mut out);
     assert!(out.is_empty());
 }
+
+// RDY-PHY-01
+#[test]
+fn ignored_collider_pairs_do_not_collide() {
+    let drop = |ignore: bool| {
+        let mut p = Physics::new();
+        floor(&mut p);
+        op(
+            &mut p,
+            "body",
+            vec![num(2.0), "dynamic".into(), arr(&[0.0, 3.0, 0.0])],
+        );
+        op(
+            &mut p,
+            "collider",
+            vec![num(2.0), num(2.0), "box".into(), arr(&[0.5, 0.5, 0.5])],
+        );
+        if ignore {
+            op(&mut p, "ignore", vec![num(2.0), num(1.0)]);
+        }
+        steps(&mut p, 120);
+        p.position(2).unwrap()[1]
+    };
+    assert!((drop(false) - 0.5).abs() < 0.05, "rests on the floor");
+    assert!(drop(true) < -2.0, "falls through an ignored floor");
+
+    // Switching it off again restores the contact (the box is rebuilt mid-air).
+    let mut p = Physics::new();
+    floor(&mut p);
+    op(
+        &mut p,
+        "body",
+        vec![num(2.0), "dynamic".into(), arr(&[0.0, 3.0, 0.0])],
+    );
+    let make = |p: &mut Physics| {
+        op(
+            p,
+            "collider",
+            vec![num(2.0), num(2.0), "box".into(), arr(&[0.5, 0.5, 0.5])],
+        )
+    };
+    make(&mut p);
+    op(&mut p, "ignore", vec![num(1.0), num(2.0)]);
+    make(&mut p); // a rebuilt collider keeps being ignored
+    steps(&mut p, 120);
+    assert!(p.position(2).unwrap()[1] < -2.0);
+    op(
+        &mut p,
+        "ignore",
+        vec![num(1.0), num(2.0), Value::Bool(false)],
+    );
+    op(
+        &mut p,
+        "set",
+        vec![num(2.0), "position".into(), arr(&[0.0, 3.0, 0.0])],
+    );
+    steps(&mut p, 240);
+    assert!((p.position(2).unwrap()[1] - 0.5).abs() < 0.05);
+}
+
+// M4-PHY-09
+#[test]
+fn a_body_asleep_without_gravity_falls_when_gravity_returns() {
+    let mut p = Physics::new();
+    floor(&mut p);
+    op(
+        &mut p,
+        "body",
+        vec![num(2.0), "dynamic".into(), arr(&[0.0, 3.0, 0.0])],
+    );
+    op(
+        &mut p,
+        "collider",
+        vec![num(2.0), num(2.0), "ball".into(), arr(&[0.25])],
+    );
+    op(
+        &mut p,
+        "set",
+        vec![num(2.0), "gravityScale".into(), num(0.0)],
+    );
+    // Long enough to fall asleep floating.
+    steps(&mut p, 600);
+    assert_eq!(p.position(2).unwrap()[1], 3.0);
+    op(
+        &mut p,
+        "set",
+        vec![num(2.0), "gravityScale".into(), num(1.0)],
+    );
+    steps(&mut p, 240);
+    assert!((p.position(2).unwrap()[1] - 0.25).abs() < 0.05);
+}
+
+// RDY-PHY-05
+#[test]
+fn a_collider_less_hinged_chain_swings_when_pushed() {
+    let swing = |limits: Option<(f64, f64)>| {
+        let mut p = Physics::new();
+        op(
+            &mut p,
+            "body",
+            vec![num(1.0), "fixed".into(), arr(&[0.0, 0.0, 0.0])],
+        );
+        op(
+            &mut p,
+            "body",
+            vec![num(2.0), "dynamic".into(), arr(&[0.0, -1.5, 0.0])],
+        );
+        // No collider: its mass and inertia come from the box it stands for.
+        op(
+            &mut p,
+            "set",
+            vec![num(2.0), "mass".into(), num(1.0), arr(&[0.05, 3.0, 1.0])],
+        );
+        let mut params = vec![0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+        if let Some((lo, hi)) = limits {
+            params[3] = 1.0;
+            params[4] = lo;
+            params[5] = hi;
+        }
+        op(
+            &mut p,
+            "joint",
+            vec![
+                num(1.0),
+                "hinge".into(),
+                num(1.0),
+                num(2.0),
+                arr(&[0.0, 0.0, 0.0]),
+                arr(&[0.0, 1.5, 0.0]),
+                arr(&params),
+            ],
+        );
+        op(
+            &mut p,
+            "force",
+            vec![num(2.0), "impulse".into(), arr(&[8.0, 0.0, 0.0])],
+        );
+        let mut far = 0.0f32;
+        for _ in 0..90 {
+            p.step();
+            far = far.max(p.position(2).unwrap()[0]);
+        }
+        far
+    };
+    let free = swing(None);
+    let limited = swing(Some((-45.0, 225.0)));
+    assert!(free > 0.8, "a free chain swung out {free} m");
+    assert!(
+        limited > 0.8,
+        "a chain limited to -45..225 degrees swung out {limited} m"
+    );
+}

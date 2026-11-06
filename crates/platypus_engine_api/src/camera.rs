@@ -348,6 +348,12 @@ pub mod camera_api {
                 .map_or(CameraRef(0), |(c, _)| c)
         }
 
+        /// Every camera that exists, in the order they were made (Unity's `Camera.allCameras`).
+        #[property]
+        pub fn all_cameras() -> Vec<CameraRef> {
+            super::cameras().into_iter().map(|(c, _)| c).collect()
+        }
+
         /// The camera on an object, or none (what `go.getComponent(Camera)` does).
         pub fn find_on(object: ObjectId) -> CameraRef {
             super::camera_on(object).unwrap_or(CameraRef(0))

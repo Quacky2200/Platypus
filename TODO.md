@@ -442,7 +442,7 @@ Where s&box has a custom extension, we prefer the standard CSS form if there is 
 5.1 (SVG); then stop and check in with the user before M4. All done (2026-10-17) except
 `sound-in`/`sound-out`, skipped as s&box-specific (CSS stays about display). Added afterwards: groups 11 (pointer capture),
 12 (WOFF/WOFF2) and 13 (`@media`). Known deviations from browsers go in
-[docs/differences.md](docs/differences.md).
+web-ui `docs/differences.md`.
 
 We're already **ahead** of s&box on: custom properties and `var()` (s&box has none), `!important`
 (accepted but ignored there), attribute selectors, `:checked`/`:disabled`/`:enabled`/`:focus-within`/
@@ -2405,6 +2405,26 @@ Left:
   T12) and modules (M1, M2, M6); a checker of our own or `tsgo` and a conformance harness against bun (G1, G6), before
   wider TypeScript (T2, S1-S9, A1-A2). Also T14 (an engine subclass handle to its base).
 - [x] **Replace `scripts/screenshots.ts` and `scripts/progress-shots.ts` with Rust tools under `tests/tools/`** (2026-10-28: `tests/tools/shots`, `screenshots` and `progress-shots`; `scripts/` and the root `package.json` bun script are gone).
+
+## Readiness port (from `readiness-iron-backup`)
+
+Ported by hand onto Platypus (tests `RDY-*` in TESTS.md):
+- [x] Per-glyph text effects (`textEffect`, `textReveal`, glyph clock in the renderer, `UiTree::is_animating`); in web-ui since the `web-ui-split` merge (web-ui `12eed35`)
+- [x] `PLATYPUS_PROFILE=1` frame profiler
+- [x] Flat sprites (`WorldQuad.flat`); `SpriteRenderer.drawMode` / `size`, `Sprite.border`
+- [x] `Physics2D.ignoreCollision`, `ForceMode2D`, 2D collider `bounds` / `closestPoint`, `HingeJoint2D`, box inertia for collider-less bodies, live 2D impulse velocity
+- [x] `Camera.allCameras`, `EventList` (no type arguments), eased input axes
+- [x] `colorSpace` in `project.json`, alpha bleeding on load and cook (cook VERSION 2), shared `Texture.load`
+
+Not ported:
+- [ ] Animating properties of script (compiled) components by base class and nested paths: the native host passes no `PropertySink` to `animation::update_culled`. Repro: an Animator clip with property `colors.normalColor.a` on a game-defined class does nothing natively.
+- [ ] `EventList<T>` with arguments
+- [ ] `GraphicsSettings.colorSpace` getter
+
+Engine bugs found converting the readiness games (repros):
+- [ ] **A game module's class named like an engine global cannot be registered.** `src/ugui.tsx` of keep-it-alive-ld46 declares `export class Image extends Graphic` and `register({ Image, Text, .. })`: `platypus-build build` fails with ``register(Image): `Image` is not a class of this program`` (the module renames the class to `Image_2`; `register` looks the key up by its old name, and scene files name the class `Image`). Game-side workaround: rename the class and the scene type.
+- [ ] **`@property` on a getter/setter pair fails to compile** ("class RectTransform: decorators are not supported yet"; keep-it-alive's `ugui.tsx` uses it on `RectTransform`, `Graphic`, `UguiImage`, `Text`, `TextMeshProUGUI`). Only `@property` fields work. keep-it-alive-ld46 still does not build natively because of this and of the animation gap above.
+- [ ] **A first render whose text children are all empty strings paints nothing** (streamer-clock's TODO.md): not reproduced by a minimal `<box style={{ backgroundColor: "lime" }}><span>{""}</span><span>{""}</span></box>` (it paints the lime box), so it needs the clock's CSS or its `useEffect` timer; still open.
 
 ## Code review (after the web_ui_ts branch is merged into `main`)
 
