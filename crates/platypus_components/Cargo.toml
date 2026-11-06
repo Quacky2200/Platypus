@@ -9,9 +9,12 @@ publish = false
 license.workspace = true
 
 [dependencies]
-ts_api = { path = "../ts_api", default-features = false }
+ts_api = { workspace = true }
 platypus_kinds = { path = "../platypus_kinds" }
 platypus_physics_api = { path = "../platypus_physics_api" }
-platypus_ts_rt = { path = "../../tools/platypus_ts_rt" }
-platypus_ts = { path = "../../tools/platypus_ts" }
+platypus_ts_rt = { workspace = true }
+platypus_ts = { workspace = true }
 serde_json = "1"
+
+[build-dependencies]
+web_ui_symbols = { workspace = true }

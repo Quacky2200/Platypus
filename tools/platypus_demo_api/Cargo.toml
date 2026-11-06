@@ -9,4 +9,4 @@ publish.workspace = true
 license.workspace = true
 
 [dependencies]
-ts_api = { path = "../../crates/ts_api", default-features = false }
+ts_api = { workspace = true }

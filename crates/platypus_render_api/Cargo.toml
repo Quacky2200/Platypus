@@ -10,7 +10,7 @@ license.workspace = true
 
 [dependencies]
 platypus_animation = { path = "../platypus_animation" }
-ts_api = { path = "../ts_api", default-features = false, features = ["glam"] }
+ts_api = { workspace = true, features = ["glam"] }
 platypus_engine_api = { path = "../platypus_engine_api" }
 platypus_kinds = { path = "../platypus_kinds" }
 platypus_math = { path = "../platypus_math" }

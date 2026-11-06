@@ -12,6 +12,23 @@ publish = false
 license = "Apache-2.0"
 
 # Line tables only: full debug info made 185 PDBs of 8.6 GB; panics and backtraces still show lines.
+
+# web-ui (the TypeScript compiler, its runtime and the UI): the one place its folder is
+# written. From the main checkout it is `../web-ui`; this worktree sits deeper.
+[workspace.dependencies]
+ts_api = { path = "../../../../web-ui/crates/ts_api", default-features = false }
+ts_api_macros = { path = "../../../../web-ui/crates/ts_api_macros" }
+web_ui_core = { path = "../../../../web-ui/crates/web_ui_core" }
+web_ui_render = { path = "../../../../web-ui/crates/web_ui_render" }
+web_ui_symbols = { path = "../../../../web-ui/crates/web_ui_symbols" }
+platypus_ui = { path = "../../../../web-ui/crates/platypus_ui" }
+platypus_ui_native = { path = "../../../../web-ui/crates/platypus_ui_native" }
+platypus_render_gles = { path = "../../../../web-ui/crates/platypus_render_gles", default-features = false }
+platypus_render_cpu = { path = "../../../../web-ui/crates/platypus_render_cpu" }
+platypus_ts = { path = "../../../../web-ui/crates/platypus_ts" }
+platypus_ts_rt = { path = "../../../../web-ui/crates/platypus_ts_rt" }
+platypus_ts_ui = { path = "../../../../web-ui/crates/platypus_ts_ui" }
+
 [profile.dev]
 debug = "line-tables-only"
 

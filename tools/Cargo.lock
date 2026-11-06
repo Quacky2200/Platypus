@@ -1997,6 +1997,7 @@ dependencies = [
  "platypus_ts_rt",
  "serde_json",
  "ts_api",
+ "web_ui_symbols",
 ]
 
 [[package]]
@@ -2174,6 +2175,7 @@ dependencies = [
  "regress",
  "serde_json",
  "ts_api",
+ "web_ui_symbols",
  "writeable",
 ]
 
@@ -2206,13 +2208,13 @@ dependencies = [
 name = "platypus_ts_ui"
 version = "0.1.0"
 dependencies = [
- "platypus_ts",
  "platypus_ts_rt",
  "platypus_ui",
  "platypus_ui_native",
  "serde_json",
  "ts_api",
  "web_ui_core",
+ "web_ui_symbols",
 ]
 
 [[package]]
@@ -2881,6 +2883,10 @@ dependencies = [
  "base64",
  "tracing",
 ]
+
+[[package]]
+name = "web_ui_symbols"
+version = "0.1.0"
 
 [[package]]
 name = "wide"

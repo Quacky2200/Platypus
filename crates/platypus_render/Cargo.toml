@@ -13,7 +13,7 @@ autotests = false
 bytemuck = { version = "1.25.2", features = ["derive"] }
 platypus_core = { version = "0.1.0", path = "../platypus_core" }
 # The UI renderer, GPU and surfaces; re-exported whole.
-web_ui_render = { version = "0.1.0", path = "../web_ui_render" }
+web_ui_render = { workspace = true }
 pollster = "1.0.1"
 tracing = "0.1.44"
 wgpu = "30.0.1"
@@ -21,7 +21,7 @@ lyon_tessellation = "1.0.22"
 
 [dev-dependencies]
 platypus_core = { path = "../platypus_core" }
-platypus_ui = { path = "../platypus_ui" }
+platypus_ui = { workspace = true }
 # The built-in post-process effects (their WGSL and parameters) live there.
 platypus_render_api = { path = "../platypus_render_api" }
 

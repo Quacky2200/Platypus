@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Guard rails for "every declaration is generated from Rust" (docs/research/platypus-generated-dts-plan.md):
-//! no hand-written `.d.ts` file (and the TypeScript compiled into games only on a short list), the
-//! compiler built-ins declare no engine name again, and a snapshot of the API surface `tsc` sees.
+//! the compiler built-ins declare no engine name again, and a snapshot of the API surface `tsc` sees.
+//! (The guard against hand-written `.d.ts` files, `M9-TS-3100`, moved to web-ui with the compiler.)
 
 use oxc_allocator::Allocator;
 use oxc_ast::ast::{Statement, TSNamespaceDeclarationBody};
@@ -11,109 +11,6 @@ use oxc_parser::Parser;
 use oxc_span::{GetSpan, SourceType};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
-
-fn repo() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
-}
-
-fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
-    let Ok(rd) = std::fs::read_dir(dir) else {
-        return;
-    };
-    for e in rd.flatten() {
-        let p = e.path();
-        let name = e.file_name().to_string_lossy().to_string();
-        if p.is_dir() {
-            if matches!(
-                name.as_str(),
-                "target" | "node_modules" | "build" | "types" | ".git" | ".claude"
-            ) {
-                continue;
-            }
-            walk(&p, out);
-        } else {
-            out.push(p);
-        }
-    }
-}
-
-fn rel(p: &Path) -> String {
-    p.strip_prefix(repo())
-        .unwrap_or(p)
-        .to_string_lossy()
-        .replace('\\', "/")
-}
-
-/// Hand-written TypeScript compiled into games, each with why it is not Rust yet. (`facade.ts`, the
-/// engine adapters, is gone: the compiler writes those functions from the manifests.)
-const ALLOWED_TS: &[(&str, &str)] = &[
-    (
-        "tools/platypus_ts/src/lower/ui.ts",
-        "the hook helpers (useState, useReducer, useRef, useMemo, useContext, ...): generic over the program's own types, so they are          monomorphised per use by the compiler and cannot be one native function; TODO: lower them in Rust (jsx.rs) as IR          over the native slots of platypus_ts_ui once the compiler can emit generic calls into a native library",
-    ),
-    (
-        "tools/platypus_ts/src/lower/temporal.ts",
-        "the Temporal runtime library (decision 2: moved to Rust long term, not in this pass)",
-    ),
-];
-
-// M9-TS-3100
-#[test]
-fn no_new_hand_written_declaration_files_appear() {
-    let mut files = Vec::new();
-    walk(&repo().join("tools"), &mut files);
-    let found: BTreeSet<String> = files
-        .iter()
-        .map(|p| rel(p))
-        .filter(|r| r.ends_with(".d.ts"))
-        .collect();
-    assert!(
-        found.is_empty(),
-        "hand-written .d.ts files are not allowed (declare it in #[ts_api], platypus_ui::tables or tools/platypus_ts/src/builtins.rs): {found:?}"
-    );
-    // No Rust source may include a declaration file either.
-    let mut included = BTreeSet::new();
-    for p in &files {
-        if p.extension().is_some_and(|e| e == "rs") {
-            let Ok(t) = std::fs::read_to_string(p) else {
-                continue;
-            };
-            for l in t.lines() {
-                if l.contains("include_str!(") && l.contains(".d.ts\"") {
-                    let name = l.split('"').nth(1).unwrap_or("");
-                    included.insert(name.rsplit('/').next().unwrap_or("").to_string());
-                }
-            }
-        }
-    }
-    assert!(
-        included.is_empty(),
-        "include_str! of a declaration file: {included:?}"
-    );
-    let ts: BTreeSet<String> = files
-        .iter()
-        .map(|p| rel(p))
-        .filter(|r| {
-            r.starts_with("tools/platypus_ts/src/lower/")
-                && r.ends_with(".ts")
-                && !r.ends_with(".d.ts")
-        })
-        .collect();
-    let allowed_ts: BTreeSet<String> = ALLOWED_TS.iter().map(|(p, _)| p.to_string()).collect();
-    assert_eq!(
-        ts, allowed_ts,
-        "TypeScript compiled into games: list it in ALLOWED_TS with a reason and a TODO, or move it to Rust"
-    );
-    let py: BTreeSet<String> = files
-        .iter()
-        .map(|p| rel(p))
-        .filter(|r| r.ends_with(".py") && r.starts_with("tools/platypus_ts/"))
-        .collect();
-    assert!(
-        py.is_empty(),
-        "no Python step under tools/platypus_ts: {py:?}"
-    );
-}
 
 /// The top-level names the manifests declare (namespaces, classes, value classes, handle types,
 /// enums, records, aliases, globals).

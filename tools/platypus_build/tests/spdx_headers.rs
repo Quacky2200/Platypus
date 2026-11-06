@@ -18,7 +18,6 @@ const EXTENSIONS: &[&str] = &[
 const EXCLUDED: &[&str] = &[
     // Generated: rewritten by their generators, which would drop the line.
     "crates/platypus_render_api/src/generated.rs",
-    "tools/platypus_ts_rt/src/intl_pad.rs",
     "tools/platypus_ts_tests/bench/datefmt.ts",
     "tools/platypus_ts_tests/bench/gen_datefmt_expected.ts",
     "tools/platypus_ts_tests/bench/intl4.ts",

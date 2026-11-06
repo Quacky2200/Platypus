@@ -9,7 +9,7 @@ publish.workspace = true
 license.workspace = true
 
 [dependencies]
-web_ui_core = { path = "../web_ui_core" }
+web_ui_core = { workspace = true }
 glam = "0.34.1"
 flate2 = "1.1.10"
 crc32fast = "1.5.3"

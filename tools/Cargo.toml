@@ -4,7 +4,8 @@
 # The AOT script compiler spike. Its own workspace so engine builds never see it.
 [workspace]
 resolver = "3"
-members = ["platypus_ts", "platypus_ts_rt", "platypus_ts_tests", "platypus_demo_api", "platypus_ts_ui", "platypus_build", "platypus_notices", "../tests/tools/shots"]
+# The compiler, its runtime and the UI bridge live in web-ui (`[workspace.dependencies]` below).
+members = ["platypus_ts_tests", "platypus_demo_api", "platypus_build", "platypus_notices", "../tests/tools/shots"]
 
 [workspace.package]
 version = "0.1.0"
@@ -14,6 +15,23 @@ license = "Apache-2.0"
 
 # No debug info: with 56 test executables each carrying its own PDB, a build wrote 86 GB of them and the disk
 # (not the CPU or RAM) was the bottleneck. Backtraces keep their file and line from panic locations.
+
+# web-ui (the TypeScript compiler, its runtime and the UI): the one place its folder is
+# written. From the main checkout it is `../web-ui`; this worktree sits deeper.
+[workspace.dependencies]
+ts_api = { path = "../../../../../web-ui/crates/ts_api", default-features = false }
+ts_api_macros = { path = "../../../../../web-ui/crates/ts_api_macros" }
+web_ui_core = { path = "../../../../../web-ui/crates/web_ui_core" }
+web_ui_render = { path = "../../../../../web-ui/crates/web_ui_render" }
+web_ui_symbols = { path = "../../../../../web-ui/crates/web_ui_symbols" }
+platypus_ui = { path = "../../../../../web-ui/crates/platypus_ui" }
+platypus_ui_native = { path = "../../../../../web-ui/crates/platypus_ui_native" }
+platypus_render_gles = { path = "../../../../../web-ui/crates/platypus_render_gles", default-features = false }
+platypus_render_cpu = { path = "../../../../../web-ui/crates/platypus_render_cpu" }
+platypus_ts = { path = "../../../../../web-ui/crates/platypus_ts" }
+platypus_ts_rt = { path = "../../../../../web-ui/crates/platypus_ts_rt" }
+platypus_ts_ui = { path = "../../../../../web-ui/crates/platypus_ts_ui" }
+
 [profile.dev]
 debug = false
 

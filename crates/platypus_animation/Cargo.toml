@@ -10,7 +10,7 @@ license.workspace = true
 
 [dependencies]
 glam = "0.34.1"
-ts_api = { path = "../ts_api", default-features = false }
+ts_api = { workspace = true }
 platypus_math = { path = "../platypus_math" }
 platypus_scene = { path = "../platypus_scene" }
 serde_json = { version = "1", features = ["float_roundtrip"] }

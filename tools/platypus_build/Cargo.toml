@@ -13,8 +13,8 @@ name = "platypus-build"
 path = "src/main.rs"
 
 [dependencies]
-platypus_ts = { path = "../platypus_ts" }
-platypus_ts_ui = { path = "../platypus_ts_ui" }
+platypus_ts = { workspace = true }
+platypus_ts_ui = { workspace = true }
 platypus_engine_api = { path = "../../crates/platypus_engine_api" }
 platypus_scene = { path = "../../crates/platypus_scene" }
 platypus_scenes = { path = "../../crates/platypus_scenes" }
