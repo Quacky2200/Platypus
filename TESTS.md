@@ -2396,3 +2396,6 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WAPI-VIB-02 | Unit | The `navigator` manifest declares `vibrate` and carries the facade that takes `number | number[]`. |
 | WAPI-VIB-03 | Unit | A compiled program calls `navigator.vibrate(200)` (returns `true`), a list, and `0` (stops); the plugin takes `[200]`, `[100, 50, 100]` and `[]`. |
 | WAPI-VIB-04 | Manual | `navigator.vibrate([300, 200, 300])` with a gamepad that has force feedback connected: it rumbles twice. |
+| WAPI-GEO-01 | Unit | A position or error becomes the facade's JSON (`NaN` and missing values are `null`, quotes escaped); `PositionOptions` are read (a negative timeout is none, `maximumAge` 0 asks fresh). |
+| WAPI-GEO-02 | Unit | With a fake locator, a compiled program gets a typed `GeolocationPosition` from `getCurrentPosition`, a `GeolocationPositionError` (code 3) through the optional `error` callback, and two changing positions from `watchPosition` until `clearWatch`. |
+| WAPI-GEO-03 | Manual | On Windows with location on for desktop apps, `getCurrentPosition` gives this machine's rough position; with it off, `error` gets code 1. |
