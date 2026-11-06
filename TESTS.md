@@ -2379,3 +2379,16 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | OS-FS-03 | Unit | A compiled program makes a temporary folder, writes / appends / reads text, stats a file, round-trips bytes as a `Uint8Array`, renames, copies, lists a folder (sorted, typed entries) and removes it recursively. |
 | OS-FS-04 | Unit | A missing file and an existing folder throw `Error`s with Node's codes (`ENOENT`, `EEXIST`), caught by the program. |
 | OS-PRC-01 | Unit | `process.env` (a `Record`) and `getEnv` see the environment (`null` for an unset name), `cwd` is absolute, `argv` and `pid` are there, `run` gives a child's status and output, and a missing program throws `ENOENT`. |
+| WUI-TS-04 | Unit | A facade's plain or `async` top-level `function name(..)` is declared as a global `declare function`; `async function __xm_..` is a member; `__` functions are helpers. |
+| WUI-TASK-01 | Unit | `ts_api::task::pending`: values completed on another thread wait until `pump()` on the script thread, then settle in order; `outstanding()` counts the waiting ones. |
+| WUI-TASK-02 | Unit | A cancelled task or one whose `Completer` is dropped never settles and is forgotten. |
+| WUI-TASK-03 | Unit | `ts_api::task::feed`: every value a `Feed` (and its clones) sends arrives in order; the stream is forgotten when the last clone goes. |
+| NET-POL-01 | Unit | Schemes and the host list follow the policy (`*.domain` matches names under it, never the domain itself; case and a trailing dot ignored). |
+| NET-POL-02 | Unit | Only public addresses pass when private ones are blocked (loopback, RFC 1918, link-local, CGNAT, multicast, broadcast, unique-local, IPv4-mapped forms); any private address in a name's answers refuses it. |
+| NET-POL-03 | Unit | Framing headers (`Host`, `Content-Length`, ..) are forbidden and others (`Authorization`, `Cookie`) are not. |
+| NET-POL-04 | Unit | A strict policy refuses `http:`, unlisted hosts and private IP literals before sending, and a listed name that resolves to loopback when it resolves; the default is open. |
+| NET-FET-01 | Unit | A compiled program fetches from a local server: status / ok / statusText, headers, text once (`bodyUsed`, a second read rejects), `json<T>()`, POST with headers and a body, a 404 resolving, a followed redirect (`redirected`) and `redirect: "manual"` (the 302). |
+| NET-FET-02 | Unit | `fetch` rejects a bad URL and another scheme with `TypeError: fetch failed`; `AbortController.abort()` rejects with `AbortError` and sets `signal.aborted`; `AbortSignal.timeout(50)` rejects with `TimeoutError`. |
+| NET-HDR-01 | Unit | `Headers` joins a name's values with `", "`, ignores case, gives `null` for a missing name and iterates sorted lower-case names (`keys`, `forEach`). |
+| NET-WS-01 | Unit | A compiled program opens a WebSocket to a local echo server: `send` while connecting throws `InvalidStateError`, `open` (readyState `OPEN`), a text and a binary echo, `close(1000)` ends clean with readyState 3. |
+| NET-WS-02 | Unit | A WebSocket to a bad URL reports `error` then `close` 1006 (not clean) after the program's listeners are added; `close(1001)` throws `InvalidAccessError`. |
