@@ -2370,3 +2370,12 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WAPI-WRK-05 | Unit | Workers that fail to compile or whose URL the host can't load end without messages. |
 | WAPI-WRK-06 | Unit | `build` bundles every `new Worker("<literal>")` program and the workers they start into `workers` (by URL as written); a missing one is a warning. |
 | WAPI-WRK-07 | Manual | `web-ui run examples/hello-app` (release): the worker counts the primes below 5,000,000 and the page shows 348513. |
+| WUI-TS-03 | Unit | A facade's `__xp_O_p(): R` is declared as the read-only static `readonly p: R;` of `O`, and `__xg_C_p(self: C): R` as the read-only member property of `C`. |
+| OS-PATH-01 | Unit | POSIX `path` rules as Node's: `join`, `normalize` (`..` past the root dropped), `resolve` (from the right, then the working folder), `dirname`, `basename` with an extension, `extname` (a leading dot is no extension), `relative`, `isAbsolute`. |
+| OS-PATH-02 | Unit | Windows `path` rules: drives, both separators, `\\server\share` roots, another drive in `resolve`, `relative` without case and across drives. |
+| OS-PATH-03 | Unit | A compiled program calls `path.join(...parts)` (rest), `path.basename(p, ext)` (optional), `resolve`, `relative` and `path.sep`. |
+| OS-FS-01 | Unit | The `fs` and `process` d.ts declare the facades and leave out the `#[hidden]` natives (`takeError`, `envPairs`); the manifest JSON marks them hidden and carries the facade. |
+| OS-FS-02 | Unit | A failed read leaves `ENOENT: no such file or directory, open '<path>'` for `fs.takeError()`, which clears it. |
+| OS-FS-03 | Unit | A compiled program makes a temporary folder, writes / appends / reads text, stats a file, round-trips bytes as a `Uint8Array`, renames, copies, lists a folder (sorted, typed entries) and removes it recursively. |
+| OS-FS-04 | Unit | A missing file and an existing folder throw `Error`s with Node's codes (`ENOENT`, `EEXIST`), caught by the program. |
+| OS-PRC-01 | Unit | `process.env` (a `Record`) and `getEnv` see the environment (`null` for an unset name), `cwd` is absolute, `argv` and `pid` are there, `run` gives a child's status and output, and a missing program throws `ENOENT`. |
