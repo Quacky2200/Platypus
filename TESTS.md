@@ -2323,3 +2323,18 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | RDY-TXT-05 | Unit | `UiTree::is_animating` is true only while text with an always-on effect is drawn (not for entrances like `drop`, nor plain text). |
 | RDY-TXT-06 | Unit | Entrances keep their shapes: fade only fades; zoom-in grows from nothing, zoom-out shrinks from double; drop overshoots; pixar bounce arrives from the right and hops; blink is fully on or off, random per glyph while arriving, then lit with rare dips. |
 | RDY-TXT-07 | Headless render | Glyphs age by real time (`UiRenderer::set_effect_time`) from when they were first drawn shown: settled glyphs match plain text when a fourth appears (still arriving), and after a pause with the reveal unchanged it has finished arriving. |
+
+## web-ui facade (`web_ui`, `web_ui_c`, in the web-ui repo)
+
+| ID | Kind | Checks |
+|---|---|---|
+| WUI-APP-01 | Unit | `web_ui::Program`: `createRoot().render(..)` mounts the screen's root, the draw list is not empty, and pointer clicks over a box run its `onClick` (twice: `clicks 2`); a click outside runs nothing. |
+| WUI-APP-02 | Unit | Timers run from the frame clock: a `setTimeout(.., 100)` set in an effect has not fired at 50 ms and has at 150 ms. |
+| WUI-APP-03 | Unit | winit pointer positions become logical pixels (divided by the scale factor), a wheel line is 40 pixels with the DOM's sign, and buttons get the DOM's numbers (right = 2). |
+| WUI-APP-04 | Unit | Keys get DOM `key` / `code` names (`a` / `KeyA`, `Enter`, `" "` / `Space`); control characters type no text; repeats and releases carry over. |
+| WUI-APP-05 | Unit | A plugin given as manifest JSON plus a registered (name, address) symbol is callable from the program (`Calc.twice(21)` shows 42). |
+| WUI-APP-06 | Unit | A program that does not compile is an `Err` naming the unknown name, not a panic. |
+| WUI-APP-07 | Unit | An entry file follows its relative imports and loads the stylesheet it imports (`.big` sizes the box to 123 x 45). |
+| WUI-C-01 | Unit | `web_ui_register` refuses NULL, non-JSON, a manifest without a namespace and a count without symbols (-1); a good plugin returns 0, its symbols are found by name and its manifest is kept for `web_ui_start`. |
+| WUI-C-02 | Unit | `web_ui_start` with NULL options, or options with neither an entry nor a source, returns exit code 1 without opening a window. |
+| WUI-EX-01 | Manual | `cargo run -p hello-rust -- --screenshot out.png` and `cargo run -p hello-c -- --screenshot out.png` open a window, draw the app (the Rust plugin's greeting; the C plugin's counter) and write the picture. |
