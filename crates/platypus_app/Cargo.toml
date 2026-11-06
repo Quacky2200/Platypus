@@ -58,6 +58,7 @@ static-angle = ["web_ui_render_gles/static-angle"]
 
 # The build script turns resources/icon/icon.png into the window icon and the exe's icon.
 [build-dependencies]
+platypus_core = { path = "../platypus_core" }
 image = { version = "0.25.10", default-features = false, features = ["png"] }
 
 [target.'cfg(windows)'.dependencies]

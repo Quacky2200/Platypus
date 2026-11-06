@@ -11,10 +11,7 @@ use image::imageops::FilterType;
 use image::{ImageFormat, RgbaImage};
 use std::path::PathBuf;
 
-// Shared with platypus_core (only `std`), so the build script needs no crate of ours.
-#[path = "../platypus_core/src/icon.rs"]
-#[allow(dead_code)] // the build script uses part of the module
-mod icon;
+use platypus_core::icon;
 
 /// The window icon's side in pixels (Windows scales it to the title bar and taskbar).
 const WINDOW_ICON: u32 = 256;
@@ -35,7 +32,6 @@ fn main() {
         }
     }
     println!("cargo:rerun-if-changed=build.rs");
-    println!("cargo:rerun-if-changed=../platypus_core/src/icon.rs");
     println!("cargo:rerun-if-changed=../../resources/icon/icon.png");
 
     let out = PathBuf::from(std::env::var_os("OUT_DIR").expect("OUT_DIR"));

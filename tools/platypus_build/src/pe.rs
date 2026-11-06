@@ -1,77 +1,35 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Windows resources of the packaged executable: the icon and the VERSIONINFO block, written
-//! into a copy of the host's PE file with the `editpe` crate (no `rc.exe`, no external tool).
-//! Must run before the payload is appended and before any signing (`docs/research/platypus-code-signing.md`).
+//! Windows resources of the packaged game: web-ui's `web_ui_build::pe` with the version strings
+//! taken from the game's metadata. Must run before the payload is appended and before any signing
+//! (`docs/research/platypus-code-signing.md`).
 
 use crate::package::Metadata;
-use editpe::constants::RT_GROUP_ICON;
-use editpe::types::{VersionU16, VersionU32};
-use editpe::{Image, ResourceEntryName, VersionInfo, VersionStringTable};
 use platypus_core::icon::PRODUCT_NAME;
+pub use web_ui_build::pe::{ExeInfo, Resources, read_resources, version_info, version_quad};
 
-/// US English, Unicode: the key of the string table and the `Translation` value.
-const LANG_KEY: &str = "040904b0";
-
-/// `"1.2.3-beta"` as the four numbers of a Windows file version (`[1, 2, 3, 0]`).
-pub fn version_quad(version: &str) -> [u16; 4] {
-    let mut out = [0u16; 4];
-    let numeric = version.split(['-', '+']).next().unwrap_or("");
-    for (slot, part) in out.iter_mut().zip(numeric.split('.')) {
-        *slot = part.trim().parse().unwrap_or(0);
-    }
-    out
-}
-
-/// The VERSIONINFO block for `meta`.
-pub fn version_info(meta: &Metadata) -> VersionInfo {
-    let q = version_quad(&meta.version);
-    let packed = VersionU32 {
-        major: (u32::from(q[0]) << 16) | u32::from(q[1]),
-        minor: (u32::from(q[2]) << 16) | u32::from(q[3]),
-    };
-    let mut table = VersionStringTable {
-        key: LANG_KEY.into(),
-        ..Default::default()
-    };
-    let file = meta.file_name();
-    // Task Manager and Explorer show FileDescription as the program's name: the description,
-    // else the title, else Platypus.
-    let or_platypus = |s: &str| if s.is_empty() { PRODUCT_NAME } else { s }.to_string();
-    let product = or_platypus(&meta.title);
-    let description = if meta.description.is_empty() {
-        product.clone()
+/// The version strings of `meta`: Task Manager and Explorer show FileDescription as the
+/// program's name: the description, else the title, else Platypus.
+pub fn exe_info(meta: &Metadata) -> ExeInfo {
+    let product = if meta.title.is_empty() {
+        PRODUCT_NAME.to_string()
     } else {
-        meta.description.clone()
+        meta.title.clone()
     };
-    let fields = [
-        ("CompanyName", meta.company.as_str()),
-        ("FileDescription", description.as_str()),
-        ("FileVersion", meta.version.as_str()),
-        ("InternalName", meta.exe.as_str()),
-        ("LegalCopyright", meta.copyright.as_str()),
-        ("OriginalFilename", file.as_str()),
-        ("ProductName", product.as_str()),
-        ("ProductVersion", meta.version.as_str()),
-    ];
-    for (k, v) in fields {
-        table.strings.insert(k.into(), v.into());
+    ExeInfo {
+        description: if meta.description.is_empty() {
+            product.clone()
+        } else {
+            meta.description.clone()
+        },
+        product,
+        company: meta.company.clone(),
+        version: meta.version.clone(),
+        copyright: meta.copyright.clone(),
+        exe: meta.exe.clone(),
+        comments: (meta.license != "private").then(|| format!("License: {}", meta.license)),
     }
-    if meta.license != "private" {
-        table
-            .strings
-            .insert("Comments".into(), format!("License: {}", meta.license));
-    }
-    let mut info = VersionInfo::default();
-    info.info.file_version = packed;
-    info.info.product_version = packed;
-    info.strings = vec![table];
-    info.vars = vec![VersionU16 {
-        major: 0x0409,
-        minor: 0x04b0,
-    }];
-    info
 }
 
 /// `host` (a PE file) with the icon (`.ico` bytes) and version info of `meta` set.
@@ -80,88 +38,7 @@ pub fn set_resources(
     meta: &Metadata,
     ico: Option<&[u8]>,
 ) -> Result<Vec<u8>, String> {
-    let mut image = Image::parse(host).map_err(|e| format!("host is not a PE file: {e}"))?;
-    let mut res = image.resource_directory().cloned().unwrap_or_default();
-    if let Some(ico) = ico {
-        // Replace the host's own icon rather than add to it.
-        res.remove_main_icon().map_err(|e| format!("icon: {e}"))?;
-        res.set_main_icon(ico.to_vec())
-            .map_err(|e| format!("icon: {e}"))?;
-    }
-    res.set_version_info(&version_info(meta))
-        .map_err(|e| format!("version info: {e}"))?;
-    image
-        .set_resource_directory(res)
-        .map_err(|e| format!("resources: {e}"))?;
-    let mut out = Vec::new();
-    image
-        .write_writer(&mut out)
-        .map_err(|e| format!("writing the executable: {e}"))?;
-    Ok(out)
-}
-
-/// What a PE file's resources say, for checks: the string table of the version info and the
-/// sizes (as `ico_sizes`) of the main icon group.
-pub struct Resources {
-    pub strings: Vec<(String, String)>,
-    pub file_version: [u16; 4],
-    pub product_version: [u16; 4],
-    pub icon_sizes: Vec<(u32, u32)>,
-}
-
-pub fn read_resources(pe: &[u8]) -> Result<Resources, String> {
-    let image = Image::parse(pe).map_err(|e| format!("not a PE file: {e}"))?;
-    let res = image
-        .resource_directory()
-        .ok_or("no resource directory")?
-        .clone();
-    let vi = res
-        .get_version_info()
-        .map_err(|e| e.to_string())?
-        .ok_or("no version info")?;
-    let strings = vi
-        .strings
-        .first()
-        .map(|t| {
-            t.strings
-                .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect()
-        })
-        .unwrap_or_default();
-    let split = |v: VersionU32| {
-        let (a, b) = (v.major, v.minor);
-        [(a >> 16) as u16, a as u16, (b >> 16) as u16, b as u16]
-    };
-    let mut icon_sizes = Vec::new();
-    let group = res
-        .root()
-        .get(ResourceEntryName::ID(RT_GROUP_ICON as u32))
-        .and_then(|e| e.as_table())
-        .and_then(|t| t.get(ResourceEntryName::from_string("MAINICON")))
-        .and_then(|e| e.as_table());
-    if let Some(table) = group
-        && let Some(name) = table.entries().first()
-        && let Some(data) = table.get(*name).and_then(|e| e.as_data())
-    {
-        // GRPICONDIR: reserved, type, count; then 14-byte entries starting with width, height.
-        let d = data.data();
-        let n = d
-            .get(4..6)
-            .map_or(0, |c| u16::from_le_bytes([c[0], c[1]]) as usize);
-        for i in 0..n {
-            if let Some(e) = d.get(6 + i * 14..6 + i * 14 + 2) {
-                let dim = |b: u8| if b == 0 { 256 } else { u32::from(b) };
-                icon_sizes.push((dim(e[0]), dim(e[1])));
-            }
-        }
-    }
-    Ok(Resources {
-        strings,
-        file_version: split(vi.info.file_version),
-        product_version: split(vi.info.product_version),
-        icon_sizes,
-    })
+    web_ui_build::pe::set_resources(host, &exe_info(meta), ico)
 }
 
 #[cfg(all(test, windows))]

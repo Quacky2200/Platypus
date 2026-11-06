@@ -14,7 +14,6 @@ mod alpha;
 pub mod glob;
 pub mod icon;
 pub mod meta;
-pub mod payload;
 pub mod project;
 pub mod project_edit;
 pub mod renderer;
@@ -26,3 +25,4 @@ pub use web_ui_core::{
     decode_data_url, plan_warning, read_asset, read_asset_string, resolve_asset,
     resolve_asset_quiet, set_asset_fs, set_pack_plan, with_asset_fs,
 };
+pub use web_ui_core::{payload, unpack};

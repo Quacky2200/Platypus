@@ -2004,8 +2004,6 @@ dependencies = [
 name = "platypus_core"
 version = "0.1.0"
 dependencies = [
- "crc32fast",
- "flate2",
  "glam 0.34.1",
  "serde_json",
  "web_ui_core",
@@ -2814,7 +2812,10 @@ name = "web_ui_build"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "editpe",
+ "image",
  "serde_json",
+ "web_ui_core",
  "web_ui_ts",
 ]
 
@@ -2823,6 +2824,8 @@ name = "web_ui_core"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "crc32fast",
+ "flate2",
  "tracing",
 ]
 
