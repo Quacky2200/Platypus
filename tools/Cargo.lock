@@ -1967,7 +1967,6 @@ dependencies = [
 name = "platypus_build"
 version = "0.1.0"
 dependencies = [
- "base64",
  "editpe",
  "image",
  "oxc_allocator",
@@ -1984,6 +1983,7 @@ dependencies = [
  "platypus_scenes",
  "serde_json",
  "web_ui_bridge",
+ "web_ui_build",
  "web_ui_ts",
 ]
 
@@ -2807,6 +2807,15 @@ dependencies = [
  "web_ui_react",
  "web_ui_rt",
  "web_ui_symbols",
+]
+
+[[package]]
+name = "web_ui_build"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "serde_json",
+ "web_ui_ts",
 ]
 
 [[package]]

@@ -2338,3 +2338,8 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WUI-C-01 | Unit | `web_ui_register` refuses NULL, non-JSON, a manifest without a namespace and a count without symbols (-1); a good plugin returns 0, its symbols are found by name and its manifest is kept for `web_ui_start`. |
 | WUI-C-02 | Unit | `web_ui_start` with NULL options, or options with neither an entry nor a source, returns exit code 1 without opening a window. |
 | WUI-EX-01 | Manual | `cargo run -p hello-rust -- --screenshot out.png` and `cargo run -p hello-c -- --screenshot out.png` open a window, draw the app (the Rust plugin's greeting; the C plugin's counter) and write the picture. |
+| WUI-APP-08 | Unit | `Source::Bundle`: a bundle built by `web_ui_build::build` starts with its sources deleted; its embedded CSS sizes the box (77 x 11) and assets resolve from the folder above `build/`. |
+| WUI-BLD-01 | Unit | `AppBundle::parse` reads `source`, `cssText`, `assets` and `title`, ignores keys it doesn't know (`renderer`), and refuses format 2, a missing `source` and non-JSON. |
+| WUI-BLD-02 | Unit | `AppBundle::stylesheet`: `cssText` wins over the loose file (and counts as `<bundle>.css`); without it the loose `css` file, else `<bundle>.css`, is read; neither: none. |
+| WUI-BLD-03 | Unit | `web_ui_build::build` follows the entry's imports, embeds its imported CSS as `cssText` (`@import`s first), and writes no `cssText` for a program without stylesheets. |
+| WUI-BLD-04 | Unit | `platypus-build build` writes the bundled CSS into `game.pbundle` as `cssText` as well as `build/game.css`; `platypus-app` applies `cssText` and falls back to `game.css` for older bundles. |

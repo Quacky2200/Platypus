@@ -12,7 +12,8 @@
 
 pub mod assets;
 pub mod bench;
-pub mod css;
+/// The CSS bundler lives in web-ui (`web_ui_build::css`).
+pub use web_ui_build::css;
 pub mod dev;
 pub mod icon;
 pub mod include;
@@ -669,13 +670,17 @@ pub fn build(root: &Path, opts: &Options) -> Result<Report, String> {
         let _ = std::fs::remove_file(&inspector_css);
     }
     let mut css_name = None;
+    let mut css_text = None;
     let mut copied = Vec::new();
     if !css_paths.is_empty() {
         let out = css::bundle(&css_paths, &out_dir).map_err(|e| e.to_string())?;
         warnings.extend(out.warnings);
         copied = out.copied;
+        // Embedded in the bundle (hosts apply `cssText`) and still written loose, for the dev
+        // reload watcher and older hosts.
         write_atomic(&out_dir.join("game.css"), out.css.as_bytes()).map_err(|e| e.to_string())?;
         css_name = Some("game.css".to_string());
+        css_text = Some(out.css);
     } else {
         let _ = std::fs::remove_file(out_dir.join("game.css"));
     }
@@ -777,6 +782,7 @@ pub fn build(root: &Path, opts: &Options) -> Result<Report, String> {
         "source": bundle.source,
         "files": bundle.files,
         "css": css_name,
+        "cssText": css_text,
         "assets": names,
         "patterns": patterns.iter().map(|p| serde_json::json!({
             "glob": p.glob, "at": p.at, "matches": p.matches,
@@ -975,6 +981,8 @@ mod tests {
                 .unwrap();
         assert_eq!(b["format"], 1);
         assert_eq!(b["css"], "game.css");
+        // WUI-BLD-04: the CSS is embedded too.
+        assert_eq!(b["cssText"].as_str().unwrap().trim(), ".a { color: red }");
         assert!(b["source"].as_str().unwrap().contains("function twice"));
         assert!(r.object_bytes > 0);
         // M9-TS-3413: the debug sidecar says which file each bundle line came from, and which source.

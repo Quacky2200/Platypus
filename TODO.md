@@ -2330,7 +2330,7 @@ What would have been a Platypus app becomes a web-ui app: a TS/TSX/CSS program p
 
 ### Part 2: app parity with Platypus apps
 
-- [ ] **CSS embedded:** every `import "./x.css"` the module graph sees (with `@import` and `url()` assets) goes into the bundle and applies at start; a loose `game.css` is still read when the bundle has none.
+- [x] **CSS embedded** (2026-11-06): every `import "./x.css"` the module graph sees (with `@import` and `url()` assets) goes into the bundle as `cssText` and applies at start; a loose `game.css` is still read when the bundle has none. The bundler (`css.rs`) and the bundle format moved to web-ui's `web_ui_build` (`AppBundle`, `build`); `platypus-build` writes `cssText` (and still `game.css`, for the dev watcher); `platypus-app` and `web_ui::App` (`.pbundle`) apply it. Checked: `examples/css` draws fully styled with `build/game.css` deleted. `WUI-BLD-01..04`, `WUI-APP-08`.
 - [ ] **Packaging:** `web-ui build` / `web-ui package` as `platypus-build` has them: one executable holding the launcher, the bundle, CSS and assets, icon and version info, licence notices. Windows `.exe`, macOS app; Linux an executable that links the shared `libweb_ui.so` (or a static build on request).
 - [ ] **App layout:** `project.json`, `src/` (entry, `src/modules/` for TS modules), `src/plugins/` (Rust crates: `#[ts_api]` namespaces built into the app's launcher), `assets/`.
 - [ ] **Example Rust plugin:** a small app with one `src/plugins/` crate whose namespace the TS calls (values, a handle class, a callback, a promise).

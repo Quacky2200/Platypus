@@ -47,6 +47,8 @@ pub struct Bundle {
     pub source: String,
     /// The bundled stylesheet, relative to `build/`, if any.
     pub css: Option<String>,
+    /// The bundled stylesheet's text, embedded (`cssText`): applied instead of the loose file.
+    pub css_text: Option<String>,
     /// Assets the game names, relative to the game folder.
     pub assets: Vec<String>,
     pub title: Option<String>,
@@ -88,6 +90,7 @@ impl Bundle {
         Ok(Bundle {
             source: text("source").ok_or_else(|| anyhow!("the bundle has no `source`"))?,
             css: text("css"),
+            css_text: text("cssText"),
             assets: v["assets"]
                 .as_array()
                 .map(|a| {
@@ -991,6 +994,9 @@ mod tests {
         .unwrap();
         assert_eq!(b.source, "let a = 1;");
         assert_eq!(b.css.as_deref(), Some("game.css"));
+        assert_eq!(b.css_text, None, "an older bundle: the loose file");
+        let embedded = Bundle::parse(r#"{"format":1,"source":"","cssText":".a{}"}"#).unwrap();
+        assert_eq!(embedded.css_text.as_deref(), Some(".a{}"));
         assert_eq!(b.assets, ["assets/x.png"]);
         assert_eq!(b.tier, Tier::World3d, "no `renderer`: the 3D world");
         // M3-INS-04

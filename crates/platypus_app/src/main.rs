@@ -587,12 +587,16 @@ fn run() -> Result<()> {
     native_pump::seed_asset_index(&info);
     info.set("display", display::state(None, &display_settings));
     lap.mark("prefs, asset index (.meta files)");
-    // `platypus-build` writes the game's CSS next to the bundle (game.pbundle -> game.css).
+    // The game's CSS: embedded in the bundle (`cssText`), else the loose file `platypus-build`
+    // wrote next to it (game.pbundle -> game.css). Its `url()`s resolve from that file's folder.
     let mut ui = UiTree::with_system_fonts(1.0, 1.0);
     lap.mark("UI tree and system fonts");
     let css_path = bundle_path.with_extension("css");
-    load_game_css(&mut ui, &asset_root, &code_root, &css_path);
-    let game_css_source = game_css_source(&code_root, &css_path);
+    let game_css_source = game_css_source(bundle.css_text.clone(), &code_root, &css_path);
+    if let Some((_, css, base, source)) = &game_css_source {
+        add_stylesheet(&mut ui, &asset_root, css, base, source);
+        tracing::info!("loaded stylesheet {source}");
+    }
     lap.mark("game CSS");
     let mut scene = platypus_scene::ScriptScene::new();
     native_render::configure_engine(&asset_root);
@@ -2738,9 +2742,14 @@ enum Surface {
 /// The key `game.css` has among the stylesheets every UI tree gets.
 const GAME_CSS: u32 = u32::MAX;
 
-/// `game.css` as a stylesheet source for panel trees.
-fn game_css_source(code_root: &Path, css_path: &Path) -> Option<(u32, String, String, String)> {
-    let css = std::fs::read_to_string(css_path).ok()?;
+/// The game's stylesheet as a source for every UI tree: `embedded` (the bundle's `cssText`) or
+/// the loose `css_path`, with the folder its `url()`s resolve from.
+fn game_css_source(
+    embedded: Option<String>,
+    code_root: &Path,
+    css_path: &Path,
+) -> Option<(u32, String, String, String)> {
+    let css = embedded.or_else(|| std::fs::read_to_string(css_path).ok())?;
     let base = asset_root::css_base(code_root, css_path);
     Some((GAME_CSS, css, base, css_path.display().to_string()))
 }
@@ -2760,15 +2769,6 @@ fn new_panel_tree(
         .map(|(key, css, base, source)| (*key, add_stylesheet(&mut tree, root, css, base, source)))
         .collect();
     (tree, ids)
-}
-
-/// `root` is where its `url()`s and `@import`s resolve; the CSS file itself is in `code_root`.
-fn load_game_css(ui: &mut UiTree, root: &Path, code_root: &Path, css_path: &Path) -> Option<u32> {
-    let css = std::fs::read_to_string(css_path).ok()?;
-    let base = asset_root::css_base(code_root, css_path);
-    let id = add_stylesheet(ui, root, &css, &base, &css_path.display().to_string());
-    tracing::info!("loaded stylesheet {}", css_path.display());
-    Some(id)
 }
 
 fn add_stylesheet(ui: &mut UiTree, root: &Path, css: &str, base: &str, source: &str) -> u32 {

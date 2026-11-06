@@ -29,6 +29,7 @@ web_ui_react = { path = "../../../../../web-ui/crates/web_ui_react" }
 web_ui_render_gles = { path = "../../../../../web-ui/crates/web_ui_render_gles", default-features = false }
 web_ui_render_cpu = { path = "../../../../../web-ui/crates/web_ui_render_cpu" }
 web_ui_ts = { path = "../../../../../web-ui/crates/web_ui_ts" }
+web_ui_build = { path = "../../../../../web-ui/crates/web_ui_build" }
 web_ui_rt = { path = "../../../../../web-ui/crates/web_ui_rt" }
 web_ui_bridge = { path = "../../../../../web-ui/crates/web_ui_bridge" }
 
