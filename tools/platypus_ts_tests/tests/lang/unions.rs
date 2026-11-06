@@ -43,6 +43,8 @@ bun_tests! {
     3009 loop_with_optional_state "loop_with_optional_state" "un9_" 309000;
     3010 json_and_gc_churn "json_and_gc_churn" "un10_" 310000;
     3011 switch_on_optional_and_returns "switch_on_optional_and_returns" "un11_" 311000;
+    3537 nested_union_takes_an_array_literal "nested_union_takes_an_array_literal" "un14_" 314000;
+    3538 json_parse_into_a_union "json_parse_into_a_union" "un15_" 315000;
 }
 
 // M9-TS-3012

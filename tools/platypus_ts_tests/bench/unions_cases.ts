@@ -234,3 +234,50 @@ function t(): string {
   for (let i = 0; i < 5; i++) seen.push(m.step());
   return seen.join(">") + m.history.length + m.history[2];
 }
+//## nested_union_takes_an_array_literal
+type Key = number | string | (number | string)[];
+interface Range {
+  lower: Key | undefined;
+  upper: Key | undefined;
+}
+function describe(q: Key | Range): string {
+  if (typeof q === "number") return "n" + q;
+  if (typeof q === "string") return "s" + q;
+  if (Array.isArray(q)) return "a" + q.length;
+  return "r" + JSON.stringify(q.lower);
+}
+function maybe(q?: Key | Range): string {
+  return q === undefined ? "none" : describe(q);
+}
+function t(): string {
+  const k: Key = "x";
+  const parts: string[] = [];
+  parts.push(describe([1, "b", 3]));
+  parts.push(describe(k));
+  parts.push(describe(7));
+  parts.push(describe({ lower: [2, "c"], upper: undefined }));
+  parts.push(maybe(["z"]));
+  parts.push(maybe());
+  return parts.join(" ");
+}
+//## json_parse_into_a_union
+type Key = number | string | (number | string)[];
+interface Row {
+  key: Key;
+  note: string | number[];
+}
+function kind(k: Key): string {
+  if (typeof k === "number") return "n" + k;
+  if (typeof k === "string") return "s" + k;
+  return "a" + k.length;
+}
+function t(): string {
+  const keys: Key[] = JSON.parse("[1, \"two\", [3, \"four\"], []]");
+  const parts = keys.map(kind);
+  const row: Row = JSON.parse("{\"key\": [5], \"note\": [1, 2]}");
+  parts.push(kind(row.key) + (typeof row.note === "string" ? "s" : "a"));
+  const maybe: Key | null = JSON.parse("null");
+  parts.push(maybe === null ? "null" : "set");
+  parts.push(JSON.stringify(keys));
+  return parts.join(" ");
+}

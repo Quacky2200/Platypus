@@ -10,5 +10,7 @@
  "keyof_literals": "6:2",
  "loop_with_optional_state": "auto;on;auto;off;on",
  "json_and_gc_churn": "[{\"name\":\"x\"},{\"name\":\"y\",\"mode\":\"b\"}]67,66c-",
- "switch_on_optional_and_returns": "idle>run>stop>stop>stop5stop"
+ "switch_on_optional_and_returns": "idle>run>stop>stop>stop5stop",
+ "nested_union_takes_an_array_literal": "a3 sx n7 r[2,\"c\"] a1 none",
+ "json_parse_into_a_union": "n1 stwo a2 a0 a1a null [1,\"two\",[3,\"four\"],[]]"
 }
