@@ -1,253 +1,15 @@
-# ts_api: the script API declared once in Rust
+# Engine API
 
-Crates: [ts_api](../crates/ts_api/src/lib.rs) (manifest types and generators) and
-[ts_api_macros](../crates/ts_api_macros/src/lib.rs) (the `#[ts_api]` attribute). Tests:
-[api.rs](../crates/ts_api/tests/api.rs) (`M9-API-01`..`06`),
-[context.rs](../crates/ts_api/tests/context.rs) (`M9-API-07`..`09`) and
-[values.rs](../crates/ts_api/tests/values.rs) (`M9-API-10`, `11`) and
-[classes.rs](../crates/ts_api/tests/classes.rs) (`M9-API-16`..`18`). Design and the road ahead:
-[platypus-ts-engine-boundary.md](research/platypus-ts-engine-boundary.md).
-
-One module of ordinary Rust is the single source for a namespace of the script API: the manifest, the
-TypeScript declarations and the `extern "C"` shims that compiled scripts link to. They are all generated from the same
-functions, so they cannot drift apart.
-
-> **QuickJS removed (2026-10-28).** `ts_api` has no `qjs.rs` and no `quickjs` feature; `#[ts_api(..)]` no
-> longer takes `quickjs` and generates no `register_quickjs`; the `platypus_native` crate (`install`,
-> `register_quickjs`) and `window::QUICKJS_PRELUDE` are deleted. Where this page still mentions QuickJS (a "QuickJS"
-> column, "in QuickJS" notes, the old `quickjs` flag), that is the history of how a type or feature was bound; only the
-> compiled (`extern "C"`) side exists. Tests that exercised the QuickJS bindings (`M9-API-05`, `-06`, `-23`..`-26`,
-> `-29`..`-34`, `-36`..`-47`, `-100`..`-112`, `-121`..`-125`, `-1151`, `-1430`..`-1432`, `-1500`, `-1613`, `-1625`) were
-> removed; the manifest, shim and declaration parts of the others stay.
-
-## Usage
-
-```rust
-use ts_api::{Handle, ts_api};
-
-#[derive(Clone, Copy)]
-pub struct ObjectId(pub u64);
-impl Handle for ObjectId {
-    fn to_raw(self) -> u64 { self.0 }
-    fn from_raw(raw: u64) -> Self { ObjectId(raw) }
-}
-
-#[ts_api(namespace = "Demo", handles(GameObject = ObjectId))]
-pub mod demo {
-    use super::ObjectId;
-
-    /// Adds two numbers.
-    pub fn add(a: f64, b: f64) -> f64 { a + b }
-
-    /// The parent of an object.
-    pub fn parent_of(object: ObjectId) -> ObjectId { ObjectId(object.0 + 1) }
-}
-```
-
-Arguments: `namespace = ".."` (required) and
-`handles(TsName = RustType, ..)` (Rust types that implement `ts_api::Handle`) and
-`values(TsName = RustType [field: scalar, ..], ..)` (value classes, below). The module must be
-inline (`pub mod x { .. }`).
-
-### Value classes
-
-A small Rust type that scripts see as a class of numbers (`glam::Vec3` as `Vector3`). The type
-implements `ts_api::ValueType<N>` (`N` fields; the parts travel as `f64`):
-
-```rust
-impl ValueType<3> for Vec3 {
-    fn from_parts(p: [f64; 3]) -> Self { Vec3 { x: p[0] as f32, y: p[1] as f32, z: p[2] as f32 } }
-    fn to_parts(self) -> [f64; 3] { [self.x as f64, self.y as f64, self.z as f64] }
-}
-
-#[ts_api(namespace = "Demo", values(Vector3 = Vec3 [x: f32, y: f32, z: f32]))]
-pub mod demo {
-    pub fn cross(a: Vec3, b: Vec3) -> Vec3 { /* .. */ }
-}
-```
-
-The `glam` feature (`ts_api = { features = ["glam"] }`) implements `ValueType` for `Vec2`, `Vec3`,
-`Vec4` and `Quat`, so `platypus_scene` declares `Vector3 = Vec3 [x: f32, y: f32, z: f32]` and
-`Quaternion = Quat [..]` without writing the impls.
-
-Each field is `f32`, `f64`, `i32` or `u32`, and all fields of one class have the same type. Functions
-may take and return the Rust type; scripts write `Demo.cross(new Vector3(1, 0, 0), v)`. `to_dts`
-declares `declare class Vector3 { constructor(x: number, ..); x: number; .. }` and `to_json` lists
-the class under `values` (fields with their types), with `value:Vector3` as the parameter and result
-type.
-
-**Methods and getters.** A free function marked `#[method(Vector3)]` or `#[getter(Vector3)]` becomes a
-member of the value class. `Vector3` must be declared in `values(..)` and the function's first
-parameter must be that value (else a compile error); a getter takes only the value. Free functions
-are used because the value type is a foreign type (glam's `Vec3`), so it cannot get an inherent
-`impl`.
-
-```rust
-#[method(Vector3)]
-pub fn scale(a: Vec3, s: f32) -> Vec3 { a * s }    // a.scale(2)
-#[getter(Vector3)]
-pub fn magnitude(a: Vec3) -> f32 { a.length() }    // v.magnitude
-```
-
-- **Manifest and `.d.ts`.** The functions go to `Namespace.classes` under the value's name, with the
-  receiver first as `this` (type `value:Vector3`). `to_dts` declares them inside `declare class
-  Vector3` (not as a second class, and no handle alias): `scale(s: number): Vector3; get magnitude():
-  number;`. Without the attribute the function stays a namespace function.
-- **Shims.** `platypus_Vector3_scale(this_0, this_1, this_2, s, out)`: the receiver travels as the value's
-  fields like any value parameter, and a value result goes through the trailing out pointer.
-- **Not built.** Static functions on a value class (`Vector3.zero`), operators (`a + b`) and compound
-  assignment on value properties.
-
-### Handle classes
-
-The methods, properties and statics of a handle type are ordinary `impl` blocks of its Rust type
-inside the module. The type must be declared in `handles(..)`; the class gets the handle's TypeScript
-name.
-
-```rust
-#[ts_api(namespace = "Scene", handles(GameObject = ObjectId, Transform = TransformRef))]
-pub mod scene_api {
-    impl ObjectId {
-        pub fn create() -> ObjectId { /* .. */ }          // static: GameObject.create()
-        pub fn destroy(self) { /* .. */ }                 // method: go.destroy()
-        #[property]
-        pub fn enabled(self) -> bool { /* .. */ }         // getter: go.enabled
-        pub fn set_enabled(self, enabled: bool) { /* .. */ } // setter: go.enabled = false
-        #[property]
-        pub fn transform(self) -> TransformRef { TransformRef(self) }
-    }
-    impl TransformRef { /* .. */ }
-
-    pub fn count() -> u32 { /* .. */ }                    // namespace function: Scene.count()
-}
-```
-
-| Rust | Script |
-|---|---|
-| `#[property] pub fn x(self) -> T` | getter `obj.x` |
-| `pub fn set_x(self, v: T)` next to a getter `x` of the same type | setter `obj.x = v` (a getter alone is read-only) |
-| other `pub fn f(self, ..)` | method `obj.f(..)` |
-| `pub fn f(..)` without `self` | static `Class.f(..)` |
-| plain `pub fn` outside an `impl` | namespace function `Scene.count()` |
-
-`self` is taken by value (handles are `Copy`). Two classes can sit on the same id, each with its own
-Rust newtype: `Transform` is `TransformRef(ObjectId)` and shares the object's raw handle, so
-`go.transform` returns the same number. A class replaces the plain handle alias in the declarations.
-
-- **Manifest.** `Function.kind` is a `FnKind` (`Static`, `Method`, `Get`, `Set`); `Namespace.classes`
-  holds a `ClassDef { name, functions }` per class. The JSON gains `"kind"` per function and
-  `"classes":[{"name":..,"functions":[..]}]`. A class function lists its receiver first, as a
-  parameter named `this` (`handle:Transform`). Parameter names are camelCase in the manifest and the
-  declarations (`keep_world` is `keepWorld`).
-- **`.d.ts`.** `declare class Transform { private constructor(); static f(): T; method(): T; get x():
-  T; set x(value: T); }`. A handle without a class still emits `declare type X = number & { .. }`.
-- **Shims.** `platypus_<Class>_<jsName>` with `this: u64` first: `platypus_Transform_setPosition(this, x, y, z)`
-  (a value result still goes through a trailing out pointer). A setter is `set` plus the capitalised
-  property name. Namespace functions keep `platypus_<Namespace>_<jsName>`.
-
-**Static properties.** Inside an `impl`, `#[property] pub fn main() -> T` (no `self`, no parameters) is a static getter and
-`pub fn set_main(v: T)` next to it (same type) the static setter: `Window.main` reads like a property in both backends. The
-manifest has a `get` / `set` function of the class without a `this` parameter (the compiler keeps a static getter with the
-class statics, so `ext_static_prop` reads it, and the setter in `static_setters`). The `.d.ts` says `static readonly main: T;`
-(`static get` / `static set` for a writable one), and `platypus-build types` the same. A static function
-and a static property of one class cannot share a script name (compile error). A static and an instance member may (`Window.focused`
-and `win.focused`): the instance one lives on the prototype. Tests: `crates/ts_api/tests/static_props.rs` (`M9-API-1490`, `1491`).
-
-## What the macro adds
-
-The module's code is kept as it is. Inside the module the macro adds:
-
-| Item | What |
-|---|---|
-| `MANIFEST` | A `const Namespace`: name, handle names, value classes, handle classes and, per function, `kind`, `name`, `rust_name`, `symbol`, `doc`, `params`, `ret` |
-| `extern "C"` shims | One `#[no_mangle] pub extern "C" fn` per `pub fn` (including those in `impl` blocks of declared handles), named `platypus_<Namespace>_<jsName>` (`platypus_Demo_add`) or `platypus_<Class>_<jsName>` for a class. Private functions are not exported |
-
-Doc comments on the functions become the JSDoc of the declaration. Functions cannot be `async` or
-generic; `self` is allowed only in a handle class's `impl`, by value.
-
-## Types
-
-| Rust | TypeScript | C ABI |
-|---|---|---|
-| `f64` | `number` | `f64` |
-| `f32` | `number` | `f32` (narrowed when it crosses) |
-| `i32` / `u32` | `number` | `i32` / `u32` |
-| `bool` | `boolean` | `bool` |
-| `()` | `void` | `()` |
-| declared handle | `number & { readonly __handle: "Name" }` (a class: `Name`) | `u64` (`Handle::to_raw`) |
-| declared value class | a class with the declared fields (`new Vector3(1, 2, 3)`) | one scalar per field as parameters (`v_0, v_1, v_2`); a result through a trailing out pointer to room for the fields |
-
-| `&str` / `String` | `string` | a parameter: `*const u8` to the script string object; a result: `*const u8` plus a trailing `out_len: *mut i64` | a JS string |
-| `&[f64]` / `&[V]` | `number[]` / `Vector3[]` | `*const u8` to the script array | a JS array (elements: instances, objects or arrays) |
-| `&[String]` / `Vec<String>` | `string[]` | `*const u8` to the script array of strings; the shim copies them (`ts_api::script_strs`), so the function may keep them | a JS array of strings |
-
-Any other type is a compile error that lists the supported ones. Names follow `snake_case` to
-`camelCase` (`set_time_scale` is `setTimeScale`), done by `camel` in both crates.
-
-### Strings
-
-A function may take `&str` (or `String`) parameters and return `String`. The manifest, JSON and d.ts
-type is `string` (`ts_api::Ty::Str`); `string | null` parameters are not supported.
-
-- **In.** A string parameter is a `*const u8` pointing at the script string object: the header
-  `ts_api::ScriptStr` (layout equal to `platypus_ts_rt::Str`, a test in `platypus_ts_tests` checks it) and
-  the bytes inline after its 48 bytes. The shim reads it with `ts_api::script_str`, which
-  borrows the bytes as `&str` with no copy when the string is well formed. Script strings are WTF-8,
-  so one with a lone surrogate is copied with each lone surrogate replaced by one U+FFFD. A null
-  pointer reads as `""`. The collector is non-moving and the caller roots the string, so it stays
-  valid for the call. The engine must copy what it keeps (`set_name` stores an owned `String`).
-- **Out.** A `String` result adds a trailing `out_len: *mut i64` to the shim, which returns
-  `*const u8` into a per-thread buffer (`ts_api::return_string`). The compiled call copies it at
-  once into a new script string (`ts_rt_str_new_gc`), before any other engine call.
-- **Unsafe shims.** A shim with a string parameter is `unsafe extern "C"`, since it dereferences the
-  pointer.
-
-```rust
-pub fn find(name: &str) -> ObjectId { /* name is borrowed: copy it to keep it */ }
-pub fn name(self) -> String { /* the shim returns it through return_string */ }
-```
-
-Tests: `M9-API-21`..`22` (crates/ts_api/tests/strings.rs).
-
-## Generating the files
-
-```rust
-let dts = demo::MANIFEST.to_dts(); // declare namespace Demo { function add(a: number, b: number): number; }
-let json = demo::MANIFEST.to_json(); // {"namespace":"Demo","functions":[{"name":"add","symbol":"platypus_Demo_add",..}]}
-```
-
-`to_dts` writes a `declare type` per handle without a class, a `declare class` per handle class and
-value class, plus a `declare namespace` with the JSDoc. `to_json` is the table a compiler reads to call
-each symbol directly: the `handles` list (handle type names), the `values` list, the `classes` list
-and per function the name, symbol, kind, parameter names and types (`f64`, `bool`, `handle:GameObject`, ...)
-and the result type.
-
-**Handle rule.** Compiled scripts store a handle as a raw `u64` and use 0 as null in `T | null`, so
-the id 0 means "no object": a handle type must never produce a live id 0 (start generations or
-indices at 1).
-
-## The engine context
-
-A shim has no world argument (scripts have none), so the host makes the world current on the thread
-that runs scripts and API functions reach it through `ts_api::context`. `enter` returns a scope
-guard that restores the previous world on drop; `with` runs a closure on the current world, or
-returns `None` when there is none. While the closure runs the world is not current, so a nested
-call gets `None` instead of a second `&mut` to it.
-
-```rust
-thread_local! { static WORLD: Cell<*mut World> = const { Cell::new(std::ptr::null_mut()) }; }
-let _scope = ts_api::context::enter(&WORLD, &mut world); // while scripts run
-// inside an API function:
-let pos = ts_api::context::with(&WORLD, |w| w.position(id)).unwrap_or_default();
-// a nested `with(&WORLD, ..)` inside that closure returns None
-```
+The engine's script API is declared in Rust with `#[ts_api]`. How the macro works (usage, value and handle classes, the type
+table, strings, the generated files, the engine context, optional parameters and `#[options]`) is in web-ui: web-ui
+`docs/ts-api.md`. This page lists what the engine crates declare with it.
 
 ## Status
 
 This is the script API of every engine crate (`platypus_scene::api`, `platypus_engine_api`, `platypus_render_api`,
 `platypus_physics_api`, `platypus_scenes`, `platypus_math`); the op channel it once sat next to (`__platypus_op`) is gone. See
 [scene-and-objects.md](scene-and-objects.md#the-typed-script-api-platypus_sceneapi). The `platypus_ts` compiler reads the JSON manifest and calls the shims directly
-(`--manifest`, see [platypus-ts.md](platypus-ts.md); the test namespace is `tools/platypus_demo_api`). Value
+(`--manifest`, see web-ui `docs/platypus-ts.md`; the test namespace is `tools/platypus_demo_api`). Value
 classes (`Vector3`) with methods and getters (`a.add(b)`), handle classes (`GameObject`, `Transform`)
 and the engine context exist, and so do strings across the boundary (`GameObject.name` and `find`);
 static functions and operators on value classes are not built.
@@ -255,17 +17,6 @@ static functions and operators on value classes are not built.
 Compiled code calls the shim directly. (The measured call cost against the QuickJS `__platypus_op` path, about 150 ns
 against 245 ns, no longer has a counterpart; the QuickJS bindings for values, strings and handles
 (`M9-API-23..26`, `-100..-113`) were removed.)
-
-## Namespace properties and value classes
-
-- **Namespace properties.** In a namespace (no `impl`), `#[property] pub fn color() -> Color` is a getter and `pub fn set_color(c: Color)`
-  next to it the setter: scripts write `Gizmos.color = c` and `Time.deltaTime`. The manifest has them as functions of kind `get` and
-  `set` with no receiver, the `.d.ts` as `let color: Color;` (`const` when read only), the shims as `platypus_Gizmos_color()` /
-  `platypus_Gizmos_setColor(..)`, and `platypus_ts` calls the getter on a read and the
-  setter on an assignment (`Place::NsProp`, also for `+=`). A value class's statics are the properties and functions of a namespace
-  with the same name (`Color.white`, `Color.hex("#ff0000")`).
-- **Value classes.** Methods (`#[method(Vector3)]`) and getters (`#[getter(Vector3)]`) are free Rust functions with the
-  receiver's fields first; the compiler turns `a.add(b)` into a call of that shim.
 
 ## The engine API beyond the scene
 
@@ -283,22 +34,6 @@ the former `js/engine` (deleted). Each keeps its state per thread and has plain 
 `platypus_engine_api::ui_scale` declares `UiScale` (`none()`, `fixed(factor)`, `height(pixels)`, `fit(width, height)`):
 how screen UI is scaled to the window. The host reads `ui_scale::current()` when it sizes the screen on every renderer
 and resets it on a hot reload ([input-and-events.md](input-and-events.md#ui-scale)).
-
-## Optional parameters and renamed members
-
-- `#[optional(a, b)]` on a function marks trailing parameters a call may leave out. The manifest says
-  `optional`, the declaration writes `seed?: number`, and the function sees a default: **NaN** for a
-  number (so `seed.is_nan()` means "left out"), an empty string, `false` or a zero handle. A compiled
-  call fills them in.
-- `#[options]` (with `#[optional(..)]`) marks a function whose optional parameters a script passes as one plain object, by camelCase name:
-  `Window.create({ title: "Palette", style: "tool", minWidth: 200 })`. Compiled code maps a trailing
-  object literal onto the optional parameters by name (`call_ext_args`); positional calls keep working. The manifest and the `.d.ts`
-  do not say more. A function with `#[options]` cannot have optional value-class parameters (a value is itself a plain
-  object). Tests `M9-API-1433..1434` (`-1430`..`-1432`, the QuickJS side, were removed).
-- `new Rng(seed)`: a handle class whose static `create` has parameters is constructed with them
-  (`new Class(args)` calls `create(args)`).
-- `#[js_name = "graphicsDeviceVendorID"]` gives the script name when `snake_case` to `camelCase` does not
-  spell it. A Rust keyword is written raw (`r#in` for `TimeUntil.in(2)`).
 
 ## The first batch moved out of `js/engine` (2026-10-19; `js/engine` is deleted)
 
@@ -764,7 +499,7 @@ games too. The renderer-side parts send the same ops as the QuickJS classes (`re
 
 Part of making every declaration generated from Rust (plan: [platypus-generated-dts-plan.md](research/platypus-generated-dts-plan.md)):
 `#[ts_api]` and the manifest got what `Shapes`, `Spline` and `SplineAnimate` needed, so their TypeScript copies
-(`facade.ts`, `engine_ts.d.ts`) could go. Tests: [records_enums.rs](../crates/ts_api/tests/records_enums.rs)
+(`facade.ts`, `engine_ts.d.ts`) could go. Tests: web-ui's `crates/ts_api/tests/records_enums.rs`
 (`M9-API-1610`..`1614`).
 
 | Rust | Script | C ABI |

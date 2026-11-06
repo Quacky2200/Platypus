@@ -1,7 +1,7 @@
 # Animation of objects (curves, clips, Animator, skinning)
 
 How animation of GameObjects works today. (CSS motion is a different system: see
-[animation.md](animation.md).) **The script-side implementation described here (`animation.ts`,
+web-ui `docs/animation.md`.) **The script-side implementation described here (`animation.ts`,
 `__platypus_animate`, `models.ts`, `platypus_script`) was deleted with QuickJS on 2026-10-28; the animation system is
 now native Rust: see [animation-native.md](animation-native.md). The text below describes the behaviour and data
 model, which the native code keeps.** glTF skins and

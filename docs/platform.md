@@ -2,7 +2,7 @@
 
 How the window's mode, vsync, the frame cap and `PlayerPrefs` work. Code: `platypus_platform`
 ([display.rs](../crates/platypus_platform/src/display.rs), [platform.rs](../crates/platypus_platform/src/platform.rs)),
-`web_ui_render` ([surface.rs](../crates/web_ui_render/src/surface.rs)), `platypus_app`
+`web_ui_render` (web-ui's `crates/web_ui_render/src/surface.rs`), `platypus_app`
 ([display.rs](../crates/platypus_app/src/display.rs), [prefs.rs](../crates/platypus_app/src/prefs.rs),
 [logging.rs](../crates/platypus_app/src/logging.rs),
 [main.rs](../crates/platypus_app/src/main.rs)) and the native script API (`Screen`, `PlayerPrefs`,
@@ -106,7 +106,7 @@ Other exceptions are ignored. The report goes to stderr and `Player.log` and has
 - a Rust backtrace.
 
 A release build names frames well only with line tables: build with `CARGO_PROFILE_RELEASE_DEBUG=line-tables-only`. Pair it
-with `PLATYPUS_TS_GC=stress` ([platypus-ts.md](platypus-ts.md#running-a-compiled-game-in-the-process-jit)) to make a missing GC root
+with `PLATYPUS_TS_GC=stress` (web-ui `docs/platypus-ts.md`) to make a missing GC root
 crash at once. On other platforms the exception handler is not installed (`Application.crash` still works).
 
 #### Crash report file and dialog

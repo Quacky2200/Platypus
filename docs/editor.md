@@ -302,7 +302,7 @@ leaves the project or names a drive) and `stemOf`. Ready filters: `SCENE_FILTER`
 The project folder's files on a `VirtualList`: breadcrumbs (the project's name, then each
 folder), a status and Refresh; rows with a folder or file icon, the name and the size, and `..`
 inside a folder. Double-click or Enter opens a folder, Backspace goes up. It uses drag and drop
-([input-and-events.md](input-and-events.md#drag-and-drop-m5e)):
+(web-ui `docs/input-and-events.md`):
 
 - Rows are `draggable`; `onDragStart` puts the item's path in the transfer
   (`PROJECT_PATH_TYPE`).
@@ -507,7 +507,7 @@ from `EditorScene.fields`.
 - **Colours.** A colour's swatch opens the colour picker (`colorDialog`: a palette and a hex field).
 - **Tag and layer.** Tag is a text field. Layer is a choice of the project's layer names (`Editor.layerNames`).
 - **Choices.** A `Choice` opens a picker dialog, not a dropped-down list: z-index orders siblings only here
-  ([differences.md](differences.md)), so a list inside a row would paint under the rows after it.
+  (web-ui `docs/differences.md`), so a list inside a row would paint under the rows after it.
 - **Several objects.** With several selected, the Inspector shows the components they share. A value that differs shows
   "—". An edit (for a vector, only the parts edited) goes to all the objects and is one undo step.
 - **Live refresh.** The panel builds a key of what it shows each editor frame and redraws only when the key changes, so

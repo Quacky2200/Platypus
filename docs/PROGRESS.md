@@ -48,7 +48,7 @@ Native (`platypus_ts`) against the QuickJS original of each example, release hos
   GPU-bound scenes are equal.
 - Start-up, process start to first frame including the JIT compile: 0.42-0.67 s for most examples.
 - A pure script micro-benchmark (the game-rules simulation, 10,000 steps): QuickJS 391 ms, bun (JavaScriptCore JIT) 36.1 ms,
-  `platypus_ts` 9.1 ms ([platypus-ts-native.md](platypus-ts-native.md)).
+  `platypus_ts` 9.1 ms (web-ui `docs/platypus-ts-native.md`).
 
 ## Examples
 
@@ -105,7 +105,7 @@ own README says how it works.
 
 ## What is next
 
-From [TODO.md](../TODO.md) and [tools/platypus_ts/TODO.md](../tools/platypus_ts/TODO.md):
+From [TODO.md](../TODO.md) and web-ui's `crates/platypus_ts/TODO.md`:
 
 - **A dynamic `any` / `unknown`** in the compiler, as close to TypeScript as possible, with statically typed code keeping
   its fast path (design: [research/platypus-dynamic-values.md](research/platypus-dynamic-values.md)).

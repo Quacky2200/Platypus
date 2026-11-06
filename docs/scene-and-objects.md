@@ -104,15 +104,15 @@ so attached bodies follow objects that scripts moved
 
 [api.rs](../crates/platypus_scene/src/api.rs) declares a `Scene` namespace with `#[ts_api]` (see
 [platypus-api.md](platypus-api.md)), next to the op-based `ScriptScene`, which is untouched. Compiled
-TypeScript ([platypus-ts.md](platypus-ts.md)) calls its generated shims directly, with no op queue. The
+TypeScript (web-ui `docs/platypus-ts.md`) calls its generated shims directly, with no op queue. The
 functions: `create`, `destroy`, `exists`, `count`, `parent`, `setParent(object, parent, keepWorld)`,
 `enabled`/`setEnabled`, `active`, `layer`/`setLayer`, and position, rotation and scale in local space
 (`localPosition`, ...) plus `position` and `rotation` in world space, with `Vector3` and `Quaternion`
 value classes (glam's `Vec3` and `Quat`) on `GameObject` handles. Strings cross the boundary
-(see [platypus-api.md](platypus-api.md#strings)): `GameObject.name` and `GameObject.find(name)`.
+(see web-ui `docs/ts-api.md`, "Strings"): `GameObject.name` and `GameObject.find(name)`.
 
 Next to those namespace functions there are two handle classes, declared in `impl` blocks inside the
-same module (see [platypus-api.md](platypus-api.md#handle-classes)):
+same module (see web-ui `docs/ts-api.md`, "Handle classes"):
 
 | Class | Rust type | Members |
 |---|---|---|
@@ -126,7 +126,7 @@ another class and `t.gameObject` gives the object back. Shims are named `platypu
 the old `Scene.setParent(..)` style functions remain.
 
 The value classes have math methods too, declared as free functions marked `#[method(Vector3)]` /
-`#[getter(Vector3)]` / `#[method(Quaternion)]` (see [platypus-api.md](platypus-api.md#value-classes)):
+`#[getter(Vector3)]` / `#[method(Quaternion)]` (see web-ui `docs/ts-api.md`, "Value classes"):
 
 | Class | Members |
 |---|---|
