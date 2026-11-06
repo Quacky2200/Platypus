@@ -65,6 +65,33 @@ provisional work that went the other way, and resume the loop.
 When the target is met: run the full sweep CLAUDE.md describes, then `merge-on-target`, then
 `clean-branches`, and only then wrap up.
 
+## Progress updates while iterating
+
+Send the user a short update at least:
+- **every 10 minutes** when in a multi-agent session (you started sessions or subagents, or others
+  are running beside you), or after **10 minutes without any message** to the user;
+- **every 15 minutes while still on the same task**, even if you messaged recently, so a stuck or
+  slow task is visible.
+
+Whichever comes first. Note the time with `date` when you start and after each update (you have no
+clock otherwise), and check it between tool calls; a long-running command is no excuse, so run it in
+the background and report while it runs.
+
+**Format:** one or two lines, starting with a unique prefix that names you, then the target, the
+current task and why:
+
+`[<unique-prefix>] target: Renaming all UI models, current task: fixing problematic rename when editing a property, then retesting`
+
+- **Prefix:** unique to this agent so several can be told apart: the session's short name, or a
+  role plus a short tag (`[ui-rename]`, `[docs-b2]`). Use the same prefix for every update from this
+  agent for the whole conversation. Subagents and sessions you start get their own, passed in their
+  brief.
+- **Target:** the conversation's target in a few words.
+- **Current task + reasoning:** what you are doing right now and the reason (the failure being
+  fixed, what the retest will show, what is blocked), not just the task title.
+- Add a short count of tasks done out of total, and any new entry in `decisions.md`, when they
+  exist. No filler, no repeating earlier updates.
+
 ## 3. Compaction to keep tokens low
 
 Compaction drops detail, so choose the moment. A task finishing is the natural point.
