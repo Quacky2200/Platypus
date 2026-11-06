@@ -11,9 +11,12 @@
 //!   `GameObject.roots`: TypeScript helpers appended to the program, compiled only when called.
 //! - `GameObject.instantiate`, `dontDestroyOnLoad`, `createPrimitive`, `prefab.instantiate`,
 //!   `go.components` / `go.scene`, `component.transform`, and the `new GameObject(name, { .. })`
-//!   options (`parent`, local `position` / `rotation` / `scale`, `active`).
+//!   options (`parent`, local `position` / `rotation` / `scale`, `active`); any other option a
+//!   component has no setter for goes to its transform (`option_through`).
+//! - `Random.pick(items)`, an opaque `new Color(r, g, b)` (`field_default`), and the d.ts members
+//!   of engine components (`transform`, `getComponent`: `dts_members`).
 
-use web_ui_ts::ir::{Expr, ExprKind, RtFn, Stmt, Ty, UnOp};
+use web_ui_ts::ir::{CmpOp, Expr, ExprKind, RtFn, Stmt, Ty, UnOp};
 use web_ui_ts::lower::ext::{Extension, HookThunk, OptionArg};
 use web_ui_ts::lower::{Lowerer, R, mk};
 use web_ui_ts::manifest::{ExternFn, Manifest};
@@ -378,6 +381,9 @@ impl Extension for Platypus {
         m: &str,
         c: &'a CallExpression<'a>,
     ) -> R<Option<Expr>> {
+        if owner == "Random" && m == "pick" {
+            return random_pick(l, c);
+        }
         if owner != "GameObject" {
             return Ok(None);
         }
@@ -544,6 +550,101 @@ impl Extension for Platypus {
         o.stmts.push(Stmt::Eval(l.emit_extern(&set, vec![tr, v])));
         Ok(true)
     }
+
+    /// An option a component or object has no setter for is its transform's
+    /// (`new Light({ position })`, `{ ...placement }`).
+    fn option_through(
+        &self,
+        manifest: &Manifest,
+        class: &str,
+        key: &str,
+    ) -> Option<(ExternFn, ExternFn)> {
+        let get = manifest.classes.get(class)?.getters.get("transform")?;
+        let set = manifest.classes.get("Transform")?.setters.get(key)?;
+        Some((get.clone(), set.clone()))
+    }
+
+    /// A `Color` left without its alpha is opaque (`new Color(r, g, b)`, `new Color(...rgb)`).
+    fn field_default(&self, class: &str, field: usize) -> Option<f64> {
+        (class == "Color" && field == 3).then_some(1.0)
+    }
+
+    /// An engine component (a class with a `readonly gameObject: GameObject`, not a hit or a
+    /// collider that may name none) has what every component has.
+    fn dts_members(&self, _class: &str, declared: &[&str]) -> Vec<String> {
+        if !declared.contains(&"readonly gameObject: GameObject;") {
+            return Vec::new();
+        }
+        // A member line's name: `readonly transform: ..`, `getComponent<T>(..)`.
+        let has = |n: &str| {
+            declared.iter().any(|l| {
+                let l = l.trim_start();
+                let l = l.strip_prefix("readonly ").unwrap_or(l);
+                l.strip_prefix(n)
+                    .is_some_and(|r| r.starts_with([':', '(', '<', '?']))
+            })
+        };
+        let mut out = Vec::new();
+        if !has("transform") {
+            out.push("readonly transform: Transform;".to_string());
+        }
+        if !has("getComponent") {
+            out.push("getComponent<T>(cls: { prototype: T }): T | undefined;".to_string());
+        }
+        out
+    }
+}
+
+/// `Random.pick(items)`: the item at `Random.rangeInt(0, length)`, or `undefined` for an empty
+/// list (no number is drawn then).
+fn random_pick<'a>(l: &mut Lowerer<'a>, c: &'a CallExpression<'a>) -> R<Option<Expr>> {
+    let at = l.loc(c.span.start);
+    let Some(range) = l
+        .manifest()
+        .namespaces
+        .get("Random")
+        .and_then(|n| n.get("rangeInt"))
+        .cloned()
+    else {
+        return Ok(None);
+    };
+    let [arg] = c.arguments.as_slice() else {
+        return Err(format!("{at}: Random.pick takes one array"));
+    };
+    let Some(e) = arg.as_expression() else {
+        return Err(format!("{at}: Random.pick takes an array, not a spread"));
+    };
+    let items = l.lower_expr(e, None)?;
+    let el = match items.ty.strip() {
+        Ty::Arr(el) => (**el).clone(),
+        t => return Err(format!("{at}: Random.pick takes an array, not {t}")),
+    };
+    let num = |n: f64| mk(ExprKind::Num(n), Ty::Num);
+    let want = el.clone().nullable();
+    let a = l.new_local(items.ty.clone());
+    let len = mk(ExprKind::Len(Box::new(l.var_expr(a))), Ty::Num);
+    let i = l.emit_extern(&range, vec![num(0.0), len.clone()]);
+    // As `items[i]` reads it (null past the end for pointers, numbers and handles).
+    let raw = if el.is_ptr() || el == Ty::Num || matches!(el.strip(), Ty::Handle(_)) {
+        el.nullable()
+    } else {
+        el
+    };
+    let read = mk(ExprKind::Index(Box::new(l.var_expr(a)), Box::new(i)), raw);
+    let read = l.coerce(read, &want)?;
+    let none = l.coerce(mk(ExprKind::Null, Ty::Null), &want)?;
+    let some = mk(
+        ExprKind::Cmp(CmpOp::Gt, Box::new(len), Box::new(num(0.0))),
+        Ty::Bool,
+    );
+    let pick = mk(
+        ExprKind::Cond(Box::new(some), Box::new(read), Box::new(none)),
+        want.clone(),
+    );
+    Ok(Some(mk(
+        ExprKind::Seq(vec![Stmt::Assign(a, items)], Box::new(pick)),
+        want,
+    )))
 }
 
 /// The `Component` base class as `types/platypus.d.ts` declares it: the hooks with what their
@@ -688,6 +789,29 @@ const DECLARATIONS: &[(At, &str, &str)] = &[
         At::Static("GameObject"),
         "createPrimitive(type: PrimitiveType, options?: GameObjectOptions & { name?: string }): GameObject;",
         "An object with a mesh renderer of a built-in mesh.",
+    ),
+    // `random_pick`.
+    (
+        At::Static("Random"),
+        "pick<T>(items: readonly T[]): T | undefined;",
+        "A random item from a list (`undefined` when empty).",
+    ),
+    // Wider than the native types: a string where a handle with `fromString` goes (the
+    // compiler's `coerce_ext`), and `Color`'s optional alpha (`field_default`).
+    (
+        At::Member("MeshRenderer"),
+        "mesh: Mesh | PrimitiveType;",
+        "A mesh, or the name of a primitive.",
+    ),
+    (
+        At::Member("AudioSource"),
+        "playOneShot(clip: Sound | string, volumeScale?: number): void;",
+        "Plays `clip` once over whatever else plays (footsteps, hits), at `volumeScale` x `volume`.",
+    ),
+    (
+        At::Ctor("Color"),
+        "constructor(r: number, g: number, b: number, a?: number);",
+        "",
     ),
 ];
 
