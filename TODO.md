@@ -2350,7 +2350,8 @@ Every API is a crate of its own (a `ts_api` plugin with its manifest and symbols
 - [ ] **Geolocation** (`web_api_geolocation`): the OS location services (Windows.Devices.Geolocation, CoreLocation, GeoClue).
 - [ ] **Clipboard** (`web_api_clipboard`): `navigator.clipboard` read / write text and images (arboard, as the UI already uses).
 - [ ] **Vibration** (`web_api_vibration`): `navigator.vibrate`, gamepad rumble where there is no phone motor.
-- [ ] **Web Storage** (`web_api_storage`): `localStorage` / `sessionStorage`, per app.
+- [x] **Web Storage** (`web_api_storage`, 2026-11-06): `localStorage` / `sessionStorage` with the web's methods and `length`, shared across threads; `localStorage` in `<data>/<product>/<app>/localStorage.json` (`web_api::init`), written on each change; 5 MiB quota in UTF-16 units. The `web_api` umbrella (feature per API, `init`, `plugins()`) is linked into `web-ui`; `examples/hello-app` keeps its count there. `WAPI-01`, `WAPI-STO-01..04`.
+  - [ ] Follow-ups: throwing from Rust plugins (`ts_api`: a `Result` / DOMException path), then `QuotaExceededError` instead of a dropped write; `storage` events across windows; property access (`localStorage.x`); Platypus registering `web_api` (beside `PlayerPrefs`).
 - [ ] **IndexedDB** (`web_api_indexeddb`): object stores, indexes, transactions over an embedded store. Lower priority (see Web Storage); added because the set is meant to be the web's.
 - [ ] **Web Audio** (`web_api_audio`): `AudioContext`, nodes, `AudioWorklet` later (kira, or its own graph).
 - [ ] **File system** (`ts_os`, not a web API): files, folders, paths, process and environment, for apps that are programs rather than pages; removable like the rest.
