@@ -320,7 +320,7 @@ class with the same script name (`#[js_name]`) are chosen by argument types.
 bundle (`build/game.js`) is refused.
 
 - **Bundle** (written by `platypus-build`): JSON `{"format":1,"title","entry","source":"<one TS/TSX text>","css":"game.css"|null,
-  "assets":[..]}`. `Bundle::read` / `Bundle::parse`. The stylesheet is still `build/game.css`, loaded by `load_game_css`.
+  "assets":[..]}`. `Bundle::read` / `Bundle::parse`. The stylesheet is embedded as `cssText`; a loose `build/game.css` is still read (and written for the dev watcher), loaded by `load_game_css`.
 - **Compile.** Manifests: each engine crate's `manifests()` (all engine namespaces, which also registers their shim addresses in
   `ts_api::symbol`) plus `web_ui_bridge::manifest_json()` and `root_manifest_json()`; extra symbols: `web_ui_bridge::symbols()`; the
   runtime's come from `web_ui_rt::symbols()` (a build script lists its `#[no_mangle]` exports); the component functions

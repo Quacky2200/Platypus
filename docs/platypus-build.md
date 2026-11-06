@@ -218,7 +218,8 @@ builds and is type-checked with the same default (the build writes it into `buil
 5. **Stylesheets.** `import "./x.css"` lines are collected in import order into `build/game.css` (`css.rs`): `@import` is
    inlined; every `url()` is rewritten: a file up to 32 KiB becomes a `data:` URL, a larger one is copied to `build/` as
    `name-<hash>.ext` and the URL is relative to `game.css`. A `url()` that does not exist stays as written, with a warning (the
-   Charm font is not in the repository).
+   Charm font is not in the repository). The CSS text is also embedded in `game.pbundle` as `cssText` (the CSS bundler lives in
+   web-ui's `web_ui_build`); the host uses that, and the loose `game.css` is still written for the dev watcher.
 6. **Assets.** `.meta` files are made for new assets (`assets.rs`, over the helpers in `platypus_core::meta`, which the editor uses too; existing ones and their GUIDs are kept; a moved file keeps its
    GUID when the move is unambiguous). Every string literal of the program that names an existing asset file under the game folder
    (`Texture.load("assets/x.png")`, `Model.load`, `loadFont`, `scenes/*.scene.json`, sounds) is copied with its `.meta` to the same
@@ -514,8 +515,9 @@ a packaged exe can be re-packaged. A debug host is ~77 MB, a release one is much
 | identifier | `identifier` | `dev.platypus.<name>` | `Application.identifier` |
 
 The icon is a `.png` (any size; centred on a transparent square when not square) or an `.ico`. A PNG is converted in-process
-(`icon.rs`, `image` crate, Lanczos3 to 256 px and the smaller sizes from that) to an `.ico` of 16, 24, 32, 48, 64, 128 and 256 px
-(PNG-compressed, the container from `platypus_core::icon`), and `pe.rs` writes it with the `editpe` crate (the whole `.rsrc`
+(`icon.rs`, a wrapper of `web_ui_build::icon`, `image` crate, Lanczos3 to 256 px and the smaller sizes from that) to an `.ico` of 16, 24, 32, 48, 64, 128 and 256 px
+(PNG-compressed, the container from `web_ui_core::icon`, re-exported as `platypus_core::icon`), and `pe.rs` (a wrapper of `web_ui_build::pe`:
+`pe::exe_info` maps the project's `Metadata` to web-ui's `ExeInfo`) writes it with the `editpe` crate (the whole `.rsrc`
 section is parsed and rebuilt; no `rc.exe`, no other tool). The version info is a VS_VERSIONINFO block with the string table
 `040904b0` (US English, Unicode) and the matching `Translation`; an empty title makes `ProductName` `Platypus`, and
 `FileDescription` falls back to the title, then `Platypus`. The same icon file goes into the payload (`platypus-icon.png|ico`) and
@@ -528,7 +530,7 @@ both hosts set for a game without `icon`, and, on Windows with the MSVC linker, 
 the seven sizes as the `MAINICON` group and version info with `ProductName` / `FileDescription` `Platypus`) linked into
 `platypus-app.exe`, so plain `cargo build` binaries show it too. Tests `M9-ICO-01..06`.
 
-**The payload** (`platypus_core::payload`, format version 1) is appended after the host (and after the resource edit):
+**The payload** (`web_ui_core::payload`, re-exported as `platypus_core::payload`; format version 1) is appended after the host (and after the resource edit):
 
 ```
 [host exe][entry data...][table of contents][32-byte trailer]
@@ -561,12 +563,12 @@ copied to `data/` with the same relative paths:
 `dataRequired` is **false** when the game has no data files (hello) or when the embedded essentials are all of them (a `.meta`
 file does not count): such a game also starts without a `data/` folder. Otherwise it is true.
 
-**How the exe finds its payload.** At startup `platypus_app` (`payload.rs`, called from `parse_args` in `main.rs`)
-opens its own executable and looks for the trailer at the end of the file (a plain `platypus_app` has none: `Ok(None)`, normal start). If
+**How the exe finds its payload.** At startup `platypus_app` (`payload.rs`'s `embedded_game()`, called from `parse_args` in `main.rs`; the extraction itself is
+`web_ui_core::unpack`) opens its own executable and looks for the trailer at the end of the file (a plain `platypus_app` has none: `Ok(None)`, normal start). If
 the file is a signed PE it also looks right before the Authenticode certificate table (data directory 4, 8-byte aligned), so a payload
 survives signing. The payload's table of contents is hashed into an id; the files are extracted once into
 `<per-user cache>/Platypus/games/<exe name>-<id>/` (`%LOCALAPPDATA%`, `~/Library/Caches`, `$XDG_CACHE_HOME` or `~/.cache`) beside a
-`.platypus-extracted` marker (extracted to a temporary folder and renamed, so a crash or a second instance never sees half a game), and
+`.extracted` marker (extracted to a temporary folder and renamed, so a crash or a second instance never sees half a game), and
 the game runs with that folder as its **code folder** (bundle, CSS, `project.json`, icon): `--screenshot` and `--frames` still apply,
 any folder argument is ignored. A new build has a new id, extracts again and removes the older folders of the same exe name. An
 unchanged game starts at once. The extracted folder is small (code only), so a second copy costs almost nothing.
