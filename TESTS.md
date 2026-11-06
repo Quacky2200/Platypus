@@ -2392,3 +2392,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | NET-HDR-01 | Unit | `Headers` joins a name's values with `", "`, ignores case, gives `null` for a missing name and iterates sorted lower-case names (`keys`, `forEach`). |
 | NET-WS-01 | Unit | A compiled program opens a WebSocket to a local echo server: `send` while connecting throws `InvalidStateError`, `open` (readyState `OPEN`), a text and a binary echo, `close(1000)` ends clean with readyState 3. |
 | NET-WS-02 | Unit | A WebSocket to a bad URL reports `error` then `close` 1006 (not clean) after the program's listeners are added; `close(1001)` throws `InvalidAccessError`. |
+| WAPI-VIB-01 | Unit | A vibration pattern is read as browsers read it: floored, clamped to 0..10000 ms (not a number is 0), at most 100 entries, a trailing pause dropped, empty when nothing vibrates; its vibrating spans and total. |
+| WAPI-VIB-02 | Unit | The `navigator` manifest declares `vibrate` and carries the facade that takes `number | number[]`. |
+| WAPI-VIB-03 | Unit | A compiled program calls `navigator.vibrate(200)` (returns `true`), a list, and `0` (stops); the plugin takes `[200]`, `[100, 50, 100]` and `[]`. |
+| WAPI-VIB-04 | Manual | `navigator.vibrate([300, 200, 300])` with a gamepad that has force feedback connected: it rumbles twice. |
