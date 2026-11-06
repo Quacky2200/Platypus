@@ -5,9 +5,9 @@
 //! `replace`, `replaceAll` and `split`. `bench/gen_regexp2_expected.ts` ran
 //! the same file in bun; every function here must return what bun returned, in the normal, stress
 //! GC and collection-off modes. IDs are in TESTS.md (M9-TS-232..).
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::rex2::*;
 use serde_json::Value;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 fn in_every_gc_mode(f: impl Fn()) {
     let _serial = platypus_ts_tests::serial();

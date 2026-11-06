@@ -1,11 +1,11 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Destructuring compiled by `platypus_ts` (`bench/destructure.ts`). The expected numbers are what bun
+//! Destructuring compiled by `web_ui_ts` (`bench/destructure.ts`). The expected numbers are what bun
 //! computes from the same file. Every test runs three times: normally, with a collection at every
 //! allocation, and with collection off. IDs are in TESTS.md (M9-TS-71..).
-use platypus_ts_rt::{link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::des::*;
+use web_ui_rt::{link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 fn in_every_gc_mode(f: impl Fn()) {
     let _serial = platypus_ts_tests::serial();
@@ -13,11 +13,11 @@ fn in_every_gc_mode(f: impl Fn()) {
     unsafe { ts_des_init() };
     f();
     ts_rt_gc_stress(true);
-    let before = platypus_ts_rt::gc_stats().collections;
+    let before = web_ui_rt::gc_stats().collections;
     f();
     ts_rt_gc_stress(false);
     assert!(
-        platypus_ts_rt::gc_stats().collections > before,
+        web_ui_rt::gc_stats().collections > before,
         "stress mode collected nothing"
     );
     ts_rt_gc_enable(false);

@@ -11,8 +11,8 @@ use platypus_render::{
     ALL_LAYERS, Color, OffscreenTarget, RenderTarget, TextureData, TextureFilter, TextureWrap,
     UiRenderer, WorldCamera, WorldQuad, WorldRenderer, WorldTexture,
 };
-use platypus_ui::UiTree;
-use platypus_ui::opcodes::*;
+use web_ui_dom::UiTree;
+use web_ui_dom::opcodes::*;
 
 fn op(code: u32, args: &[Value]) -> Value {
     let mut v = vec![Value::Number(code.into())];

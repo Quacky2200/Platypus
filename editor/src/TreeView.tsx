@@ -110,7 +110,7 @@ export function TreeView<T>({
   };
 
   // `: ReactNode` written: a function returning an element isn't adapted where one returning a
-  // `ReactNode` goes (tools/platypus_ts/TODO.md, "A self- or forward-referencing closure").
+  // `ReactNode` goes (tools/web_ui_ts/TODO.md, "A self- or forward-referencing closure").
   const renderRow = (i: number): ReactNode => {
     const row = rows[i]!;
     const { node } = row;

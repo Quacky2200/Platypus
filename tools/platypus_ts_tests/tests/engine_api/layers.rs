@@ -4,9 +4,9 @@
 //! `bench/layers.ts` compiled against the native engine API and compared with the original
 //! TypeScript run in bun (`bench/gen_layers_expected.ts`), in the normal, stress GC and
 //! collection-off modes. IDs are in TESTS.md (M9-TS-611..).
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::layers_t::*;
 use serde_json::Value;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 /// The game names layers 8, 9 and 4 (renaming "Water"); 40 is out of range and 10 has no name.
 fn reset() {

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Top-level `await` for tests/lang/tla.rs. Each case (split at `//## name`) is a module that
-// exports `function result(): string`; the test compiles it with platypus_ts, runs the module's code
+// exports `function result(): string`; the test compiles it with web_ui_ts, runs the module's code
 // and the event loop in the normal, stress GC and collection-off modes, and compares the result
 // with bun's (`bun bench/gen_tla_expected.ts`, which runs the module as an async function).
 //## ordering_and_variables

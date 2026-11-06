@@ -5,11 +5,11 @@
 //! unwinding through calls, closures and loops. `bench/gen_errors_expected.ts` ran the same file in
 //! bun; every function here must return what bun returned, in the normal, stress GC and
 //! collection-off modes. IDs are in TESTS.md (M9-TS-187..).
-use platypus_ts_rt::{
-    Str, link_anchor, ts_rt_exc_pending, ts_rt_exc_take, ts_rt_gc_enable, ts_rt_gc_stress,
-};
 use platypus_ts_tests::errs::*;
 use serde_json::Value;
+use web_ui_rt::{
+    Str, link_anchor, ts_rt_exc_pending, ts_rt_exc_take, ts_rt_gc_enable, ts_rt_gc_stress,
+};
 
 /// The module's globals are shared by every thread, so one test runs at a time.
 static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());

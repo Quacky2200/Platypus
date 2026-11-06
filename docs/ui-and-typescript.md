@@ -10,10 +10,10 @@ A game is `project.json`, `tsconfig.json` and `src/` (TS and TSX, plus `.css`). 
 no `node_modules`:
 
 1. `platypus-build build <game>` (`tools/platypus_build`) walks the module graph, type-checks with `tsc`, and calls web-ui's
-   compiler (`platypus_ts`: oxc parses, a typed Platypus IR, Cranelift generates code). The result is
+   compiler (`web_ui_ts`: oxc parses, a typed Platypus IR, Cranelift generates code). The result is
    `build/game.pbundle` plus `build/game.css` and the assets.
 2. `platypus-app` (the host) loads the bundle and JIT-links it in process (`crates/platypus_app/src/native.rs`, `Native`).
-   Compiled code runs with a precise garbage collector from `platypus_ts_rt`.
+   Compiled code runs with a precise garbage collector from `web_ui_rt`.
 3. The engine's names (`Vector3`, `GameObject`, `Component`, `useState`, `createRoot`, ...) are TypeScript **globals**
    declared in the generated, git-ignored `types/platypus.d.ts` (`platypus-build types`). Games import only their own
    relative files and `.css`.
@@ -45,8 +45,8 @@ web-ui knows nothing about GameObjects. Platypus supplies:
 ## The UI in one section
 
 UI is React-style TSX: function components, hooks (`useState`, `useEffect`, ...), keyed lists, portals and DOM-like
-events (`onClick`, `onKeyDown`, drag and drop). A native reconciler (`platypus_ui_native`) re-renders a component and sends
-one batch of typed ops to the UI tree (`platypus_ui`). The tree resolves CSS stylesheets (cascade, variables, `@media`,
+events (`onClick`, `onKeyDown`, drag and drop). A native reconciler (`web_ui_react`) re-renders a component and sends
+one batch of typed ops to the UI tree (`web_ui_dom`). The tree resolves CSS stylesheets (cascade, variables, `@media`,
 `@keyframes`) and inline styles, lays out with Taffy (flex, grid, floats, tables), shapes text with Parley and produces a
 GPU-free draw list. web-ui's renderers draw it: GLES (ANGLE on Windows) for UI-only games, wgpu when the game uses the
 world, CPU on request. Where the browser differs, web-ui `docs/differences.md` says so.
@@ -66,7 +66,7 @@ Platypus's own UI pieces sit on top:
 These pages are in the web-ui repository (`docs/`), not here:
 
 - web-ui `docs/platypus-ts.md`: the compiler: how to run it, the pipeline, source files, the supported language, the
-  runtime (`platypus_ts_rt`), tests, adding a test module.
+  runtime (`web_ui_rt`), tests, adding a test module.
 - web-ui `docs/platypus-ts-native.md`: notes on the move from QuickJS to the native compiler: what changed, benchmarks,
   limits.
 - web-ui `docs/ts-api.md`: how `#[ts_api]` works: handle and value classes, the type table, strings, generated files,

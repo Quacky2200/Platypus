@@ -5,9 +5,9 @@
 //! UTC, parsing, ISO and UTC strings, arithmetic. `bench/gen_date_expected.ts` ran the same file in
 //! bun once per time zone; every function here must return what bun returned in every zone, in the
 //! normal, stress GC and collection-off modes. IDs are in TESTS.md (M9-TS-240..).
-use platypus_ts_rt::{Str, link_anchor, ts_rt_date_set_zone, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::dat::*;
 use serde_json::Value;
+use web_ui_rt::{Str, link_anchor, ts_rt_date_set_zone, ts_rt_gc_enable, ts_rt_gc_stress};
 
 const ZONES: [&str; 5] = [
     "America/New_York",

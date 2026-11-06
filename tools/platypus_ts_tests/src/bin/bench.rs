@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! `bench [steps]`: step() on a busy state for bun (a JIT stand-in) and the native code
-//! `platypus_ts` generated. Both print a checksum; they should agree.
-use platypus_ts_rt::link_anchor;
+//! `web_ui_ts` generated. Both print a checksum; they should agree.
 use platypus_ts_tests::sim::*;
 use platypus_ts_tests::*;
 use std::process::Command;
 use std::time::Instant;
+use web_ui_rt::link_anchor;
 
 fn native(steps: usize) -> (f64, f64, usize) {
     gc_mode_from_env();
@@ -17,11 +17,7 @@ fn native(steps: usize) -> (f64, f64, usize) {
         unsafe { ts_step(b.state, b.input, 1.0 / 60.0, b.walls) };
     }
     let ms = t.elapsed().as_secs_f64() * 1000.0;
-    (
-        ms,
-        busy_checksum(b.state),
-        platypus_ts_rt::ts_rt_allocated(),
-    )
+    (ms, busy_checksum(b.state), web_ui_rt::ts_rt_allocated())
 }
 
 fn bun(steps: usize, dir: &std::path::Path) -> Option<(f64, f64)> {
@@ -90,7 +86,7 @@ fn main() {
         Some((ms, sum))
     });
     let _ = native(steps);
-    let g = platypus_ts_rt::gc_stats();
+    let g = web_ui_rt::gc_stats();
     println!(
         "native GC over its last runs on this thread: {} collections, {:.1} MiB handed out in all, {} objects and {:.0} KiB live after the last one",
         g.collections,

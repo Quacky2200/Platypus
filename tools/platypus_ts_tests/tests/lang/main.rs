@@ -1,7 +1,7 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! platypus_ts tests: the language (classes, closures, generators, promises, modules, top-level
+//! web_ui_ts tests: the language (classes, closures, generators, promises, modules, top-level
 //! await, the bun-compared case files, the JIT). One of five test binaries by area, so an edit
 //! relinks a smaller one.
 

@@ -5,9 +5,9 @@
 //! extras and `Array` methods. `bench/gen_stdlib_expected.ts` ran the same file in bun; every
 //! function here must return what bun returned, in the normal, stress GC and collection-off
 //! modes. IDs are in TESTS.md (M9-TS-199..).
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::stdl::*;
 use serde_json::Value;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 fn in_every_gc_mode(f: impl Fn()) {
     let _serial = platypus_ts_tests::serial();
@@ -101,7 +101,7 @@ extern "C" fn capture(level: i32, text: *const u8, len: usize) {
 // host's console hook with the level.
 #[test]
 fn console_calls_reach_the_hosts_hook() {
-    platypus_ts_rt::ts_rt_set_console(Some(capture));
+    web_ui_rt::ts_rt_set_console(Some(capture));
     in_every_gc_mode(|| unsafe {
         LOGGED.with(|l| l.borrow_mut().clear());
         assert_eq!(ts_std_logs(), 4.0);
@@ -114,7 +114,7 @@ fn console_calls_reach_the_hosts_hook() {
         ];
         assert_eq!(got, want);
     });
-    platypus_ts_rt::ts_rt_set_console(None);
+    web_ui_rt::ts_rt_set_console(None);
 }
 
 // M9-TS-204

@@ -4,8 +4,8 @@
 //! `Assets.exists` / `list` / `packOf` from compiled programs (`bench/assets_native.ts`), with the
 //! index the host fills, in the normal, stress GC and collection-off modes (M9-TS-2557).
 use platypus_engine_api::assets;
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::assets_native_t::*;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 fn index() {
     assets::reset();

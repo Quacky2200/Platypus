@@ -10,7 +10,7 @@
 //! disabled or inactive-object components skipped, a component that throws is reported and
 //! disabled. After every hook the microtask queue runs (the event-loop contract of `event.rs`).
 
-use platypus_ts_rt::*;
+use web_ui_rt::*;
 
 pub const HOOK_AWAKE: usize = 0;
 pub const HOOK_START: usize = 1;

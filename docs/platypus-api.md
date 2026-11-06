@@ -8,7 +8,7 @@ table, strings, the generated files, the engine context, optional parameters and
 
 This is the script API of every engine crate (`platypus_scene::api`, `platypus_engine_api`, `platypus_render_api`,
 `platypus_physics_api`, `platypus_scenes`, `platypus_math`); the op channel it once sat next to (`__platypus_op`) is gone. See
-[scene-and-objects.md](scene-and-objects.md#the-typed-script-api-platypus_sceneapi). The `platypus_ts` compiler reads the JSON manifest and calls the shims directly
+[scene-and-objects.md](scene-and-objects.md#the-typed-script-api-platypus_sceneapi). The `web_ui_ts` compiler reads the JSON manifest and calls the shims directly
 (`--manifest`, see web-ui `docs/platypus-ts.md`; the test namespace is `tools/platypus_demo_api`). Value
 classes (`Vector3`) with methods and getters (`a.add(b)`), handle classes (`GameObject`, `Transform`)
 and the engine context exist, and so do strings across the boundary (`GameObject.name` and `find`);
@@ -171,7 +171,7 @@ puts the 18 classes into `platypus_kinds` for scene files and `instantiate`).
   solver's normal impulse and the friction impulse it keeps for warm starting) into one buffer kept between dispatches, so
   a hook that does not look at them costs nothing; Exit and trigger collisions have none. Unity members left out are in
   `docs/differences.md` ("Collisions"). Tests `M4-PHY-08`, `M9-TS-1004`, `M9-TS-1005`.
-- Differences to the TypeScript are listed in `tools/platypus_ts/TODO.md` ("Physics components"). Tests `M9-API-200..209`,
+- Differences to the TypeScript are listed in `tools/web_ui_ts/TODO.md` ("Physics components"). Tests `M9-API-200..209`,
   `M9-TS-1100..1105`.
 ## Audio (`audio`, `AudioSource`, `AudioListener`)
 
@@ -280,7 +280,7 @@ The closure returns nothing.
   released, from a snapshot, so a listener may subscribe, unsubscribe or call the API.
 - **Runtime.** The shim wraps the closure pointer with `Callback::from_script`, which roots it (a host root) until the last clone is
   dropped. The runtime tells `ts_api` how to root, make a script string and take a thrown exception through
-  `callback::install_bridge`; `platypus_ts_rt` installs it with its heap. A string argument is a new rooted script string for the call.
+  `callback::install_bridge`; `web_ui_rt` installs it with its heap. A string argument is a new rooted script string for the call.
   An exception thrown by a callback is swallowed and listed by `callback::take_errors()`.
 - **Differences.** The TypeScript `on(..)` returned an unsubscribe function; here `onX(f)` returns a token (a number, never 0) and a
   matching `off(token)` removes it: `input.off`, `Assets.offChanged`, `Application.offFocusChanged`, `SceneManager.offSceneEvent`.
@@ -295,7 +295,7 @@ form of a handle, an opaque `HandleBox` object with a JS class per handle, `ts_a
 `register_quickjs` were removed with QuickJS, with their tests `M9-API-100..113`, `-120`..`-125`.)
 
 - *Arrays.* `&[String]` (or `Vec<String>`, owned) is an array of strings (manifest type `strings`, `ExtTy::StrArr` in the compiled lowering; an optional one left out is empty; `M9-API-1621`, `M9-TS-3323`); `&[f64]` an array of numbers; `&[V]` an array of value instances, objects or arrays. Typed arrays and array results are not built.
-- *Namespaces.* Every `#[ts_api]` module of the engine is a namespace the compiler links: math (value classes: `Mathf`, `Vector2/3/4`, `Vector2Int/3Int`, `Quaternion`, `Matrix4x4`, `Rect`, `RectInt`, `Ray`, `Plane`, `Bounds`, `Pose`, `Color`, `Keyframe`, `TimeSpan`, `DateTime`, `TimeSince`, `TimeUntil`); scene and objects (`Scene`, `GameObject`, `Transform`, `SceneManager`, `Prefab`, `HideFlags`, `LayerMask`); services (`Time`, `input`, `Random` / `Rng`, `Debug`, `Log`, `Console`, `PlayerPrefs`, `Assets`, `Application`, `SystemInfo`, `Cursor`, `Screen`, `QualitySettings`, `Gizmos`, `Editor`, `EditorScene` (snapshots and scene files for the editor; `platypus_scenes`, see [editor.md](editor.md))); animation (`AnimationCurve`, `AnimationClip`, `Animation`, `Animator`, `AnimationController` and its builders); audio (`audio`, `AudioSource`, `AudioListener`); physics (`Physics`, `Rigidbody`, colliders, joints, `Rope`, `Physics2D` and its 2D classes); rendering data (`Camera`, `Light`, `MeshRenderer`, `SkinnedMeshRenderer`, `SpriteRenderer`, `LineRenderer`, `LineRenderer2D`, `LODGroup`, `Mirror`, `ReflectionProbe`, `PlaneRenderer`, `WorldPanel`, `ParticleSystem`, `Cloth`, `Material`, `Sprite`, `Texture`, `Mesh`, `Model`, `Primitives`, `RenderSettings`). The compiler gets their manifests from the engine crates (`platypus_ts` `engine_manifests`).
+- *Namespaces.* Every `#[ts_api]` module of the engine is a namespace the compiler links: math (value classes: `Mathf`, `Vector2/3/4`, `Vector2Int/3Int`, `Quaternion`, `Matrix4x4`, `Rect`, `RectInt`, `Ray`, `Plane`, `Bounds`, `Pose`, `Color`, `Keyframe`, `TimeSpan`, `DateTime`, `TimeSince`, `TimeUntil`); scene and objects (`Scene`, `GameObject`, `Transform`, `SceneManager`, `Prefab`, `HideFlags`, `LayerMask`); services (`Time`, `input`, `Random` / `Rng`, `Debug`, `Log`, `Console`, `PlayerPrefs`, `Assets`, `Application`, `SystemInfo`, `Cursor`, `Screen`, `QualitySettings`, `Gizmos`, `Editor`, `EditorScene` (snapshots and scene files for the editor; `platypus_scenes`, see [editor.md](editor.md))); animation (`AnimationCurve`, `AnimationClip`, `Animation`, `Animator`, `AnimationController` and its builders); audio (`audio`, `AudioSource`, `AudioListener`); physics (`Physics`, `Rigidbody`, colliders, joints, `Rope`, `Physics2D` and its 2D classes); rendering data (`Camera`, `Light`, `MeshRenderer`, `SkinnedMeshRenderer`, `SpriteRenderer`, `LineRenderer`, `LineRenderer2D`, `LODGroup`, `Mirror`, `ReflectionProbe`, `PlaneRenderer`, `WorldPanel`, `ParticleSystem`, `Cloth`, `Material`, `Sprite`, `Texture`, `Mesh`, `Model`, `Primitives`, `RenderSettings`). The compiler gets their manifests from the engine crates (`web_ui_ts` `engine_manifests`).
 
 **Callbacks.** A `Callback<(..)>` parameter (listener APIs: `input.onKeyDown(f)`, `Assets.onChanged`, `SceneManager.onSceneLoaded`,
 `Screen.onChange`, `ParticleSystem.onStopped`, `Playback.onEnded`, ...) takes a script closure, rooted as described under "Callbacks" above; the listener
@@ -307,31 +307,31 @@ program (a hot reload does).
 **Optional parameters** of value classes are NaN-filled when left out, optional arrays are empty, optional handles `null`. Methods of one
 class with the same script name (`#[js_name]`) are chosen by argument types.
 
-- **Engine facade (2026-10-20):** the compiler maps the TypeScript object shapes onto the per-field API (`RenderSettings.skybox = { .. }`, `GameObject` option keys, `Camera.rect` / `layerCullDistances` / `main`, `Screen.windowSize` / `resolutions`, `QualitySettings.names`, `Sprite.grid`, `LODGroup.setLODs`, Cloth / SkinnedMeshRenderer array options, `new Material(color, emission, smoothness)`, the `AnimatorController` builder); see `tools/platypus_ts/TODO.md` and `tools/platypus_ts/src/lower/facade.rs`. `Camera.main()` is a native static (`CameraRef::main`).
+- **Engine facade (2026-10-20):** the compiler maps the TypeScript object shapes onto the per-field API (`RenderSettings.skybox = { .. }`, `GameObject` option keys, `Camera.rect` / `layerCullDistances` / `main`, `Screen.windowSize` / `resolutions`, `QualitySettings.names`, `Sprite.grid`, `LODGroup.setLODs`, Cloth / SkinnedMeshRenderer array options, `new Material(color, emission, smoothness)`, the `AnimatorController` builder); see `tools/web_ui_ts/TODO.md` and `tools/web_ui_ts/src/lower/facade.rs`. `Camera.main()` is a native static (`CameraRef::main`).
 ### Native games in `platypus_app` (compiled in process)
 
 `platypus_app` runs one kind of game: a folder with `build/game.pbundle` (or a `.pbundle` / `.ts` / `.tsx` path).
-[native.rs](../crates/platypus_app/src/native.rs) JIT-compiles the bundled TypeScript with `platypus_ts::jit` and drives it. A QuickJS
+[native.rs](../crates/platypus_app/src/native.rs) JIT-compiles the bundled TypeScript with `web_ui_ts::jit` and drives it. A QuickJS
 bundle (`build/game.js`) is refused.
 
 - **Bundle** (written by `platypus-build`): JSON `{"format":1,"title","entry","source":"<one TS/TSX text>","css":"game.css"|null,
   "assets":[..]}`. `Bundle::read` / `Bundle::parse`. The stylesheet is still `build/game.css`, loaded by `load_game_css`.
 - **Compile.** Manifests: each engine crate's `manifests()` (all engine namespaces, which also registers their shim addresses in
-  `ts_api::symbol`) plus `platypus_ts_ui::manifest_json()` and `root_manifest_json()`; extra symbols: `platypus_ts_ui::symbols()`; the
-  runtime's come from `platypus_ts_rt::symbols()` (a build script lists its `#[no_mangle]` exports); the component functions
+  `ts_api::symbol`) plus `web_ui_bridge::manifest_json()` and `root_manifest_json()`; extra symbols: `web_ui_bridge::symbols()`; the
+  runtime's come from `web_ui_rt::symbols()` (a build script lists its `#[no_mangle]` exports); the component functions
   (`ts_rt_host_*`) come from `platypus_components::symbols()`, and `platypus_components::manifests()` is one of the manifests
   (it also installs Platypus's compiler extension). Each reload gets a new
   `struct_base` (100,000 apart).
 - **Per frame and event** (`Native`): `fixed_tick` (`platypus_components::NativeHost::fixed_update`, `platypus_physics_api::step`, `dispatch_physics`),
   `frame` (`Time` via `platypus_engine_api::time::advance`, `ts_rt_timers_advance(now_ms)`, microtasks, `NativeHost::update`),
-  `pre_render`, `ui_events` (a `UiEvent` becomes a `platypus_ui_native::Event` for `Runtime::dispatch`), and after each of them the
-  mounts (`platypus_ts_ui::take_mounts`, `UiRoot.mount(target, element)`), `Runtime::flush`, script faults and UI errors to the log.
+  `pre_render`, `ui_events` (a `UiEvent` becomes a `web_ui_react::Event` for `Runtime::dispatch`), and after each of them the
+  mounts (`web_ui_bridge::take_mounts`, `UiRoot.mount(target, element)`), `Runtime::flush`, script faults and UI errors to the log.
   Every call runs inside `platypus_scene::api::enter(&mut app.scene.scene)`, including `Native::settle` (and the world panels'
   and windows' `panel_settle` / `window_settle`), which renders the components a UI event's handlers changed and runs their
   effects: a `useState` initializer there may make a `GameObject` or read `GameObject.roots` (`M9-API-1518`).
 - **Console.** `console.log` goes to the `script` log target through `ts_rt_set_console`.
 - **Host wiring** (`native.rs`, `native_pump.rs`, `game_input.rs`):
-  - *Input.* Keys, mouse, wheel and gamepad events go to `platypus_engine_api::input` (`game_input::apply_native`, the same argument lists as `__platypus_input`), so `getKey*` and the `onKeyDown` closures work. UI events run through the compiled handlers *inside* the interaction layer's dispatch (`Native::ui_event`, with `Runtime::dispatch_handlers`; world panels go through `native_render::panel_event` the same way), so `preventDefault()` reaches the default actions; `Native::settle` commits afterwards. `platypus_ts_ui::take_node_commands()` (`ref.focus()`, `blur()`, `scrollTo()`, `scrollBy()`, `scrollIntoView()`) is applied to the UI by `App::apply_node_commands`.
+  - *Input.* Keys, mouse, wheel and gamepad events go to `platypus_engine_api::input` (`game_input::apply_native`, the same argument lists as `__platypus_input`), so `getKey*` and the `onKeyDown` closures work. UI events run through the compiled handlers *inside* the interaction layer's dispatch (`Native::ui_event`, with `Runtime::dispatch_handlers`; world panels go through `native_render::panel_event` the same way), so `preventDefault()` reaches the default actions; `Native::settle` commits afterwards. `web_ui_bridge::take_node_commands()` (`ref.focus()`, `blur()`, `scrollTo()`, `scrollBy()`, `scrollIntoView()`) is applied to the UI by `App::apply_node_commands`.
   - *Physics.* `fixed_tick` calls `platypus_physics_api::step()` (it writes body poses into the scene) and `dispatch_physics`.
   - *Audio.* `AudioCommand`s go to the mixer through `audio_op` (`Load` reads the file, the others `to_op()`); the mixer's finished sounds go back as `audio::ended` (`onEnded`, `AudioSource` state); `AudioSource` / `AudioListener` follow their objects in `pre_render`.
   - *Window and settings.* The window, `Screen`, quality levels and cursor are `native_render.rs`. `Application` requests (target frame rate, run in background, quit) and focus / pause (`onApplicationFocus` / `Pause`, `Application.onFocusChanged`) are applied. `PlayerPrefs` start from the saved prefs and their changes are written back. The manifest's `Application` info, layer names, quality levels and asset GUIDs are set by `native_pump::configure_engine`, before the program's top level, again after a reload.
@@ -396,7 +396,7 @@ are posed on several threads (`platypus_animation::set_threads`, from `PLATYPUS_
 (`configure_quality` and `apply_default_quality`, once), `UiResources` requests (`addStyleSheet`, `removeStyleSheet`, `loadFont` through
 the same code as the QuickJS ops, on the screen and every panel), `Cursor` (version counter) and `Screen` (window requests, the display
 state and size changes), and world panels: `Native::take_panel_mounts` hands over `createRoot(panel).render(..)` roots; each panel has its
-own `UiTree` (`panels.rs`) and its own `platypus_ui_native::Runtime` (flushed every frame); pointer and key events of a panel
+own `UiTree` (`panels.rs`) and its own `web_ui_react::Runtime` (flushed every frame); pointer and key events of a panel
 (`App::native_panel_events`) go to that runtime. `WorldPanel` components give the panel's size, density and tint through `Panels::apply`.
 Not done: animation events are not delivered to components;
 colliders of models (`colliders: "mesh"`) need the physics hook (agent H).
@@ -483,7 +483,7 @@ games too. The renderer-side parts send the same ops as the QuickJS classes (`re
 - **Facade chunk requirements.** A chunk header may end with `@ Name ..`: `//# when Spline @ Vector3`. The chunk is added only
   when the engine API has every name (class, value class, handle or namespace) and the program names a trigger, so a comment that
   mentions `LineRenderer2D` no longer pulls a chunk written over it into programs without that class.
-- **Compiler changes this needed** (`tools/platypus_ts`): interface and type-literal *method signatures* are function-valued
+- **Compiler changes this needed** (`tools/web_ui_ts`): interface and type-literal *method signatures* are function-valued
   properties (`at(t: number): Move;`, optional ones too); named tuple members (`[t: number, run: () => void]`); a method shorthand
   in an object literal (`{ at(t) { .. } }`) is a property whose closure takes its parameter types from the declared
   field; closures inside closures in a **top-level initialiser** now capture the outer closure's locals; errors in top-level
@@ -539,7 +539,7 @@ names, and a setter ignores a name that is not one. Differences from before: the
 `fillValue` and `Window.openErrorText` are gone (the nullable property replaces each pair), `Camera.main` is a property of the
 native `Camera` class in QuickJS too (it was a function there), and `Window.create({ style: "floating" })` throws a `TypeError` in
 QuickJS (compiled code and the old string API fell back to `normal` with a warning). Tests: `crates/ts_api/tests/enums_nullables.rs`
-(`M9-API-1622`..`1626`, `1630`..`1632`), `crates/platypus_native/tests/enums.rs` (`M9-API-1627`..`1629`, `1633`), `tools/platypus_ts_tests` `M9-TS-3340`, `3341`, `3343`, `tools/platypus_ts` `M9-TS-3342`.
+(`M9-API-1622`..`1626`, `1630`..`1632`), `crates/platypus_native/tests/enums.rs` (`M9-API-1627`..`1629`, `1633`), `tools/platypus_ts_tests` `M9-TS-3340`, `3341`, `3343`, `tools/web_ui_ts` `M9-TS-3342`.
 
 **Records as parameters (2026-10-22, plan phase 2b, second part).** A record declared in `records(..)` may have optional keys and number
 lists, and `Option<R>` of a record is a parameter or a result (`opt:record:R` in the manifest). On the wire it is **JSON text**: the
@@ -599,11 +599,11 @@ or `[time, value]` pairs: QuickJS reads both, compiled code converts `number[][]
 
 **Manifest JSON** (additive): top-level `doc`, `like`, `enums: [{ name, doc, values, nameSymbol, parseSymbol }]`,
 `records: [{ name, doc, fields: [{ name, type, doc }] }]`; classes `doc`; functions `doc`, `optionsAfter`, `nullable`, `tsType`;
-parameters `rest`; type strings `enum:X`, `record:X`, `list:value:V`, `list:record:R`, `list:string` (a result) and `strings` (a parameter). `tools/platypus_ts/src/types_dts.rs` reads them
+parameters `rest`; type strings `enum:X`, `record:X`, `list:value:V`, `list:record:R`, `list:string` (a result) and `strings` (a parameter). `tools/web_ui_ts/src/types_dts.rs` reads them
 (`enum` becomes `type X = ..` and `namespace X { name, parse }`, `record` an `interface`).
 
 **Guard tests** (`tools/platypus_build/tests/generated_dts.rs`): `M9-TS-3100` no hand-written `.d.ts` file under `tools/` (strict:
-`engine_ts.d.ts` and `facade.ts` are gone; what the compiler itself declares is the table `tools/platypus_ts/src/builtins.rs`),
+`engine_ts.d.ts` and `facade.ts` are gone; what the compiler itself declares is the table `tools/web_ui_ts/src/builtins.rs`),
 `M9-TS-3101` the built-ins declare no engine name again and every class they add members to exists, `M9-TS-3102` the generated
 `types/platypus.d.ts` equals a blessed API snapshot
 (`tools/platypus_build/tests/golden/api_surface.txt`; `PLATYPUS_BLESS=1 cargo test -p platypus_build --test generated_dts` rewrites it, and the

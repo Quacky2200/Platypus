@@ -23,7 +23,7 @@ fn owners(ms: &[String]) -> BTreeSet<String> {
 
 fn usage(src: &str) -> Usage {
     let ms = manifests();
-    let out = platypus_ts::compile_with_manifests(src, "speed", "t_", 0, &ms).unwrap();
+    let out = web_ui_ts::compile_with_manifests(src, "speed", "t_", 0, &ms).unwrap();
     usage_of_symbols(&out.externs, &out.uses, &ms)
 }
 

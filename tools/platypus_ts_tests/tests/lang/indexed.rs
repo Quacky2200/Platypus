@@ -13,7 +13,7 @@ fn check(src: &str, prefix: &'static str, base: u32, want: &str) {
 }
 
 fn error_of(src: &str) -> String {
-    match platypus_ts::lower::lower_source(src) {
+    match web_ui_ts::lower::lower_source(src) {
         Ok(_) => panic!("expected an error from:\n{src}"),
         Err(e) => e,
     }

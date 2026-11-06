@@ -1,12 +1,12 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The debug build's hook and the controller (`platypus_ts::debug`): breakpoints, pause,
+//! The debug build's hook and the controller (`web_ui_ts::debug`): breakpoints, pause,
 //! continue and the three steps. The game runs on its own thread; the test is the debugger.
 //! IDs are in TESTS.md (M9-TS-3393..3396, 3400..3407, 3412).
-use platypus_ts::debug::{self, BreakpointSpec, Reason, Resume, Stop};
-use platypus_ts::jit::{JitOptions, compile_and_load};
 use std::time::Duration;
+use web_ui_ts::debug::{self, BreakpointSpec, Reason, Resume, Stop};
+use web_ui_ts::jit::{JitOptions, compile_and_load};
 
 // Lines are those of this source (1-based).
 const SRC: &str = "\

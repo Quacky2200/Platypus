@@ -79,7 +79,7 @@ fn jit_line_at(addr: usize) -> Option<u32> {
     (addr < end).then_some(line)
 }
 
-/// The hash of the bundled source the running code was compiled from (`platypus_ts::modules::source_hash`).
+/// The hash of the bundled source the running code was compiled from (`web_ui_ts::modules::source_hash`).
 static SOURCE_HASH: AtomicU64 = AtomicU64::new(0);
 
 /// The game folder, where `build/game.pdebug` is looked for after the one beside the exe.
@@ -359,7 +359,7 @@ unsafe fn registers(ctx: *const windows_sys::Win32::System::Diagnostics::Debug::
 
 /// The TypeScript call stack at the fault, innermost first: the faulting address, then every
 /// word of the stack that is a return address into compiled game code (a scan, see
-/// `platypus_ts::unwind::stack_words`; it crosses the host's frames between the game's, and may
+/// `web_ui_ts::unwind::stack_words`; it crosses the host's frames between the game's, and may
 /// list a stale entry). Needs the line table, so only code it covers shows. Runs of the same
 /// frame (a recursion) are counted, and a long stack is cut in the middle.
 ///
@@ -374,7 +374,7 @@ unsafe fn game_stack(
         return String::new();
     };
     // SAFETY: the handler runs on the faulting thread, whose stack pointer this is.
-    let words = unsafe { platypus_ts::unwind::stack_words(c.Rsp as usize) };
+    let words = unsafe { web_ui_ts::unwind::stack_words(c.Rsp as usize) };
     format_game_stack(c.Rip as usize, words)
 }
 
@@ -463,7 +463,7 @@ unsafe fn stack_overflow(
     let in_game = jit_function_at(at).is_some() || (start..end).contains(&at);
     let report = move || {
         // SAFETY: the faulting thread is stopped in this handler; its stack is as it was.
-        let words = unsafe { platypus_ts::unwind::stack_words_in(low, high, rsp) };
+        let words = unsafe { web_ui_ts::unwind::stack_words_in(low, high, rsp) };
         let stack = format_game_stack(at, words);
         let place = match jit_function_at(at) {
             Some(f) => format!(" (in compiled TypeScript, near {f})"),

@@ -7,8 +7,8 @@
 //! running scripts. Every test runs normally, in stress GC mode and with collection off.
 //! IDs are in TESTS.md (M9-TS-151..).
 use platypus_scene::Scene;
-use platypus_ts_rt::{link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::scn::*;
+use web_ui_rt::{link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 fn in_every_gc_mode(f: impl Fn()) {
     let _serial = platypus_ts_tests::serial();
@@ -187,9 +187,9 @@ fn names_cross_the_boundary_as_strings() {
     let mut scene = Scene::new();
     let _scope = platypus_scene::api::enter(&mut scene);
     in_every_gc_mode(|| unsafe {
-        let r = ts_scn_names() as *const platypus_ts_rt::Str;
+        let r = ts_scn_names() as *const web_ui_rt::Str;
         assert_eq!(
-            platypus_ts_rt::Str::from_raw(r).to_string_lossy(),
+            web_ui_rt::Str::from_raw(r).to_string_lossy(),
             "player-1/same/no/5"
         );
     });
@@ -229,8 +229,8 @@ fn many_names_survive_collections() {
 fn the_engines_view_of_a_script_string_is_the_runtimes_layout() {
     assert_eq!(
         std::mem::size_of::<ts_api::ScriptStr>(),
-        std::mem::size_of::<platypus_ts_rt::Str>()
+        std::mem::size_of::<web_ui_rt::Str>()
     );
-    let s = unsafe { platypus_ts_rt::ts_rt_str_new("añ😀".as_ptr(), "añ😀".len() as i64) };
+    let s = unsafe { web_ui_rt::ts_rt_str_new("añ😀".as_ptr(), "añ😀".len() as i64) };
     assert_eq!(unsafe { ts_api::script_str(s as *const u8) }, "añ😀");
 }

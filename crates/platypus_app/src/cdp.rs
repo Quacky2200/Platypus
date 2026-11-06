@@ -5,7 +5,7 @@
 //! `node --inspect-brk` offers, so Chrome DevTools (`chrome://inspect`, "Discover network
 //! targets"), VS Code's JavaScript debugger and Node's tooling find the game on `127.0.0.1:9229`,
 //! list it at `/json`, and attach over a WebSocket. It drives the same debugger as the text
-//! controller and the DAP server (`debugger.rs`, `platypus_ts::debug`); the guide is
+//! controller and the DAP server (`debugger.rs`, `web_ui_ts::debug`); the guide is
 //! `docs/debugger.md`.
 //!
 //! Like Node's `--inspect-brk`, the game does not start until the debugger sends
@@ -18,7 +18,6 @@
 
 use crate::dap::{file_of, path_of};
 use crate::debugger::{self, FileBreakpoint};
-use platypus_ts::debug::{self, Reason, Resume, Stop, Variable};
 use serde_json::{Value, json};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
@@ -26,6 +25,7 @@ use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use web_ui_ts::debug::{self, Reason, Resume, Stop, Variable};
 
 const GUID: &str = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 

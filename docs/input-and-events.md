@@ -10,12 +10,12 @@ keywords, dialogs, scrolling, text fields, drag and drop, and the script side's 
 ```mermaid
 flowchart LR
   W[winit WindowEvent] -->|convert_window_event| IE[InputEvent]
-  IE -->|App::input: scale to logical px| IN[platypus_ui::Input]
+  IE -->|App::input: scale to logical px| IN[web_ui_dom::Input]
   IN --> H[Interaction::handle]
   H --> P[Pointer: hover/active/click]
   H --> F[focus, Tab, keys, scroll]
   P & F -->|UiEvent| D[dispatch callback]
-  D -->|platypus_ui_native::event_of| JS[native reconciler: capture then bubble]
+  D -->|web_ui_react::event_of| JS[native reconciler: capture then bubble]
   JS -->|defaultPrevented| D
   D -->|prevented?| H
   H -->|default actions| T[UiTree state / focus / scroll]
@@ -63,7 +63,7 @@ need no `image`. A rejected image is logged and skipped.
 
 ## App glue ([main.rs](../crates/platypus_app/src/main.rs))
 
-`App::input` maps `InputEvent` to `platypus_ui::Input` and calls `handle_ui`:
+`App::input` maps `InputEvent` to `web_ui_dom::Input` and calls `handle_ui`:
 
 - Positions are divided by `App::scale()`, the window DPI factor times the UI scale ([UI scale](#ui-scale)). `Lines` wheel deltas are
   multiplied by `WHEEL_LINE` (40 px), touchpad pixels are divided by scale.
@@ -82,7 +82,7 @@ need no `image`. A rejected image is logged and skipped.
   `.ico` of type 2 whose hotspot sits where `.ico` keeps colour planes). The hotspot is the CSS one,
   else the file's own, else the top-left corner. Images are scaled for the window's DPI and ones
   over `MAX_CURSOR_SIZE` (128px) are rejected.
-- The native backend (`native.rs`) turns each `UiEvent` into an `Event` with `platypus_ui_native::event_of` and runs the
+- The native backend (`native.rs`) turns each `UiEvent` into an `Event` with `web_ui_react::event_of` and runs the
   compiled handlers (capture then bubble); it returns `true` only if a handler called `preventDefault()`. If the game
   has no handlers, nothing is dispatched but built-in behaviour (hover, focus, Tab) still works. (The QuickJS
   `__platypus_ui_event` call is gone; `UiEvent::script_args()` stays as the shared payload layout.)
@@ -191,7 +191,7 @@ up-positive; state is per pad and axis and dropped on disconnect). The app only 
 `handle_ui` while `Interaction::focused()` is set, so the d-pad stays the game's until UI takes
 focus (e.g. a menu calling `ref.focus()`). The event is still sent to the game's `input` either way.
 
-`nearest_in_direction(tree, from, direction)` (web-ui's `crates/platypus_ui/src/interaction.rs`)
+`nearest_in_direction(tree, from, direction)` (web-ui's `crates/web_ui_dom/src/interaction.rs`)
 considers the elements in `tab_order`, keeps those whose centre lies that way (more than 0.5 px
 along the direction) and scores `along + 2 * |across|`, so elements in line beat closer ones off to
 the side. The lowest score wins; there is no wrap-around.

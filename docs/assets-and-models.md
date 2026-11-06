@@ -11,7 +11,7 @@ How these are drawn is in [world-rendering.md](world-rendering.md).
 ## Textures
 
 A `Texture` is an image the world draws with (not the UI's `image` element, which has its own path in
-`platypus_ui`). Scripts make one two ways:
+`web_ui_dom`). Scripts make one two ways:
 
 - `Texture.load(src, { filterMode, wrapMode, mipmaps, anisoLevel, linear })` reads a PNG or JPEG from the game folder.
 - `Texture.create(width, height, colors, options)` takes linear `Color`s, bottom row first like Unity's

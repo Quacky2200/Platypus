@@ -1497,7 +1497,7 @@ fn full_rebuild_dump(scene: &mut ScriptScene) -> String {
 mod tests {
     use super::super::native::{Bundle, Native};
     use super::*;
-    use platypus_ui::UiTree;
+    use web_ui_dom::UiTree;
 
     // M9-API-1700
     #[test]

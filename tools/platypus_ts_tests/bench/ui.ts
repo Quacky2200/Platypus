@@ -1,7 +1,7 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-// Compiled UI components for the native reconciler (`platypus_ui_native` through `platypus_ts_ui`): JSX,
+// Compiled UI components for the native reconciler (`web_ui_react` through `web_ui_bridge`): JSX,
 // useState, useRef, useMemo, useEffect and keyed lists, written as ordinary TSX.
 
 interface CounterProps {

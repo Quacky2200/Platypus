@@ -39,7 +39,7 @@ No assets, scenes or CSS.
 ## How it works
 
 1. `platypus-build` finds the entry (`src/main.tsx`, `src/main.ts`, ...), follows its imports and compiles the
-   whole module graph with platypus_ts. The import below resolves to `src/modules/greet.ts` because bare
+   whole module graph with web_ui_ts. The import below resolves to `src/modules/greet.ts` because bare
    imports are files of the `modules/` folder next to the entry:
 
 ```ts

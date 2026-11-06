@@ -5,7 +5,7 @@
 //! `node_modules` (see `docs/platypus-build.md`).
 //!
 //! A build reads `project.json` (deprecated fallback: the `platypus` section of `package.json`) and `tsconfig.json`, resolves the module graph from the
-//! entry file (`platypus_ts::modules`), runs `tsc --noEmit -p .` when `tsc` can be found, compiles the
+//! entry file (`web_ui_ts::modules`), runs `tsc --noEmit -p .` when `tsc` can be found, compiles the
 //! bundle with all engine manifests (so errors are found now, not when the game starts), and writes
 //! `build/game.pbundle` (the resolved source, the CSS and asset lists, and what the program needs
 //! from the renderer: `platypus_core::renderer`), `build/game.css`, and the assets the program names.
@@ -240,7 +240,7 @@ pub fn manifests() -> Vec<String> {
     all.extend(platypus_physics_api::manifests());
     all.extend(platypus_render_api::manifests());
     all.extend(platypus_components::manifests());
-    all.push(platypus_ts_ui::manifest_json());
+    all.push(web_ui_bridge::manifest_json());
     all
 }
 
@@ -250,7 +250,7 @@ pub fn types_dts() -> Result<String, String> {
         .into_iter()
         .filter(|m| !m.contains("\"namespace\":\"Ui\""))
         .collect();
-    platypus_ts::types_dts::generate(&ms)
+    web_ui_ts::types_dts::generate(&ms)
 }
 
 #[derive(Debug, Clone, Default)]
@@ -320,7 +320,7 @@ fn inspector_part(text: &str) -> String {
 }
 
 /// Adds the inspector to a bundled program (`--add-ui-inspector`).
-fn add_ui_inspector(bundle: &mut platypus_ts::modules::Bundle) {
+fn add_ui_inspector(bundle: &mut web_ui_ts::modules::Bundle) {
     let mut parts = vec![("<ui-inspector>/overlay.tsx", INSPECTOR_OVERLAY)];
     // A program that imports the shared parts (the editor does) has them, and the logic below them.
     if !bundle.source.contains(INSPECTOR_SHARED_MARKER) {
@@ -469,7 +469,7 @@ pub fn tsc_config(config: &GameConfig) -> String {
         .map(|i| format!("../../{}", i.trim_start_matches("./")))
         .collect();
 
-    // Bare imports are files of `modules/` next to the entry (the compiler's rule, `platypus_ts::modules`).
+    // Bare imports are files of `modules/` next to the entry (the compiler's rule, `web_ui_ts::modules`).
     let entry_dir = Path::new(&config.entry)
         .parent()
         .map(|d| d.to_string_lossy().replace("\\", "/"))
@@ -608,10 +608,10 @@ pub fn build(root: &Path, opts: &Options) -> Result<Report, String> {
     let all_manifests = opts.all_manifests();
     let mut dts = types_dts()?;
     if !opts.manifests.is_empty() {
-        dts += &platypus_ts::types_dts::generate(&opts.manifests)?;
+        dts += &web_ui_ts::types_dts::generate(&opts.manifests)?;
     }
-    let reserved = platypus_ts::modules::global_names(&dts);
-    let mut bundle = platypus_ts::modules::bundle_reserving(&entry, &reserved)?;
+    let reserved = web_ui_ts::modules::global_names(&dts);
+    let mut bundle = web_ui_ts::modules::bundle_reserving(&entry, &reserved)?;
     if opts.ui_inspector {
         add_ui_inspector(&mut bundle);
     }
@@ -628,16 +628,16 @@ pub fn build(root: &Path, opts: &Options) -> Result<Report, String> {
     }
 
     if opts.check_unused {
-        platypus_ts::check_unused(&bundle.source, &all_manifests)
+        web_ui_ts::check_unused(&bundle.source, &all_manifests)
             .map_err(|e| format!("{}: {}", config.name, bundle.locate_in(&e)))?;
     }
     let mut object_bytes = 0;
     let externs = if !opts.no_compile {
-        let target = platypus_ts::codegen::ObjectTarget {
+        let target = web_ui_ts::codegen::ObjectTarget {
             triple: opts.target.clone(),
             pic: opts.pic,
         };
-        let out = platypus_ts::compile_for_target(
+        let out = web_ui_ts::compile_for_target(
             &bundle.source,
             "speed",
             "game_",
@@ -656,7 +656,7 @@ pub fn build(root: &Path, opts: &Options) -> Result<Report, String> {
     } else {
         // Not compiled, but the bundle still says what the program needs: lowering alone finds
         // it (a program lowering can't handle leaves it unknown, which the host takes as 3D).
-        platypus_ts::extern_symbols(&bundle.source, &all_manifests).ok()
+        web_ui_ts::extern_symbols(&bundle.source, &all_manifests).ok()
     };
 
     // Stylesheets, in import order; the inspector's (`inspector/inspector.css`) comes with the flag.
@@ -698,7 +698,7 @@ pub fn build(root: &Path, opts: &Options) -> Result<Report, String> {
 
     // Paths built at run time (`assets/sfx/${n}.wav` is `assets/sfx/*.*`): which files they reach.
     let all_files = include::game_files(root);
-    let found = platypus_ts::assetpaths::asset_paths(&bundle.source);
+    let found = web_ui_ts::assetpaths::asset_paths(&bundle.source);
     let at = |line: usize| {
         bundle
             .locate(line)
@@ -801,7 +801,7 @@ pub fn build(root: &Path, opts: &Options) -> Result<Report, String> {
     let root_prefix = format!("{}/", root.to_string_lossy().replace('\\', "/"));
     let debug = serde_json::json!({
         "format": 1,
-        "hash": format!("{:016x}", platypus_ts::modules::source_hash(&bundle.source)),
+        "hash": format!("{:016x}", web_ui_ts::modules::source_hash(&bundle.source)),
         "starts": bundle.starts.iter().map(|(line, path)| {
             // Relative to the game folder: no build machine paths in a file that may ship.
             let rel = path.strip_prefix(&root_prefix).unwrap_or(path);
@@ -986,7 +986,7 @@ mod tests {
             dbg["hash"],
             format!(
                 "{:016x}",
-                platypus_ts::modules::source_hash(b["source"].as_str().unwrap())
+                web_ui_ts::modules::source_hash(b["source"].as_str().unwrap())
             )
         );
         let starts = dbg["starts"].as_array().unwrap();

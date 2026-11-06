@@ -11,11 +11,11 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
 - [x] Window/input: `winit` + `gilrs`
 - [x] Audio: `kira`
 - [x] Layout: Taffy first, Yoga fallback behind `LayoutEngine`
-- [x] **First script backend:** QuickJS (`rquickjs` 0.14). `deno_core` follows as a second backend. (QuickJS was removed 2026-10-28; compiled TypeScript, `platypus_ts`, is the only backend and `deno_core` was never added.)
+- [x] **First script backend:** QuickJS (`rquickjs` 0.14). `deno_core` follows as a second backend. (QuickJS was removed 2026-10-28; compiled TypeScript, `web_ui_ts`, is the only backend and `deno_core` was never added.)
 - [x] Rust edition 2024, latest stable (1.99 at time of writing)
 - [x] Licence: Apache-2.0 (see `LICENSE` and the README; it lets people modify anywhere and keep their changes with less friction). It was private until a working demo. Done with it: `license = "Apache-2.0"` in the Cargo manifests and package.json files, an `SPDX-License-Identifier: Apache-2.0` header on our source files, checked by `M9-LIC-01`. The holder line came with the rename: `Copyright 2026 The Platypus Authors` above it, and `NOTICE`
 - [x] Third-party notices (2026-10-28): `tools/platypus_notices` writes `THIRD-PARTY-NOTICES.md` from Cargo.lock (the host's crates, one section per licence, texts once, NOTICE files and bundled code) and `hand-written.md` (ANGLE and what it bundles, Inter); unknown licences, copyleft and crates without a licence file fail unless in its reviewed table. Built into `platypus-app` (`--licenses`) and `platypus-build` (`package` writes it beside every exe, `--no-notices` to skip); `notices_are_current` fails when Cargo.lock changes without it (`M9-LIC-02..16`)
-- [x] Name: **Platypus** (2026-10-27, was Iron): crates `platypus_*`, binaries `platypus-app` (the one host since 2026-10-28; between main's two-host work and then the hosts were `platypus-game` and `platypus-app`, picked by `project.json` `type`, and before that one `platypus`) / `platypus_editor` / `platypus-build`, the renderer crates `platypus_render_cpu` / `platypus_render_gles`, `PLATYPUS_*` variables, `@platypus/*` packages, `game.pbundle`, `.ppk`; files of the old names are still read (`M9-REN-01..04`). The icon `resources/icon/icon.png` is the default for every game without one (`M9-ICO-01..06`)
+- [x] Name: **Platypus** (2026-10-27, was Iron): crates `platypus_*`, binaries `platypus-app` (the one host since 2026-10-28; between main's two-host work and then the hosts were `platypus-game` and `platypus-app`, picked by `project.json` `type`, and before that one `platypus`) / `platypus_editor` / `platypus-build`, the renderer crates `web_ui_render_cpu` / `web_ui_render_gles`, `PLATYPUS_*` variables, `@platypus/*` packages, `game.pbundle`, `.ppk`; files of the old names are still read (`M9-REN-01..04`). The icon `resources/icon/icon.png` is the default for every game without one (`M9-ICO-01..06`)
 
 ---
 
@@ -31,7 +31,7 @@ Platypus/
 │  ├─ platypus_platform/       # Platform layer: winit + gilrs
 │  ├─ platypus_render/         # wgpu device, surfaces, offscreen targets
 │  ├─ platypus_script/         # ScriptRuntime trait + QuickJS backend + shared test suite
-│  ├─ platypus_ui/             # (M2) UI tree, LayoutEngine trait, Taffy backend, UI renderer
+│  ├─ web_ui_dom/             # (M2) UI tree, LayoutEngine trait, Taffy backend, UI renderer
 │  └─ platypus_app/            # the `platypus-app` host (and `platypus_editor`): main loop wiring everything together
 ├─ js/
 │  ├─ engine/              # @platypus/engine: Component base class, engine API, .d.ts
@@ -123,7 +123,7 @@ Platypus/
 - **D2 — Style values:** numbers mean logical pixels; strings are CSS values parsed in Rust (Taffy's `parse` feature for layout properties, a small parser for colours). Styles travel as flat `[prop, value, prop, value, ...]` lists, so `Value` needs no object type. M3's CSS files reuse the same parsers.
 - **D3 — Elements in M2:** `<box>` only. Text arrives in M3; `createTextInstance` throws a clear "text isn't supported until M3" error.
 - **D4 — Scheduling:** React 19 + react-reconciler 0.34. The script runtime gains `setTimeout`/`clearTimeout`/`queueMicrotask` and runs the QuickJS job queue every frame. Root renders use `updateContainerSync` + `flushSyncWork` so a frame's state changes commit in the same frame.
-- **D5 — Crate split:** a new `platypus_ui` crate owns the node tree, op decoding, style parsing, the `LayoutEngine` trait with the Taffy backend, and produces a GPU-free **draw list** of quads. `platypus_render` gains a `QuadRenderer` that draws any draw list. UI stays testable without a GPU, and the quad renderer is reusable for world panels later.
+- **D5 — Crate split:** a new `web_ui_dom` crate owns the node tree, op decoding, style parsing, the `LayoutEngine` trait with the Taffy backend, and produces a GPU-free **draw list** of quads. `platypus_render` gains a `QuadRenderer` that draws any draw list. UI stays testable without a GPU, and the quad renderer is reusable for world panels later.
 - **D6 — Units:** layout in logical pixels; the window's scale factor is applied only in the renderer.
 
 ### 1. Script runtime additions (`platypus_script`)
@@ -135,8 +135,8 @@ Platypus/
 - [x] New tests are in the backend conformance suite (7 added; 15 total)
 - [x] `platypus_app` calls `tick` every frame (timers work in games now); commits drained until step 6 consumes them
 
-### 2. `platypus_ui` crate: tree, styles, layout (no GPU)
-- [x] Opcodes (`platypus_ui::opcodes`): `CREATE`, `SET_STYLE`, `APPEND_CHILD`, `INSERT_BEFORE`, `REMOVE_CHILD`. Simplified from the plan: the root container is node `0` (no separate root ops), and `REMOVE_CHILD` destroys the subtree (no `DESTROY`), because React never reinserts removed instances
+### 2. `web_ui_dom` crate: tree, styles, layout (no GPU)
+- [x] Opcodes (`web_ui_dom::opcodes`): `CREATE`, `SET_STYLE`, `APPEND_CHILD`, `INSERT_BEFORE`, `REMOVE_CHILD`. Simplified from the plan: the root container is node `0` (no separate root ops), and `REMOVE_CHILD` destroys the subtree (no `DESTROY`), because React never reinserts removed instances
 - [x] `UiTree`: applies a commit, syncs with layout once per commit; bad ops (unknown IDs, duplicates, cycles, bad args) are reported and skipped — `M2-UI-01`, `M2-UI-02`
 - [x] Style parsing: Taffy `parse` for layout props; colours as `#rgb(a)`, `#rrggbb(aa)`, `rgb()`/`rgba()` (comma, space, `/ alpha`), `transparent`, a few names. `null` resets a prop — `M2-STY-01`, `M2-STY-02`
 - [x] M2 style subset: `display` (flex/grid/block/none), flex props + `flex` shorthand, `width/height/min/max`, `aspectRatio`, `padding`/`margin`/`borderWidth`/`inset` (1–4 value shorthands and per side), `gap`/`rowGap`/`columnGap`, `position` + insets, alignment, `gridTemplateColumns/Rows`, `gridAutoFlow`, `gridColumn/Row`, `backgroundColor`, `borderColor`, `borderRadius`, `opacity`
@@ -160,7 +160,7 @@ Platypus/
 - [x] A `setTimeout`-driven state change commits once within `tick`, creating only the two new nodes and keeping existing IDs; the grid relayouts to two rows — `M2-INT-02`
 - [x] Built fixtures marked as generated in `.gitattributes` (no noisy diffs; CI still checks they match their sources)
 
-### 2b. Box visuals in `platypus_ui` (styles + draw commands, no GPU) — see DESIGN §5.2
+### 2b. Box visuals in `web_ui_dom` (styles + draw commands, no GPU) — see DESIGN §5.2
 - [x] Colours: `hsl()/hsla()` (deg/turn/rad/grad hues) and all 148 CSS named colours — `M2-VIS-01`
 - [x] `border` shorthand (`"2px solid #fff"`, any order, `thin/medium/thick`; only `solid`/`none`/`hidden` styles; like CSS, no style means no border) — `M2-VIS-02`
 - [x] `borderRadius` with 1–4 values, per-corner props, percentages; resolved at draw time and scaled down like CSS when corners would overlap. Circular corners only (no `a / b` elliptical radii yet) — `M2-VIS-03`
@@ -196,7 +196,7 @@ Platypus/
 - [ ] Manual check: resize the window and watch it relayout — `M2-MAN-01` (**needs you**: `cargo run -p platypus_app -- examples/boxes`)
 
 ### 7. Benchmarks and the Taffy/Yoga decision
-- [x] `criterion` benches in `platypus_ui` on a 2,246-node editor-like tree — `M2-BEN-01`..`M2-BEN-03`
+- [x] `criterion` benches in `web_ui_dom` on a 2,246-node editor-like tree — `M2-BEN-01`..`M2-BEN-03`
 - [x] JS→Rust commit transfer bench (QuickJS) — `M2-BEN-04` (0.40 ms per 1,000 ops; binary encoding not needed yet)
 - [x] Profiled and fixed our overhead: boxed UI nodes and FxHash maps (commit apply 5.1 → 3.1 ms)
 - [x] Results, analysis and revised targets recorded in TESTS.md
@@ -333,14 +333,14 @@ selectors 0.41, cssparser 0.38, cosmic-text 0.19 (alternative), arboard for the 
 1. **Hit testing and pointer events**
    - [x] Hit test in reverse paint order: rounded corners, `display: none`, `pointerEvents: none`
      (inherited, children can opt back in); text hits its text element, `::before`/`::after` their
-     owner — `M3-EVT-01` (`crates/platypus_ui/tests/hit.rs`)
+     owner — `M3-EVT-01` (`crates/web_ui_dom/tests/hit.rs`)
    - [x] Clipping in hit tests: `overflow` and `clipPath` cut away what isn't drawn — `M3-EVT-05`
-     (`crates/platypus_ui/tests/clip.rs`)
+     (`crates/web_ui_dom/tests/clip.rs`)
    - [ ] Spans inside text as targets (needs node ids in the text brush); `visibility`
    - [x] Pointer events to JS with the target's ancestor path; capture + bubble phases,
      `stopPropagation`, `preventDefault`; `onClick`, `onPointerDown/Up/Move/Enter/Leave`, `onWheel`,
      double click, `onContextMenu`, `onMouse*` aliases — `M3-EVT-02`, `M3-EVT-03`
-     (`platypus_ui::Pointer` in `events.rs`, `js/react/src/events.ts`, `crates/platypus_ui/tests/pointer.rs`,
+     (`web_ui_dom::Pointer` in `events.rs`, `js/react/src/events.ts`, `crates/web_ui_dom/tests/pointer.rs`,
      `events_quickjs.rs`)
    - [x] `:hover` / `:active` states (hover re-tested each frame when the tree moves under the
      pointer); `cursor` CSS property (inherited) → OS cursor
@@ -349,7 +349,7 @@ selectors 0.41, cssparser 0.38, cosmic-text 0.19 (alternative), arboard for the 
      `relatedTarget`), `:focus`, `:focus-visible` (keyboard only), `:focus-within`; `onKeyDown` /
      `onKeyUp` to the focused element with DOM `key`/`code`/`repeat`; pressing focuses the nearest
      focusable ancestor or blurs (unless `pointerdown` is prevented) — `M3-EVT-04`
-     (`platypus_ui::Interaction` in `interaction.rs`, `crates/platypus_ui/tests/focus.rs`, `events_quickjs.rs`)
+     (`web_ui_dom::Interaction` in `interaction.rs`, `crates/web_ui_dom/tests/focus.rs`, `events_quickjs.rs`)
    - [x] Imperative `ref.current.focus()` / `blur()` via ops
 3. **Text input**
    - [x] `<input>` and `<textarea>` (`Input` / `TextArea` components) backed by Parley
@@ -359,7 +359,7 @@ selectors 0.41, cssparser 0.38, cosmic-text 0.19 (alternative), arboard for the 
      caret kept in view; `value` (controlled, restored when `onChange` rejects an edit like React
      DOM), `defaultValue`, `readOnly`, `disabled`, `rows`; focusable by default; `onChange` /
      `onInput` with `e.target.value`; Ctrl+C/X/V produce clipboard requests — `M3-INP-01`
-     (`crates/platypus_ui/tests/editor.rs`, golden `M3-INP-01-fields`)
+     (`crates/web_ui_dom/tests/editor.rs`, golden `M3-INP-01-fields`)
    - [x] Ctrl/Cmd shortcuts fall back to the physical key `code` on non-Latin layouts (Ctrl+ф is
      Ctrl+A on a Russian layout); AltGr still types — `M3-INP-02`. Hand-checked 2026-10-16:
      Ctrl+A/C/X/V work on English, French, Russian, Arabic, Hebrew, the Chinese Pinyin layout and
@@ -405,7 +405,7 @@ selectors 0.41, cssparser 0.38, cosmic-text 0.19 (alternative), arboard for the 
      chains outward (Shift for horizontal); arrow keys, Page Up/Down, Space, Home/End; Tab and
      `focus()` scroll the element into view; overlay scrollbars (`scroll` always, `auto` when
      needed) with thumb dragging and track paging; `scrollbarWidth`, `scrollbarColor`; `onScroll`
-     and `ref.scrollTo/scrollBy/scrollIntoView()` — `M3-EVT-05` (`crates/platypus_ui/tests/scroll.rs`,
+     and `ref.scrollTo/scrollBy/scrollIntoView()` — `M3-EVT-05` (`crates/web_ui_dom/tests/scroll.rs`,
      golden `M3-EVT-05-scroll`)
    - [ ] Later: smooth scrolling, scroll snapping, culling off-screen children in the draw list
      (the renderer already culls their GPU work), touchpad momentum
@@ -415,7 +415,7 @@ selectors 0.41, cssparser 0.38, cosmic-text 0.19 (alternative), arboard for the 
      `on("gamepadbuttondown" | "keydown" | ...)`; keys typed into a text field stay the
      field's); spatial focus navigation with the d-pad / left stick and South to click, only
      while UI has focus — `M3-PAD-01` (`crates/platypus_platform/src/gamepad.rs`,
-     `crates/platypus_app/src/game_input.rs`, `crates/platypus_ui/tests/navigation.rs`,
+     `crates/platypus_app/src/game_input.rs`, `crates/web_ui_dom/tests/navigation.rs`,
      `js/engine/test/input.test.ts`)
    - [ ] Later: rumble, button repeat while held, mouse state in `input`
 6. **Example + checks**
@@ -452,14 +452,14 @@ and `@font-face`.
 1. **Units and values**
    - [x] `em`, `rem`, `vw`, `vh`, `vmin`, `vmax` (and the `d`/`s`/`l` viewport variants) in every
      property, inline or from stylesheets: resolved to px at restyle like `var()`
-     (`crates/platypus_ui/src/units.rs`); `em` is the element's own font size (the parent's for
+     (`crates/web_ui_dom/src/units.rs`); `em` is the element's own font size (the parent's for
      `fontSize`); nodes using them restyle when the window, their font size or the root font
-     size changes (`crates/platypus_ui/tests/units.rs`)
+     size changes (`crates/web_ui_dom/tests/units.rs`)
    - [x] `calc()`, `min()`, `max()`, `clamp()` with pixels, relative units and numbers, nested;
      invalid math is ignored (stylesheets warn, inline values are rejected and keep the old value)
    - [x] `calc()` / `min()` / `max()` / `clamp()` with percentages (`calc(100% - 20px)`) in layout
      lengths (sizes, insets, margins, padding, borders, gaps, `flex-basis`): parsed once and
-     interned (`crates/platypus_ui/src/calc.rs`), evaluated by Taffy through our own Taffy tree
+     interned (`crates/web_ui_dom/src/calc.rs`), evaluated by Taffy through our own Taffy tree
      (`TaffyLayout` now implements Taffy's tree traits instead of using `TaffyTree`, whose
      `resolve_calc_value` returns 0). Paint lengths (`border-radius`, shadows) don't take them yet
    - [x] `boxSizing: border-box | content-box`; Platypus keeps Taffy's (and s&box's) `border-box`
@@ -467,19 +467,19 @@ and `@font-face`.
    - [x] CSS-wide keywords `inherit`, `initial`, `unset`, `revert` (and `revert-layer`, both like
      `unset`: no user-agent stylesheet) on every property, inline, in stylesheets and on
      `::before`/`::after`; `inherit` copies the parent's value for non-inherited properties
-     (`apply_wide_keyword`, `crates/platypus_ui/tests/wide_keywords.rs`)
+     (`apply_wide_keyword`, `crates/web_ui_dom/tests/wide_keywords.rs`)
    - [x] Colours: `hwb()`, `lab()`, `lch()`, `oklab()`, `oklch()`, `color(srgb | srgb-linear |
      display-p3 ...)`, `none` channels, and `color-mix(in srgb | srgb-linear | lab | oklab | lch |
      oklch, ...)` (premultiplied, shorter hue), the standard form of s&box's `mix()` /
      `darken()` / `lighten()`, which are supported too (SCSS semantics: HSL lightness ± amount;
-     `mix(a, b, weight of a)` in sRGB) (`crates/platypus_ui/src/color_fn.rs`); out-of-gamut colours clip
+     `mix(a, b, weight of a)` in sRGB) (`crates/web_ui_dom/src/color_fn.rs`); out-of-gamut colours clip
    - [x] Angles in `deg`, `rad`, `grad`, `turn` (hues and gradients); times (`s`/`ms`) come with
      transitions (group 7), the first properties that take them
 2. **Layout**
    - [x] `order` (layout children are stably sorted by it; Tab order stays in document order),
      `z-index` (paint order and hit testing among siblings, then `order`, then document order;
      each z-indexed element stacks on its own, so it never lifts above an ancestor's siblings),
-     `isolation` (accepted, no effect in that model) (`crates/platypus_ui/tests/layout_props.rs`)
+     `isolation` (accepted, no effect in that model) (`crates/web_ui_dom/tests/layout_props.rs`)
    - [x] `display: contents` (children join the layout parent, flattened before Taffy sees them;
      the element paints nothing and isn't hit, but stays in event paths and passes on inherited
      styles); `position: fixed` (Taffy lays it out as an absolute child of the root; it ignores
@@ -492,7 +492,7 @@ and `@font-face`.
      or four lines), `grid-row-start`/`-end`, `grid-column-start`/`-end`
    - [x] Logical properties: `margin-block`/`-inline`, `padding-block`/`-inline`,
      `inset-block`/`-inline` (with `-start`/`-end`), `block-size`/`inline-size` (+ `min-`/`max-`),
-     mapped left-to-right (`crates/platypus_ui/tests/layout_props.rs`); RTL-aware mapping later
+     mapped left-to-right (`crates/web_ui_dom/tests/layout_props.rs`); RTL-aware mapping later
    - [x] An `image` element (`Image` in `@platypus/react`) with `src` (a path inside the game folder
      or a `data:` URL) and `object-fit` (`fill`, `contain`, `cover`, `none`, `scale-down`) and
      `object-position`: the tree asks the app for natural sizes (`take_image_requests` /
@@ -1137,7 +1137,7 @@ for GameObjects and scene serialization (M5.a/b), which it reuses — see "Hot r
     cached: 24.6 → 5.7 ms a frame for the room (~3.3 ms of it the figure)
   - [x] Skeletal animation natively: sample glTF clips and blend poses in Rust (the
     `Animator`'s state machine stays in script), so a crowd of animated characters costs
-    little script time. Compiled games (platypus_ts) do this (2026-10-23: `Model.animations`
+    little script time. Compiled games (web_ui_ts) do this (2026-10-23: `Model.animations`
     built by `platypus_animation::gltf`, the `Animator` in `platypus_animation`). Clips' curves are now
     bound once per (clip, root) to bone slots and channels (`bind.rs`, Unity's `Rebind`), the
     pose is a dense per-bone array reused between frames, a bone's curves share their key
@@ -1804,7 +1804,7 @@ Research and design: [docs/research/networking-and-files.md](docs/research/netwo
   - Questions: keeping the `__platypus_op` / `__platypus_commit` boundary unchanged, React's dynamic
     code under each option, and keeping dev builds on QuickJS for hot reload (M4)
 - [x] **Windows API** (2026-10-21): `Window` (tool / dialog / popup windows, families and event domains, messages, hot reload by key,
-  platform support table), `examples/windows`, guide `docs/windows.md`; steps in `tools/platypus_ts/TODO.md` "Windows API". Open
+  platform support table), `examples/windows`, guide `docs/windows.md`; steps in `tools/web_ui_ts/TODO.md` "Windows API". Open
   optional leftovers: embedded `child` style, modal dialogs, `Camera.targetWindow`, transparent windows, `Application.wantsToQuit`,
   domains on their own thread / process, and a manual check of the winit runner on a real display (never run there yet).
 - [x] **Startup video settings** (2026-10-28): an optional prompt shown once before the game's window (`videoSettingsPrompt` in
@@ -1819,7 +1819,7 @@ Research and design: [docs/research/networking-and-files.md](docs/research/netwo
   `cpu`, left out: automatic; the old `type` warns and is ignored); the compiler finds the program's tier at build time
   (`ui` / `world2d` / `world3d`, `platypus_core::renderer`, written into `game.pbundle`) and a `ui` program starts on GLES through
   ANGLE linked in statically (`static-angle`, default on Windows; needs libclang to build), the rest on wgpu with the world;
-  "3D Not Supported" stays as the safety net; `cpu` is an opt-in third path (`platypus_render_cpu`); `--renderer` on
+  "3D Not Supported" stays as the safety net; `cpu` is an opt-in third path (`web_ui_render_cpu`); `--renderer` on
   `platypus-app` and `platypus-build package`; `THIRD-PARTY-NOTICES.md` beside packaged exes; `init` writes a self-contained
   `tsconfig.json` and `types/platypus.d.ts`, `init --editor-files` refreshes them (all examples regenerated, no more
   `extends` of `tsconfig.base.json` there). Tests `M9-HOST-01..14`, `M9-TSC-01..03`, `M9-API-1330..1332`. Follow-ups:
@@ -1830,7 +1830,7 @@ Research and design: [docs/research/networking-and-files.md](docs/research/netwo
     `js/engine`, `js/react` and the `tests/fixtures` JS are already gone); the examples and `tools/bench/crowd` no longer use it.
   - ANGLE no longer needs scoping to one binary (the old `ui_app_only` idea): there is one host.
 - [x] **A CPU executor of the frame plan** (2026-11-05, asked for by Fluid: apps on a software rasteriser without Mesa):
-  `platypus_render_cpu::plan::PlanRenderer` runs the same `FramePlan`, glyph cache and image cache as the GLES executor with
+  `web_ui_render_cpu::plan::PlanRenderer` runs the same `FramePlan`, glyph cache and image cache as the GLES executor with
   seven kernel families compiled ahead of time (fill, shadow, glyph, image, transform, composite, blur; `plan::kernels`),
   plain Rust vectorised per target (x86-64 SSE2 and AVX2 + FMA chosen at run time, NEON on arm64 and armv7 with `+neon`),
   drawn in row bands by one pool per process (at most 4 threads, fewer on fewer cores). Within 2/255 of GLES on its scenes;
@@ -1855,10 +1855,10 @@ Research and design: [docs/research/networking-and-files.md](docs/research/netwo
       less private bytes (of ~100), which is why it is parked: the Memory column is already 23-46 MB. Worth doing
       later for transparent or shaped windows and possibly smoother resizing. Before adopting: check resizing and
       the first-frame flash by hand, alpha, screenshots, and that mozangle's ANGLE snapshot exposes the extension.
-- [ ] **M9.b2** `platypus_ts`: ahead-of-time TypeScript compiler (oxc → typed Platypus IR → Cranelift → object
+- [ ] **M9.b2** `web_ui_ts`: ahead-of-time TypeScript compiler (oxc → typed Platypus IR → Cranelift → object
   linked into the game exe). Spike done (`tools/`, `docs/research/platypus-ts-spike.md`): the zombie
   game's `sim.ts` compiles, 13/13 ported tests pass, ~50x QuickJS, a precise GC and closures work.
-  **Progress and the next task are tracked in `tools/platypus_ts/TODO.md`** (update it every step).
+  **Progress and the next task are tracked in `tools/web_ui_ts/TODO.md`** (update it every step).
   Rule for this list: a box is ticked only when the whole item is done. Finished parts of an open item
   are ticked sub-items. **STOP** marks an item big or risky enough that we write down the design and
   review it with the user before starting, not after.
@@ -1965,9 +1965,9 @@ Research and design: [docs/research/networking-and-files.md](docs/research/netwo
           coroutines with a microtask queue and timers in the runtime (`M9-TS-408..430`). The host must call `ts_rt_microtasks_run()` after
           every call into script and `ts_rt_timers_advance(now_ms)` once per frame (needs `platypus_app`, not done); also done: `Symbol`
           values, iterators and generators (`M9-TS-376..407`), `ArrayBuffer`/`DataView`/views, `structuredClone`, `WeakRef`,
-          `Intl.Segmenter/Locale/DisplayNames`, `Temporal` (ISO calendar) (`M9-TS-431..515`); detail in `tools/platypus_ts/TODO.md`
+          `Intl.Segmenter/Locale/DisplayNames`, `Temporal` (ISO calendar) (`M9-TS-431..515`); detail in `tools/web_ui_ts/TODO.md`
   - [ ] **Standard library, native** (`docs/research/platypus-ts-stdlib.md`; rule: JavaScript's exact results, compared with
-        bun; what is not built is a compile error). Detail and open gaps are in `tools/platypus_ts/TODO.md`
+        bun; what is not built is a compile error). Detail and open gaps are in `tools/web_ui_ts/TODO.md`
     - [x] Tier 1: errors and `try`/`catch`/`finally`, `typeof`, `Object.*`, spread/rest, `Array` gaps, `Number`, `Math`, `console` (`M9-TS-187..205`)
     - [x] Tier 2: `Map`/`Set`/`WeakMap`/`WeakSet`, typed `JSON` (`M9-TS-206..221`)
     - [ ] Tier 3
@@ -2037,14 +2037,14 @@ Research and design: [docs/research/networking-and-files.md](docs/research/netwo
   - [ ] **UI without React**: **STOP, design first.** A small component/effect library (Preact or our own
         remake) over a native UI tree, written in the compiled TypeScript subset; no React reconciler, no
         OneJS-style embedded engine for the common case
-    - [x] Generics in `platypus_ts` (functions, classes, methods, interfaces, aliases; `M9-TS-562..574`)
-    - [x] Step 3 of the migration: compiler side for TSX counters, lists, effects, memo and refs (`jsx.rs`, `ui.ts`, `platypus_ts_ui` bridge; `M9-TS-575..579`); also `ref=`, context, `useReducer`, `useImperativeHandle`, `useSyncExternalStore`, `memo`, `forwardRef` (`M9-TS-580..586`); controlled text fields (`M2-NAT-13`), hot-reload data and `Runtime::refresh` (`M9-TS-587..588`); updater setters, dynamic style objects and spread (`M9-TS-589..591`); next: `platypus_app` wiring (another session), the dev loop
-    - [x] Step 2 of the migration: `platypus_ui_native` reconciler core with Rust closures (hooks, keyed diff, effects in React's order, portals, events; `M2-NAT-01..12`); next: compiler side (JSX, hook intrinsics), then events/refs wiring, then `memo`/`forwardRef`/`useReducer`
+    - [x] Generics in `web_ui_ts` (functions, classes, methods, interfaces, aliases; `M9-TS-562..574`)
+    - [x] Step 3 of the migration: compiler side for TSX counters, lists, effects, memo and refs (`jsx.rs`, `ui.ts`, `web_ui_bridge` bridge; `M9-TS-575..579`); also `ref=`, context, `useReducer`, `useImperativeHandle`, `useSyncExternalStore`, `memo`, `forwardRef` (`M9-TS-580..586`); controlled text fields (`M2-NAT-13`), hot-reload data and `Runtime::refresh` (`M9-TS-587..588`); updater setters, dynamic style objects and spread (`M9-TS-589..591`); next: `platypus_app` wiring (another session), the dev loop
+    - [x] Step 2 of the migration: `web_ui_react` reconciler core with Rust closures (hooks, keyed diff, effects in React's order, portals, events; `M2-NAT-01..12`); next: compiler side (JSX, hook intrinsics), then events/refs wiring, then `memo`/`forwardRef`/`useReducer`
     - [x] Step 1 of the migration: typed `Op` enum and one applier (`M2-UI-OP-01`)
-    - [x] Design note written and approved (answers: portal events follow React, non-boolean `&&` is a compile error, `memo`/`forwardRef`/`useReducer` last, generics added to `platypus_ts`): `docs/research/platypus-ui-native.md` (user decision: hooks kept, native reconciler with re-render semantics and element descriptions, portals, one `Op` applier; React stays until it exists)
+    - [x] Design note written and approved (answers: portal events follow React, non-boolean `&&` is a compile error, `memo`/`forwardRef`/`useReducer` last, generics added to `web_ui_ts`): `docs/research/platypus-ui-native.md` (user decision: hooks kept, native reconciler with re-render semantics and element descriptions, portals, one `Op` applier; React stays until it exists)
     - [ ] Design note: what of React is used (components, state, effects, events, refs), signals-style
-          effects versus a vdom diff, how the library compiles under `platypus_ts` (it must stay inside the
-          typed subset), the native UI tree API (`platypus_ui` opcodes today), styles and CSS
+          effects versus a vdom diff, how the library compiles under `web_ui_ts` (it must stay inside the
+          typed subset), the native UI tree API (`web_ui_dom` opcodes today), styles and CSS
   - [ ] **Nothing left in TypeScript but generated types** (user request 2026-10-19): animation, scenes, math, physics and audio components, app/time/input ported to Rust behind `#[ts_api]`; games without `node_modules`; plan awaiting review in `docs/research/platypus-native-engine.md` (**STOP**: order and the type-checking question)
   - [ ] **Dev loop without Bun**: **STOP, design first.** Hot reload with the compiler as the watcher
     - [ ] Design note: Cranelift JIT in-process for development and AOT for release from the same IR,
@@ -2211,7 +2211,7 @@ code and the upstream issue before acting on it. See [docs/difference-to-bevy.md
   - [ ] Review: symbols missing from Inter (☰ ▸ ▾ ☑ ☐) drew as empty boxes instead of falling
     back to a system symbol font (Segoe UI Symbol on Windows); the reader draws its icons with
     CSS and SVG instead. Check fontique's fallback for symbol characters in `TextEngine`
-- [ ] GIF images in `platypus_ui`: `image` elements and `background-image` only decode PNG, JPEG and
+- [ ] GIF images in `web_ui_dom`: `image` elements and `background-image` only decode PNG, JPEG and
   SVG today (`The image format Gif is not supported`). Decode GIFs (the `image` crate's `gif`
   feature in `platypus_render`), then play animated ones with their frame timings (frames in the
   image atlas, a redraw only when the frame changes, paused when off screen); WebP likewise.
@@ -2323,7 +2323,7 @@ What would have been a Platypus app becomes a web-ui app: a TS/TSX/CSS program p
 - [x] **One test executable per crate** (`tests/main.rs`): ~50 fewer links per test run; the GLES tests share one context lock (`tests/common`: ANGLE crashed with contexts on parallel threads, `seeded` every time).
 - [x] **Move:** the TS and UI crates are in `..\web-ui` (its commit `83ac7b5`, from Platypus `f5547b4b`; `symbols_build.rs` became the crate `web_ui_symbols`; the goldens, fixtures and repository guards of those tests went along). Platypus names them once in `[workspace.dependencies]` (root and `tools/`). Builds of both can share one `CARGO_TARGET_DIR` (same profile), so third-party crates compile once.
   - [ ] **At the merge into `main`:** the worktree is deeper than `main`, so the two `[workspace.dependencies]` blocks say `../../../../web-ui` (root) and `../../../../../web-ui` (`tools/`): change them to `../web-ui` and `../../web-ui`.
-- [ ] **Rename** the moved `platypus_*` crates to web-ui names (`platypus_ui` -> `web_ui_dom`, `platypus_ui_native` -> `web_ui_react`, `platypus_ts` -> `web_ui_ts`, `platypus_ts_rt` -> `web_ui_rt`, `platypus_ts_ui` -> `web_ui_bridge`, the GLES / CPU executors -> `web_ui_render_gles` / `_cpu`); Platypus can keep its names with `package = ".."` in `[workspace.dependencies]`.
+- [x] **Rename** the moved crates to web-ui names (2026-11-06): `platypus_ui` -> `web_ui_dom`, `platypus_ui_native` -> `web_ui_react`, `platypus_ts` -> `web_ui_ts`, `platypus_ts_rt` -> `web_ui_rt`, `platypus_ts_ui` -> `web_ui_bridge`, `platypus_render_{gles,cpu}` -> `web_ui_render_{gles,cpu}`. Platypus uses the new names too (no `package = ".."` aliases: generated code names the runtime crate).
 - [ ] **Facade:** `web_ui::App` (Rust), `web_ui_register` / `web_ui_start` (C, `web_ui.h`), cdylib on Linux (shared by every app, lower PSS) and static on Windows / macOS; `examples/hello-rust`, `examples/hello-c`.
 - [ ] **Docs, CLAUDE.md, full sweep.**
 
@@ -2380,7 +2380,7 @@ Left:
   - [x] A native `Editor` namespace (`platypus_engine_api::editor`): `logSince(seq)` records, `openFile`, `listDir` /
     `copyIn` / `move` answering at once with `lastError`, `project`, `isAvailable`. The host runs the editor like any game:
     `platypus-app editor --project <folder>` (no second binary); without `--project` the calls fail.
-  - [x] Gaps of the trial build: type guards and the other compiler gaps (tools/platypus_ts/TODO.md, "TypeScript gaps");
+  - [x] Gaps of the trial build: type guards and the other compiler gaps (tools/web_ui_ts/TODO.md, "TypeScript gaps");
     `currentTarget`, `defaultPrevented`, pointer capture, `textAnchor` / `fontSize` / `fontWeight`, `Ref` / `RefObject` /
     `useImperativeHandle`, `Camera.worldToScreenPoint` / `screenPointToRay` / `pixelRect`. `createPrimitive` is
     `GameObject.createPrimitive` (the native name; no free function), `op` is replaced by `Editor`; `HideFlags`,
@@ -2395,10 +2395,10 @@ Left:
     click read `GameObject.roots` as empty, so the selection matched no objects (`M5-EDT-30`).
   - [ ] Editor follow-ups: a manual check of the Scene view controls, menus and drag and drop in the window (M5-EDT-21,
     M5-EDT-23, M5-DND-11); the editor source still works around the compiler gaps listed as "Found by the editor, still open"
-    in tools/platypus_ts/TODO.md (mixed-type class lists, an intersection array, conditional spreads, written return types
+    in tools/web_ui_ts/TODO.md (mixed-type class lists, an intersection array, conditional spreads, written return types
     on self-referencing closures; `parseLayout` reads a typed `SavedNode` and flags broken parts because `unknown` and a
     separate `undefined` are not built).
-- [ ] **TypeScript conformance after the editor** (audit 2026-10-29, list in tools/platypus_ts/TODO.md "TypeScript gaps"), in
+- [ ] **TypeScript conformance after the editor** (audit 2026-10-29, list in tools/web_ui_ts/TODO.md "TypeScript gaps"), in
   this order: cheap diagnostics and library holes (G4, G5, L2, `Object.is`, L5, L7, L8, M3, S10); a null property access
   as a catchable `TypeError` instead of a process crash (R2); dynamic `any` / `unknown` P0-P1
   (`docs/research/platypus-dynamic-values.md`: D1-D3, R1, untyped `JSON.parse`, `console.log(obj)`); generics (T3, T10, T11,
@@ -2406,12 +2406,12 @@ Left:
   wider TypeScript (T2, S1-S9, A1-A2). Also T14 (an engine subclass handle to its base).
 - [x] **Replace `scripts/screenshots.ts` and `scripts/progress-shots.ts` with Rust tools under `tests/tools/`** (2026-10-28: `tests/tools/shots`, `screenshots` and `progress-shots`; `scripts/` and the root `package.json` bun script are gone).
 
-## Code review (after the platypus_ts branch is merged into `main`)
+## Code review (after the web_ui_ts branch is merged into `main`)
 
 Most of this branch (about 300 commits) was written by agents and checked by tests, ratchets and snapshots, which catch regressions but not design drift. Once `claude/recursing-wright-856ffa` is merged into `main` (the user decides squash or merge as-is), do a human-readable review pass:
 - [ ] **Run `/code-review`** on the merged range (start at `high` effort, then `xhigh` on the compiler and engine crates) and triage the findings into TODO items.
-- [ ] **Read-only review agents per area**, one report each (no edits): `tools/platypus_ts` (the compiler: `lower/expr.rs` is about 5,800 lines, split candidates), `tools/platypus_ts_rt` (GC, maps, JSON: unsafe code and rooting), `crates/ts_api_macros` (3,900 lines), `crates/platypus_app` (`main.rs` 3,300 lines, `native.rs`, `render_sync.rs`, `windows.rs`), `crates/platypus_ui` / `platypus_ui_native`, `crates/platypus_render_api` (generated registries), packs and the virtual file system, `platypus-build`.
+- [ ] **Read-only review agents per area**, one report each (no edits): `tools/web_ui_ts` (the compiler: `lower/expr.rs` is about 5,800 lines, split candidates), `tools/web_ui_rt` (GC, maps, JSON: unsafe code and rooting), `crates/ts_api_macros` (3,900 lines), `crates/platypus_app` (`main.rs` 3,300 lines, `native.rs`, `render_sync.rs`, `windows.rs`), `crates/web_ui_dom` / `web_ui_react`, `crates/platypus_render_api` (generated registries), packs and the virtual file system, `platypus-build`.
 - [ ] **Look for design drift and duplication:** the same logic in the QuickJS and native paths, copies of the same table, helpers that grew into modules, `#[allow]` without a reason, `unsafe` blocks without a safety comment, `TODO`/`FIXME` left in code, dead code left behind by the QuickJS removal.
 - [ ] **Security-minded pass** (`/security-review`): asset path handling (`resolve_asset`, the unsafe-paths design), pack reading (`.ppk`), JSON parsing, the `prebuild` command of `project.json`, anything that runs external commands.
 - [ ] **Split the largest files** the review flags (new modules rather than growing them), and keep the notes in `CLAUDE.md` ("Notes for agents") current.
-- [ ] **Prune the notes:** `TESTS.md` (split by milestone), `TODO.md` (done items to history), the `CLAUDE.md` Status section (stale), the `tools/platypus_ts/TODO.md` log.
+- [ ] **Prune the notes:** `TESTS.md` (split by milestone), `TODO.md` (done items to history), the `CLAUDE.md` Status section (stale), the `tools/web_ui_ts/TODO.md` log.

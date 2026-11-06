@@ -5,8 +5,8 @@
 //! are in TESTS.md (M9-TS-1010..).
 use platypus_components::NativeHost;
 use platypus_scene::Scene;
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::comp_api_t::*;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 fn in_every_gc_mode(f: impl Fn()) {
     let _serial = platypus_ts_tests::serial();

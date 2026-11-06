@@ -1,6 +1,6 @@
 # Scripting
 
-Games are TypeScript compiled to machine code by `platypus_ts` (oxc, a typed IR, Cranelift) and run in the host's
+Games are TypeScript compiled to machine code by `web_ui_ts` (oxc, a typed IR, Cranelift) and run in the host's
 process. There is no JavaScript engine: QuickJS (`platypus_script`, `platypus_native`, `@platypus/engine`,
 `@platypus/react`, `__platypus_op` / `__platypus_commit` and the `__platypus_*` calls into JS) was removed on
 2026-10-28. Design background: [DESIGN.md](../DESIGN.md) sections 3 and 4. The compiler: web-ui `docs/platypus-ts.md`
@@ -24,7 +24,7 @@ so far keep going.
 | fixed tick (60 Hz, at most 5 catch-up ticks a frame; `TICK`) | `Native::fixed_tick`: `onFixedUpdate`, physics step, contact hooks |
 | frame | `Native::frame`: `Time`, timers and microtasks, `onUpdate` / `onLateUpdate` (`dt` capped at 0.1 s), animation, UI state |
 | before drawing | `Native::pre_render` (`onPreRender`) |
-| UI events | `Native::ui_events` (pointer, keys, focus) to the `platypus_ui_native::Runtime` |
+| UI events | `Native::ui_events` (pointer, keys, focus) to the `web_ui_react::Runtime` |
 | game input, focus and pause | `Native::game_input`, `Native::focus_changed` |
 | hot reload | `Native::reload` |
 

@@ -22,7 +22,7 @@ but to keep the web developer's way of building UIs while cutting what each app 
 
 ## What Platypus does differently
 
-- **React and CSS for the UI, running on our own renderer.** React components drive a UI tree (the native reconciler, `platypus_ui_native`) that
+- **React and CSS for the UI, running on our own renderer.** React components drive a UI tree (the native reconciler, `web_ui_react`) that
   Platypus lays out with Taffy and draws with wgpu. There is no DOM and no browser engine.
 - **TypeScript compiled to native code.** There is no JavaScript runtime in the app at all (QuickJS was
   removed). Scripts call the Rust core directly, without an IPC bridge, and a typed `@platypus/api` surface is

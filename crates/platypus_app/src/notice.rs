@@ -5,8 +5,8 @@
 //! the UI when a game asks for the 3D world, which its GLES renderer doesn't draw.
 
 use platypus_core::{NodeId, Value};
-use platypus_ui::opcodes::Op;
-use platypus_ui::{DrawCmd, ROOT, UiTree};
+use web_ui_dom::opcodes::Op;
+use web_ui_dom::{DrawCmd, ROOT, UiTree};
 
 pub struct Notice {
     tree: UiTree,

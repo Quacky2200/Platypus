@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! Stack values: value-class objects that never leave their function become scalars
-//! (`platypus_ts::sroa`). IDs are in TESTS.md (M9-TS-720..).
+//! (`web_ui_ts::sroa`). IDs are in TESTS.md (M9-TS-720..).
 
 fn ir_of(src: &str) -> String {
     let manifests = platypus_engine_api::platypus_math::manifests();
-    platypus_ts::compile_with_manifests(src, "speed", "sra_", 9000, &manifests)
+    web_ui_ts::compile_with_manifests(src, "speed", "sra_", 9000, &manifests)
         .unwrap_or_else(|e| panic!("{e}"))
         .ir
 }

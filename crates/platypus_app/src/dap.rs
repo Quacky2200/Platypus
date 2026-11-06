@@ -4,7 +4,7 @@
 //! A Debug Adapter Protocol server for `platypus-app --dap-port <port>`: editors that speak DAP
 //! (VS Code, the editor of a later step) attach to the running game and set breakpoints, pause,
 //! continue and step. It drives the same debugger as the text controller (`debugger.rs`,
-//! `platypus_ts::debug`); the guide is `docs/debugger.md`.
+//! `web_ui_ts::debug`); the guide is `docs/debugger.md`.
 //!
 //! The game does not start until the debugger sends `configurationDone`, so breakpoints set
 //! while the editor connects are in place before the first statement runs.
@@ -15,13 +15,13 @@
 //! `stepOut`, `pause`, `disconnect`. One thread, id 1, is the game's.
 
 use crate::debugger;
-use platypus_ts::debug::{self, Reason, Resume};
 use serde_json::{Value, json};
 use std::io::{BufRead, Write};
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, AtomicI64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use web_ui_ts::debug::{self, Reason, Resume};
 
 /// Starts the server on `port` (0 picks one) and makes every compile a debug build. Returns the
 /// port. One debugger at a time is served; the next connection is served after it leaves.

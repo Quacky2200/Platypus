@@ -19,7 +19,7 @@ sits in. This page covers those differences and what we want to keep from Unity.
 ## The main difference: TypeScript, not C#
 
 Unity scripts are C#. Platypus scripts are TypeScript, compiled ahead of time to native code
-(`platypus_ts`) in development and shipped builds.
+(`web_ui_ts`) in development and shipped builds.
 
 Why:
 - **TypeScript is the most common typed language among web developers,** and React is the
@@ -30,7 +30,7 @@ Why:
   models with the game client.
 
 What we're not claiming: TypeScript is not faster than C# for hot code, and the web tooling
-doesn't replace a mature game-profiling pipeline. The AOT compiler (`platypus_ts`) is
+doesn't replace a mature game-profiling pipeline. The AOT compiler (`web_ui_ts`) is
 the answer to speed.
 
 ## Other differences
@@ -38,7 +38,7 @@ the answer to speed.
 | | Unity | Platypus |
 |---|---|---|
 | Scripting | C#, with IL2CPP or Mono | TypeScript, compiled to native code |
-| UI | uGUI and UI Toolkit (UXML/USS, a CSS-like system) | React components with CSS (`platypus_ui_native` and a CSS cascade) |
+| UI | uGUI and UI Toolkit (UXML/USS, a CSS-like system) | React components with CSS (`web_ui_react` and a CSS cascade) |
 | Renderer | Built in, with SRP and HDRP/URP | Own wgpu renderer (`platypus_render`) |
 | Engine code | Closed source (C++ runtime) | Planned open source, Rust core, TypeScript gameplay |
 | Licence | Free under a revenue threshold, paid seats above it (see below) | Planned: free, see the licence section |

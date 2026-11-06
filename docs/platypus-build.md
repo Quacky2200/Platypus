@@ -1,4 +1,4 @@
-# platypus-build: building a game with platypus_ts
+# platypus-build: building a game with web_ui_ts
 
 `tools/platypus_build` (binary `platypus-build`) builds a game folder written in TypeScript for `platypus_app` with **no bun and no
 `node_modules`**. Only `tsc` is optional, for type checking while developing. It lives in the `tools` workspace:
@@ -199,7 +199,7 @@ builds and is type-checked with the same default (the build writes it into `buil
 1. **Config.** `project.json` (deprecated fallback: `package.json` `platypus`, see "`project.json`") -> `title`, `company`, `identifier`, `main`; `tsconfig.json` (comments and trailing commas allowed)
    -> `include` (default `src`) and `compilerOptions.jsx`. The entry is `main`, else the first of `src/main.tsx`, `src/main.ts`,
    `src/index.tsx`, `src/index.ts`, `main.tsx`, `main.ts`.
-2. **Module graph** (`platypus_ts::modules`, below): the entry and every file it imports become one source text.
+2. **Module graph** (`web_ui_ts::modules`, below): the entry and every file it imports become one source text.
 3. **`tsc --noEmit`** with the generated config of "Type declarations" below (over the game's `tsconfig.json`, or the default
    one for a game without it), when `tsc` is found
    (`node_modules/.bin/tsc` in the game folder or any parent, else on the `PATH`). A missing `tsc` is only a note; a failing one
@@ -226,7 +226,7 @@ builds and is type-checked with the same default (the build writes it into `buil
 ## Dynamic asset paths and `build/assets.plan`
 
 The build also reads the code's template literals and `+` chains with a literal folder first
-(`platypus_ts::assetpaths`, an oxc visitor). Each hole becomes `*` (one path part): `` `assets/sfx/${n}.${ext}` `` is `assets/sfx/*.*`,
+(`web_ui_ts::assetpaths`, an oxc visitor). Each hole becomes `*` (one path part): `` `assets/sfx/${n}.${ext}` `` is `assets/sfx/*.*`,
 `"assets/" + name + ".png"` is `assets/*.png`. A pattern needs a literal folder before the first hole and a file name with a dot
 that ends in `*` or an asset extension. `platypus-build build` prints one `note:` per pattern (`src/sfx.ts:60: dynamic path
 assets/sfx/*.* reaches 79 file(s): ...`), warns about a pattern that reaches no asset file and about a whole asset-looking
@@ -255,9 +255,9 @@ JSON, `format` 1:
 (`ui`, `world2d` or `world3d`: what the program needs from the renderer; missing means `world3d`) with `uses` (the engine names
 that set it, for the log).
 
-## Module graph (`tools/platypus_ts/src/modules.rs`)
+## Module graph (`tools/web_ui_ts/src/modules.rs`)
 
-`platypus_ts::modules::bundle(entry)` (and `compile_program`) writes the files, dependencies first, into one text, by *editing byte
+`web_ui_ts::modules::bundle(entry)` (and `compile_program`) writes the files, dependencies first, into one text, by *editing byte
 ranges* of the originals (comments and JSX stay as written; erased statements keep their newlines):
 
 - `import ... from "@platypus/..."` and `"react"` are erased. Names come from the manifests and the ambient prelude; an aliased import
@@ -310,7 +310,7 @@ import { lerp } from "mathx";
 ```
 
 **Using a TypeScript package:** copy its `.ts` source into `src/modules/<name>/` (keep its licence file next to it) and import it by
-`<name>`. It compiles only if its code is in the subset platypus_ts supports (typed function bodies, classes, generics, no dynamic
+`<name>`. It compiles only if its code is in the subset web_ui_ts supports (typed function bodies, classes, generics, no dynamic
 features). What will not compile:
 
 - CommonJS / UMD packages (`require`, `module.exports`), and packages that ship only `.js` plus `.d.ts` (the compiler needs types
@@ -346,7 +346,7 @@ resolves them from the manifests and the ambient prelude whether or not the file
 `import { Vector3 } from "@platypus/engine"`, `import { useState } from "react"` and `import { createRoot } from "@platypus/react"` type-check
 (the file also declares those three modules, each as `export import X = globalThis.X` re-exports) and the compiler erases them.
 
-The file (`platypus_ts::types_dts`, one deterministic file, about 3000 lines) is, in order:
+The file (`web_ui_ts::types_dts`, one deterministic file, about 3000 lines) is, in order:
 
 1. **The manifests** as top-level `declare class` / `declare namespace` / `declare type`: handle and value classes with constructors
    and fields, statics, methods, properties, namespaces; callbacks as function types; no doc comments (the manifests have none).
@@ -355,14 +355,14 @@ The file (`platypus_ts::types_dts`, one deterministic file, about 3000 lines) is
    handle class (one with `static create`) gets constructors `new Material()`, `new Material({ color })`, `new GameObject(name, { .. })`
    and `Class.create({ .. })` with its writable properties as keys. A component handle (it has `gameObject`) also gets `transform` and
    `getComponent(Class)`. A parameter list never has a required parameter after an optional one (the later ones become optional).
-2. **The UI declarations** (`tools/platypus_ts/src/ui_dts.rs`, from the tables of `crates/platypus_ui/src/tables`): `PlatypusStyle` (one entry per style
-   property: name, TypeScript type, doc; `platypus_ui` tests that `apply_style` applies each and that nothing it applies is missing), the
+2. **The UI declarations** (`tools/web_ui_ts/src/ui_dts.rs`, from the tables of `crates/web_ui_dom/src/tables`): `PlatypusStyle` (one entry per style
+   property: name, TypeScript type, doc; `web_ui_dom` tests that `apply_style` applies each and that nothing it applies is missing), the
    event interfaces and `PlatypusProps` (attributes and `on*` props with their event types), `JSX.IntrinsicElements` and the
    `Text`/`Span`/`Input`/`TextArea`/`Image`/`List`/`Dialog` components (from the element table), the hooks and `createRoot` (raw
    TypeScript signatures kept as data next to the tables), `PlatypusElement` (the `UiNode` class of the `Ui` manifest) and `console`. The
    same tables write the compiled side (`StyleValue`, `StyleEntry`, the `UiEvent` class whose fields read the event slots of
    `UiEvent::script_args`) and decide which event type an `on*` prop listens to (`onChange` is `input`, `onFocus` is `focusin`).
-3. **The compiler built-ins** (`tools/platypus_ts/src/builtins.rs`): one entry per declaration the compiler itself gives a program, with
+3. **The compiler built-ins** (`tools/web_ui_ts/src/builtins.rs`): one entry per declaration the compiler itself gives a program, with
    its signature and doc and the code that lowers it named next to it: the timers (`setTimeout`,
    `setInterval`, `clearTimeout`, `clearInterval`, `queueMicrotask`), the typed
    window messages (`postMessage<T>`, `request<R>`, `emit` / `on` / `ask<R>` / `answer`, `Window.broadcast` / `emitAll`),
@@ -489,7 +489,7 @@ cooker in the build; a note says so); both cooked and source forms is the decisi
 codec, GUID, path).
 
 **A running game reads them** (phase 2, see "Where the assets are read from"): `platypus_app` mounts `data/index.json` through `Vfs`. The
-default stays loose; flipping it is a TODO (`tools/platypus_ts/TODO.md`, asset packs). `emoji` with `--packs`: one `assets.dat`, 157
+default stays loose; flipping it is a TODO (`tools/web_ui_ts/TODO.md`, asset packs). `emoji` with `--packs`: one `assets.dat`, 157
 entries, 6.41 MB raw, 5.93 MB on disk.
 
 **The host** is `--host`, else `$PLATYPUS_HOST`, else the newest `platypus-app` next to `platypus-build` and in `build/{release,debug}/` (cargo's output, `$CARGO_TARGET_DIR` when set)
@@ -606,23 +606,23 @@ ignores case (Windows, macOS) a loose load of `assets/SFX/Boom.wav` still works 
 `cmd /S /C` (Windows) or `sh -c`. A failing command fails the package. Nothing is signed by Platypus itself; see
 `docs/research/platypus-code-signing.md` (order: resources and payload first, sign last).
 
-**Not done** (also in `tools/platypus_ts/TODO.md`): macOS `.app` bundle with `Info.plist` and `.icns`, Linux `.desktop` file and icon
+**Not done** (also in `tools/web_ui_ts/TODO.md`): macOS `.app` bundle with `Info.plist` and `.icns`, Linux `.desktop` file and icon
 theme entry, the X11/Wayland window class (winit's default is used), the Windows `AppUserModelID` for taskbar grouping, a Windows
 application manifest (DPI awareness, long paths), cooked assets (`.platypus/cooked`) in the payload, an optional in-memory file system.
 
 ### Linking an `--aot` object
 
 `build/game.o` is the whole program (the game, the parts of the prelude it uses, its string literals, type tables and
-method tables) as an ELF / COFF / Mach-O object of the target. A host that links it needs no compiler: not `platypus_ts`,
-oxc or Cranelift, only the runtime `platypus_ts_rt`, the UI bridge `platypus_ts_ui` when it has UI, and the crates whose
+method tables) as an ELF / COFF / Mach-O object of the target. A host that links it needs no compiler: not `web_ui_ts`,
+oxc or Cranelift, only the runtime `web_ui_rt`, the UI bridge `web_ui_bridge` when it has UI, and the crates whose
 namespaces the manifests named. Fluid links its apps this way (Fluid's `docs/native-apps.md`, measured there: 34.9 MB
 against 52.0 MB stripped for the same host with the JIT).
 
 - **Symbols.** The program exports `ts_<prefix><name>` (`platypus-build` uses the prefix `game_`; `ts_game_init` runs the top
   level). Everything else is local. Its imports are the runtime's and the namespaces' `#[unsafe(no_mangle)]` shims, by the same
   names the JIT resolves, so the linker resolves them from the rlibs. Several programs link into one executable when each has its
-  own prefix (`platypus_ts::compile_for_target`).
-- **Starting it.** `platypus_ts_rt::startup_reset()`, then the program's `init`, as `jit::Game::init` does. A component game
+  own prefix (`web_ui_ts::compile_for_target`).
+- **Starting it.** `web_ui_rt::startup_reset()`, then the program's `init`, as `jit::Game::init` does. A component game
   also takes `classes()` from `build/game_bindings.rs` (the table `Game::classes` builds at run time for the JIT).
 - **Struct ids.** The object's struct headers are numbered from the `struct_base` it was compiled with (0 for `platypus-build`).
   The runtime's struct table is dense, so programs that run in the same process need disjoint ranges, and a program alone in
@@ -662,7 +662,7 @@ p99 / worst frame ms, and the mean split into `script` (game code: hooks, timers
 `render` (layout and draw list, world, GPU wait) and `other`; start-up (process start to the first frame), load time and peak
 working set. Finer splits: `syncParts` (where `sync_native_render` goes: resources, line renderers, settings, each kind of
 component, panels, texts, ...; `platypus_app/src/sync_profile.rs`), `startupParts` (log and asset mount, bundle read, asset index,
-UI tree and fonts, the compiler's phases from `platypus_ts::timing`: engine manifests, source rewrites, oxc parse, type inference and
+UI tree and fonts, the compiler's phases from `web_ui_ts::timing`: engine manifests, source rewrites, oxc parse, type inference and
 lowering, throw analysis, IR passes, Cranelift code generation, JIT linking; the program's top level and starting components; the
 headless GPU device, renderer set-up and the first frame; plus the program's and prelude's line counts). `backend` is always `"native"`
 (the QuickJS-only `opsApplyMs` and `opMarshalMs` are gone). The timers run only in bench runs. Flags: `--warmup N` (120), `--frames N` (600), `--fixed-dt s` (every frame advances the game's clock by exactly

@@ -5,8 +5,8 @@
 //! (`bench/originals_engine.ts`, prefix `ogn_`), in the normal, stress GC and collection-off
 //! modes. IDs are in TESTS.md (M9-TS-3184..).
 use platypus_scene::Scene;
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::originals_engine_t::*;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 fn reset() {
     platypus_render_api::reset();
@@ -115,7 +115,7 @@ fn gamepads_have_buttons_and_axes_by_name_and_connect_events_carry_the_pad() {
 // M9-TS-3199
 #[test]
 fn measure_illuminance_resolves_after_the_next_physics_step() {
-    use platypus_ts_rt::ts_rt_microtasks_run;
+    use web_ui_rt::ts_rt_microtasks_run;
     in_every_gc_mode(|| unsafe {
         platypus_physics_api::reset();
         assert_eq!(ts_ogn_startMeasure(), -1.0);
@@ -133,7 +133,7 @@ fn measure_illuminance_resolves_after_the_next_physics_step() {
 // M9-API-1645
 #[test]
 fn the_native_light_meter_faces_the_normal_and_counts_colliders_as_shadows() {
-    use platypus_ts_rt::ts_rt_microtasks_run;
+    use web_ui_rt::ts_rt_microtasks_run;
     in_every_gc_mode(|| unsafe {
         platypus_physics_api::reset();
         // 16 pi lumens over 4 pi sr = 4 cd, 1 lux at 2 m head-on (times the range fade, 0.9998); 0 facing away.

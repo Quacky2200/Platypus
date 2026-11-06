@@ -6,12 +6,12 @@
 //! order). The cases of `bench/tla_modules_cases.txt` are bundled, run in the normal, stress GC
 //! and collection-off modes and compared with bun running the files as real modules
 //! (`bench/gen_tla_modules_expected.ts`). IDs are in TESTS.md.
-use platypus_ts::jit::{JitOptions, compile_and_load};
-use platypus_ts_rt::{
-    StartupState, Str, link_anchor, startup_state, ts_rt_gc_enable, ts_rt_gc_stress, ts_rt_run_loop,
-};
 use serde_json::Value;
 use std::collections::HashMap;
+use web_ui_rt::{
+    StartupState, Str, link_anchor, startup_state, ts_rt_gc_enable, ts_rt_gc_stress, ts_rt_run_loop,
+};
+use web_ui_ts::jit::{JitOptions, compile_and_load};
 
 const CASES: &str = include_str!("../../bench/tla_modules_cases.txt");
 
@@ -42,8 +42,8 @@ fn expected(name: &str) -> String {
     v[name].as_str().unwrap().to_string()
 }
 
-fn bundle_of(files: &HashMap<String, String>) -> platypus_ts::modules::Bundle {
-    platypus_ts::modules::bundle_with("main.ts", &|p| files.get(p).cloned()).unwrap()
+fn bundle_of(files: &HashMap<String, String>) -> web_ui_ts::modules::Bundle {
+    web_ui_ts::modules::bundle_with("main.ts", &|p| files.get(p).cloned()).unwrap()
 }
 
 /// Runs the program (init, then the event loop) in the three GC modes; the results must agree.
@@ -155,11 +155,11 @@ fn a_rejected_top_level_await_fails_the_startup_naming_the_module() {
         let s = String::from_utf8_lossy(unsafe { std::slice::from_raw_parts(text, len) });
         LOG.with(|l| l.borrow_mut().push(format!("{level}:{s}")));
     }
-    platypus_ts_rt::ts_rt_set_console(Some(hook));
+    web_ui_rt::ts_rt_set_console(Some(hook));
     game.init().unwrap();
     assert!(matches!(startup_state(), StartupState::Pending(_)));
     ts_rt_run_loop();
-    platypus_ts_rt::ts_rt_set_console(None);
+    web_ui_rt::ts_rt_set_console(None);
     match startup_state() {
         StartupState::Failed { module, message } => {
             assert_eq!(module, "bad.ts");

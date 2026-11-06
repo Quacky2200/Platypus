@@ -1,12 +1,12 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Compiles the `sim.ts` fixture and the programs in `bench/` with `platypus_ts` and links the
+//! Compiles the `sim.ts` fixture and the programs in `bench/` with `web_ui_ts` and links the
 //! objects into this crate's targets.
 //!
 //! Each program's object is cached in OUT_DIR under a key: a hash of its source, symbol prefix,
 //! header base, manifests and this build script's own executable. The executable stands for the
-//! compiler: cargo relinks it whenever `platypus_ts` (or a crate making the manifests) changes, so a
+//! compiler: cargo relinks it whenever `web_ui_ts` (or a crate making the manifests) changes, so a
 //! compiler edit recompiles every program and a bench edit only its own. Programs compile in
 //! parallel.
 use std::collections::hash_map::DefaultHasher;
@@ -19,7 +19,7 @@ enum Api {
     None,
     /// `platypus_demo_api` (`#[ts_api]` test namespaces).
     Demo,
-    /// The UI half (`platypus_ts_ui`).
+    /// The UI half (`web_ui_bridge`).
     Ui,
     /// The scene API and the math types.
     Scene,
@@ -156,7 +156,7 @@ impl Manifests {
         scene.extend(platypus_components::manifests());
         Manifests {
             demo: vec![platypus_demo_api::manifest_json()],
-            ui: vec![platypus_ts_ui::manifest_json()],
+            ui: vec![web_ui_bridge::manifest_json()],
             scene,
             engine: engine_manifests(),
         }
@@ -208,10 +208,10 @@ fn main() {
     let sim_key = key(compiler, "sim", "", 0, &sim, &[]);
     if !fresh(&dir, "sim", sim_key) {
         let t = std::time::Instant::now();
-        let out = platypus_ts::compile_source(&sim, "speed")
-            .unwrap_or_else(|e| panic!("platypus_ts: {e}"));
+        let out =
+            web_ui_ts::compile_source(&sim, "speed").unwrap_or_else(|e| panic!("web_ui_ts: {e}"));
         println!(
-            "cargo:warning=platypus_ts compiled sim.ts in {:?} (lower {:?}, cranelift {:?})",
+            "cargo:warning=web_ui_ts compiled sim.ts in {:?} (lower {:?}, cranelift {:?})",
             t.elapsed(),
             out.lower_time,
             out.codegen_time
@@ -229,8 +229,8 @@ fn main() {
         let source = if name == "toplevel" {
             let dep = manifest.join("bench/toplevel_dep.ts");
             println!("cargo:rerun-if-changed={}", dep.display());
-            platypus_ts::modules::bundle(&path)
-                .unwrap_or_else(|e| panic!("platypus_ts {name}: {e}"))
+            web_ui_ts::modules::bundle(&path)
+                .unwrap_or_else(|e| panic!("web_ui_ts {name}: {e}"))
                 .source
         } else {
             std::fs::read_to_string(&path).unwrap()
@@ -266,11 +266,11 @@ fn main() {
                         let Some(j) = stale.get(i) else {
                             break;
                         };
-                        match platypus_ts::compile_with_manifests(
+                        match web_ui_ts::compile_with_manifests(
                             &j.source, "speed", j.prefix, j.base, j.api,
                         ) {
                             Ok(out) => store(&dir, j.name, j.key, &out),
-                            Err(e) => errors.push(format!("platypus_ts {}: {e}", j.name)),
+                            Err(e) => errors.push(format!("web_ui_ts {}: {e}", j.name)),
                         }
                     }
                     errors
@@ -308,7 +308,7 @@ fn fresh(dir: &Path, name: &str, k: u64) -> bool {
 }
 
 /// Writes a program's object and bindings, then its key (last, so a half-written entry is stale).
-fn store(dir: &Path, name: &str, k: u64, out: &platypus_ts::Output) {
+fn store(dir: &Path, name: &str, k: u64, out: &web_ui_ts::Output) {
     std::fs::write(dir.join(format!("{name}.obj")), &out.object).unwrap();
     std::fs::write(dir.join(format!("{name}_bindings.rs")), &out.bindings).unwrap();
     std::fs::write(dir.join(format!("{name}.key")), format!("{k:016x}")).unwrap();

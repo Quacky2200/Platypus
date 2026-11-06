@@ -2,7 +2,7 @@
 // (examples/sine-circle-demo/src/main.tsx: "a point every degree with the original's smoothing"),
 // before LineRenderer2D and the poly shapes. It is the metric for the old, unoptimised path: the
 // same source runs in QuickJS (bundled by bun, with the engine's `Vector3` and `Color`) and
-// compiled by platypus_ts (where `Vector3` is the engine API's value class).
+// compiled by web_ui_ts (where `Vector3` is the engine API's value class).
 // Changes from the original: the `color = Color.white` field and the `Color` import are removed
 // (`Color` is not in the compiled engine API yet); this header and the driver at the end are new; see docs/research/platypus-ts-sine-demo.md.
 import { Vector3 } from "@platypus/engine";

@@ -104,7 +104,7 @@ See [DESIGN.md](DESIGN.md) for the architecture these tests check.
 | M2-LAY-03 | Unit | Grid: a 3×3 grid places items in the right cells. |
 | M2-LAY-04 | Unit | Layout only recomputes when something is dirty: a second `compute` with no changes does no work. |
 | M2-LAY-05 | Unit | The same fixtures pass through the `LayoutEngine` trait, so a Yoga backend can run them later. |
-| M2-UI-OP-01 | Integration | `UiTree::apply_ops` with typed `Op`s builds the same tree as the script arrays; `Op::decode` rejects bad arity, types and opcodes (`crates/platypus_ui/tests/tree.rs`). |
+| M2-UI-OP-01 | Integration | `UiTree::apply_ops` with typed `Op`s builds the same tree as the script arrays; `Op::decode` rejects bad arity, types and opcodes (`crates/web_ui_dom/tests/tree.rs`). |
 | ~~M2-LAY-06~~ | Integration | A React render error unmounts the UI (with absolutely positioned boxes in it) and the tree still lays out: removing a node takes it off its containing block's out-of-flow list, so no cached layout visits it. (removed 2026-10-28: QuickJS removed) |
 | M2-LAY-07 | Integration | Appending a child to a long column measures only the new text: the cost doesn't grow with the column's length, alone or inside a row flex item sized from its content. |
 | M2-LAY-08 | Integration | An absolute box whose parent is static is placed in its containing block, as CSS says: in Fluid's menu bar (title without `position`), `left: 100%; bottom: 0` puts it at the absolute bar's right edge and bottom; with no insets it stays at its static position (the parent's content box) even when the containing block is the root. |
@@ -159,7 +159,7 @@ See [DESIGN.md](DESIGN.md) for the architecture these tests check.
 | M2-GLES-17 | Integration | A radial gradient from `transparent` 44px to red 52px matches between the two executors and fades without darkening. |
 | M2-GLES-18 | Integration | An absolute dropdown in a static rounded `overflow: hidden` bar shows in full below it while one in a positioned bar is clipped at its height, the same in both executors. |
 | M2-GLES-19 | Integration | After `release_canvases` (an idle window or layer gives back its frame-sized canvases and seed) the next `render_over` with a backdrop blur draws the same pixels, and `canvas_bytes` is 0 in between. |
-| M2-KRN-01 | Integration | The CPU plan executor (`platypus_render_cpu::plan`) draws boxes, solid, dashed and dotted borders, per-side colours and linear, radial and conic gradients as the GLES executor does (into a plain RGBA8 target; skipped without EGL). |
+| M2-KRN-01 | Integration | The CPU plan executor (`web_ui_render_cpu::plan`) draws boxes, solid, dashed and dotted borders, per-side colours and linear, radial and conic gradients as the GLES executor does (into a plain RGBA8 target; skipped without EGL). |
 | M2-KRN-02 | Integration | Outer and inset box shadows match the GLES executor. |
 | M2-KRN-03 | Integration | Children of a rounded `overflow: hidden` box are clipped as by the GLES executor. |
 | M2-KRN-04 | Integration | Text at 1x, light on dark and dark on light, matches the GLES executor (the same glyph atlas, read on the CPU). |
@@ -209,7 +209,7 @@ See [DESIGN.md](DESIGN.md) for the architecture these tests check.
 | M2-MAN-01 | Manual | `platypus-app examples/boxes`: resizing the window relayouts smoothly; the counter adds and removes boxes. |
 
 ### Performance
-Benches: `cargo bench -p platypus_ui` (layout) and `cargo bench -p platypus_script` (commits). The tree is an
+Benches: `cargo bench -p web_ui_dom` (layout) and `cargo bench -p platypus_script` (commits). The tree is an
 editor-like UI of **2,246 nodes** (toolbar, a 600-row file tree, a grid of 150 cards with shadows, an
 inspector of 40 fields), applied as one commit of 6,738 ops.
 
@@ -273,7 +273,7 @@ ancestor relayout work, so a Yoga spike isn't justified now. Revisit at M5.e wit
 | M3-CSS-10 | Unit + Integration | `:hover`, `:active`, `:focus`, `:focus-visible`, `:focus-within`, `:enabled`, `:disabled`, `:checked` follow element state; toggling `disabled`/`checked` props restyles; disabled elements ignore pointer and focus. |
 | M3-BEN-01 | Benchmark | Incremental restyle on the 2,246-node tree after one class change: **< 1 ms**; full style of the tree tracked. |
 
-M3b restyle results (`cargo bench -p platypus_ui --bench restyle`; 2,246 nodes, ~30-rule editor stylesheet
+M3b restyle results (`cargo bench -p web_ui_dom --bench restyle`; 2,246 nodes, ~30-rule editor stylesheet
 with combinators, `:nth-child`, `:has`, `:focus-within` and variables; times include the following
 layout pass):
 
@@ -326,7 +326,7 @@ layout pass):
 | M3-CUR-01 | Unit + Integration | `cursor` image lists parse (keyword last, two-number hotspots) and inherit; bad lists are rejected; disabled fields show `not-allowed`; PNG cursors take the CSS hotspot and scale with the window, `.cur` files bring their own hotspot, oversized or broken images are skipped; every CSS keyword maps to an OS cursor. |
 | M3-DLG-01 | Integration + JS unit | Closed dialogs are hidden and keep their authored `display`; open ones centre; modal ones paint and hit above fixed `zIndex` elements over a window-sized `::backdrop` (default tint, `::backdrop` rules); a modal takes focus, traps Tab and gives focus back; Escape and (with `closedBy="any"`) backdrop clicks send `cancel` then `close`, a prevented `cancel` stops `close`, `none` ignores both; `[open]`/`[modal]` selectors; React sends the attributes and runs non-bubbling `onCancel`/`onClose`. |
 | M3-DLG-02 | Golden | A modal dialog over a darkened, blurred `::backdrop` on a striped page. |
-| M3-DLG-03 | Integration | A script that focuses a field inside a modal as it opens keeps that focus, and closing the dialog gives focus back to what had it before; `UiTree::to_window` maps a point through the dialog's centring translate to where it is hit (`to_local` undoes it) (`crates/platypus_ui/tests/dialog.rs`). |
+| M3-DLG-03 | Integration | A script that focuses a field inside a modal as it opens keeps that focus, and closing the dialog gives focus back to what had it before; `UiTree::to_window` maps a point through the dialog's centring translate to where it is hit (`to_local` undoes it) (`crates/web_ui_dom/tests/dialog.rs`). |
 | M3-ANI-01 | Unit | Timing functions (`ease` mid-point, `cubic-bezier` limits, every `steps()` position); values interpolate token by token (lengths, numbers, colours premultiplied, mixed units through `calc()`, transforms with matching functions, `none` as the neutral form); non-matching values don't; the `transition` shorthand and property matching. |
 | M3-ANI-02 | Integration + JS unit | Hover rules and inline styles (without stylesheets) transition over time with delays and easing; a reversal starts from the current value; unlisted properties snap and removing `transition` ends it; `transitionrun`/`start`/`end`/`cancel` events reach scripts with the property and elapsed seconds, and `onTransitionEnd` bubbles in React. |
 | M3-ANI-03 | Unit + Integration + JS unit | `@keyframes` parse (offsets sorted, selector lists, bad blocks dropped, `!important` ignored); the `animation` shorthand; sampling by phase, direction, fill mode and pause; keyframes with implicit ends and discrete flips; stylesheet and inline animations run, iterate, fill, pause and resume, end and report events; infinite alternating animations keep running; `onAnimationEnd` gets the name. |
@@ -616,7 +616,7 @@ layout pass):
 | M5-EDT-18 | Integration | Console code links: `path/file.ext:line[:col]`, Windows drives and backslashes, absolute Unix paths; URLs with ports and times aren't links. (native: `editor/test/models.test.ts`, run by `tools/platypus_ts_tests/tests/ui/editor_models.rs` in every GC mode) |
 | M5-EDT-19 | Integration | Console: identical entries collapse with counts at the first one's place; level counts (debug as info); filters by level and by search over message and target. (native: `editor/test/models.test.ts`, run by `tools/platypus_ts_tests/tests/ui/editor_models.rs` in every GC mode) |
 | M5-EDT-20 | Integration | The log feed adds `Editor.logSince` records once, in order (records seen already are skipped), tells its listeners, and clearing empties it. (native: `editor/test/log.test.ts`, run by `tools/platypus_ts_tests/tests/ui/editor_models.rs` in every GC mode) |
-| M5-DND-01 | Integration | A press on a `draggable` element moved past 4 px drags it: `dragstart`, `drag`, `dragenter` / `dragleave` as the element under the pointer changes, `dragover`; no pointer events meanwhile; a prevented `dragover` accepts, so the release sends `drop` then `dragend` (detail 1), and no click. (`crates/platypus_ui/tests/dnd.rs`) |
+| M5-DND-01 | Integration | A press on a `draggable` element moved past 4 px drags it: `dragstart`, `drag`, `dragenter` / `dragleave` as the element under the pointer changes, `dragover`; no pointer events meanwhile; a prevented `dragover` accepts, so the release sends `drop` then `dragend` (detail 1), and no click. (`crates/web_ui_dom/tests/dnd.rs`) |
 | M5-DND-02 | Integration | A drop nobody accepted ends with `dragleave` and `dragend` (detail 0); Escape cancels the same way; preventing `dragstart` leaves a normal move; a short press is still a click; elements without `draggable` don't drag. |
 | M5-DND-03 | Integration | The drag image is the dragged element moved by the pointer's travel (drawn last, translucent, in a transform), or another element grabbed at a point (`SetDragImage`); it goes when the drag ends. |
 | M5-DND-04 | Integration | Files from the system: `FileDragEnter` sends `dragenter` / `dragover` with the paths, moves change the target, `FileDrop` sends `drop` with the paths as the event's strings, `FileDragCancel` a `dragleave`. |
@@ -683,9 +683,9 @@ layout pass):
 | M5-EDT-33 | Integration | File dialog model: typed paths, relative or from the root (`/`), with `.`, `..` and backslashes, become project paths; leaving the project or a drive gives none. |
 | M5-EDT-34 | Integration | Editor smoke: File > Open Scene shows the file dialog (its filter), Escape closes it (`--bench-shots` pixels), the Project browser's New Folder asks for a name (`tools/platypus_build/tests/editor_smoke.rs`). |
 
-## M9.b — AOT scripts (`tools/platypus_ts` spike)
+## M9.b — AOT scripts (`tools/web_ui_ts` spike)
 
-Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` with `platypus_ts` and links the object into the test crate).
+Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` with `web_ui_ts` and links the object into the test crate).
 
 | ID | Kind | Description |
 |---|---|---|
@@ -702,15 +702,15 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-11 | Integration | Port: the next level starts when the last zombie of this one dies. |
 | M9-TS-12 | Integration | Port: touching an ammo powerup adds 320 rounds. |
 | M9-TS-13 | Integration | Port: zombies speed up a little each level until level 3, then hold. |
-| M9-TS-14 | Unit | `platypus_ts` lowers a discriminated union of object types to one struct holding every variant's fields, with string-literal tags interned. |
+| M9-TS-14 | Unit | `web_ui_ts` lowers a discriminated union of object types to one struct holding every variant's fields, with string-literal tags interned. |
 | M9-TS-15 | Unit | Unsupported code is a compile error naming the line (`typeof`, `any`). |
 | M9-TS-16 | Unit | Array-method callbacks are inlined (no closure call) and exported functions get `ts_` symbols in the object. |
-| M9-TS-17 | Unit | `platypus_ts_rt`: arrays grow and keep values (17a), strings concat and compare (17b), `Uint8Array.fill` clamps (17c). |
+| M9-TS-17 | Unit | `web_ui_rt`: arrays grow and keep values (17a), strings concat and compare (17b), `Uint8Array.fill` clamps (17c). |
 | M9-TS-18 | Manual | `cargo run --release -p platypus_ts_tests --bin bench` (from `tools/`): QuickJS, bun and the native code run 10,000 steps of a busy state and print the same checksum; timings in `docs/research/platypus-ts-spike.md`. |
 | M9-TS-19 | Manual | `cargo run --release -p platypus_ts_tests --bin sine_bench` (from `tools/`): the sine-circle curve (`bench/sine.ts`) in QuickJS with and without the `__platypus_op` crossing, bun and native code; one checksum for all.
-| M9-TS-20 | Unit | `platypus_ts_rt` GC: unreachable objects are freed and their blocks handed out again. |
-| M9-TS-21 | Unit | `platypus_ts_rt` GC: host roots and what they reach survive, also in stress mode; unrooted ones go. |
-| M9-TS-22 | Unit | `platypus_ts_rt` GC: pointer arrays are traced and shadow-stack frame slots are roots; popping the frame frees what only it held. |
+| M9-TS-20 | Unit | `web_ui_rt` GC: unreachable objects are freed and their blocks handed out again. |
+| M9-TS-21 | Unit | `web_ui_rt` GC: host roots and what they reach survive, also in stress mode; unrooted ones go. |
+| M9-TS-22 | Unit | `web_ui_rt` GC: pointer arrays are traced and shadow-stack frame slots are roots; popping the frame frees what only it held. |
 | M9-TS-23 | Integration | Collecting at every allocation (stress mode, freed memory poisoned) gives the same sim result as normal collection (`tools/platypus_ts_tests/tests/gc.rs`). |
 | M9-TS-24 | Integration | A long run (8,000 steps) collects on its own, hands out far more than is alive, and live bytes and objects stay small afterwards. |
 | M9-TS-25 | Integration | After 300 steps and a stress collection, the host-rooted state and what it reaches are still readable (no poison). |
@@ -743,8 +743,8 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-52 | Integration | `let pending: Item | undefined;` and `let n: number | undefined;` without a value start as null and can be assigned. Runs in all three GC modes (`tests/globals.rs`). |
 | M9-TS-53 | Integration | A closure stored in a global keeps what it captured (`handler = (n) => n * k + base`; 17), and the global's first value (`(n) => n`) is callable. Runs in all three GC modes (`tests/globals.rs`). |
 | M9-TS-54 | Integration | A linked list reachable only from a module variable survives collections at every allocation (4950, then 4995). Runs in all three GC modes (`tests/globals.rs`). |
-| M9-TS-55 | Unit | A `let` with a literal initialiser is a data slot written by the function, not folded away; a `const` literal is folded (`platypus_ts/src/lib.rs`). |
-| M9-TS-56 | Unit | Assigning a `const` (number or object) is an error naming the constant (`platypus_ts/src/lib.rs`). |
+| M9-TS-55 | Unit | A `let` with a literal initialiser is a data slot written by the function, not folded away; a `const` literal is folded (`web_ui_ts/src/lib.rs`). |
+| M9-TS-56 | Unit | Assigning a `const` (number or object) is an error naming the constant (`web_ui_ts/src/lib.rs`). |
 | M9-TS-57 | Integration | `for (let i = 0; i < n; i++)` sums 0..n-1, and `continue` still runs the update clause (sum of odd numbers below 10 = 25). Runs normally, in stress GC mode and with collection off (`tests/loops.rs`). |
 | M9-TS-58 | Integration | A `for` head with two declarators and a comma update, with no test, with no initialiser, or with no update (30, 8, 398). Runs in all three GC modes (`tests/loops.rs`). |
 | M9-TS-59 | Integration | A `do...while` body runs once when the test starts false (111), and `continue` reaches its test (1206). Runs in all three GC modes (`tests/loops.rs`). |
@@ -758,7 +758,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-67 | Integration | A switch on a string-literal union and on a string enum compares tags. Runs in all three GC modes (`tests/switches.rs`). |
 | M9-TS-68 | Integration | `continue` in a switch reaches the loop, `break` leaves only the switch, no match and no default does nothing, `break label` leaves a labelled switch from a nested loop. Runs in all three GC modes (`tests/switches.rs`). |
 | M9-TS-69 | Integration | A discriminant and case expressions that allocate are evaluated once and in order and survive a collection at every allocation; case blocks keep their own constants. Runs in all three GC modes (`tests/switches.rs`). |
-| M9-TS-70 | Unit | Non-constant enum members, unknown members, a string member followed by a member without a value, `continue` outside a loop and `continue` to a non-loop label are errors with a reason (`platypus_ts/src/lib.rs`). |
+| M9-TS-70 | Unit | Non-constant enum members, unknown members, a string member followed by a member without a value, `continue` outside a loop and `continue` to a non-loop label are errors with a reason (`web_ui_ts/src/lib.rs`). |
 | M9-TS-71 | Integration | Object patterns rename (`{ x: ax }`), nest (`min: { x, y }`) and work as function parameters. Runs normally, in stress GC mode and with collection off (`tests/destructure.rs`). |
 | M9-TS-72 | Integration | A pattern default replaces a missing (null) property and the value wins when present; the default may allocate (a call). Runs in all three GC modes (`tests/destructure.rs`). |
 | M9-TS-73 | Integration | Array patterns skip holes and give a missing element its default (`[a, b, c = 5] = [1, 2]`). Runs in all three GC modes (`tests/destructure.rs`). |
@@ -772,7 +772,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-81 | Integration | Spread in a call (into a rest parameter) and in array literals (`[...a, 3, ...a]`, arrays of objects). Runs in all three GC modes (`tests/params.rs`). |
 | M9-TS-82 | Integration | `f(...a)` and `[...a]` give new arrays; writing to them leaves `a` alone. Runs in all three GC modes (`tests/params.rs`). |
 | M9-TS-83 | Integration | Defaults, rest arrays and spreads that allocate, in a loop, survive a collection at every allocation. Runs in all three GC modes (`tests/params.rs`). |
-| M9-TS-84 | Unit | Too few or too many arguments, and a spread into a fixed parameter, are errors (`platypus_ts/src/lib.rs`). |
+| M9-TS-84 | Unit | Too few or too many arguments, and a spread into a fixed parameter, are errors (`web_ui_ts/src/lib.rs`). |
 | M9-TS-85 | Integration | `Math.ceil` and `Math.trunc` agree with JS bit for bit, including `-0` (`ceil(-0.5)`, `trunc(-0.2)`). Runs normally, in stress GC mode and with collection off (`tests/mathlib.rs`). |
 | M9-TS-86 | Integration | `Math.round` sends halves toward +Infinity, keeps `-0`, and `round(0.49999999999999994)` is 0. Runs in all three GC modes (`tests/mathlib.rs`). |
 | M9-TS-87 | Integration | `Math.pow` and `**` follow JS for NaN, `1 ** Infinity`, `0 ** 0`, negative bases, right associativity. Runs in all three GC modes (`tests/mathlib.rs`). |
@@ -797,8 +797,8 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-106 | Integration | `xs.length = n` truncates. Runs in all three GC modes (`tests/arraylib.rs`). |
 | M9-TS-107 | Integration | `Array.from({ length }, fn)`, `Array.from(xs)` (a copy), `Array.of`, `Array.isArray`. Runs in all three GC modes (`tests/arraylib.rs`). |
 | M9-TS-108 | Integration | Array operations on arrays of objects in a loop (sort, splice, slice, concat, reverse, unshift, pop, reduce) survive a collection at every allocation. Runs in all three GC modes (`tests/arraylib.rs`). |
-| M9-TS-109 | Unit | `sort` keeps its merge buffer alive while the comparator collects: with the roots removed the elements come back poisoned (`platypus_ts_rt/src/lib.rs`). |
-| M9-TS-110 | Unit | `sort()` without a comparator and `pop` over booleans are errors with a reason; `reduce` without an initial value compiles (since M9-TS-3386) (`platypus_ts/src/lib.rs`). |
+| M9-TS-109 | Unit | `sort` keeps its merge buffer alive while the comparator collects: with the roots removed the elements come back poisoned (`web_ui_rt/src/lib.rs`). |
+| M9-TS-110 | Unit | `sort()` without a comparator and `pop` over booleans are errors with a reason; `reduce` without an initial value compiles (since M9-TS-3386) (`web_ui_ts/src/lib.rs`). |
 | M9-TS-111 | Integration | A class with a constructor, methods, a getter and statics (`new Vec2(3, 4).add(Vec2.of(1, 2)).scale(2)`, `length`, a static counter, `static readonly zero`) computes like JS. Runs normally, in stress GC mode and with collection off (`tests/classes.rs`). |
 | M9-TS-112 | Integration | Constructor parameters take their defaults (`new Vec2()`, `new Vec2(7)`). Runs in all three GC modes (`tests/classes.rs`). |
 | M9-TS-113 | Integration | Private fields and methods (`#count`, `#bump`), a getter/setter pair, chaining by returning `this`, `this` captured by an arrow function and used in an inlined callback, an optional field starting undefined. Runs in all three GC modes (`tests/classes.rs`). |
@@ -807,7 +807,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-116 | Integration | A method receiver waiting for its arguments is not freed: `h.item.plus(swap(h))` gets the old `this` (5 + 1). Fails when field reads are trusted as stable. Runs in all three GC modes (`tests/classes.rs`). |
 | M9-TS-117 | Integration | Two names for one object, and `===` as identity. Runs in all three GC modes (`tests/classes.rs`). |
 | M9-TS-118 | Integration | Methods, constructors and a stack in a loop survive a collection at every allocation. Runs in all three GC modes (`tests/classes.rs`). |
-| M9-TS-119 | Unit | `extends`, decorators, a method used as a value, a field without a type and `this` outside a method are errors that say what is missing (`platypus_ts/src/lib.rs`). |
+| M9-TS-119 | Unit | `extends`, decorators, a method used as a value, a field without a type and `this` outside a method are errors that say what is missing (`web_ui_ts/src/lib.rs`). |
 | M9-TS-120 | Integration | A call on a base-class variable runs the subclass's method (areas of a Rect, Square, Circle and Tri held as `Shape`). Runs normally, in stress GC mode and with collection off (`tests/inherit.rs`). |
 | M9-TS-121 | Integration | `this` dispatches on the real class inside a base-class method (`describe()` calls `this.area()`). Runs in all three GC modes (`tests/inherit.rs`). |
 | M9-TS-122 | Integration | Getters can be overridden and are dispatched too. Runs in all three GC modes (`tests/inherit.rs`). |
@@ -822,7 +822,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-131 | Integration | An override calls `super` through a recursive structure. Runs in all three GC modes (`tests/inherit.rs`). |
 | M9-TS-132 | Integration | A static counter in the base class counts every subclass construction. Runs in all three GC modes (`tests/inherit.rs`). |
 | M9-TS-133 | Integration | Virtual calls, `instanceof` and subclass arrays under allocation pressure survive a collection at every allocation (`tests/inherit.rs`). |
-| M9-TS-134 | Unit | Instantiating an abstract class, a subclass declared before its base, a field that changes type in a subclass, and `instanceof` on a non-class are errors that say so (`platypus_ts/src/lib.rs`). |
+| M9-TS-134 | Unit | Instantiating an abstract class, a subclass declared before its base, a field that changes type in a subclass, and `instanceof` on a non-class are errors that say so (`web_ui_ts/src/lib.rs`). |
 | M9-TS-135 | Integration | A virtual call's receiver waiting for its arguments is not freed (`h.s.scaled(swapShape(h))` = 3). Runs in all three GC modes (`tests/inherit.rs`). |
 | M9-TS-136 | Integration | A call that returns nothing and needs a default filled in still runs (it was skipped when its value was void). Runs in all three GC modes (`tests/params.rs`). |
 | M9-TS-137 | Integration | Methods as values (`g.twice`, `xs.map(this.twice)`) and an arrow-function field that captures `this`. Runs normally, in stress GC mode and with collection off (`tests/classes.rs`). |
@@ -833,11 +833,11 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-143 | Integration | f32 arguments narrow and f32 results widen at the call (`Demo.half(0.1)` equals `(0.1f32 * 0.5f32) as f64`). Runs in all three GC modes (`tests/engine.rs`). |
 | M9-TS-144 | Integration | Handles are plain ids: `===` compares them, a destroyed entity's id misses even when its slot is reused, and an engine function can answer for a stale id. Runs in all three GC modes (`tests/engine.rs`). |
 | M9-TS-145 | Integration | A handle lives in objects, arrays, nullable variables and closure cells without being traced, between allocations that collect at every step (`handle !== 0` is the null test). Runs in all three GC modes (`tests/engine.rs`). |
-| M9-TS-146 | Unit | Calls of the engine API are checked against the manifest: an unknown function, a wrong argument count and a malformed manifest are errors; each symbol is declared once (`platypus_ts/src/lib.rs`). |
+| M9-TS-146 | Unit | Calls of the engine API are checked against the manifest: an unknown function, a wrong argument count and a malformed manifest are errors; each symbol is declared once (`web_ui_ts/src/lib.rs`). |
 | M9-TS-147 | Integration | A value class is an object in the script, passed to the engine as scalars and coming back as a new object; its fields are f32-rounded. Runs normally, in stress GC mode and with collection off (`tests/engine.rs`). |
 | M9-TS-148 | Integration | A value stored in the engine next to a handle reads back (`tests/engine.rs`). |
 | M9-TS-149 | Integration | Dozens of short-lived vectors survive a collection at every allocation (`tests/engine.rs`). |
-| M9-TS-150 | Unit | Value classes of the manifest are checked: flattened parameters, an out pointer for a result, wrong constructor arity, a number where a value is expected (`platypus_ts/src/lib.rs`). |
+| M9-TS-150 | Unit | Value classes of the manifest are checked: flattened parameters, an out pointer for a result, wrong constructor arity, a number where a value is expected (`web_ui_ts/src/lib.rs`). |
 | M9-TS-151 | Integration | Compiled code builds, parents, moves and destroys a hierarchy in the real `platypus_scene::Scene`. Runs normally, in stress GC mode and with collection off (`tests/scene.rs`). |
 | M9-TS-152 | Integration | A per-frame update loop moves an object round a circle through the `Scene` API (`tests/scene.rs`). |
 | M9-TS-153 | Integration | Stale object handles miss even when the slot is reused (`tests/scene.rs`). |
@@ -849,18 +849,18 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-159 | Integration | `Vector3` methods and getters (`add`, `scale`, `dot`, `cross`, `lerp`, `distance`, `magnitude`, `normalized`) compile to direct calls, chained on call results (`tests/scene.rs`). |
 | M9-TS-160 | Integration | `Quaternion` `rotate`, `mul` and `inverse` (`tests/scene.rs`). |
 | M9-TS-161 | Integration | A vector kept across the allocations of a loop of method calls survives collection at every allocation (`tests/scene.rs`). |
-| M9-TS-162 | Unit | A string's `length` counts UTF-16 units (accents, CJK, a pair is 2, a lone surrogate 1) (`platypus_ts_rt/src/string.rs`). |
+| M9-TS-162 | Unit | A string's `length` counts UTF-16 units (accents, CJK, a pair is 2, a lone surrogate 1) (`web_ui_rt/src/string.rs`). |
 | M9-TS-163 | Unit | Both units of a surrogate pair are reachable by index; `codePointAt` on the low half is the lone surrogate (`string.rs`). |
 | M9-TS-164 | Unit | Slicing through a pair leaves lone surrogates (WTF-8) that rejoin into the original on concatenation (`string.rs`). |
 | M9-TS-165 | Unit | Ordering is by UTF-16 code unit, not code point (an emoji sorts before U+FF21) (`string.rs`). |
 | M9-TS-166 | Unit | Search converts between byte offsets and unit indices; a lone low surrogate is found inside a pair (`string.rs`). |
 | M9-TS-167 | Unit | A forward and a backward scan of a long non-ASCII string through the cursor are correct (`string.rs`). |
-| M9-TS-168 | Differential | `length`, `charCodeAt`, `codePointAt`, `charAt` at every index of a 24-string corpus (ASCII, accents, CJK, astral, lone surrogates) equal what bun answers (`platypus_ts_rt/tests/strings.rs`, expected data from `tests/gen_strings.ts`). |
+| M9-TS-168 | Differential | `length`, `charCodeAt`, `codePointAt`, `charAt` at every index of a 24-string corpus (ASCII, accents, CJK, astral, lone surrogates) equal what bun answers (`web_ui_rt/tests/strings.rs`, expected data from `tests/gen_strings.ts`). |
 | M9-TS-169 | Differential | `slice` and `substring` for every index pair equal bun's (`tests/strings.rs`). |
 | M9-TS-170 | Differential | Equality, `<` ordering and concatenation (rejoining split pairs) over every pair of strings equal bun's (`tests/strings.rs`). |
 | M9-TS-171 | Differential | `indexOf`, `lastIndexOf`, `includes`, `startsWith`, `endsWith` with every position over every pair equal bun's (`tests/strings.rs`). |
 | M9-TS-172 | Unit | A string is one collectable object: an unrooted one is freed, a rooted one survives (`string.rs`). |
-| M9-TS-173 | Differential | `trim`, `trimStart`, `trimEnd`, `toUpperCase`, `toLowerCase` (special casing, final sigma) over a corpus with Unicode white space, accents and lone surrogates equal bun's (`platypus_ts_rt/tests/strings_more.rs`). |
+| M9-TS-173 | Differential | `trim`, `trimStart`, `trimEnd`, `toUpperCase`, `toLowerCase` (special casing, final sigma) over a corpus with Unicode white space, accents and lone surrogates equal bun's (`web_ui_rt/tests/strings_more.rs`). |
 | M9-TS-174 | Differential | `at`, `repeat`, `padStart`, `padEnd` (fillers cut inside a pair) equal bun's (`tests/strings_more.rs`). |
 | M9-TS-175 | Differential | `split` (empty, one-unit, multi-unit and lone-surrogate separators) and `join` (rejoining split pairs) equal bun's (`tests/strings_more.rs`). |
 | M9-TS-176 | Differential | `String(x)`, `toFixed(0..6)` (ties round up on the exact value) and `toString(radix)` equal bun's (`tests/strings_more.rs`). |
@@ -869,7 +869,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-179 | Integration | `+`, `+=` with numbers/booleans/null, template literals, method chains, padding, `fromCharCode`, `toFixed`, `toString(16)`, `split`/`join` and nested temporaries equal bun's (`tests/strings.rs`). |
 | M9-TS-180 | Integration | Strings in arrays (`includes`, `indexOf`, `sort` with a comparator), object fields, `string \| null` and string-literal unions mixed with `string` equal bun's (`tests/strings.rs`). |
 | M9-TS-181 | Integration | Three hundred strings made in a loop survive a collection at every allocation (`tests/strings.rs`). |
-| M9-TS-182 | Unit | Unsupported string methods (`localeCompare`, `normalize`, `replace`) and a literal with a lone surrogate are compile errors with a reason (`platypus_ts/src/lib.rs`). |
+| M9-TS-182 | Unit | Unsupported string methods (`localeCompare`, `normalize`, `replace`) and a literal with a lone surrogate are compile errors with a reason (`web_ui_ts/src/lib.rs`). |
 | M9-TS-183 | Integration | `GameObject.name` set and read, and `GameObject.find(name)`, through the real scene: strings in as script strings and out as new ones (`platypus_ts_tests/tests/scene.rs`). |
 | M9-TS-184 | Integration | A name with accents and an emoji round-trips; a lone surrogate reaches the engine as U+FFFD (`tests/scene.rs`). |
 | M9-TS-185 | Integration | Thirty names made, read back and found survive a collection at every allocation (`tests/scene.rs`). |
@@ -878,13 +878,13 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-188 | Integration | An exception unwinds through six frames holding strings, is rethrown wrapped, and leaves an inlined array callback and a closure (`tests/errors.rs`). |
 | M9-TS-189 | Integration | `continue` and `break` inside `catch`, and two hundred throws and catches with a collection at every allocation (`tests/errors.rs`). |
 | M9-TS-190 | Integration | An uncaught exception leaves the exported function with the exception pending; the host takes the error object (`tests/errors.rs`). |
-| M9-TS-191 | Unit | Only functions that can throw are checked after a call; callers of non-throwing code pay nothing (`platypus_ts/src/lib.rs`). |
-| M9-TS-192 | Unit | `throw` of a non-Error is a compile error with a reason (`platypus_ts/src/lib.rs`). |
+| M9-TS-191 | Unit | Only functions that can throw are checked after a call; callers of non-throwing code pay nothing (`web_ui_ts/src/lib.rs`). |
+| M9-TS-192 | Unit | `throw` of a non-Error is a compile error with a reason (`web_ui_ts/src/lib.rs`). |
 | M9-TS-193 | Integration | `finally` runs once on a normal exit, after `catch`, and on `return`, in nested order, and while an exception propagates (`tests/errors.rs`). |
 | M9-TS-194 | Integration | `break`, `continue`, `continue label` and `return` pass through `finally`; a `return` in `finally` replaces the one in `try` (`tests/errors.rs`). |
 | M9-TS-195 | Integration | Runtime errors (`repeat(-1)`, `toFixed(101)`, `toString(37)`, `fromCodePoint(-1)`) are catchable `RangeError`s with bun's messages (`tests/errors.rs`). |
 | M9-TS-196 | Integration | An uncaught runtime error reaches the host as a pending `RangeError` (`tests/errors.rs`). |
-| M9-TS-197 | Unit | A throwing function nothing reaches does not make closure calls checked (`platypus_ts/src/lib.rs`). |
+| M9-TS-197 | Unit | A throwing function nothing reaches does not make closure calls checked (`web_ui_ts/src/lib.rs`). |
 | M9-TS-198 | Integration | A `break` inside an array callback inlined into a `try ... finally` stays inside the callback (`platypus_ts_tests/tests/errors.rs`). |
 | M9-TS-199 | Integration | `typeof` of numbers, strings, booleans, functions, objects, arrays, a missing value and an undeclared name, and `typeof x === "..."` comparisons equal bun's (`platypus_ts_tests/tests/stdlib.rs`, `bench/stdlib.ts`, expected data from `bench/gen_stdlib_expected.ts`). |
 | M9-TS-200 | Integration | `Number.isInteger/isNaN/isFinite/isSafeInteger`, global `isNaN`/`isFinite`, the number constants, `Number.parseFloat/parseInt` equal bun's (`tests/stdlib.rs`). |
@@ -892,8 +892,8 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-202 | Integration | `toSorted`, `toReversed`, `findLast`, `findLastIndex`, `reduceRight`, `flat`, `flatMap`, the default `sort()` of numbers and strings, and `entries()`/`keys()`/`values()` in `for...of` equal bun's (`tests/stdlib.rs`). |
 | M9-TS-203 | Integration | `console.log/warn/error` join their arguments with spaces and reach the host's console hook with the level (`tests/stdlib.rs`). |
 | M9-TS-204 | Integration | `Object.keys/values/entries/assign/freeze/hasOwn`, `in`, object spread (new fields, source order) and rest, and array rest equal bun's (`tests/stdlib.rs`). |
-| M9-TS-205 | Unit | `Object.entries` outside `for...of`, `Object.values` over mixed types, `in` with a computed key and `console.log` of an object are compile errors with a reason (`platypus_ts/src/lib.rs`). |
-| M9-TS-206 | Unit | `Map` numbers follow SameValueZero (`NaN` is a key, `-0` is `0`) and keep insertion order (`platypus_ts_rt/src/map.rs`). |
+| M9-TS-205 | Unit | `Object.entries` outside `for...of`, `Object.values` over mixed types, `in` with a computed key and `console.log` of an object are compile errors with a reason (`web_ui_ts/src/lib.rs`). |
+| M9-TS-206 | Unit | `Map` numbers follow SameValueZero (`NaN` is a key, `-0` is `0`) and keep insertion order (`web_ui_rt/src/map.rs`). |
 | M9-TS-207 | Unit | A map iterator (sequence-number cursor) survives deletes, adds and table rebuilds (`map.rs`). |
 | M9-TS-208 | Unit | A map is one collectable object that keeps its keys and values alive; string keys compare by content (`map.rs`). |
 | M9-TS-209 | Integration | `Map<string, number>`: `set` chained, `get`, `has`, `delete`, `size`, `clear`, `keys()`/`values()`, `for...of`, `forEach`, equal to bun (`platypus_ts_tests/tests/collections.rs`, `bench/collections.ts`, expected data from `bench/gen_collections_expected.ts`). |
@@ -901,14 +901,14 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-211 | Integration | `Set`: from an array, `add`, `has`, `delete`, spread, `Array.from`, `for...of`, `forEach`, element type inferred, equal to bun's (`tests/collections.rs`). |
 | M9-TS-212 | Integration | Iteration is live: deleted-before-reached entries are skipped, added entries are visited, the table rebuilds under the loop (`tests/collections.rs`). |
 | M9-TS-213 | Integration | Two thousand string keys with deletes and adds under a collection at every allocation, and `WeakMap`/`WeakSet` (`tests/collections.rs`). |
-| M9-TS-214 | Unit | Collections without a type, `entries()` outside `for...of`, `Map.get` over booleans and a `Map` as a key are compile errors with a reason (`platypus_ts/src/lib.rs`). |
+| M9-TS-214 | Unit | Collections without a type, `entries()` outside `for...of`, `Map.get` over booleans and a `Map` as a key are compile errors with a reason (`web_ui_ts/src/lib.rs`). |
 | M9-TS-215 | Integration | `JSON.stringify` of objects, arrays, escapes, lone surrogates, `NaN`/`-0`/exponents, booleans, empty collections, with and without indentation equals bun's (`platypus_ts_tests/tests/json.rs`, `bench/json.ts`, expected data from `bench/gen_json_expected.ts`). |
 | M9-TS-216 | Integration | Optional fields are left out when absent, `T \| null` prints `null`, a subclass instance prints its own fields (`tests/json.rs`). |
 | M9-TS-217 | Integration | `JSON.parse` into typed objects (unknown fields skipped, surrogate pairs from escapes, optional fields), arrays, nullable numbers and literal unions, and back through `stringify`, equals bun's (`tests/json.rs`). |
 | M9-TS-218 | Integration | Sixty-seven malformed texts raise a `SyntaxError` with bun's text (`tests/json.rs`). |
 | M9-TS-219 | Integration | Three hundred objects stringified, parsed and stringified again under a collection at every allocation (`tests/json.rs`). |
 | M9-TS-220 | Integration | A shape mismatch is a `TypeError`, and a syntax error anywhere wins over it (`tests/json.rs`). |
-| M9-TS-221 | Unit | `JSON.parse` without a type, with a reviver, `stringify` with a replacer and of a function are compile errors with a reason (`platypus_ts/src/lib.rs`). |
+| M9-TS-221 | Unit | `JSON.parse` without a type, with a reviver, `stringify` with a replacer and of a function are compile errors with a reason (`web_ui_ts/src/lib.rs`). |
 | M9-TS-222 | Integration | `exec` and `test`: the match object (`m[0]`, groups, `index`, `length`, `input`), a miss, `source`, `flags`, `global` equal bun's (`platypus_ts_tests/tests/regexp.rs`, `bench/regexp.ts`, expected data from `bench/gen_regexp_expected.ts`). |
 | M9-TS-223 | Integration | A `g` regex steps through a string with `lastIndex`; a miss resets it (`tests/regexp.rs`). |
 | M9-TS-224 | Integration | Named groups (`m.groups.year`), a missing name, no `groups` without named groups (`tests/regexp.rs`). |
@@ -918,7 +918,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-228 | Integration | `new RegExp(str, flags)`, `RegExp(..)`, copying with new flags, canonical flag order, `source` escaping `/`, `String(re)` (`tests/regexp.rs`). |
 | M9-TS-229 | Integration | Bad patterns and flags are `SyntaxError`s with JavaScriptCore's text (`tests/regexp.rs`). |
 | M9-TS-230 | Integration | A match object works as an array: destructuring, spread, `for...of`, `map` (`tests/regexp.rs`). |
-| M9-TS-231 | Unit | An invalid regex literal is a compile error with the engine's message (`platypus_ts/src/lib.rs`). |
+| M9-TS-231 | Unit | An invalid regex literal is a compile error with the engine's message (`web_ui_ts/src/lib.rs`). |
 | M9-TS-232 | Integration | `search` with a regex or a string (UTF-16 index) equals bun's (`platypus_ts_tests/tests/regexp2.rs`, `bench/regexp2.ts`, expected data from `bench/gen_regexp2_expected.ts`). |
 | M9-TS-233 | Integration | `match`: a plain regex gives the match object, a `g` regex the texts of all matches (`lastIndex` reset), a string pattern is a regex (`tests/regexp2.rs`). |
 | M9-TS-234 | Integration | `matchAll` steps over every match, past empty matches; a non-global regex is bun's `TypeError` (`tests/regexp2.rs`). |
@@ -926,7 +926,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-236 | Integration | `replace` with a regex: `$1 $01 $10 $& $` $' $<name> $$`, global and first-only, empty matches, non-ASCII text (`tests/regexp2.rs`). |
 | M9-TS-237 | Integration | `replace` with a function: match, groups, offset, string and the named-groups object; a `const` regex keeps its `lastIndex` (`tests/regexp2.rs`). |
 | M9-TS-238 | Integration | `split` with a regex (captures included, limit, empty input, empty pattern, `u` flag) and a string with a limit (`tests/regexp2.rs`). |
-| M9-TS-239 | Unit | A replacement function with more than the match as a parameter needs a regex whose groups are known; too many parameters is a compile error (`platypus_ts/src/lib.rs`). |
+| M9-TS-239 | Unit | A replacement function with more than the match as a parameter needs a regex whose groups are known; too many parameters is a compile error (`web_ui_ts/src/lib.rs`). |
 | M9-TS-240 | Integration | Local and UTC fields of nine instants (epoch, DST, year -1, the extremes) equal bun's in five time zones (`platypus_ts_tests/tests/date.rs`, `bench/date.ts`, expected data from `bench/gen_date_expected.ts`). |
 | M9-TS-241 | Integration | `Date.UTC` with overflowing and fractional parts, two-digit years and the range edges (`tests/date.rs`). |
 | M9-TS-242 | Integration | `new Date(y, m, ...)` in local time, including a clock set forward or back and years far from now (`tests/date.rs`). |
@@ -940,7 +940,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-250 | Integration | `getTimezoneOffset` over DST changes, old local mean time and the range edges (`tests/date.rs`). |
 | M9-TS-251 | Integration | `Date.now()` and `new Date()` give the current time (`tests/date.rs`). |
 | M9-TS-252 | Integration | Time clipping at +-8.64e15 and truncation of fractions (`tests/date.rs`). |
-| M9-TS-253 | Unit | `toLocaleString`, `toLocaleDateString` and `toLocaleTimeString` are compile errors that point to Intl (`platypus_ts/src/lib.rs`). |
+| M9-TS-253 | Unit | `toLocaleString`, `toLocaleDateString` and `toLocaleTimeString` are compile errors that point to Intl (`web_ui_ts/src/lib.rs`). |
 | M9-TS-254 | Integration | `localeCompare` with default and explicit locales (de, sv, tr, a locale list) equals bun's (`platypus_ts_tests/tests/intl.rs`, `bench/intl.ts`, expected data from `bench/gen_intl_expected.ts`). |
 | M9-TS-255 | Integration | `localeCompare` options: `sensitivity`, `numeric`, `caseFirst`, `ignorePunctuation`, `usage` (`tests/intl.rs`). |
 | M9-TS-256 | Integration | An invalid language tag or option value is a `RangeError` with JavaScriptCore's text (`tests/intl.rs`). |
@@ -950,7 +950,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-260 | Integration | `array.sort(collator.compare)` for en, de numeric, sv, ja, zh and case/sensitivity options gives bun's order (`tests/intl.rs`). |
 | M9-TS-261 | Integration | `new Intl.Collator().compare(a, b)` results (`tests/intl.rs`). |
 | M9-TS-262 | Integration | `new Intl.Collator` with a bad tag or option is bun's `RangeError` (`tests/intl.rs`). |
-| M9-TS-263 | Unit | Intl options that are not literals, and `resolvedOptions`, are compile errors (`platypus_ts/src/lib.rs`). |
+| M9-TS-263 | Unit | Intl options that are not literals, and `resolvedOptions`, are compile errors (`web_ui_ts/src/lib.rs`). |
 | M9-TS-264 | Integration | Decimal locales: `toLocaleString` for 15 locales (grouping, decimal marks, Indian grouping, Arabic digits, minus signs, NaN and infinity) equals bun's (`platypus_ts_tests/tests/numfmt.rs`, `bench/numfmt.ts`). |
 | M9-TS-265 | Integration | Fraction digits: `minimumFractionDigits`, `maximumFractionDigits`, `minimumIntegerDigits` and their defaults equals bun's (`platypus_ts_tests/tests/numfmt.rs`, `bench/numfmt.ts`). |
 | M9-TS-266 | Integration | Significant digits: `minimumSignificantDigits` / `maximumSignificantDigits` equals bun's (`platypus_ts_tests/tests/numfmt.rs`, `bench/numfmt.ts`). |
@@ -1020,7 +1020,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-366 | Integration | `BigInt.asIntN` / `asUintN` at several widths equal bun's (`platypus_ts_tests/tests/bigint.rs`, `bench/bigint.ts`). |
 | M9-TS-367 | Integration | `++`, `--`, `*=`, `for` and `while` loops, factorial of 30, Fibonacci of 150, arrays of bigints equal bun's (`platypus_ts_tests/tests/bigint.rs`, `bench/bigint.ts`). |
 | M9-TS-368 | Integration | `RangeError` / `SyntaxError` texts: non-integer, bad string, division by zero, negative exponent, radix, too big, negative bits equal bun's (`platypus_ts_tests/tests/bigint.rs`, `bench/bigint.ts`). |
-| M9-TS-369 | Unit | Mixing a bigint with a number in arithmetic, unary `+`, and `>>>` are compile errors; comparing with a number is allowed (`platypus_ts/src/lib.rs`). |
+| M9-TS-369 | Unit | Mixing a bigint with a number in arithmetic, unary `+`, and `>>>` are compile errors; comparing with a number is allowed (`web_ui_ts/src/lib.rs`). |
 | M9-TS-370 | Integration | `a || b` and `a && b` on numbers give the operand, not a boolean equal bun's (`platypus_ts_tests/tests/logic.rs`, `bench/logic.ts`). |
 | M9-TS-371 | Integration | The same on strings equal bun's (`platypus_ts_tests/tests/logic.rs`, `bench/logic.ts`). |
 | M9-TS-372 | Integration | The same with a nullable left side (`x || 5`) and with objects equal bun's (`platypus_ts_tests/tests/logic.rs`, `bench/logic.ts`). |
@@ -1032,7 +1032,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-378 | Integration | Spread `[...iterable]` and `Array.from(iterable)` equal bun's (`platypus_ts_tests/tests/iterators.rs`, `bench/iterators.ts`). |
 | M9-TS-379 | Integration | Calling `obj[Symbol.iterator]()` and `next()` by hand equal bun's (`platypus_ts_tests/tests/iterators.rs`, `bench/iterators.ts`). |
 | M9-TS-380 | Integration | An exhausted iterator that returns itself yields nothing the second time equal bun's (`platypus_ts_tests/tests/iterators.rs`, `bench/iterators.ts`). |
-| M9-TS-381 | Unit | A coroutine yields, is resumed with a value, keeps its shadow-stack frames alive while suspended through collections, stays done, and can be finished early under stress GC (`platypus_ts_rt/src/coro.rs`). |
+| M9-TS-381 | Unit | A coroutine yields, is resumed with a value, keeps its shadow-stack frames alive while suspended through collections, stays done, and can be finished early under stress GC (`web_ui_rt/src/coro.rs`). |
 | M9-TS-382 | Integration | `function*` with `for`, `next()` results, `done`, exhaustion equal bun's (`platypus_ts_tests/tests/generators.rs`, `bench/generators.ts`). |
 | M9-TS-383 | Integration | An infinite generator taken with `break` equal bun's (`platypus_ts_tests/tests/generators.rs`, `bench/generators.ts`). |
 | M9-TS-384 | Integration | A generator of strings, spread and `Array.from` equal bun's (`platypus_ts_tests/tests/generators.rs`, `bench/generators.ts`). |
@@ -1044,7 +1044,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-390 | Integration | `try` / `finally` around a `yield`, a throw inside a generator reaching the caller, and a generator that has thrown stays finished equal bun's (`platypus_ts_tests/tests/generators.rs`, `bench/generators.ts`). |
 | M9-TS-391 | Integration | `next(value)` sending values in (`Generator<number, void, number | undefined>`) equal bun's (`platypus_ts_tests/tests/generators.rs`, `bench/generators.ts`). |
 | M9-TS-392 | Integration | 300 short generators and 20 kept suspended under collection equal bun's (`platypus_ts_tests/tests/generators.rs`, `bench/generators.ts`). |
-| M9-TS-393 | Unit | A generator without a written return type, and `yield*` used as a value, are compile errors with a reason (`platypus_ts/src/lib.rs`). |
+| M9-TS-393 | Unit | A generator without a written return type, and `yield*` used as a value, are compile errors with a reason (`web_ui_ts/src/lib.rs`). |
 | M9-TS-394 | Integration | `Symbol("x")` values compare by identity (`===`, `!==`) equal bun's (`platypus_ts_tests/tests/symbols.rs`, `bench/symbols.ts`). |
 | M9-TS-395 | Integration | `symbol.description` and `toString()` equal bun's (`platypus_ts_tests/tests/symbols.rs`). |
 | M9-TS-396 | Integration | `Symbol.for` returns one symbol per key, `Symbol.keyFor` finds registered ones (`platypus_ts_tests/tests/symbols.rs`). |
@@ -1081,7 +1081,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-427 | Integration | `then(f, g)` with both callbacks, fulfilled and rejected, equal bun's (`platypus_ts_tests/tests/promises.rs`). |
 | M9-TS-428 | Integration | `Promise.any` resolves with the first fulfilment and rejects with an `AggregateError` holding every reason (`platypus_ts_tests/tests/promises.rs`). |
 | M9-TS-429 | Integration | `Promise.allSettled` results (`status`, `value`, `reason`) equal bun's (`platypus_ts_tests/tests/promises.rs`). |
-| M9-TS-430 | Unit | Async limits (async generators, `await` outside async, `new Promise` without a type, untyped async return, `then(f, g)`) are compile errors with a reason (`platypus_ts/src/lib.rs`). |
+| M9-TS-430 | Unit | Async limits (async generators, `await` outside async, `new Promise` without a type, untyped async return, `then(f, g)`) are compile errors with a reason (`web_ui_ts/src/lib.rs`). |
 | M9-TS-431 | Integration | Typed arrays over one `ArrayBuffer` (`Uint8Array`, `Uint32Array`, `Float32Array` with an offset) share memory equal bun's (`platypus_ts_tests/tests/buffers.rs`, `bench/buffers.ts`). |
 | M9-TS-432 | Integration | Views with offsets and lengths report `length`, `byteOffset` and `byteLength` equal bun's (`platypus_ts_tests/tests/buffers.rs`, `bench/buffers.ts`). |
 | M9-TS-433 | Integration | Bad view offsets and lengths throw `RangeError` equal bun's (`platypus_ts_tests/tests/buffers.rs`, `bench/buffers.ts`). |
@@ -1093,7 +1093,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-439 | Integration | `DataView` float getters and setters, both byte orders equal bun's (`platypus_ts_tests/tests/buffers.rs`, `bench/buffers.ts`). |
 | M9-TS-440 | Integration | `DataView` over a window, its `buffer` and its bounds errors equal bun's (`platypus_ts_tests/tests/buffers.rs`, `bench/buffers.ts`). |
 | M9-TS-441 | Integration | Views stay alive while their buffer is only reachable through them, under collection equal bun's (`platypus_ts_tests/tests/buffers.rs`, `bench/buffers.ts`). |
-| M9-TS-442 | Unit | The host copies bytes into script as a typed array and reads them back; a trailing partial element is dropped (`platypus_ts_rt/src/typed.rs`). |
+| M9-TS-442 | Unit | The host copies bytes into script as a typed array and reads them back; a trailing partial element is dropped (`web_ui_rt/src/typed.rs`). |
 | M9-TS-443 | Integration | `structuredClone` of nested objects and arrays equals bun's (`platypus_ts_tests/tests/clone.rs`, `bench/clone.ts`). |
 | M9-TS-444 | Integration | The clone is independent of the original (objects, arrays, nested fields) (`platypus_ts_tests/tests/clone.rs`). |
 | M9-TS-445 | Integration | `structuredClone` keeps null fields null (`platypus_ts_tests/tests/clone.rs`). |
@@ -1307,7 +1307,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-572 | Integration | Generics `aliases` equals bun (`platypus_ts_tests/tests/generics.rs`, `bench/generics.ts`). |
 | M9-TS-573 | Integration | Generics `nested` equals bun (`platypus_ts_tests/tests/generics.rs`, `bench/generics.ts`). |
 | M9-TS-574 | Unit | Generic mistakes are errors with a reason: cannot infer, exported generic, conflicting inference, generic static or accessor. |
-| M2-NAT-01 | Integration | Native reconciler: a description becomes nodes in a real `UiTree` (`crates/platypus_ui_native/tests/reconcile.rs`). |
+| M2-NAT-01 | Integration | Native reconciler: a description becomes nodes in a real `UiTree` (`crates/web_ui_react/tests/reconcile.rs`). |
 | M2-NAT-02 | Integration | State setter re-renders only its component, text updated in place; same value renders nothing. |
 | M2-NAT-03 | Integration | Keyed children keep their nodes when reordered, inserted and removed. |
 | M2-NAT-04 | Integration | Style diff sends what changed; a removed property resets. |
@@ -1331,7 +1331,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-584 | Integration | `memo` skips a child with equal props and renders it when a prop changes. |
 | M9-TS-585 | Integration | `forwardRef` passes the ref as the second parameter. |
 | M9-TS-586 | Integration | `useReducer` applies actions to the latest state (two dispatches in one handler both count). |
-| M2-NAT-13 | Integration | A controlled text field: an accepted (even transformed) edit shows the new value prop, a rejected one sends the old value back (`crates/platypus_ui_native/tests/reconcile.rs`). |
+| M2-NAT-13 | Integration | A controlled text field: an accepted (even transformed) edit shows the new value prop, a rejected one sends the old value back (`crates/web_ui_react/tests/reconcile.rs`). |
 | M9-TS-587 | Integration | The compiler exports each component's stable id and ordered hook list (`__uiSignatures`). |
 | M9-TS-588 | Integration | Hot reload with `Runtime::refresh`: state is kept, except for components in the remount list. |
 | M9-TS-589 | Integration | The updater form `setN(n => n + 1)`: two updaters in one handler apply to the latest state (`platypus_ts_tests/tests/ui.rs`). |
@@ -1399,7 +1399,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-711 | Integration | `go.getComponent(Camera)` / `Animation` / `Animator` finds the engine component on that object only (static `findOn`). |
 | M9-TS-712..718 | Integration | Scenes for compiled programs (`bench/scenes.ts`, `platypus_scenes`): a scene file loads (objects, transforms, layer, enabled, `Camera`, the program's components with number, `Vector3` and reference properties; unknown kinds warn; components wake at `settle`); save and load round trip; `GameObject.instantiate` with child remapping and `{ position, rotation, parent }`; references outside the copy stay; additive / single loads, unload, `dontDestroyOnLoad`; prefabs; the `examples/scenes` level file. |
 | M9-TS-719 | Integration | An engine object (handle) stringifies as `{}`; script fields beside it are kept. |
-| M9-TS-720..722 | Integration | Stack values (`platypus_ts::sroa`): a vector built, combined and read in one function is not allocated; one that is returned or stored stays an object; aliases that change stay one object. |
+| M9-TS-720..722 | Integration | Stack values (`web_ui_ts::sroa`): a vector built, combined and read in one function is not allocated; one that is returned or stored stays an object; aliases that change stay one object. |
 | M9-TS-723..725 | Integration | Value classes (`Vector3`, `Color`, `Quaternion`, ...) stringify compactly as their numbers (`[1,2,3]`) and parse back from that or from the object form (`{"x":1,..}`, left-out fields 0, alpha 1) (a difference to the TypeScript classes, by decision). |
 | M9-TS-726 | Integration | A `Vector2[]` is passed to the engine in place (`AnimationCurve.fromPoints(points, mode?)`; modes linear / step; default linear). |
 | M9-API-48 | Unit | `script_f64s` reads a script `number[]` in place; null and empty give an empty slice. |
@@ -1423,8 +1423,8 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-1231..1235 | Integration | `ParticleSystem` (ranges, shape, bursts, curves, flipbook; play/stop/emit commands for the host; `report_particles` runs `onStopped` and `stopAction: "destroy"`), `LineRenderer` (a tube through a mesh renderer of its own, rebuilt on change), `Cloth` (swaps the renderer mesh for a simulated copy and back) and `Primitives.create` (collider hook); all three load from scene files and save the same data again. |
 | M9-TS-1236..1238 | Integration | `Gizmos` shapes (ray, wire cube / disc / sphere, frustum, `matrix`, `lineCount`) from compiled code; `Screen` (modes, `setResolution` requests for the host, resolutions, `onChange` listeners run when the host updates the size) and `QualitySettings` (levels from the manifest, validation of names and numbers, level switches tell listeners, the choice is saved as `platypus.quality` and comes back). |
 | M9-TS-1239 | Integration | `Model.load` / `instantiate` (options `position`, `rotation`, `scale`, `parent`, `colliders`; an object literal with those keys is the options, not a value): the file is read once, copies asked for before the host reports the description get their nodes when it does (renderers per primitive, glTF materials, colliders through a hook); a scene saves a copy as `"model"` without its nodes and builds them again on load. |
-| M9-TS-1500..1510 | Integration | JSX and hooks need no manifest from the caller (`tools/platypus_ts/tests/jsx_builtin.rs`): a component with no manifests or with another one, a hook-only program (single line), fragments, `{cond && <x/>}`, `.map` children, spread props, text children and conditionals, a JSX syntax error reports its line and the TSX parser's message, TypeScript that is not TSX is not blamed on the TSX parse, an explicit `Ui` manifest is still accepted. |
-| M9-TS-1511 | Integration | The `Ui` manifest embedded in `platypus_ts` equals `platypus_ts_ui::manifest_json()` (`tools/platypus_ts_ui/tests/embedded_manifest.rs`). |
+| M9-TS-1500..1510 | Integration | JSX and hooks need no manifest from the caller (`tools/web_ui_ts/tests/jsx_builtin.rs`): a component with no manifests or with another one, a hook-only program (single line), fragments, `{cond && <x/>}`, `.map` children, spread props, text children and conditionals, a JSX syntax error reports its line and the TSX parser's message, TypeScript that is not TSX is not blamed on the TSX parse, an explicit `Ui` manifest is still accepted. |
+| M9-TS-1511 | Integration | The `Ui` manifest embedded in `web_ui_ts` equals `web_ui_bridge::manifest_json()` (`tools/web_ui_bridge/tests/embedded_manifest.rs`). |
 | ~~M9-API-100~~ | Integration | A handle in QuickJS is an opaque object: the id is in an internal slot, `JSON.stringify` gives `{}`, no own or enumerable properties, `[object Thing]`, `instanceof`, script-added properties are own (`crates/ts_api/tests/handles_quickjs.rs`). (removed 2026-10-28: QuickJS removed) |
 | ~~M9-API-101~~ | Integration | Handle class statics, methods, properties, setters and `new Class(args)` (through `create`) in QuickJS; a getter alone is read only. (removed 2026-10-28: QuickJS removed) |
 | ~~M9-API-102~~ | Integration | The id 0 is `null` going out and coming in; optional handle parameters default to `null`. (removed 2026-10-28: QuickJS removed) |
@@ -1465,7 +1465,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-API-143 | Integration | `Model.load` / `instantiate` with optional values left out. |
 | M9-API-144 | Integration | Every component class with `attach` (and assets with `create()`): each get/set property round-trips its own value (265 properties, `surface.rs`). |
 | M9-API-145 | Integration | GC stress: tiny collection threshold, thousands of handle objects and 200 engine-held callbacks stay correct. |
-| M9-TS-1600 | Integration | An effect whose cleanup is an arrow around a void call (`return () => clearTimeout(id)`) and a setter inside the timer compile (`tools/platypus_ts/tests/react_front.rs`; was a Cranelift verifier error). |
+| M9-TS-1600 | Integration | An effect whose cleanup is an arrow around a void call (`return () => clearTimeout(id)`) and a setter inside the timer compile (`tools/web_ui_ts/tests/react_front.rs`; was a Cranelift verifier error). |
 | M9-TS-1601 | Integration | Parameter types come from their default values (`phase = 0`, `name = "x"`, `on = false`). |
 | M9-TS-1602 | Integration | A program class named like an engine handle (`class Scene`) shadows it (was a panic). |
 | M9-TS-1603 | Integration | `Text`, `Span`, `Input`, `TextArea`, `Image` are the intrinsic elements. |
@@ -1532,7 +1532,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-2307 | Integration | All the examples type-check against the generated declarations (`tsc` ok, no `node_modules` in the games). Skipped without `tsc`. |
 | M9-TS-2308 | Unit | No example imports `@platypus/engine`, `@platypus/react` or `react`. |
 | M9-TS-2310 | Unit | Options-object overloads: leading required parameters stay positional, a required parameter after an optional one becomes optional, `function in(..)` is left out, creatable handle classes get constructors and `create(options)`, component handles get `transform` and `getComponent`. |
-| M9-TS-2311 | Unit | A compiler built-in (`tools/platypus_ts/src/builtins.rs`) replaces the native member of the same name in the generated class (a static of a namespace is a `function`), its constructors replace the generated ones, and its top-level names and the `<Value>Like` types they name are exported by `@platypus/engine` (`types_dts.rs`). |
+| M9-TS-2311 | Unit | A compiler built-in (`tools/web_ui_ts/src/builtins.rs`) replaces the native member of the same name in the generated class (a static of a namespace is a `function`), its constructors replace the generated ones, and its top-level names and the `<Value>Like` types they name are exported by `@platypus/engine` (`types_dts.rs`). |
 | M9-TS-2312 | Unit | A program with no library imports bundles the same way (`library_imports` empty). |
 | M9-TS-1900 | Integration | The object writer's output (size and hash of three programs) is unchanged by the generic code generation. |
 | M9-TS-1901 | Integration | A program compiled in process (`jit::compile_and_load`) runs: exported functions called through their addresses. |
@@ -1584,7 +1584,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-2430 | Unit | Version info (ProductName, CompanyName, FileDescription, LegalCopyright, FileVersion, ProductVersion, OriginalFilename, 1.2.3.0 numbers) and the four icon sizes written into a PE file read back, and a payload appended after the edit is found (Windows; `platypus_build/src/pe.rs`). |
 | M9-TS-2440 | Manual | `cargo test -p platypus_build -- --ignored standalone` (needs a built `platypus_app`, GPU): packages `examples/hello`, deletes the game folder and runs the exe from another folder with `--screenshot out.png --frames 5`. Checked by eye for hello (a log-only game, background colour) and boxes (the stripes image from `assets/` shows). |
 | M9-TS-2550 | Unit | Globs (`platypus_core::glob`): `*` stays inside one path part, `**` crosses parts, `?`, case-sensitive; a plain path in `include` means the folder below it. |
-| M9-TS-2551 | Unit | Dynamic path inference (`platypus_ts::assetpaths`): templates and `+` chains become globs, one `*` per hole (nested holes too); prefix-less paths, paths without a file name, URLs and text with spaces are refused; whole literals and lines are reported. |
+| M9-TS-2551 | Unit | Dynamic path inference (`web_ui_ts::assetpaths`): templates and `+` chains become globs, one `*` per hole (nested holes too); prefix-less paths, paths without a file name, URLs and text with spaces are refused; whole literals and lines are reported. |
 | M9-TS-2552 | Unit | `include` / `exclude` selection (`platypus_build::include`) and `collect_files`: globs work, a pattern's matches are copied under a narrowed `include`, `exclude` removes files, an unmatched `include` is a warning not a silent drop. |
 | M9-TS-2553 | Manual | `platypus-build package examples/emoji --host target/debug/platypus-app.exe --out <dir>/emoji.exe`, then `emoji.exe --screenshot out.png --frames 150` from that folder with `PLATYPUS_LOG_FILE`: no `not found`, the sounds decode and the SVG emoji are drawn (checked 2026-10-22). |
 | M9-TS-2554 | Unit | Pack placement (`platypus_build::packs`): an asset only one scene names goes to that scene's pack, one two scenes name, or the code, a dynamic path or `include` takes goes to `assets.dat`; prefabs are followed; the scene file is the first entry of its own pack; scene slugs stay distinct. |
@@ -1695,7 +1695,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-VSP-07 | Unit | `--video-settings-prompt`, `--no-video-settings-prompt` and `--video-settings-dialog <folder>` parse. |
 | M9-VSP-08 | Unit | `platypus-build package --video-settings-prompt` / `--no-video-settings-prompt` set `videoSettingsPrompt` in the exe's embedded `project.json` over the project's; without the argument the project's value (or none) is kept. |
 | M9-VSP-09 | Integration | `platypus-app <game> --screenshot out.png --video-settings-prompt` saves the dialog's picture (its own UI-only window, 600 x 500 logical pixels), not the game's (needs a GPU). |
-| M9-VSP-10 | Unit | The d-pad (`Input::Navigate`) reaches the focused element as an arrow key's `keydown` first; preventing it keeps focus (a list box moves its selection), else focus moves as before (`platypus_ui` tests/navigation.rs). |
+| M9-VSP-10 | Unit | The d-pad (`Input::Navigate`) reaches the focused element as an arrow key's `keydown` first; preventing it keeps focus (a list box moves its selection), else focus moves as before (`web_ui_dom` tests/navigation.rs). |
 | M9-VSP-11 | Bun | The prompt's resolution list: the monitor's modes de-duplicated and sorted largest first (rates only for exclusive fullscreen, windows only below the monitor's size); the saved size is selected, else the nearest (`video_prompt_sizes.test.ts`). |
 | M9-VSP-12 | Unit | Windows show the game's title and icon: `Manifest::window_title` is the title, else the name, else "Platypus"; `window_icon` is the project's icon, else Platypus's (the main window and the prompt share them). The prompt's folder names its window after the game, carries its icon (`icon.png`: the title bar and taskbar only, no image in its UI) and is a fixed 600 x 500 (`resizable: false`: no resize edges or maximize button). |
 | M9-VSP-13 | Unit + Bun | `subtitle` in `project.json`: optional, takes templates, an empty one is none and gets no warning; `Manifest::subtitle` (empty when unset) reaches `__platypus_info.app.subtitle` and `Application.subtitle`; the prompt's header shows it under the title only when set (`headerLines`). |
@@ -1732,7 +1732,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3514 | Integration | `f?.(x)` on a callback that is left out does nothing, also when a closure captured `f` (a destructured optional prop, as the editor's `VirtualList` row handler) and when its result is used (`undefined`). The call of a plain identifier skipped the guard and the editor crashed on a click in the Hierarchy. |
 | M9-TS-3515 | Integration | Reversing an empty array (no storage yet) leaves it empty; `ts_rt_arr_reverse` made a slice over a null pointer (a debug build's check aborted the editor). |
 | M9-TS-3522 | Integration | A state setter, an updater and a reducer's `dispatch` kept past their component's unmount do nothing (React's behaviour) instead of aborting on "a hook slot that is gone"; while mounted they still re-render (`bench/ui.ts` `Late`). |
-| M9-TS-3523 | Unit | A program with forty types and one generic promise function lowers only the `then` copies it calls (the per-type promise helpers are lowered on demand, and the program's own types are not paired with each other), so the editor's object stays small (`tools/platypus_ts/src/lib.rs`). |
+| M9-TS-3523 | Unit | A program with forty types and one generic promise function lowers only the `then` copies it calls (the per-type promise helpers are lowered on demand, and the program's own types are not paired with each other), so the editor's object stays small (`tools/web_ui_ts/src/lib.rs`). |
 | M9-TS-3524 | Integration | `cond && f()` / `cond \|\| f()` with a void `f`, as an arrow's body or a statement, runs `f` when it should (it was dropped: the editor's dialog buttons did nothing) (`tests/lang/editor_gaps.rs`). |
 | M9-TS-3525 | Integration | `PlatypusStyle["position"]` (and `"left"`, `"width"`, `"flexDirection"`, `"cursor"`, `"flexGrow"`) types values that reach the style: an absolute and a relative box lay out as CSS says; `PlatypusStyle["nope"]` is an error with the line (`tests/ui/ui.rs`, `bench/ui.ts` `Placed`). |
 | M9-TS-3526 | Integration | `Iface["k"]`, `Alias["k"]` over a type literal (a literal-union property too), nested `A["b"]["c"]`, `typeof x["k"]`, `typeof a.b.c` and `Record<Shape["kind"], V>` (`tests/lang/indexed.rs`). |
@@ -1743,6 +1743,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3531 | Integration | `new Set(cond ? set : [])`, `new Set(cond ? [] : set)`, `new Map(cond ? [] : map)` and a typed `new Set<T>(cond ? set : [..])`: the arms may be a collection and an array (any iterable); the test runs once and only the arm taken is read (`tests/lang/editor_gaps.rs`). |
 | M9-TS-3533 | Integration | `useState(name)` is a lazy initialiser only when `name` there is a function: a local value named like a top-level function is the first value itself (it was called, a compile error), a local arrow and a top-level function are called (`tests/ui/ui.rs`, `bench/ui.ts` `shadowApp`). |
 | M9-TS-3534 | Unit | `compile_for_target`: a position-independent object differs from the default one and still exports `ts_<prefix><name>`; on x86-64 Linux the `x86_64-unknown-linux-musl` object is the host's byte for byte; an unknown triple is an error. |
+| M9-TS-3535 | Unit | Only a line-leading `function setTimeout` (or `export function setTimeout`) of the program replaces the timer prelude; the words inside a string (a bundled doc) don't (web-ui `web_ui_ts/src/lower/prelude.rs`). |
 | M9-TS-3532 | Integration | `{...(cond ? handlers(name) : {})}` in JSX sets the taken arm's props and handlers; the `{}` arm sets none (`tests/ui/ui.rs`, `bench/ui.ts` `condSpreadApp`). |
 | M9-TS-3509 | Unit | A function nothing calls is skipped by a build; `check_unused` (`platypus-build build --check-unused`) lowers it too, so its error shows. |
 | M9-SHOT-01 | Unit | `progress-shots` waits longer for effects that settle slowly: 120 frames by default, 900 for `dark-room`, 360 for `godrays-lift` (before the godrays rule), 600 for every `fog*` and other `godrays-*` example (`tests/tools/shots/src/bin/progress_shots.rs`). |
@@ -1839,7 +1840,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-2802 | Integration | The static `Window.focused` (undefined when none) and the instance `w.focused` both resolve; `focus_changed` flips both. |
 | M9-TS-2803 | Integration | Window listeners from compiled closures run (resize, closed) and `cancelClose` from `onCloseRequested` cancels. |
 | M9-TS-2804 | Integration | `Window.count` and `Window.at(i)` list the windows in order and drop a closed one. |
-| M9-TS-2805 | Integration | `createRoot(win).render(..)` queues a window mount (`platypus_ts_ui::take_window_mounts()`), not a screen mount; `createRoot(Window.main)` is the screen (target 0). |
+| M9-TS-2805 | Integration | `createRoot(win).render(..)` queues a window mount (`web_ui_bridge::take_window_mounts()`), not a screen mount; `createRoot(Window.main)` is the screen (target 0). |
 | M9-TS-2806 | Unit | `platypus-build types` declares `Window` (static readonly `main`, `current`, `count`), `WindowOptions`, `WindowStyle`, and `createRoot(target?: WorldPanel \| Window \| number)` (`tools/platypus_build`). |
 | M9-TS-2807 | Unit | `tsc` accepts a program that opens windows, listens, mounts roots, and rejects an unknown style. |
 | M9-TS-2820 | Unit | `createRoot(win)` of a window object commits to the target `0x4000_0000 \| handle` (`js/react/test/window_root.test.tsx`); a second root for it names the window in the error. |
@@ -1990,7 +1991,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3032 | Integration | A write past the length, negative or fractional throws a `RangeError` and leaves the array as it was (`platypus_ts_tests/tests/lang/arrays2.rs`, `bench/arrays2_cases.ts`, normal, GC stress, GC off). |
 | M9-TS-3033 | Integration | The `RangeError` message names the index (`platypus_ts_tests/tests/lang/arrays2.rs`, `bench/arrays2_cases.ts`, normal, GC stress, GC off). |
 | M9-TS-3034 | Integration | Out-of-range writes to a typed array are still ignored (`platypus_ts_tests/tests/lang/arrays2.rs`, `bench/arrays2_cases.ts`, normal, GC stress, GC off). |
-| M9-TS-3100 | Integration | No hand-written declaration file under `tools/` (no `.d.ts`, no `include_str!` of one; strict since `engine_ts.d.ts` went), the TypeScript compiled into games is the listed set (`ui.ts`, `temporal.ts`) and no Python step is under `tools/platypus_ts` (`tools/platypus_build/tests/generated_dts.rs`). |
+| M9-TS-3100 | Integration | No hand-written declaration file under `tools/` (no `.d.ts`, no `include_str!` of one; strict since `engine_ts.d.ts` went), the TypeScript compiled into games is the listed set (`ui.ts`, `temporal.ts`) and no Python step is under `tools/web_ui_ts` (`tools/platypus_build/tests/generated_dts.rs`). |
 | M9-TS-3101 | Integration | The compiler built-ins declare no top-level name a manifest declares, and every class or namespace a built-in member, static or constructor belongs to exists in the manifests (`tools/platypus_build/tests/generated_dts.rs`). |
 | M9-TS-3102 | Integration | The generated `types/platypus.d.ts`, parsed with oxc and normalised (one line per declaration and member, sorted), equals the blessed snapshot `tools/platypus_build/tests/golden/api_surface.txt`; `PLATYPUS_BLESS=1` rewrites it (`tools/platypus_build/tests/generated_dts.rs`). |
 | M9-API-1600 | Integration | `Shapes` from QuickJS return `Vector2` instances with the old defaults (64 points, rounded corners, rectangle corners) (`crates/platypus_native/tests/outlines.rs`). |
@@ -2007,7 +2008,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-API-1618 | Integration | A hot reload into a program that awaits restores the saved world and spawns the new class once its startup has finished (`native.rs`). |
 | M9-API-1619 | Unit | `@platypus/engine`'s `Assets.exists` / `list` / `packOf` hand over to the engine's `Assets` namespace (QuickJS parity) and answer as an empty game without it (`js/engine/test/assets.test.ts`). |
 | M9-API-1620 | Integration | A `Vec<String>` result of `#[ts_api]`: the shim returns the count, `ts_api_result_str(i)` gives the strings (empty past the end), the manifest says `list:string` (`crates/ts_api/tests/records_enums.rs`). |
-| M9-TS-3103 | Unit | Enums, records, lists, rest, docs, `like` and `options_after` become declarations (`tools/platypus_ts/src/types_dts.rs`). |
+| M9-TS-3103 | Unit | Enums, records, lists, rest, docs, `like` and `options_after` become declarations (`tools/web_ui_ts/src/types_dts.rs`). |
 | M9-TS-3110 | Integration | Every point of every `Shapes` function on edge cases equals the old compiled TypeScript (`RefShapes`) bit for bit, in normal, stress GC and collection-off modes (`tools/platypus_ts_tests/tests/engine_api/outlines.rs`, `bench/outlines.ts`). |
 | M9-TS-3111 | Integration | Shape points are `Vector2` objects; object literals pass where points go (`tools/platypus_ts_tests/tests/engine_api/outlines.rs`). |
 | M9-API-1603 | Integration | `Spline` from QuickJS: through its knots, the same points as `Shapes.curve`, linear and bezier knots, evaluate by distance, closing, `sample` counts, `instanceof` and `[object Spline]` (`crates/platypus_native/tests/splines.rs`; the cases of the old JS test `M5-SPL-01`). |
@@ -2096,7 +2097,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3194 | Integration | `xs.flat(depth)` with a depth that is a variable or a constant equals bun's (`leftovers.rs`). |
 | M9-TS-3195 | Integration | `function f(...args: [string, number])` and `[number, string?]`: calls with arguments and with a spread tuple equal bun's (`leftovers.rs`). |
 | M9-TS-3196 | Integration | A generic function given `["a", "b"] as const` and a `string` (`next(MODES, current)`): `T` is `string`, the array is converted, a union-typed result is a member (`leftovers.rs`). |
-| M9-TS-3197 | Unit | The window helpers of the facade (`.on(`, `.emit(`, `broadcast`) are added only for a program that names `Window` (`tools/platypus_ts/src/lower/facade.rs`). |
+| M9-TS-3197 | Unit | The window helpers of the facade (`.on(`, `.emit(`, `broadcast`) are added only for a program that names `Window` (`tools/web_ui_ts/src/lower/facade.rs`). |
 | M9-TS-3198 | Integration | `input.gamepads()` gives pads with `buttons` and `axes` by name; `input.on("gamepadconnected", e => ..)` gets `{ gamepad }` (`tools/platypus_ts_tests/tests/engine_api/originals_engine.rs`). |
 | M9-TS-3199 | Integration | `Light.measureIlluminance` stays pending until a physics step, then equals `Light.illuminanceAt` without colliders (`originals_engine.rs`). |
 | M9-TS-3200 | Integration | A closure given to `Physics.afterNextStep` runs once, after the next step (`originals_engine.rs`). |
@@ -2125,7 +2126,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3223 | Integration | `!v` / `if (v)` on unions (`number \| string \| number[] \| null`, `string \| Pt`, `number \| number[]`) test the member held (0, "" and null are false) and the falsy branch narrows to the members that can be falsy, equal to bun (`lang2.rs`). |
 | M9-TS-3224 | Integration | `flat(depth)` with a depth variable that reaches the full flattening (2, 10, `Infinity`) equals bun (`lang2.rs`). |
 | M9-TS-3225 | Integration | (retired: `flat(depth)` no longer throws, see `M9-TS-3313..3315`.) |
-| M9-TS-3301 | Integration | Every style property of the `platypus_ui::tables` table is applied by `apply_style` (each keyword of its type, a number where the type takes one, a free string where it takes one) and resetting it is accepted (`crates/platypus_ui/tests/ui_tables.rs`). |
+| M9-TS-3301 | Integration | Every style property of the `web_ui_dom::tables` table is applied by `apply_style` (each keyword of its type, a number where the type takes one, a free string where it takes one) and resetting it is accepted (`crates/web_ui_dom/tests/ui_tables.rs`). |
 
 | M9-TS-3302 | Integration | Every `"camelCase" =>` name `apply_style` matches in `style.rs`, `text_style.rs` and `paint.rs` is in the style table (`ui_tables.rs`). |
 
@@ -2141,11 +2142,11 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 
 | M9-TS-3308 | Integration | Every `on*` prop names a real `EventKind`, capture variants resolve, `onGotPointerCapture` is not a capture prop, and every event type without a prop is a transition, animation or drag one (`ui_tables.rs`). |
 
-| M9-TS-3309 | Unit | The generated UI declarations parse as a `.d.ts` and list every style property, attribute, event prop, element, component and hook of the tables, with docs and the formatter's union layout (`tools/platypus_ts/src/ui_dts.rs`). |
+| M9-TS-3309 | Unit | The generated UI declarations parse as a `.d.ts` and list every style property, attribute, event prop, element, component and hook of the tables, with docs and the formatter's union layout (`tools/web_ui_ts/src/ui_dts.rs`). |
 
 | M9-TS-3310 | Unit | The compiled prelude has a `UiEvent` field per event field with the slot expressions, an alias per event interface, and the module export lists come from the tables (`ui_dts.rs`). |
 
-| M9-TS-3311 | Unit | `onFocus` / `onBlur` / `onBlurCapture` / `onChange` / `onGotPointerCapture` lower to `focusin` / `focusout` / `focusout:capture` / `input` / `gotpointercapture` handlers (`tools/platypus_ts/src/lower/jsx.rs`). |
+| M9-TS-3311 | Unit | `onFocus` / `onBlur` / `onBlurCapture` / `onChange` / `onGotPointerCapture` lower to `focusin` / `focusout` / `focusout:capture` / `input` / `gotpointercapture` handlers (`tools/web_ui_ts/src/lower/jsx.rs`). |
 
 | M9-TS-3312 | Unit | Capitalised components stand for the tags of the element table (`jsx.rs`). |
 | M9-TS-3313 | Integration | `xs.flat(d)` of a `number[][]` with a run-time depth (0, 1, 5, -3, NaN, 0.9, 1.7, Infinity) gives `(number \| number[])[]` holding exactly that many levels, equal to bun (`tools/platypus_ts_tests/tests/lang/lang3.rs`, cases in `bench/lang3_cases.ts`). |
@@ -2165,12 +2166,12 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3326 | Integration | `onAnimationStart` / `Iteration` / `End` in a compiled game with `animationName` and the spec's `elapsedTime` (`ui.rs`). |
 | M9-TS-3327 | Integration | Drag and drop in a compiled game: one `dataTransfer` from `dragstart` to `dragend` (`setData` / `getData` / `types` / `dropEffect`), `dropped`, an unaccepted drag, and files dragged in from the system as `dataTransfer.files` with their names (`ui.rs`). |
 | M9-TS-3328 | Integration | `onMouseEnter` / `onMouseLeave` / `onMouseMove` in a compiled game (non-bubbling events still run the target's handlers); a non-bubbling `scroll` does not reach the parent's `onScroll` (`ui.rs`). |
-| M9-TS-3329 | Unit | `EventKind::ALL` lists every event type (an exhaustive `match` stops compiling when one is added) (`crates/platypus_ui/tests/ui_tables.rs`). |
+| M9-TS-3329 | Unit | `EventKind::ALL` lists every event type (an exhaustive `match` stops compiling when one is added) (`crates/web_ui_dom/tests/ui_tables.rs`). |
 | ~~M9-TS-3330~~ | Unit | The `on*` props of the tables are exactly those `HANDLERS` of `js/react/src/events.ts` runs per event type, and the non-bubbling types agree (`ui_tables.rs`). (removed 2026-10-28: QuickJS removed) |
 | M9-TS-3331 | Unit | The slots of `propertyName` / `animationName` / `elapsedTime` / `relatedTarget` / `dropped` / `dataTransfer` read what `UiEvent::script_args` fills (`ui_tables.rs`). |
-| M9-TS-3332 | Integration | Focus events from `Interaction` reach native reconciler handlers (capture, bubble, `relatedTarget` in `data[9]`), and a non-bubbling `scroll` stays on its element (`crates/platypus_ui_native/tests/reconcile.rs`). |
-| M9-TS-3333 | Integration | `cols` sizes a textarea (8 px per character, CSS wins); `title` and `type` are kept (type lower-cased) and match `[title=..]` / `input[type=password]` selectors, also after a change (`crates/platypus_ui/tests/editor.rs`). |
-| M9-TS-3334 | Unit | The compiled `UiDataTransfer` has every member of the declared `PlatypusDataTransfer`, and the alias and the declaration exist (`tools/platypus_ts/src/ui_dts.rs`). |
+| M9-TS-3332 | Integration | Focus events from `Interaction` reach native reconciler handlers (capture, bubble, `relatedTarget` in `data[9]`), and a non-bubbling `scroll` stays on its element (`crates/web_ui_react/tests/reconcile.rs`). |
+| M9-TS-3333 | Integration | `cols` sizes a textarea (8 px per character, CSS wins); `title` and `type` are kept (type lower-cased) and match `[title=..]` / `input[type=password]` selectors, also after a change (`crates/web_ui_dom/tests/editor.rs`). |
+| M9-TS-3334 | Unit | The compiled `UiDataTransfer` has every member of the declared `PlatypusDataTransfer`, and the alias and the declaration exist (`tools/web_ui_ts/src/ui_dts.rs`). |
 | M9-API-1622 | Unit | An `enums(extern X = ..)` enum adds no second set of symbols or manifest entry (the declaring namespace lists it once, the other names `enum:X`); an explicit variant name wins; `aliases(..)` and the helpers exist (`crates/ts_api/tests/enums_nullables.rs`). |
 | M9-API-1623 | Integration | `Option<f64>` / `Option<V>` / `Option<String>` cross the C ABI with NaN, NaN fields and the `ts_api_result_none()` flag, both ways; the manifest says `opt:f64`, `opt:value:V`, `opt:string` (`enums_nullables.rs`). |
 | M9-API-1624 | Unit | An `Option<Enum>` parameter is none for -1 or an unknown index (a setter changes nothing); a `Vec<Enum>` result is the count and the indexes in the result buffer; the explicit-name converters (`enums_nullables.rs`). |
@@ -2183,7 +2184,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-API-1630 | Integration | A record with a `string` field: the numbers go to the result buffer and the strings to the string list, in field order, element after element for a list; manifest field type `string` (`crates/ts_api/tests/enums_nullables.rs`). |
 | M9-API-1631 | Integration | `#[options(name = "PokeOptions", only)]`: the manifest has `optionsName`, `optionsOnly` and the parameter docs from the `/// key: text` lines (they leave the function's doc) (`enums_nullables.rs`). |
 | M9-TS-3341 | Integration | Compiled code with every GC mode: `Screen.windowSize`, `currentResolution`, `resolutions` and `Animator.getCurrentAnimatorStateInfo()` come back as objects (records with number and string fields, lists of records) (`tools/platypus_ts_tests/tests/engine_api/facade.rs`). |
-| M9-TS-3342 | Unit | A named options object is an `interface` with the parameter docs (a handle key also takes `null`), `options?: Name` is the signature, `only` drops the positional form, array parameters are `readonly`, the module re-exports the name (`tools/platypus_ts/src/types_dts.rs`). |
+| M9-TS-3342 | Unit | A named options object is an `interface` with the parameter docs (a handle key also takes `null`), `options?: Name` is the signature, `only` drops the positional form, array parameters are `readonly`, the module re-exports the name (`tools/web_ui_ts/src/types_dts.rs`). |
 | M9-API-1632 | Integration | An `Option<Record>` parameter and result travel as JSON text: optional keys, `null` for a nested option, a value class as an array or an object, an enum by name, `pairs`, a script key (`as "label"`); a missing required key, a wrong type or an unknown enum name is reported and is none; the manifest says `opt:record:R` and `opt:opt:like:V` / `opt:list:pair` / `opt:string` for the fields (`crates/ts_api/tests/enums_nullables.rs`). |
 | M9-API-1633 | Integration | `RenderSettings.heightFog` / `skybox` / `bloom` / `autoExposure` / `volumetricFog` from QuickJS take an object or `null` and read back as objects (colour instances, `null` for no sun, the curve as pairs, the defaults of keys left out); a bad object is ignored (`crates/platypus_native/tests/enums.rs`). |
 | M9-TS-3343 | Integration | Compiled code with every GC mode: the same properties from literals, a variable of the game's own interface and `cond ? { .. } : null`, a key written as `null` differs from one left out (`sunDirection`), the values read back (`tools/platypus_ts_tests/tests/engine_api/facade.rs`). |
@@ -2208,13 +2209,13 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3356 | Integration | Compiled code with every GC mode: `addStyleSheet`, `removeStyleSheet` and `loadFont` are globals of the namespace `UiResources` (`#[global]`); `loadFont` takes one `FontFace` object, a literal or a variable, with the weight and style left out (`bench/facade.ts` `uiResources`, `tools/platypus_ts_tests/tests/engine_api/facade.rs`). |
 | M9-TS-3357 | Integration | Compiled code with every GC mode: `Scene.serialize()` is a record with a list of records (JSON text) and `toJson()` the whole scene as text (`bench/facade.ts` `sceneSummary`). |
 | M9-TS-3358 | Integration | Compiled code with every GC mode: `new Material(color, emission, ..)` is a `#[constructor]`, `Sprite.create(texture, rect | null, pivot, ppu)` a second version of the static, `startSize = [2, 5]` / `startColor = [a, b]` / the options form a second version of the setter (`bench/facade.ts` `constructors`, `sprites`, `particlesAndPoints`). |
-| M9-TS-3359 | Integration | Compiled code with every GC mode: `Random.pick(items)` is a compiler built-in (declared in `tools/platypus_ts/src/builtins.rs`, lowered to `items[Random.rangeInt(0, length)]`) over lists of strings, booleans and objects; an empty list gives `undefined` (`bench/facade.ts` `picksOfEveryKind`). |
+| M9-TS-3359 | Integration | Compiled code with every GC mode: `Random.pick(items)` is a compiler built-in (declared in `tools/web_ui_ts/src/builtins.rs`, lowered to `items[Random.rangeInt(0, length)]`) over lists of strings, booleans and objects; an empty list gives `undefined` (`bench/facade.ts` `picksOfEveryKind`). |
 | M9-API-1645 | Integration | Compiled code with every GC mode: the light meter is native (`crates/platypus_render_api/src/light_meter.rs`): `Light.illuminanceAt(point, normal?)` faces the normal (nothing facing away) and `Light.measureIlluminance` (`#[promise]`, resolved after the next physics step) counts a collider between the point and the light as a shadow (`bench/originals_engine.ts` `startShadowed`, `tools/platypus_ts_tests/tests/engine_api/originals_engine.rs`). |
 | M9-API-1646 | Unit | The engine writes the named-event envelope (`window::event_text`, `emitJson`, `Window.emitAllJson`, empty names refused) and settles the promises of `requestJson` / `askJson` itself (reply, `no answer for`, refusal at once, timeout; `onReplyJson` listeners never see them); `Window.eventNameError` names what the typed calls throw (`crates/platypus_engine_api/tests/window_messages.rs`). |
-| M9-TS-3360 | Unit | The compiler built-ins table (`tools/platypus_ts/src/builtins.rs`): the `Component` declaration has every hook the host calls, with the parameter its thunk passes (`components::hook_param`), and names the contact hooks; every top-level entry declares the name it is listed under. |
+| M9-TS-3360 | Unit | The compiler built-ins table (`tools/web_ui_ts/src/builtins.rs`): the `Component` declaration has every hook the host calls, with the parameter its thunk passes (`components::hook_param`), and names the contact hooks; every top-level entry declares the name it is listed under. |
 | M9-TS-3361 | Integration | Compiled code with every GC mode: `Application.args` is the host's arguments after `--` (a copy each read) and `Application.quit(code)` asks to quit with a whole exit code (0 by default, `2.7` is 2); declared `args: string[]` and `quit(exitCode?: number)` (`tests/engine_api/app.rs`). |
 | M9-TS-3362 | Integration | `scrollIntoView`, `scrollTo` and `scrollBy` on a ref in compiled code, positional and with the DOM's option objects, give the host's node commands with the DOM's defaults (`block: "start"`, `inline: "nearest"`, `behavior: "auto"`; `scrollTo` keeps a left-out axis) (`tests/ui/ui.rs`, `bench/ui.ts` `ScrollCalls`). |
-| M9-TS-3363 | Unit | The spans of a program that are not code (string literals, template text, JSX text, comments) are found by parsing; text-level passes (window message glue, `Temporal.` names, `WeakRef` classes, native aliases) leave them alone (`tools/platypus_ts/src/lower/literals.rs`). |
+| M9-TS-3363 | Unit | The spans of a program that are not code (string literals, template text, JSX text, comments) are found by parsing; text-level passes (window message glue, `Temporal.` names, `WeakRef` classes, native aliases) leave them alone (`tools/web_ui_ts/src/lower/literals.rs`). |
 | M9-TS-3364 | Integration | `input.on` in compiled code hears every kind `js/engine`'s `InputEvents` has: `keydown` / `keyup` with `code`, `key` and `repeat`, `gamepadbuttondown` with `button` and `gamepad`, `gamepadaxis` with `axis` and `value`; the returned function stops a listener (`tests/engine_api/app.rs`). |
 | M9-TS-3365..3379 | Integration | The TypeScript of the md-reader and launcher examples, compiled with every GC mode and compared with bun (`bench/readers_cases.ts`, `tests/lang/readers.rs`): an intersection with a recursive union alias, a tag test narrowing a field whose type differs per variant (`if`, `switch` with grouped cases), `filter(Boolean)` / `Boolean(x)`, function declarations hoisted in a body, `x \|\| null` and `s ?? 1` as a `string \| number` (`Number`, templates), closures inferring `null`-then-value results and default-parameter types, `-1 \| 1`, `new Set(set)` / `new Map(map)`, `find` over a tuple of literals, `re.exec(s)?.[0]` and `RegExpExecArray`, strings mentioning `Temporal.` / `class` / `.request<..>(` keeping their text, literal unions from and to strings that may be missing, `id<F>(f: F)` inferring a closure type, a copy where `T \| null` goes keeping null, `clearTimeout(undefined)`. |
 | M9-TS-3380 | Integration | A callback ref (`ref={(el) => ..}`) in compiled code is called with the element, with null and the element when a re-render brings a new function, and with null when the element goes (`tests/ui/ui.rs`, `bench/ui.ts` `CallbackRef`). |
@@ -2227,7 +2228,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3387 | Integration | Compiled code with every GC mode: `MeshRenderer.isVisible` and `SkinnedMeshRenderer.isVisible` are false until the host reports a frame, asking starts the watch (`watched_renderers`), the report (`set_seen_renderers`) answers each apart; `RenderStats.shadowCasters` reads the host's count (`bench/render_native.ts`). |
 | M9-TS-3389 | Integration | The JIT line table (`Game::line_table`) is ascending and covers the source lines of a compiled function, from `Stmt::Line` markers and Cranelift source locations (`lang/debug_lines.rs`). |
 | M9-TS-3413 | Unit | `platypus-build build` writes `build/game.pdebug` (format, hash of the bundled source, where each file starts) and the host reads it: bundle lines map to `file:line` (`crash.rs`). |
-| M9-TS-3390 | Integration | On Windows the JIT registers x64 unwind tables for compiled functions (`platypus_ts::unwind`), so the system can walk a stack through them: `is_registered` (`lang/debug_lines.rs`). The call stack a crash report prints from it (`crash.rs` `game_stack`) is not tested automatically. |
+| M9-TS-3390 | Integration | On Windows the JIT registers x64 unwind tables for compiled functions (`web_ui_ts::unwind`), so the system can walk a stack through them: `is_registered` (`lang/debug_lines.rs`). The call stack a crash report prints from it (`crash.rs` `game_stack`) is not tested automatically. |
 | M9-TS-3391 | Integration | A scan of the stack from inside an engine call (`unwind::stack_words`) finds the return addresses of the compiled game frames in call order (`lang/game_stack.rs`, Windows x64). Checked by hand end to end too: a null dereference in a game gives `src/main.ts` lines 7, 11, 15 and 20 in the crash report. |
 | M9-TS-3392 | Integration | A compiled function with a frame of tens of kilobytes (a 6000-row top-level table) probes the stack pages it passes (`enable_probestack`, inline), so it runs on a fresh thread stack; without probes it jumped Windows' guard page and crashed Zombie Horders at start-up about one run in five (`lang/big_frame.rs`). |
 | M9-TS-3393 | Integration | A debug build stops at a breakpoint's line, reports it, and runs to the end after `continue` (`lang/debugger.rs`). |

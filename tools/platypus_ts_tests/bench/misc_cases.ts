@@ -4,7 +4,7 @@
 // Small TypeScript conveniences for tests/lang/misc.rs: functions as values, casts of empty
 // literals, field types from constructor calls, `!` on assignment targets, closures over
 // destructured constants, spreading strings. Each case (split at `//## name`) defines
-// `function t(): string`; the test compiles it with platypus_ts (normal, GC-stress, GC-off) and
+// `function t(): string`; the test compiles it with web_ui_ts (normal, GC-stress, GC-off) and
 // compares the result with bun's (`bun bench/gen_cases_expected.ts misc_cases.ts`).
 //## static_function_values
 class Util {

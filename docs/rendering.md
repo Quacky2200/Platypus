@@ -20,7 +20,7 @@ renderer per run, and its memory numbers. The 3D pass is `crates/platypus_render
 | left out | from the tier, as above | when the tier is not `ui` |
 | `"vulkan"` | wgpu: Vulkan by default on Windows and Linux, DX12 with `WGPU_BACKEND=dx12`, Metal on macOS | built at once |
 | `"gles"` | GLES through EGL (ANGLE linked in on Windows), else wgpu with small GPU allocations | never on GLES ("3D Not Supported") |
-| `"cpu"` | `platypus_render_cpu` through softbuffer (no GPU API), else as `gles` | never on the CPU ("3D Not Supported") |
+| `"cpu"` | `web_ui_render_cpu` through softbuffer (no GPU API), else as `gles` | never on the CPU ("3D Not Supported") |
 
 Any other value is a warning (at build and at start) and counts as left out; the old `type` (`game` / `app`)
 gets a one-line warning and is ignored. The log says what was chosen and why
@@ -63,7 +63,7 @@ Until 2D content draws on GLES (TODO.md), `world2d` starts on wgpu like `world3d
 (small allocation blocks, `platypus_render::set_low_memory`) instead of the default `Performance`, and builds its 3D
 `WorldRenderer` only if something asks for it (`lazy_world.rs`). For a clock that took private bytes from ~306 MB to
 ~135 MB on Vulkan (NVIDIA, Windows). wgpu cannot use ANGLE on Windows (its Windows GL backend is WGL only), so GLES is a
-native renderer behind the same draw list (`platypus_ui::DrawCmd`).
+native renderer behind the same draw list (`web_ui_dom::DrawCmd`).
 ## Memory
 
 Three numbers, all from `GetProcessMemoryInfo` (`PROCESS_MEMORY_COUNTERS_EX2`) or the matching counters:

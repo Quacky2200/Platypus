@@ -8,7 +8,7 @@ use std::collections::HashMap;
 
 use platypus_core::Value;
 use platypus_platform::GamepadEvent;
-use platypus_ui::{Direction, Input};
+use web_ui_dom::{Direction, Input};
 
 /// A stick counts as pushed past this, and released below the lower value, so one
 /// push moves focus once.

@@ -1,7 +1,7 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-// Writes platypus_ts_rt/src/intl_pad.rs: for each main-market locale, whether ICU4C pads a numeric
+// Writes web_ui_rt/src/intl_pad.rs: for each main-market locale, whether ICU4C pads a numeric
 // month, day and hour to two digits in the default numeric patterns (CLDR `availableFormats`
 // `yMd`, `Md`, `Hm`, `Hms`). ICU4X's semantic patterns do not carry this, so `Intl.DateTimeFormat`
 // looks it up. The hour depends on the width asked for the minute (and second), so both are probed.
@@ -77,5 +77,5 @@ pub(crate) fn padding(tag: &str) -> Option<Padding> {
         .map(|r| r.1)
 }
 `;
-await Bun.write(import.meta.dir + "/../../platypus_ts_rt/src/intl_pad.rs", out);
+await Bun.write(import.meta.dir + "/../../web_ui_rt/src/intl_pad.rs", out);
 console.log("wrote", LOCALES.length, "locales");

@@ -3,7 +3,7 @@
 
 // Dictionaries and small language leftovers the original example sources use, for
 // tests/lang/leftovers.rs. Each case (split at `//## name`) defines `function t(): string`; the test
-// compiles it with platypus_ts (normal, GC-stress, GC-off) and compares the result with bun's
+// compiles it with web_ui_ts (normal, GC-stress, GC-off) and compares the result with bun's
 // (`bun bench/gen_cases_expected.ts leftovers_cases.ts`).
 //## record_over_a_union_is_iterable
 type Tag = "a" | "b" | "c";

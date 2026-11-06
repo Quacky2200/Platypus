@@ -10,7 +10,7 @@
 use std::path::Path;
 
 use platypus_platform::InputEvent;
-use platypus_ui::Input;
+use web_ui_dom::Input;
 
 use super::{App, Surface};
 

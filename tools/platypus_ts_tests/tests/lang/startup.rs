@@ -3,8 +3,8 @@
 
 //! `register(Class)` as an ordinary run-time call (in a branch, a loop, a function, after an
 //! `await`) and the order the registrations happen in. IDs are in TESTS.md (M9-TS-3211..).
-use platypus_ts::jit::{Game, JitOptions, compile_and_load};
-use platypus_ts_rt::{StartupState, registered_classes, startup_state, ts_rt_run_loop};
+use web_ui_rt::{StartupState, registered_classes, startup_state, ts_rt_run_loop};
+use web_ui_ts::jit::{Game, JitOptions, compile_and_load};
 
 fn manifests() -> Vec<String> {
     let mut v = vec![platypus_scene::api::scene_api::MANIFEST.to_json()];

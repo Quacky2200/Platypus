@@ -6,8 +6,8 @@
 //! sRGB-encoding target in linear light, so sRGB blending needs the UI on one canvas.
 
 use platypus_render::{Blending, wgpu};
-use platypus_ui::DrawCmd;
-use platypus_ui::transform::Homography;
+use web_ui_dom::DrawCmd;
+use web_ui_dom::transform::Homography;
 
 /// Whether screen UI goes over a copy of the world (`render_over`) rather than being blended
 /// onto it (`render_overlay`): when it reads the world (backdrop filters, blend modes), and with

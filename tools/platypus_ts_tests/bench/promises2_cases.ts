@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Promise programs for tests/lang/promises2.rs. Each case (split at `//## name`) defines
-// `async function t(): Promise<string>`; the test compiles it with platypus_ts (in the normal, GC-stress
+// `async function t(): Promise<string>`; the test compiles it with web_ui_ts (in the normal, GC-stress
 // and GC-off modes) and compares the result with bun's (`gen_promises2_expected.ts`).
 //## generic_identity
 async function load<T>(x: T): Promise<T> {

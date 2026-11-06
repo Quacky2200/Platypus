@@ -6,8 +6,8 @@
 //! (M9-TS-1220..).
 use platypus_render_api as render;
 use platypus_scene::Scene;
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::render_native_t::*;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 fn reset() {
     render::reset();

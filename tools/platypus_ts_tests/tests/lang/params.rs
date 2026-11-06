@@ -1,12 +1,12 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Default, optional and rest parameters and spread compiled by `platypus_ts` (`bench/params.ts`).
+//! Default, optional and rest parameters and spread compiled by `web_ui_ts` (`bench/params.ts`).
 //! The expected numbers are what bun computes from the same file. Every test runs three times:
 //! normally, with a collection at every allocation, and with collection off.
 //! IDs are in TESTS.md (M9-TS-77..).
-use platypus_ts_rt::{link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::par::*;
+use web_ui_rt::{link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 fn in_every_gc_mode(f: impl Fn()) {
     let _serial = platypus_ts_tests::serial();
@@ -91,11 +91,11 @@ fn defaults_rest_arrays_and_spreads_that_allocate_survive_collections() {
         assert_eq!(ts_par_allocating(10.0), 2915.0);
     });
     ts_rt_gc_stress(true);
-    let before = platypus_ts_rt::gc_stats().collections;
+    let before = web_ui_rt::gc_stats().collections;
     unsafe { assert_eq!(ts_par_allocating(10.0), 2915.0) };
     ts_rt_gc_stress(false);
     assert!(
-        platypus_ts_rt::gc_stats().collections > before,
+        web_ui_rt::gc_stats().collections > before,
         "stress mode collected nothing"
     );
 }

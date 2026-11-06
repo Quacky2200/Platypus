@@ -1,7 +1,7 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! platypus_ts tests: the standard library (Math, JSON, RegExp, typed arrays and buffers, structured
+//! web_ui_ts tests: the standard library (Math, JSON, RegExp, typed arrays and buffers, structured
 //! clone, URI, Date, Intl and Temporal). One of five test binaries by area, so an edit relinks a
 //! smaller one.
 

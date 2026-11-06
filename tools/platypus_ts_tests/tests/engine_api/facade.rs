@@ -4,8 +4,8 @@
 //! The TypeScript `@platypus/engine` shapes over the native API (`bench/facade.ts`, prefix `fac_`),
 //! in the normal, stress GC and collection-off modes. IDs are in TESTS.md (M9-TS-1700..).
 use platypus_scene::Scene;
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::facade_t::*;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 fn reset() {
     platypus_render_api::reset();

@@ -3,9 +3,9 @@
 
 //! `bench/toplevel.ts` against bun (`bench/gen_toplevel_expected.ts`), in the normal, stress GC and
 //! collection-off modes. IDs are in TESTS.md (M9-TS-2849..).
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::toplevel_t::*;
 use serde_json::Value;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 /// The module's variables are process-wide, so the tests take turns, and each run starts from
 /// the initialisers (the statements under test).
@@ -86,7 +86,7 @@ fn top_imported_matches_javascript() {
 // dropped silently.
 #[test]
 fn an_unsupported_top_level_statement_is_a_compile_error_with_a_line() {
-    let e = platypus_ts::compile_source(
+    let e = web_ui_ts::compile_source(
         "export const a = 1;
 if (a > 0) {}
 return;
@@ -96,7 +96,7 @@ return;
     .err()
     .expect("must not compile");
     assert!(e.contains("return") && e.contains("line 3"), "{e}");
-    let e = platypus_ts::compile_source(
+    let e = web_ui_ts::compile_source(
         "export const a = 1;
 
 namespace N {}

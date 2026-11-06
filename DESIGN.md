@@ -38,7 +38,7 @@ Platypus is an s&box-inspired game engine and editor: a **Rust** engine core, **
 | CSS | `cssparser` + `selectors` (Servo) for stylesheets and matching; Taffy's parser + our own for values | Both CSS files and inline style objects. |
 | Physics | `rapier` | Jolt bindings as a possible later option. |
 | Scripting language | TypeScript | Gameplay, UI and editor tools. |
-| Script engine | Compiled TypeScript (`platypus_ts`, Cranelift) | QuickJS (the first backend, behind a `ScriptRuntime` trait) was removed 2026-10-28; compiled TypeScript is the only backend. |
+| Script engine | Compiled TypeScript (`web_ui_ts`, Cranelift) | QuickJS (the first backend, behind a `ScriptRuntime` trait) was removed 2026-10-28; compiled TypeScript is the only backend. |
 | UI framework | React via a custom `react-reconciler` host | |
 | Tooling | Bun (bundler, package manager, tests) + `tsc --watch` | Runtime strips types; `tsc` reports type errors. |
 | Asset input | glTF 2.0 / GLB | FBX later via Blender or `russimp`. |
@@ -75,7 +75,7 @@ Why it matters:
 
 ### 4.1 `ScriptRuntime` trait (historical)
 Removed on 2026-10-28 together with QuickJS (`platypus_script`, `platypus_native`, `@platypus/engine`); compiled
-TypeScript (`platypus_ts`) is the only backend and calls the engine API directly (`docs/platypus-api.md`). The text
+TypeScript (`web_ui_ts`) is the only backend and calls the engine API directly (`docs/platypus-api.md`). The text
 below is the original design, kept for the ideas behind the boundary. A thin interface so the JS engine can be
 swapped per platform:
 

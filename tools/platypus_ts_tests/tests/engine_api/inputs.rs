@@ -4,9 +4,9 @@
 //! `bench/inputs.ts` compiled against the native engine API and compared with the original
 //! TypeScript run in bun (`bench/gen_inputs_expected.ts`), in the normal, stress GC and
 //! collection-off modes. IDs are in TESTS.md (M9-TS-627..).
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::inputs_t::*;
 use serde_json::Value;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 /// The engine's input events (as `bench/inputs_prelude.ts` sends them), then the frame tick.
 fn reset() {

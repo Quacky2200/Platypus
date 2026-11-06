@@ -12,8 +12,8 @@ license.workspace = true
 ts_api = { workspace = true }
 platypus_kinds = { path = "../platypus_kinds" }
 platypus_physics_api = { path = "../platypus_physics_api" }
-platypus_ts_rt = { workspace = true }
-platypus_ts = { workspace = true }
+web_ui_rt = { workspace = true }
+web_ui_ts = { workspace = true }
 serde_json = "1"
 
 [build-dependencies]

@@ -13,12 +13,12 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
 - [x] Back / forward (buttons, Alt+← / Alt+→, mouse side buttons), keeping each page's scroll
 - [x] Home button (an icon)
 - [x] Links between docs and to `#headings`; link targets in the status bar
-- [x] Inline links take clicks and `:hover` (spans are hit-tested in `platypus_ui`, `M3-EVT-07`)
+- [x] Inline links take clicks and `:hover` (spans are hit-tested in `web_ui_dom`, `M3-EVT-07`)
 - [x] Images (PNG, JPEG, SVG); videos get a placeholder
 - [x] Path bar like Explorer's: each folder opens a listing of that folder, "Platypus" the root
 - [x] Long pages load progressively: a screenful at once, then a chunk a frame (memoized chunk
   boxes, long lists cut between items); anchors and scroll restores mount what they need first
-- [x] Engine work it prompted (`platypus_ui`): an exact size cache beyond Taffy's nine entries
+- [x] Engine work it prompted (`web_ui_dom`): an exact size cache beyond Taffy's nine entries
   (`M2-LAY-07`), drawing culled to what scroll containers show (`M2-DRW-09`), line breaking
   skipped when a block's width is unchanged. A scroll frame of TODO.md: ~21 ms to ~5 ms
   (release)
@@ -47,5 +47,5 @@ Legend: `[ ]` to do · `[~]` in progress · `[x]` done
 - [ ] Open external links in the system browser (needs an app shell op)
 - [ ] GIF images (Platypus decodes PNG, JPEG and SVG today; see the root TODO.md)
 - [ ] Scrolling still lays out again on every wheel tick (two passes, ~55 ms a frame in a debug
-  build): move the scrolled subtree's rects instead; consider building `platypus_ui` with some
+  build): move the scrolled subtree's rects instead; consider building `web_ui_dom` with some
   optimisation in dev builds

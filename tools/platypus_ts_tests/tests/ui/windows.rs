@@ -5,8 +5,8 @@
 //! and collection-off modes. The test plays the host: it reads the requests and reports `opened`,
 //! `resized`, `close_requested` and `closed`. IDs are in TESTS.md (M9-TS-2800..).
 use platypus_engine_api::window::{self, MAIN, Opened, WindowRef, WindowRequest};
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress, ts_rt_str_new};
 use platypus_ts_tests::windows_t::*;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress, ts_rt_str_new};
 
 fn reset() {
     window::reset();
@@ -15,12 +15,12 @@ fn reset() {
 fn in_every_gc_mode(f: impl Fn()) {
     let _serial = platypus_ts_tests::serial();
     assert_ne!(link_anchor(), 0);
-    assert_ne!(platypus_ts_ui::link_anchor(), 0);
+    assert_ne!(web_ui_bridge::link_anchor(), 0);
     assert_ne!(platypus_ts_tests::engine_api_anchor(), 0);
     let run = || {
         reset();
-        let _ = platypus_ts_ui::take_mounts();
-        let _ = platypus_ts_ui::take_window_mounts();
+        let _ = web_ui_bridge::take_mounts();
+        let _ = web_ui_bridge::take_window_mounts();
         unsafe { ts_win_init() };
         f();
     };
@@ -162,20 +162,20 @@ fn create_root_of_a_window_queues_a_window_mount() {
     in_every_gc_mode(|| unsafe {
         let h = ts_win_createTool();
         ts_win_mount(h);
-        let mounts = platypus_ts_ui::take_window_mounts();
+        let mounts = web_ui_bridge::take_window_mounts();
         assert_eq!(mounts.len(), 1);
         assert_eq!(mounts[0].0, 2);
         assert!(mounts[0].1 != 0);
         assert!(
-            platypus_ts_ui::take_mounts().is_empty(),
+            web_ui_bridge::take_mounts().is_empty(),
             "not a screen or panel mount"
         );
         // The main window is the screen: target 0.
         ts_win_mountMain();
-        let screen = platypus_ts_ui::take_mounts();
+        let screen = web_ui_bridge::take_mounts();
         assert_eq!(screen.len(), 1);
         assert_eq!(screen[0].0, 0);
-        assert!(platypus_ts_ui::take_window_mounts().is_empty());
+        assert!(web_ui_bridge::take_window_mounts().is_empty());
     });
 }
 
@@ -273,7 +273,7 @@ fn posting_a_handle_is_a_compile_error() {
         all.extend(platypus_engine_api::manifests());
         all
     };
-    let Err(e) = platypus_ts::compile_with_manifests(src, "speed", "bad_", 7500, &manifests) else {
+    let Err(e) = web_ui_ts::compile_with_manifests(src, "speed", "bad_", 7500, &manifests) else {
         panic!("a handle in a message compiled")
     };
     assert!(
@@ -282,20 +282,20 @@ fn posting_a_handle_is_a_compile_error() {
     );
     // The same through a nested array and a request's data.
     let src = "export function bad2(): number {\n  const go = new GameObject(\"x\");\n  Window.main.request<number>({ list: [{ target: go }] });\n  return 0;\n}\n";
-    let Err(e) = platypus_ts::compile_with_manifests(src, "speed", "bad_", 7500, &manifests) else {
+    let Err(e) = web_ui_ts::compile_with_manifests(src, "speed", "bad_", 7500, &manifests) else {
         panic!("a handle in a request compiled")
     };
     assert!(e.contains("`message.list[].target`"), "{e}");
     // A payload without handles compiles.
     let ok = "export function good(): boolean {\n  return Window.main.postMessage({ n: 1, v: new Vector3(1, 2, 3), tags: [\"a\"] });\n}\n";
-    platypus_ts::compile_with_manifests(ok, "speed", "bad_", 7500, &manifests).unwrap();
+    web_ui_ts::compile_with_manifests(ok, "speed", "bad_", 7500, &manifests).unwrap();
     // `request` needs its reply type, and the reply may not hold handles either.
     let src = "export function bad4(): number {
   Window.main.request({ n: 1 });
   return 0;
 }
 ";
-    let Err(e) = platypus_ts::compile_with_manifests(src, "speed", "bad_", 7500, &manifests) else {
+    let Err(e) = web_ui_ts::compile_with_manifests(src, "speed", "bad_", 7500, &manifests) else {
         panic!("a request without a reply type compiled")
     };
     assert!(e.contains("needs the reply type"), "{e}");
@@ -304,13 +304,13 @@ fn posting_a_handle_is_a_compile_error() {
   return 0;
 }
 ";
-    let Err(e) = platypus_ts::compile_with_manifests(src, "speed", "bad_", 7500, &manifests) else {
+    let Err(e) = web_ui_ts::compile_with_manifests(src, "speed", "bad_", 7500, &manifests) else {
         panic!("a handle in a reply compiled")
     };
     assert!(e.contains("`reply.who`"), "{e}");
     // The type must be given or inferable.
     let src = "export function bad3(): number {\n  return Window.main.onMessage((from, msg) => { });\n}\n";
-    let Err(e) = platypus_ts::compile_with_manifests(src, "speed", "bad_", 7500, &manifests) else {
+    let Err(e) = web_ui_ts::compile_with_manifests(src, "speed", "bad_", 7500, &manifests) else {
         panic!("an untyped listener compiled")
     };
     assert!(e.contains("cannot infer the type argument `T`"), "{e}");
@@ -336,7 +336,7 @@ fn request_resolves_with_the_typed_reply() {
             "the reply travels back to the main domain"
         );
         window::deliver(window::DomainId::MAIN, 1.0);
-        platypus_ts_rt::ts_rt_microtasks_run();
+        web_ui_rt::ts_rt_microtasks_run();
         assert_eq!(text(ts_win_askLog()), "ok 5");
     });
 }
@@ -352,10 +352,10 @@ fn request_rejects_on_timeout_and_on_close() {
         ts_win_ask(h, 50.0);
         deliver(w, 0.0);
         window::deliver(window::DomainId::MAIN, 49.0);
-        platypus_ts_rt::ts_rt_microtasks_run();
+        web_ui_rt::ts_rt_microtasks_run();
         assert_eq!(text(ts_win_askLog()), "", "not yet");
         window::deliver(window::DomainId::MAIN, 51.0);
-        platypus_ts_rt::ts_rt_microtasks_run();
+        web_ui_rt::ts_rt_microtasks_run();
         assert_eq!(text(ts_win_askLog()), "error timed out");
 
         // The target closes while the request is outstanding.
@@ -367,7 +367,7 @@ fn request_rejects_on_timeout_and_on_close() {
         deliver(w2, 60.0);
         window::closed(w2);
         window::deliver(window::DomainId::MAIN, 61.0);
-        platypus_ts_rt::ts_rt_microtasks_run();
+        web_ui_rt::ts_rt_microtasks_run();
         assert_eq!(text(ts_win_askLog()), "error window closed");
 
         // No request listener in the domain.
@@ -376,7 +376,7 @@ fn request_rejects_on_timeout_and_on_close() {
         ts_win_ask(h3, f64::NAN);
         deliver(WindowRef(h3 as u32), 70.0);
         window::deliver(window::DomainId::MAIN, 71.0);
-        platypus_ts_rt::ts_rt_microtasks_run();
+        web_ui_rt::ts_rt_microtasks_run();
         assert_eq!(text(ts_win_askLog()), "error no request listener");
     });
 }
@@ -402,13 +402,13 @@ fn broadcast_and_the_domain_listener_receive_messages() {
 }
 
 fn with_domain_hooks(f: impl FnOnce()) {
-    platypus_ts_rt::ts_rt_set_domain_hooks(
+    web_ui_rt::ts_rt_set_domain_hooks(
         Some(window::runtime_current_domain),
         Some(window::runtime_enter_domain),
         Some(window::runtime_leave_domain),
     );
     f();
-    platypus_ts_rt::ts_rt_set_domain_hooks(None, None, None);
+    web_ui_rt::ts_rt_set_domain_hooks(None, None, None);
 }
 
 /// Timer clocks only move forward; each run starts later than the last.
@@ -426,7 +426,7 @@ fn a_timer_fires_in_the_domain_that_set_it() {
     in_every_gc_mode(|| {
         with_domain_hooks(|| unsafe {
             let base = clock();
-            platypus_ts_rt::ts_rt_timers_advance(base);
+            web_ui_rt::ts_rt_timers_advance(base);
             let h = ts_win_createInspector();
             ts_win_timerLogClear();
             {
@@ -436,10 +436,10 @@ fn a_timer_fires_in_the_domain_that_set_it() {
             }
             ts_win_timerOnce();
             // The main domain's advance leaves the inspector's timer alone.
-            platypus_ts_rt::ts_rt_timers_advance_domain(base + 100.0, 1);
+            web_ui_rt::ts_rt_timers_advance_domain(base + 100.0, 1);
             // (The promise job queued in the inspector's domain ran then too, in its own domain.)
             assert_eq!(text(ts_win_timerLogText()), format!("t1;m{};", h as u32));
-            platypus_ts_rt::ts_rt_timers_advance_domain(base + 100.0, h as u32);
+            web_ui_rt::ts_rt_timers_advance_domain(base + 100.0, h as u32);
             assert_eq!(
                 text(ts_win_timerLogText()),
                 format!("t1;m{0};t{0};", h as u32),
@@ -455,7 +455,7 @@ fn a_paused_domains_timers_wait_and_intervals_run_once_on_resume() {
     in_every_gc_mode(|| {
         with_domain_hooks(|| unsafe {
             let base = clock();
-            platypus_ts_rt::ts_rt_timers_advance(base);
+            web_ui_rt::ts_rt_timers_advance(base);
             let h = ts_win_createInspector();
             let d = h as u32;
             ts_win_timerLogClear();
@@ -464,15 +464,15 @@ fn a_paused_domains_timers_wait_and_intervals_run_once_on_resume() {
                 ts_win_timerEvery();
             }
             // Paused: the host does not advance the domain, whatever the clock says.
-            platypus_ts_rt::ts_rt_timers_advance_domain(base + 5.0, 1);
-            platypus_ts_rt::ts_rt_timers_advance_domain(base + 5_000.0, 1);
+            web_ui_rt::ts_rt_timers_advance_domain(base + 5.0, 1);
+            web_ui_rt::ts_rt_timers_advance_domain(base + 5_000.0, 1);
             assert_eq!(text(ts_win_timerLogText()), "");
             // The first advance after the resume fires it once, not once per missed period.
-            platypus_ts_rt::ts_rt_timers_advance_domain(base + 5_000.0, d);
+            web_ui_rt::ts_rt_timers_advance_domain(base + 5_000.0, d);
             assert_eq!(text(ts_win_timerLogText()), format!("i{d};"));
-            platypus_ts_rt::ts_rt_timers_advance_domain(base + 5_005.0, d);
+            web_ui_rt::ts_rt_timers_advance_domain(base + 5_005.0, d);
             assert_eq!(text(ts_win_timerLogText()), format!("i{d};"), "not due yet");
-            platypus_ts_rt::ts_rt_timers_advance_domain(base + 5_011.0, d);
+            web_ui_rt::ts_rt_timers_advance_domain(base + 5_011.0, d);
             assert_eq!(text(ts_win_timerLogText()), format!("i{d};i{d};"));
             ts_win_timerStop();
         });
@@ -521,7 +521,7 @@ fn request_replies_decode_declared_interfaces_aliases_arrays_and_nesting() {
             assert!(!p.is_null());
             deliver(WindowRef(h as u32), 0.0);
             window::deliver(window::DomainId::MAIN, 1.0);
-            platypus_ts_rt::ts_rt_microtasks_run();
+            web_ui_rt::ts_rt_microtasks_run();
         }
         assert_eq!(
             text(ts_win_typedLogText()),
@@ -536,7 +536,7 @@ fn request_replies_decode_declared_interfaces_aliases_arrays_and_nesting() {
 fn round(w: WindowRef, now: f64) {
     deliver(w, now);
     window::deliver(window::DomainId::MAIN, now + 1.0);
-    platypus_ts_rt::ts_rt_microtasks_run();
+    web_ui_rt::ts_rt_microtasks_run();
 }
 
 // M9-TS-2855
@@ -684,7 +684,7 @@ fn named_events_refuse_handles_and_ask_needs_its_reply_type() {
         all
     };
     let compile =
-        |src: &str| platypus_ts::compile_with_manifests(src, "speed", "bad_", 7500, &manifests);
+        |src: &str| web_ui_ts::compile_with_manifests(src, "speed", "bad_", 7500, &manifests);
     let Err(e) = compile(
         "export function a(): boolean {\n  const go = new GameObject(\"x\");\n  return Window.main.emit(\"pick\", { go: go });\n}\n",
     ) else {

@@ -10,8 +10,8 @@ license.workspace = true
 build = "build.rs"
 
 [dependencies]
-platypus_ts = { workspace = true }
-platypus_ts_rt = { workspace = true }
+web_ui_ts = { workspace = true }
+web_ui_rt = { workspace = true }
 platypus_components = { path = "../../crates/platypus_components" }
 platypus_demo_api = { path = "../platypus_demo_api" }
 platypus_scene = { path = "../../crates/platypus_scene" }
@@ -24,9 +24,9 @@ platypus_engine_api = { path = "../../crates/platypus_engine_api" }
 platypus_animation = { path = "../../crates/platypus_animation" }
 glam = "0.34.1"
 platypus_core = { path = "../../crates/platypus_core" }
-platypus_ts_ui = { workspace = true }
-platypus_ui = { workspace = true }
-platypus_ui_native = { workspace = true }
+web_ui_bridge = { workspace = true }
+web_ui_dom = { workspace = true }
+web_ui_react = { workspace = true }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 
 [dev-dependencies]
@@ -34,10 +34,10 @@ ts_api = { workspace = true }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 
 [build-dependencies]
-platypus_ts = { workspace = true }
+web_ui_ts = { workspace = true }
 platypus_engine_api = { path = "../../crates/platypus_engine_api" }
 platypus_animation = { path = "../../crates/platypus_animation" }
-platypus_ts_ui = { workspace = true }
+web_ui_bridge = { workspace = true }
 platypus_demo_api = { path = "../platypus_demo_api" }
 platypus_scene = { path = "../../crates/platypus_scene" }
 platypus_scenes = { path = "../../crates/platypus_scenes" }

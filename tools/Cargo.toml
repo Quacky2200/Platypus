@@ -24,13 +24,13 @@ ts_api_macros = { path = "../../../../../web-ui/crates/ts_api_macros" }
 web_ui_core = { path = "../../../../../web-ui/crates/web_ui_core" }
 web_ui_render = { path = "../../../../../web-ui/crates/web_ui_render" }
 web_ui_symbols = { path = "../../../../../web-ui/crates/web_ui_symbols" }
-platypus_ui = { path = "../../../../../web-ui/crates/platypus_ui" }
-platypus_ui_native = { path = "../../../../../web-ui/crates/platypus_ui_native" }
-platypus_render_gles = { path = "../../../../../web-ui/crates/platypus_render_gles", default-features = false }
-platypus_render_cpu = { path = "../../../../../web-ui/crates/platypus_render_cpu" }
-platypus_ts = { path = "../../../../../web-ui/crates/platypus_ts" }
-platypus_ts_rt = { path = "../../../../../web-ui/crates/platypus_ts_rt" }
-platypus_ts_ui = { path = "../../../../../web-ui/crates/platypus_ts_ui" }
+web_ui_dom = { path = "../../../../../web-ui/crates/web_ui_dom" }
+web_ui_react = { path = "../../../../../web-ui/crates/web_ui_react" }
+web_ui_render_gles = { path = "../../../../../web-ui/crates/web_ui_render_gles", default-features = false }
+web_ui_render_cpu = { path = "../../../../../web-ui/crates/web_ui_render_cpu" }
+web_ui_ts = { path = "../../../../../web-ui/crates/web_ui_ts" }
+web_ui_rt = { path = "../../../../../web-ui/crates/web_ui_rt" }
+web_ui_bridge = { path = "../../../../../web-ui/crates/web_ui_bridge" }
 
 [profile.dev]
 debug = false

@@ -59,7 +59,7 @@ pub struct RuleSnapshot {
     pub declarations: Vec<DeclSnapshot>,
 }
 
-/// What the host publishes for one node (the fields of `platypus_ui::Inspected`).
+/// What the host publishes for one node (the fields of `web_ui_dom::Inspected`).
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct NodeSnapshot {
     pub id: u32,

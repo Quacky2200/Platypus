@@ -21,8 +21,8 @@ workflow. The differences are the stack, the language, and how games are publish
 | | s&box | Platypus |
 |---|---|---|
 | Engine base | Source 2 (C++), Valve's engine | Rust core, own renderer (wgpu) |
-| Scripting | C# | TypeScript compiled ahead of time to native code (`platypus_ts`) |
-| UI | Razor panels with CSS | React reconciler with CSS (`platypus_ui_native`) |
+| Scripting | C# | TypeScript compiled ahead of time to native code (`web_ui_ts`) |
+| UI | Razor panels with CSS | React reconciler with CSS (`web_ui_react`) |
 | Licence and publishing | Free to use, but release goes through Valve and s&box | Planned open source, licence to be chosen; no approval step (see below) |
 | Physics | Source 2 physics | rapier (3D and 2D), built in |
 | Audio | Source 2 audio | kira mixer, built in |

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! A small engine API written with `#[ts_api]`, to prove the whole path: Rust functions, the
-//! generated manifest, and TypeScript compiled by `platypus_ts` calling the generated `extern "C"`
+//! generated manifest, and TypeScript compiled by `web_ui_ts` calling the generated `extern "C"`
 //! shims directly. It keeps a tiny "world" of entities behind handles, like the real engine will.
 
 use std::cell::RefCell;

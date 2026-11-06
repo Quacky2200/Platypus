@@ -4,8 +4,8 @@
 //! Physics components from compiled programs (`bench/physics_comp.ts`, `platypus_physics_api`
 //! components, joints, `Rope`, `CharacterController` and 2D). IDs are in TESTS.md (M9-TS-1100..).
 use platypus_core::Value;
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::physics_comp_t::*;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 fn in_every_gc_mode(f: impl Fn()) {
     let _serial = platypus_ts_tests::serial();

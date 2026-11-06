@@ -1,7 +1,7 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Platypus's compiler extension (`platypus_ts::lower::ext`): what components and `GameObject`s
+//! Platypus's compiler extension (`web_ui_ts::lower::ext`): what components and `GameObject`s
 //! mean to the compiler beyond the generic host classes of the `hostClasses` manifest. All of it
 //! runs while a program is lowered; compiled code is as before (direct calls, no options objects).
 //!
@@ -13,11 +13,11 @@
 //!   `go.components` / `go.scene`, `component.transform`, and the `new GameObject(name, { .. })`
 //!   options (`parent`, local `position` / `rotation` / `scale`, `active`).
 
-use platypus_ts::ir::{Expr, ExprKind, RtFn, Stmt, Ty, UnOp};
-use platypus_ts::lower::ext::{Extension, HookThunk, OptionArg};
-use platypus_ts::lower::{Lowerer, R, mk};
-use platypus_ts::manifest::{ExternFn, Manifest};
-use platypus_ts::oxc_ast::ast::{
+use web_ui_ts::ir::{Expr, ExprKind, RtFn, Stmt, Ty, UnOp};
+use web_ui_ts::lower::ext::{Extension, HookThunk, OptionArg};
+use web_ui_ts::lower::{Lowerer, R, mk};
+use web_ui_ts::manifest::{ExternFn, Manifest};
+use web_ui_ts::oxc_ast::ast::{
     Argument, CallExpression, Expression, ObjectExpression, ObjectPropertyKind, PropertyKey,
 };
 
@@ -563,7 +563,7 @@ pub fn component_class() -> String {
     s
 }
 
-/// Where a declaration goes (`"declarations"` in the manifest, `platypus_ts::builtins`).
+/// Where a declaration goes (`"declarations"` in the manifest, `web_ui_ts::builtins`).
 #[derive(Clone, Copy)]
 enum At {
     Top(&'static str),

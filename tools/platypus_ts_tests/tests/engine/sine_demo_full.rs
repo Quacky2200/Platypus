@@ -3,15 +3,15 @@
 
 //! The whole sine-circle demo component (`bench/sine_demo_full.ts`: the `SineDemo` class and its
 //! tweens, copied from commit 9dc2f51 with the single edit its header lists) compiled by
-//! platypus_ts and driven by the Rust host against the declared engine API: a camera is made, the
+//! web_ui_ts and driven by the Rust host against the declared engine API: a camera is made, the
 //! curve is drawn as gizmo lines, keys change the formula and pause the demo, the music is asked
 //! for. IDs are in TESTS.md (M9-TS-596..).
 use platypus_components::NativeHost;
 use platypus_engine_api::audio::{self, AudioCommand};
 use platypus_engine_api::{camera, gizmos, input};
 use platypus_scene::Scene;
-use platypus_ts_rt::link_anchor;
 use platypus_ts_tests::sdf;
+use web_ui_rt::link_anchor;
 
 fn all(_: u64) -> bool {
     true
@@ -19,7 +19,7 @@ fn all(_: u64) -> bool {
 
 fn fresh_host() -> NativeHost {
     assert_ne!(link_anchor(), 0);
-    assert_ne!(platypus_ts_ui::link_anchor(), 0);
+    assert_ne!(web_ui_bridge::link_anchor(), 0);
     assert_ne!(platypus_ts_tests::engine_api_anchor(), 0);
     gizmos::reset();
     camera::reset();

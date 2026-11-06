@@ -4,7 +4,7 @@
 // Language leftovers for tests/lang/lang2.rs: `for...in` over arrays, `Object.assign` into
 // dictionaries and objects, setters in object literals, narrowing across closures, `in` and
 // `instanceof` narrowing of unions, truthiness narrowing, `flat(depth)`. Each case (split at
-// `//## name`) defines `function t(): string`; the test compares what platypus_ts gives with bun's
+// `//## name`) defines `function t(): string`; the test compares what web_ui_ts gives with bun's
 // (`bun bench/gen_cases_expected.ts lang2_cases.ts`).
 //## for_in_over_arrays
 function t(): string {

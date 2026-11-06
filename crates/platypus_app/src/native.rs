@@ -1,14 +1,14 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The game: compiled by `platypus_ts` (TypeScript to machine code) and run in this process.
+//! The game: compiled by `web_ui_ts` (TypeScript to machine code) and run in this process.
 //!
 //! A native game is `build/game.pbundle` (JSON written by `platypus-build`: the bundled TypeScript
 //! source plus the stylesheet and asset list) or a bare `.ts` / `.tsx` file. [`Native::load`]
 //! JIT-compiles the source with the manifests of every engine namespace, runs the program's top
 //! level (`register(..)`, `UiRoot.mount(..)`) and spawns the starting components. A module with a
 //! top-level `await` keeps the program from starting: until every module has finished evaluating
-//! (`platypus_ts_rt::startup_state`) the registered classes are not spawned, the start scene is not
+//! (`web_ui_rt::startup_state`) the registered classes are not spawned, the start scene is not
 //! loaded and no component hook runs, while the timers, microtasks and the UI the top level
 //! mounted keep going. After that the app calls the `Native` methods:
 //!
@@ -30,11 +30,11 @@ use anyhow::{Context, Result, anyhow, bail};
 use platypus_components::NativeHost;
 use platypus_core::renderer::Tier;
 use platypus_scene::Scene;
-use platypus_ts::jit::{Game, JitOptions, compile_and_load};
-use platypus_ts_rt::{StartupState, startup_state, ts_rt_microtasks_run, ts_rt_timers_advance};
-use platypus_ui::{UiEvent, UiTree};
-use platypus_ui_native::{Event, RootId, Runtime};
 use std::path::Path;
+use web_ui_dom::{UiEvent, UiTree};
+use web_ui_react::{Event, RootId, Runtime};
+use web_ui_rt::{StartupState, startup_state, ts_rt_microtasks_run, ts_rt_timers_advance};
+use web_ui_ts::jit::{Game, JitOptions, compile_and_load};
 
 /// The first node id the native reconciler hands out; below it are the ids of React's side.
 const FIRST_NODE: u32 = 1 << 30;
@@ -145,8 +145,8 @@ fn manifests() -> Vec<String> {
     all.extend(platypus_physics_api::manifests());
     all.extend(platypus_render_api::manifests());
     all.extend(platypus_components::manifests());
-    all.push(platypus_ts_ui::manifest_json());
-    all.push(platypus_ts_ui::root_manifest_json());
+    all.push(web_ui_bridge::manifest_json());
+    all.push(web_ui_bridge::root_manifest_json());
     all
 }
 
@@ -163,12 +163,12 @@ extern "C" fn console_hook(level: i32, text: *const u8, len: usize) {
 
 /// `PLATYPUS_TS_GC=stress` collects at every allocation of the game's code and poisons freed memory,
 /// so a missing root crashes at once instead of now and then; `off` never collects on its own.
-/// The same switch as the platypus_ts tests (`platypus_ts_tests::gc_mode_from_env`), for chasing memory
+/// The same switch as the web_ui_ts tests (`platypus_ts_tests::gc_mode_from_env`), for chasing memory
 /// bugs in a running game.
 fn gc_mode_from_env() {
     match std::env::var("PLATYPUS_TS_GC").as_deref() {
-        Ok("stress") => platypus_ts_rt::ts_rt_gc_stress(true),
-        Ok("off") => platypus_ts_rt::ts_rt_gc_enable(false),
+        Ok("stress") => web_ui_rt::ts_rt_gc_stress(true),
+        Ok("off") => web_ui_rt::ts_rt_gc_enable(false),
         _ => {}
     }
 }
@@ -195,10 +195,10 @@ pub struct Native {
     remount: Option<Vec<u32>>,
     /// `createRoot(panel).render(..)` calls: the panel's handle and its root element, for the
     /// app (each panel has its own tree and runtime).
-    panel_mounts: Vec<(u64, platypus_ui_native::Element)>,
+    panel_mounts: Vec<(u64, web_ui_react::Element)>,
     /// `createRoot(win).render(..)` calls for windows other than the main one: the window's handle
     /// and its root element, for the app (each window has its own tree and runtime).
-    window_mounts: Vec<(u64, platypus_ui_native::Element)>,
+    window_mounts: Vec<(u64, web_ui_react::Element)>,
     /// Windows without a key that the last reload asks the app to close.
     reload_closes: Vec<u32>,
     /// Sets the engine state the program reads at start (`Application`, quality levels, layers):
@@ -258,9 +258,9 @@ impl Native {
         env: Box<dyn Fn()>,
     ) -> Result<Native> {
         let generation = 0;
-        platypus_ts_rt::ts_rt_set_console(Some(console_hook));
+        web_ui_rt::ts_rt_set_console(Some(console_hook));
         // Timers and promise jobs keep the event domain (window family) that made them.
-        platypus_ts_rt::ts_rt_set_domain_hooks(
+        web_ui_rt::ts_rt_set_domain_hooks(
             Some(platypus_engine_api::window::runtime_current_domain),
             Some(platypus_engine_api::window::runtime_enter_domain),
             Some(platypus_engine_api::window::runtime_leave_domain),
@@ -269,14 +269,14 @@ impl Native {
         gc_mode_from_env();
         let mut bundle = bundle;
         let game = Self::compile(&mut bundle, generation)?;
-        let mut lap = platypus_ts::timing::Lap::start();
+        let mut lap = web_ui_ts::timing::Lap::start();
         let mut rt = Runtime::new(FIRST_NODE);
-        let screen_root = rt.create_root(platypus_ui::ROOT);
+        let screen_root = rt.create_root(web_ui_dom::ROOT);
         env();
         let host = {
             let _scope = platypus_scene::api::enter(scene);
             if crate::debugger::take_first_statement_break() {
-                platypus_ts::debug::pause();
+                web_ui_ts::debug::pause();
                 tracing::info!(
                     "debugger: stopping at the program's first statement (--inspect-brk)"
                 );
@@ -320,7 +320,7 @@ impl Native {
     /// Compiles the bundle's program, then lets its source text go: nothing reads it again, and
     /// a game that bundles documents holds megabytes of it (md-reader: 2.4 MB).
     fn compile(bundle: &mut Bundle, generation: u32) -> Result<Game> {
-        let mut lap = platypus_ts::timing::Lap::start();
+        let mut lap = web_ui_ts::timing::Lap::start();
         let manifests = manifests();
         lap.mark("engine manifests (JSON)");
         let game = compile_and_load(
@@ -330,13 +330,13 @@ impl Native {
                 // Programs of different generations share one heap: their headers must differ.
                 struct_base: generation * 100_000,
                 manifests: &manifests,
-                symbols: platypus_ts_ui::symbols(),
+                symbols: web_ui_bridge::symbols(),
                 debug: super::debugger::enabled(),
                 ..Default::default()
             },
         )
         .map_err(|e| anyhow!("compiling the game: {e}"))?;
-        super::crash::note_source_hash(platypus_ts::modules::source_hash(&bundle.source));
+        super::crash::note_source_hash(web_ui_ts::modules::source_hash(&bundle.source));
         bundle.source = String::new();
         // So a crash in the compiled code can be named (`crash.rs`): every function, local ones
         // too, or a fault in one before the first exported function goes unnamed and unreported.
@@ -511,7 +511,7 @@ impl Native {
     }
 
     /// The world panel roots the program mounted since the last call.
-    pub fn take_panel_mounts(&mut self) -> Vec<(u64, platypus_ui_native::Element)> {
+    pub fn take_panel_mounts(&mut self) -> Vec<(u64, web_ui_react::Element)> {
         std::mem::take(&mut self.panel_mounts)
     }
 
@@ -521,7 +521,7 @@ impl Native {
     }
 
     /// The window roots the program mounted since the last call (window handle, root element).
-    pub fn take_window_mounts(&mut self) -> Vec<(u64, platypus_ui_native::Element)> {
+    pub fn take_window_mounts(&mut self) -> Vec<(u64, web_ui_react::Element)> {
         std::mem::take(&mut self.window_mounts)
     }
 
@@ -549,8 +549,8 @@ impl Native {
             log_faults(self.host.settle());
         }
         // `createRoot(win)`: the main window is the screen; other windows get their root from the app.
-        let mut mounts: Vec<(u64, u64)> = platypus_ts_ui::take_mounts();
-        for (window, handle) in platypus_ts_ui::take_window_mounts() {
+        let mut mounts: Vec<(u64, u64)> = web_ui_bridge::take_mounts();
+        for (window, handle) in web_ui_bridge::take_window_mounts() {
             let w = platypus_engine_api::window::WindowRef(window as u32);
             if !platypus_engine_api::window::can_set_up(w) {
                 tracing::warn!(target: "script", "createRoot(window {window}): that window belongs to another family; ignored");
@@ -560,12 +560,12 @@ impl Native {
                 mounts.push((0, handle));
             } else {
                 self.window_mounts
-                    .push((window, platypus_ts_ui::element_from(handle)));
+                    .push((window, web_ui_bridge::element_from(handle)));
             }
         }
         for (target, handle) in mounts {
             tracing::debug!(target, handle, "mount");
-            let element = platypus_ts_ui::element_from(handle);
+            let element = web_ui_bridge::element_from(handle);
             if target == 0 {
                 let errors = match self.remount.take() {
                     // After a reload every component renders again with its new code.
@@ -575,10 +575,10 @@ impl Native {
                 for e in errors {
                     tracing::warn!(target: "ui", "{e}");
                 }
-            } else if target == platypus_ts_ui::INSPECTOR_TARGET {
+            } else if target == web_ui_bridge::INSPECTOR_TARGET {
                 let root = *self
                     .inspector_root
-                    .get_or_insert_with(|| self.rt.create_root(platypus_ui::ROOT));
+                    .get_or_insert_with(|| self.rt.create_root(web_ui_dom::ROOT));
                 for e in self.rt.render(root, element, ui) {
                     tracing::warn!(target: "ui", "{e}");
                 }
@@ -589,7 +589,7 @@ impl Native {
         for e in self.rt.flush(ui) {
             tracing::warn!(target: "ui", "{e}");
         }
-        for e in platypus_ts_ui::take_errors() {
+        for e in web_ui_bridge::take_errors() {
             tracing::error!(target: "script", "{e}");
         }
     }
@@ -861,7 +861,7 @@ impl Native {
         platypus_physics_api::reset();
         platypus_scenes::reset();
         // Timers and awaits of the old code would run it against the new world.
-        platypus_ts_rt::ts_rt_events_clear();
+        web_ui_rt::ts_rt_events_clear();
         *scene = Scene::new();
         self.game = game;
         self.generation = generation;
@@ -915,13 +915,13 @@ thread_local! {
 /// The element kind of the target of the event about to be dispatched (what `e.target.type`
 /// answers: the compiled side asks for the current event's target only).
 pub fn set_target_kind(kind: Option<String>) {
-    platypus_ts_ui::set_target_kind_resolver(|_| TARGET_KIND.with(|k| k.borrow().clone()));
+    web_ui_bridge::set_target_kind_resolver(|_| TARGET_KIND.with(|k| k.borrow().clone()));
     TARGET_KIND.with(|k| *k.borrow_mut() = kind.unwrap_or_default());
 }
 
 /// A UI event of the interaction layer as the native reconciler's event.
 pub fn to_event(e: &UiEvent) -> Option<Event> {
-    platypus_ui_native::event_of(e)
+    web_ui_react::event_of(e)
 }
 
 /// The program's `__uiSignatures()` text (`Name:ID:hook,hook;...`), empty when it has no UI.
@@ -931,12 +931,12 @@ fn signatures_of(game: &Game) -> String {
     };
     // SAFETY: the compiled function takes nothing and returns a live string.
     let p = unsafe {
-        std::mem::transmute::<usize, unsafe extern "C" fn() -> *const platypus_ts_rt::Str>(f)()
+        std::mem::transmute::<usize, unsafe extern "C" fn() -> *const web_ui_rt::Str>(f)()
     };
     if p.is_null() {
         return String::new();
     }
-    String::from_utf16_lossy(&unsafe { platypus_ts_rt::Str::from_raw(p) }.to_utf16())
+    String::from_utf16_lossy(&unsafe { web_ui_rt::Str::from_raw(p) }.to_utf16())
 }
 
 /// Component id to its hook list.
@@ -954,8 +954,8 @@ fn parse_signatures(text: &str) -> std::collections::HashMap<u32, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use platypus_ui::events::Modifiers;
-    use platypus_ui::{EventKind, ROOT};
+    use web_ui_dom::events::Modifiers;
+    use web_ui_dom::{EventKind, ROOT};
 
     fn bundle(src: &str) -> Bundle {
         Bundle {
@@ -1325,7 +1325,7 @@ mod tests {
         assert!(scene.find("A").is_none() && scene.find("B").is_none());
         assert!(scene.find("C").is_some());
         assert_eq!(
-            platypus_ts_rt::registered_classes(),
+            web_ui_rt::registered_classes(),
             [
                 ("B".to_string(), false),
                 ("A".to_string(), false),
@@ -1542,7 +1542,7 @@ register(B);
     #[test]
     fn code_awaiting_in_a_destroyed_object_runs_on_without_touching_freed_memory() {
         // Garbage collection at every allocation, poisoned: a dangling pointer would show.
-        platypus_ts_rt::ts_rt_gc_stress(true);
+        web_ui_rt::ts_rt_gc_stress(true);
         let (mut n, mut scene, mut ui) = start(
             "class Probe extends Component {}
              class Victim extends Component {
@@ -1575,7 +1575,7 @@ register(B);
         // The code after the await ran, saw its object gone (`exists()`), and writing to the
         // dead object did nothing.
         assert_eq!(scene.local(probe).unwrap().position.x, 2.0);
-        platypus_ts_rt::ts_rt_gc_stress(false);
+        web_ui_rt::ts_rt_gc_stress(false);
     }
 
     // M9-API-1515

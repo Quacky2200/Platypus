@@ -1,12 +1,12 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! `for(;;)`, `do...while` and labelled jumps compiled by `platypus_ts` (`bench/loops.ts`). The
+//! `for(;;)`, `do...while` and labelled jumps compiled by `web_ui_ts` (`bench/loops.ts`). The
 //! expected numbers are what bun computes from the same file. Every test runs three times:
 //! normally, with a collection at every allocation, and with collection off.
 //! IDs are in TESTS.md (M9-TS-57..).
-use platypus_ts_rt::{link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::lp::*;
+use web_ui_rt::{link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 fn in_every_gc_mode(f: impl Fn()) {
     let _serial = platypus_ts_tests::serial();
@@ -65,7 +65,7 @@ fn labelled_continue_and_break_reach_the_outer_loop() {
 fn labels_work_on_while_for_of_and_plain_blocks() {
     in_every_gc_mode(|| unsafe {
         let xs = |v: &[f64]| {
-            let a = platypus_ts_rt::ts_rt_arr_new(0, 8);
+            let a = web_ui_rt::ts_rt_arr_new(0, 8);
             platypus_ts_tests::push_f64s(a, v);
             a
         };
@@ -103,11 +103,11 @@ fn allocating_in_every_part_of_a_for_head_survives_collections() {
         assert_eq!(ts_loop_allocatingLoop(100.0), 5050.0);
     });
     ts_rt_gc_stress(true);
-    let before = platypus_ts_rt::gc_stats().collections;
+    let before = web_ui_rt::gc_stats().collections;
     unsafe { assert_eq!(ts_loop_allocatingLoop(100.0), 5050.0) };
     ts_rt_gc_stress(false);
     assert!(
-        platypus_ts_rt::gc_stats().collections > before,
+        web_ui_rt::gc_stats().collections > before,
         "stress mode collected nothing"
     );
 }

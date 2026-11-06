@@ -41,7 +41,7 @@ fn manifest_names(ms: &[String]) -> BTreeSet<String> {
 // M9-TS-3101
 #[test]
 fn the_built_ins_declare_no_engine_name_again_and_their_owners_exist() {
-    use platypus_ts::builtins::{Builtins, Place};
+    use web_ui_ts::builtins::{Builtins, Place};
     let ms: Vec<String> = platypus_build::manifests()
         .into_iter()
         .filter(|m| !m.contains("\"namespace\":\"Ui\""))

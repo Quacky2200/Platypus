@@ -2,7 +2,7 @@
 
 A game can be run as a **debug build** with a debugger attached: breakpoints (with conditions, hit counts and log points), pause, step in /
 over / out, locals, the call stack, watch expressions, and a stop at every `throw`. There are three ways to talk to it, all driving the
-same debugger (`platypus_ts::debug`):
+same debugger (`web_ui_ts::debug`):
 
 | Tool | Flag | Use it from |
 |---|---|---|
@@ -83,7 +83,7 @@ on the port (`/json/version`, `/json`, `/json/list`) and a WebSocket at `ws://12
 ## What a debug build is
 
 The compiler puts a line marker before every statement (`Stmt::Line`, also in normal builds, for crash reports). A debug build
-(`JitOptions::debug`) also turns each marker into a check: it loads one byte (`platypus_ts::debug`'s armed flag) and, when
+(`JitOptions::debug`) also turns each marker into a check: it loads one byte (`web_ui_ts::debug`'s armed flag) and, when
 that byte is set, calls the debugger's hook with the line. Nobody debugging means the byte is zero: the cost is a load and a branch
 per statement, so debug builds are slower and never the default. Code the compiler writes itself (hook wrappers, facade members) has
 no markers, so stepping never stops in it.

@@ -4,7 +4,7 @@
 //! The host's side of the TypeScript debugger (`--debug-port <port>`; design in
 //! `docs/research/platypus-ts-debug-info.md`).
 //!
-//! The game is compiled as a debug build (`platypus_ts::debug`: a check before every statement)
+//! The game is compiled as a debug build (`web_ui_ts::debug`: a check before every statement)
 //! and a controller listens on `127.0.0.1:<port>`. The protocol is lines of text, so a person
 //! with `telnet` or the DAP adapter of a later step can drive it:
 //!
@@ -30,12 +30,12 @@
 //! writes it): after every compile the breakpoints are resolved again, which is how they
 //! survive a hot reload that moves lines.
 
-use platypus_ts::debug::{self, Reason, Resume};
 use std::io::{BufRead, BufReader, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use web_ui_ts::debug::{self, Reason, Resume};
 
 static ENABLED: AtomicBool = AtomicBool::new(false);
 

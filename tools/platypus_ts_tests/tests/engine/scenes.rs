@@ -6,10 +6,10 @@
 use platypus_components::NativeHost;
 use platypus_scene::api::scene_api as api;
 use platypus_scene::{ObjectId, Scene};
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress, ts_rt_str_new};
 use platypus_ts_tests::scenes_t::*;
 use serde_json::{Value, json};
 use ts_api::Handle;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress, ts_rt_str_new};
 
 const ARENA: &str = r#"{"format":"platypus.scene","version":1,"name":"Arena","objects":[
  {"id":1,"name":"Cam","position":[0,2,5],"components":[

@@ -32,7 +32,7 @@ Where the code differs from DESIGN.md the pages say so ("Difference from DESIGN.
 | [debugger.md](debugger.md) | Debugging a game: `--debug-port`, debug builds (a check before every statement), breakpoints, pause and stepping over a text protocol and the Debug Adapter Protocol (VS Code), how files and lines map and survive hot reload, what is not there yet |
 | [rendering.md](rendering.md) | How `platypus-app` chooses a renderer per run (flags, `project.json`, the renderer tier, the light wgpu path) and its memory numbers; the frame plan and executors are in web-ui `docs/rendering.md` |
 | [editor.md](editor.md) | The native editor (`editor/`, run as `platypus-app editor --project <folder>`): the `Editor` namespace (log feed, code links, project files), its components in `editor/src` (menubar, docking, virtual list, tree view, console, project browser), the Scene view (editor camera, orientation gizmo, SceneIcons, wire gizmos, transform handles, `onEditorFrame`) and the editor UI in `editor/` (demo scene, live Hierarchy, Game tab) |
-| [platypus-build.md](platypus-build.md) | `tools/platypus_build`, the build tool for games compiled by platypus_ts: config, module graph, `game.pbundle`, CSS bundling, assets and `.meta` files, `types/platypus.d.ts`, `src/modules` imports, the dev loop protocol |
+| [platypus-build.md](platypus-build.md) | `tools/platypus_build`, the build tool for games compiled by web_ui_ts: config, module graph, `game.pbundle`, CSS bundling, assets and `.meta` files, `types/platypus.d.ts`, `src/modules` imports, the dev loop protocol |
 | [PROGRESS.md](PROGRESS.md) | Where Platypus stands (dated): what exists, a picture of every example (`docs/progress/`, made by `progress-shots` in `tests/tools/shots`), the benchmark headline, what is next |
 | [benchmarks.md](benchmarks.md) | Frame times of every example, native against the QuickJS originals from `main` (old results, from before the QuickJS removal; `platypus-build bench` now times only the native backend; raw data in `benchmarks/results.json`), the spread of re-runs, the stages, the Animator and crowd numbers |
 | [animation-native.md](animation-native.md) | `platypus_animation`: curves, clips, pose blending, the `Animation` and `Animator` components and their script API |
@@ -46,7 +46,7 @@ Where the code differs from DESIGN.md the pages say so ("Difference from DESIGN.
 ## Crate map
 
 ```
-web-ui crates (the web-ui repository; its docs: web-ui `docs/README.md`): web_ui_core, web_ui_render, platypus_ui, platypus_ui_native, platypus_render_gles, platypus_render_cpu, ts_api, ts_api_macros, platypus_ts, platypus_ts_rt, platypus_ts_ui
+web-ui crates (the web-ui repository; its docs: web-ui `docs/README.md`): web_ui_core, web_ui_render, web_ui_dom, web_ui_react, web_ui_render_gles, web_ui_render_cpu, ts_api, ts_api_macros, web_ui_ts, web_ui_rt, web_ui_bridge
 platypus_core      project.json, the renderer tier table (renderer.rs), meta, icon, payload; re-exports web_ui_core (Value, ids, Commit/Op, assets, Blending)
 platypus_platform  winit window + event loop, InputEvent (keys, pointer, IME, gamepads), gilrs,
                    window modes and resolutions (display.rs, see platform.md)
@@ -70,10 +70,10 @@ The window is created hidden and shown after its first frame; a resize also draw
  winit WindowEvent
       |  platypus_platform::convert_window_event
       v
- InputEvent --(scale to logical px)--> platypus_ui::Input --> Interaction::handle
+ InputEvent --(scale to logical px)--> web_ui_dom::Input --> Interaction::handle
                                                               |  UiEvent (hover, click, key, ...)
                                                               v
-                                       native handlers (platypus_ui_native::event_of)
+                                       native handlers (web_ui_react::event_of)
                                                               |  compiled handlers run, state changes
  frame():                                                     v
    0. sync_screen: UiTree::set_size(window / scale) (first, so the first frame's script output
@@ -106,16 +106,16 @@ Key ideas to keep in mind:
   `draw_list()` and `hit_test()`.
 - **Logical pixels everywhere above the renderer.** The app divides window sizes and cursor
   positions by the scale factor; `RenderTarget::scale` converts back.
-- **The draw list is GPU-free.** `platypus_ui` never touches wgpu; tests can inspect `Vec<DrawCmd>`.
+- **The draw list is GPU-free.** `web_ui_dom` never touches wgpu; tests can inspect `Vec<DrawCmd>`.
 
 ## Where to start reading
 
 | I want to... | Read |
 |---|---|
-| Add a CSS property | `apply_style` in web-ui's `crates/platypus_ui/src/style.rs`, then web-ui `docs/ui-tree.md` |
-| Add a selector / pseudo-class | web-ui's `crates/platypus_ui/src/css.rs`, web-ui's `crates/platypus_ui/src/cascade.rs`, web-ui `docs/css.md` |
-| Change text field editing | web-ui's `crates/platypus_ui/src/editor.rs`, web-ui `docs/input-and-events.md` |
-| Add a UI event | web-ui's `crates/platypus_ui/src/events.rs`, `tables/events.rs`, [input-and-events.md](input-and-events.md) |
+| Add a CSS property | `apply_style` in web-ui's `crates/web_ui_dom/src/style.rs`, then web-ui `docs/ui-tree.md` |
+| Add a selector / pseudo-class | web-ui's `crates/web_ui_dom/src/css.rs`, web-ui's `crates/web_ui_dom/src/cascade.rs`, web-ui `docs/css.md` |
+| Change text field editing | web-ui's `crates/web_ui_dom/src/editor.rs`, web-ui `docs/input-and-events.md` |
+| Add a UI event | web-ui's `crates/web_ui_dom/src/events.rs`, `tables/events.rs`, [input-and-events.md](input-and-events.md) |
 | Change gamepad / game input | [gamepad.rs](../crates/platypus_platform/src/gamepad.rs), [game_input.rs](../crates/platypus_app/src/game_input.rs), [input-and-events.md](input-and-events.md#gamepads-and-game-input-m3c-step-6) |
 | Add a physics or audio op | [physics-and-audio.md](physics-and-audio.md), [platypus_physics](../crates/platypus_physics/src/lib.rs), [platypus_audio](../crates/platypus_audio/src/lib.rs) |
 | Add to the script API | `#[ts_api]` in `platypus_engine_api` / `platypus_render_api` / `platypus_physics_api`, [platypus-api.md](platypus-api.md) |
@@ -129,4 +129,4 @@ Key ideas to keep in mind:
 | Change cloth | [cloth.rs](../crates/platypus_physics/src/cloth.rs), [cloth_sync.rs](../crates/platypus_app/src/cloth_sync.rs), [physics-and-audio.md](physics-and-audio.md#cloth) |
 | Change particles | [particles.rs](../crates/platypus_app/src/particles.rs), [particles.md](particles.md) |
 | Change cameras, planes, the editor grid, gizmo lines or world panels | [world/mod.rs](../crates/platypus_render/src/world/mod.rs), [world_view.rs](../crates/platypus_app/src/world_view.rs), [panels.rs](../crates/platypus_app/src/panels.rs), [world-rendering.md](world-rendering.md) |
-| Add a draw command | web-ui's `crates/platypus_ui/src/draw.rs`, web-ui's `crates/web_ui_render/src/ui/mod.rs`, [rendering.md](rendering.md) |
+| Add a draw command | web-ui's `crates/web_ui_dom/src/draw.rs`, web-ui's `crates/web_ui_render/src/ui/mod.rs`, [rendering.md](rendering.md) |

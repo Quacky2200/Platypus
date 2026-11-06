@@ -743,7 +743,7 @@ const panel = menu.addComponent(WorldPanel, { width: 640, height: 400, pixelsPer
 createRoot(panel).render(<Menu />);
 ```
 
-**Panel roots.** `createRoot(panel)` gives the panel its own native reconciler (`platypus_ui_native::Runtime`)
+**Panel roots.** `createRoot(panel)` gives the panel its own native reconciler (`web_ui_react::Runtime`)
 whose ops go to the panel's tree, keyed by the component id; the screen is target 0. (The QuickJS commit
 targets, `__platypus_commit(ops, target)`, `ScriptRuntime::drain_targeted_commits` and `App::apply_script_output`
 are gone.) `Panels::get_or_create(target, ...)` makes the panel's tree on first use.

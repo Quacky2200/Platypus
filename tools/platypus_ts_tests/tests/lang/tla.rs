@@ -5,9 +5,9 @@
 //! The programs of `bench/tla_cases.ts` run (init, then the event loop) in the normal, stress GC
 //! and collection-off modes and are compared with bun (`bench/gen_tla_expected.ts`). IDs are in
 //! TESTS.md (M9-TS-3157..).
-use platypus_ts::jit::{JitOptions, compile_and_load};
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress, ts_rt_run_loop};
 use serde_json::Value;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress, ts_rt_run_loop};
+use web_ui_ts::jit::{JitOptions, compile_and_load};
 
 const CASES: &str = include_str!("../../bench/tla_cases.ts");
 

@@ -15,8 +15,8 @@ use platypus_core::glam::{Mat4, Vec3, Vec4Swizzles};
 use platypus_core::{Commit, NodeId, Value};
 use platypus_render::{Gpu, RenderTarget, UiRenderer, WorldQuad, wgpu};
 use platypus_scene::{ScriptObject, ScriptScene};
-use platypus_ui::opcodes::{APPEND_CHILD, CREATE, CREATE_TEXT, SET_STYLE, SET_TEXT};
-use platypus_ui::{Interaction, UiTree};
+use web_ui_dom::opcodes::{APPEND_CHILD, CREATE, CREATE_TEXT, SET_STYLE, SET_TEXT};
+use web_ui_dom::{Interaction, UiTree};
 
 /// The texture format panels are drawn into (sampled as sRGB by the world pass).
 const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8UnormSrgb;

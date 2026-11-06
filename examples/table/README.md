@@ -27,4 +27,4 @@ cargo run -p platypus_app -- examples/table --screenshot out.png --frames 30
 | File | What |
 |---|---|
 | `src/main.tsx` | `App`: header row with sorting, data rows, a footer row with a column span |
-| `src/ui.css` | The grid, striping, hover, spans; shared by the golden `M3-TBL-01` and the tests in `crates/platypus_ui/tests/table_grid.rs` |
+| `src/ui.css` | The grid, striping, hover, spans; shared by the golden `M3-TBL-01` and the tests in `crates/web_ui_dom/tests/table_grid.rs` |

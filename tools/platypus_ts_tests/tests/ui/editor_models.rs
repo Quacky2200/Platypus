@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! The editor's model tests (`editor/test/*.test.ts`, formerly bun tests of `js/editor-ui`),
-//! bundled like a game (`platypus_ts::modules`) and compiled natively with the whole engine API.
+//! bundled like a game (`web_ui_ts::modules`) and compiled natively with the whole engine API.
 //! Each file's `run()` returns what failed, one line each; every GC mode must give "".
 //! IDs are in the files (M5-EDT-06..14, 18..20, 22, 24, M5-DND-08) and in TESTS.md.
-use platypus_ts::jit::{JitOptions, compile_and_load};
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use std::path::Path;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
+use web_ui_ts::jit::{JitOptions, compile_and_load};
 
 fn manifests() -> Vec<String> {
     let mut all = platypus_engine_api::manifests();
@@ -29,9 +29,9 @@ fn run_editor_test(file: &str, prefix: &'static str, struct_base: u32) -> String
         .join(file);
     let ms = manifests();
     // The engine's global names stay the engine's (`dock.ts`'s `Rect` is renamed), as in a build.
-    let dts = platypus_ts::types_dts::generate(&ms).unwrap();
-    let reserved = platypus_ts::modules::global_names(&dts);
-    let bundle = platypus_ts::modules::bundle_reserving(&entry, &reserved).unwrap();
+    let dts = web_ui_ts::types_dts::generate(&ms).unwrap();
+    let reserved = web_ui_ts::modules::global_names(&dts);
+    let bundle = web_ui_ts::modules::bundle_reserving(&entry, &reserved).unwrap();
     let game = compile_and_load(
         &bundle.source,
         &JitOptions {

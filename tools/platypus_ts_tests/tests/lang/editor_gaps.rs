@@ -235,10 +235,10 @@ function t(): string {
 #[test]
 fn unknown_is_a_clear_error_and_a_default_of_unknown_needs_a_type_argument() {
     let bare = "interface Row<T = unknown> { id: string; data?: T }\nexport function n(rows: Row[]): number { return rows.length; }";
-    let e = platypus_ts::lower::lower_source(bare).err().unwrap();
+    let e = web_ui_ts::lower::lower_source(bare).err().unwrap();
     assert!(e.contains("line 1: `unknown` is not supported yet"), "{e}");
     let typed = "interface Row<T = unknown> { id: string; data?: T }\nexport function n(rows: Row<number>[]): number { return rows.length; }";
-    assert!(platypus_ts::lower::lower_source(typed).is_ok());
+    assert!(web_ui_ts::lower::lower_source(typed).is_ok());
 }
 
 // M9-TS-3509
@@ -248,8 +248,8 @@ fn unknown_is_a_clear_error_and_a_default_of_unknown_needs_a_type_argument() {
 #[test]
 fn check_unused_lowers_functions_nothing_calls() {
     let src = "function unused(): number { return +new Proxy({}, {}); }\nexport function used(): number { return 1; }";
-    assert!(platypus_ts::lower::lower_source(src).is_ok());
-    let e = platypus_ts::check_unused(src, &[]).err().unwrap();
+    assert!(web_ui_ts::lower::lower_source(src).is_ok());
+    let e = web_ui_ts::check_unused(src, &[]).err().unwrap();
     assert!(e.contains("line 1"), "{e}");
 }
 

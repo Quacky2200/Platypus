@@ -220,7 +220,7 @@ freely, subject to the following restrictions:
 ## Inter (SIL Open Font License 1.1)
 
 The host's default UI font, Inter (`InterVariable.ttf` and `InterVariable-Italic.ttf`, built
-into `platypus_ui`), is by The Inter Project Authors (https://github.com/rsms/inter), under
+into `web_ui_dom`), is by The Inter Project Authors (https://github.com/rsms/inter), under
 the SIL Open Font License 1.1:
 
 ```text

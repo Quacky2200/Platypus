@@ -49,10 +49,10 @@ bun_tests! {
 #[test]
 fn a_literal_outside_the_union_is_a_compile_error() {
     let _serial = platypus_ts_tests::serial();
-    let e = platypus_ts::jit::compile_and_load(
+    let e = web_ui_ts::jit::compile_and_load(
         "type M = \"a\" | \"b\";
 export function f(): string { const m: M = \"c\"; return m; }",
-        &platypus_ts::jit::JitOptions {
+        &web_ui_ts::jit::JitOptions {
             prefix: "un12_",
             struct_base: 312_000,
             ..Default::default()
@@ -72,9 +72,9 @@ export function f(): string { const m: M = \"c\"; return m; }",
 #[test]
 fn a_conditional_of_different_shapes_names_both_fields() {
     let _serial = platypus_ts_tests::serial();
-    let e = platypus_ts::jit::compile_and_load(
+    let e = web_ui_ts::jit::compile_and_load(
         "export function f(v: boolean): number { let s = v ? { bottom: 1 } : { top: 2 }; s = 3; return 0; }",
-        &platypus_ts::jit::JitOptions {
+        &web_ui_ts::jit::JitOptions {
             prefix: "un13_",
             struct_base: 313_000,
             ..Default::default()

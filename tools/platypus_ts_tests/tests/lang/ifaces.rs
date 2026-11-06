@@ -44,11 +44,11 @@ bun_tests! {
 #[test]
 fn spreading_an_interface_implemented_by_classes_is_a_compile_error() {
     let _serial = platypus_ts_tests::serial();
-    let e = platypus_ts::jit::compile_and_load(
+    let e = web_ui_ts::jit::compile_and_load(
         "interface Shape { tag: string }
 class C implements Shape { tag = \"c\"; }
 export function run(): string { const x: Shape = new C(); const y = { ...x, extra: 1 }; return y.tag; }",
-        &platypus_ts::jit::JitOptions {
+        &web_ui_ts::jit::JitOptions {
             prefix: "if7_",
             struct_base: 707_000,
             ..Default::default()

@@ -6,9 +6,9 @@
 use platypus_components::{NativeHost, PropValue};
 use platypus_scene::Scene;
 use platypus_scene::api::scene_api as api;
-use platypus_ts_rt::{link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::cm2::*;
 use ts_api::Handle;
+use web_ui_rt::{link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 fn all(_: u64) -> bool {
     true
@@ -32,7 +32,7 @@ fn in_every_gc_mode(f: impl Fn()) {
 fn log() -> String {
     let p = unsafe { ts_cm2_logText() };
     String::from_utf16_lossy(
-        &unsafe { platypus_ts_rt::Str::from_raw(p as *const platypus_ts_rt::Str) }.to_utf16(),
+        &unsafe { web_ui_rt::Str::from_raw(p as *const web_ui_rt::Str) }.to_utf16(),
     )
 }
 
@@ -85,7 +85,7 @@ fn properties_are_read_and_written_through_the_table() {
         host.set_property(h, "label", PropValue::Str("héros 🛡".into()))
             .unwrap();
         // A collection between the write and the read must keep the new string alive.
-        platypus_ts_rt::ts_rt_gc_collect();
+        web_ui_rt::ts_rt_gc_collect();
         assert_eq!(host.get_property(h, "hp"), Ok(PropValue::Num(42.5)));
         assert_eq!(host.get_property(h, "armor"), Ok(PropValue::Num(0.0)));
         assert_eq!(host.get_property(h, "alive"), Ok(PropValue::Bool(false)));

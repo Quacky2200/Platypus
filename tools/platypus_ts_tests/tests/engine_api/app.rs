@@ -4,9 +4,9 @@
 //! `bench/app.ts` compiled against the native engine API and compared with the original
 //! TypeScript run in bun (`bench/gen_app_expected.ts`), in the normal, stress GC and
 //! collection-off modes. IDs are in TESTS.md (M9-TS-621..).
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::app_t::*;
 use serde_json::Value;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 /// The manifest and the machine as the engine installs them.
 fn reset() {
@@ -166,9 +166,9 @@ export function stop(): void { stopKeys(); }
 export function result(): string { return log.join(\" \"); }";
     let mut manifests = platypus_engine_api::platypus_math::manifests();
     manifests.extend(platypus_engine_api::manifests());
-    let game = platypus_ts::jit::compile_and_load(
+    let game = web_ui_ts::jit::compile_and_load(
         src,
-        &platypus_ts::jit::JitOptions {
+        &web_ui_ts::jit::JitOptions {
             prefix: "inq_",
             struct_base: 2_330_000,
             manifests: &manifests,

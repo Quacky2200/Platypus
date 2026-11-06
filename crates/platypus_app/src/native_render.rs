@@ -9,9 +9,9 @@
 
 use super::*;
 use platypus_core::Value;
-use platypus_ui_native::{RootId, Runtime};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+use web_ui_react::{RootId, Runtime};
 
 /// The first node id the native reconciler hands out (the same as the screen's runtime).
 const FIRST_NODE: u32 = 1 << 30;
@@ -23,7 +23,7 @@ struct State {
     /// One reconciler per secondary window (by window handle), like the panels'.
     windows: HashMap<u32, (Runtime, RootId)>,
     /// Window roots mounted before their window was opened.
-    window_pending: Vec<(u32, platypus_ui_native::Element)>,
+    window_pending: Vec<(u32, web_ui_react::Element)>,
     /// Panels a `WorldPanel` component exists for (the others only had a mount so far).
     live: HashSet<u32>,
     /// The `TextMesh` panels (ids from `render_sync::TEXT_BASE`).
@@ -367,7 +367,7 @@ impl App {
             let errors = st(|s| {
                 let (rt, rid) = s.runtimes.entry(id).or_insert_with(|| {
                     let mut rt = Runtime::new(FIRST_NODE);
-                    let rid = rt.create_root(platypus_ui::ROOT);
+                    let rid = rt.create_root(web_ui_dom::ROOT);
                     (rt, rid)
                 });
                 let rid = *rid;
@@ -429,7 +429,7 @@ impl App {
             let errors = st(|s| {
                 let (rt, rid) = s.windows.entry(key).or_insert_with(|| {
                     let mut rt = Runtime::new(FIRST_NODE);
-                    let rid = rt.create_root(platypus_ui::ROOT);
+                    let rid = rt.create_root(web_ui_dom::ROOT);
                     (rt, rid)
                 });
                 let rid = *rid;
@@ -474,7 +474,7 @@ pub(super) fn drop_window_runtime(key: u32) {
 pub(super) fn window_event(
     scene: &mut platypus_scene::Scene,
     key: u32,
-    e: &platypus_ui::UiEvent,
+    e: &web_ui_dom::UiEvent,
 ) -> bool {
     let Some(mut ev) = native::to_event(e) else {
         return false;
@@ -509,7 +509,7 @@ pub(super) fn window_settle(scene: &mut platypus_scene::Scene, key: u32, tree: &
 pub(super) fn panel_event(
     scene: &mut platypus_scene::Scene,
     id: u32,
-    e: &platypus_ui::UiEvent,
+    e: &web_ui_dom::UiEvent,
 ) -> bool {
     let Some(mut ev) = native::to_event(e) else {
         return false;

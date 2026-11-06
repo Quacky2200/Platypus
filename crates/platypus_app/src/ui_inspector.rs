@@ -14,8 +14,8 @@ use std::collections::BTreeSet;
 
 use platypus_core::NodeId;
 use platypus_engine_api::ui_inspector as api;
-use platypus_ui::tables::style::{LENGTH_UNITS, Part, STYLE_PROPS};
-use platypus_ui::{ElementState, Inspected, UiTree};
+use web_ui_dom::tables::style::{LENGTH_UNITS, Part, STYLE_PROPS};
+use web_ui_dom::{ElementState, Inspected, UiTree};
 
 use super::{App, Surface};
 
@@ -75,7 +75,7 @@ fn wanted(ui: &UiTree, watched: &[u32]) -> BTreeSet<u32> {
     out
 }
 
-fn rule_snapshots(rules: &[platypus_ui::InspectedRule]) -> Vec<api::RuleSnapshot> {
+fn rule_snapshots(rules: &[web_ui_dom::InspectedRule]) -> Vec<api::RuleSnapshot> {
     rules
         .iter()
         .map(|r| api::RuleSnapshot {
@@ -100,7 +100,7 @@ fn rule_snapshots(rules: &[platypus_ui::InspectedRule]) -> Vec<api::RuleSnapshot
 
 /// What scripts read about a node.
 fn snapshot(i: &Inspected) -> api::NodeSnapshot {
-    let rect = |r: Option<platypus_ui::Rect>| r.map_or([0.0; 4], |r| [r.x, r.y, r.width, r.height]);
+    let rect = |r: Option<web_ui_dom::Rect>| r.map_or([0.0; 4], |r| [r.x, r.y, r.width, r.height]);
     api::NodeSnapshot {
         id: i.id.0,
         kind: i.kind.clone(),

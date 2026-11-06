@@ -3,7 +3,7 @@
 
 //! Platypus's components over the TypeScript runtime's host classes: the class table, the
 //! Unity-order lifecycle (`NativeHost`), contacts and `@property` values. The runtime knows only
-//! [`platypus_ts_rt::HostClass`]; this crate gives its hooks their meaning and provides the
+//! [`web_ui_rt::HostClass`]; this crate gives its hooks their meaning and provides the
 //! `ts_rt_host_*` functions compiled code calls (pass [`symbols`] to the JIT).
 
 pub mod compile;
@@ -18,7 +18,7 @@ include!(concat!(env!("OUT_DIR"), "/symbols.rs"));
 /// compiler extension (`compile.rs`) the manifest names.
 pub fn manifests() -> Vec<String> {
     ts_api::register_symbols(symbols());
-    platypus_ts::lower::ext::install(compile::EXTENSION, &compile::Platypus);
+    web_ui_ts::lower::ext::install(compile::EXTENSION, &compile::Platypus);
     let host = serde_json::json!({
         "declarations": compile::declarations(),
         "hostClasses": {

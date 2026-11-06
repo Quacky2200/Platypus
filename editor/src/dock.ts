@@ -213,8 +213,8 @@ export const serializeLayout = (layout: DockNode): string => JSON.stringify(layo
 
 /**
  * A layout node as saved: any key may be missing (JSON.parse checks the types of those there).
- * Read as this record rather than `unknown` with checks: platypus_ts has no dynamic values yet
- * (tools/platypus_ts/TODO.md D1, D2).
+ * Read as this record rather than `unknown` with checks: web_ui_ts has no dynamic values yet
+ * (tools/web_ui_ts/TODO.md D1, D2).
  */
 interface SavedNode {
   type?: string;

@@ -1,12 +1,12 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Module-level `let` variables compiled by `platypus_ts` (`bench/globals.ts`). The expected numbers
+//! Module-level `let` variables compiled by `web_ui_ts` (`bench/globals.ts`). The expected numbers
 //! are what bun computes from the same file, one fresh process per scenario. Every test runs three
 //! times (normally, with a collection at every allocation, with collection off), and calls
 //! `ts_init` first so each run starts from the initialisers. IDs are in TESTS.md (M9-TS-47..).
-use platypus_ts_rt::{link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::glob::*;
+use web_ui_rt::{link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 /// The module's variables are process-wide, so the tests take turns.
 static ONE_AT_A_TIME: std::sync::Mutex<()> = std::sync::Mutex::new(());
@@ -18,11 +18,11 @@ fn in_every_gc_mode(f: impl Fn()) {
     unsafe { ts_glob_init() };
     f();
     ts_rt_gc_stress(true);
-    let before = platypus_ts_rt::gc_stats().collections;
+    let before = web_ui_rt::gc_stats().collections;
     unsafe { ts_glob_init() };
     f();
     assert!(
-        platypus_ts_rt::gc_stats().collections > before,
+        web_ui_rt::gc_stats().collections > before,
         "stress mode collected nothing"
     );
     ts_rt_gc_stress(false);

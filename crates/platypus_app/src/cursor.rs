@@ -114,7 +114,7 @@ mod tests {
     // M3-CUR-01
     #[test]
     fn every_css_cursor_keyword_maps_to_an_os_cursor() {
-        for keyword in platypus_ui::CURSORS {
+        for keyword in web_ui_dom::CURSORS {
             if matches!(*keyword, "auto" | "none") {
                 continue; // resolved by the tree / hides the cursor
             }

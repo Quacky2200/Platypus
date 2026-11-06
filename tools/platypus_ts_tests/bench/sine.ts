@@ -1,5 +1,5 @@
 // The sine-circle demo's curve maths (examples/sine-circle-demo/src/main.tsx `at` and `points`),
-// as free functions in the subset platypus_ts compiles: a point every degree, joined by a
+// as free functions in the subset web_ui_ts compiles: a point every degree, joined by a
 // Catmull-Rom spline (3 samples per segment), then flattened to [x0, y0, x1, y1, ...] as
 // LineRenderer2D.send() does before its `render.stroke` op.
 const FORM_W = 1008;

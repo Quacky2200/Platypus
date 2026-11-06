@@ -3,8 +3,8 @@
 
 //! `Task.delay`, `Task.delaySeconds` and `Task.frame` (`bench/task.ts`): awaitable waits on the
 //! runtime timers, which the host advances with engine time. IDs are in TESTS.md (M9-TS-651..).
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress, ts_rt_timers_advance};
 use platypus_ts_tests::task_t::*;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress, ts_rt_timers_advance};
 
 fn in_every_gc_mode(f: impl Fn()) {
     let _serial = platypus_ts_tests::serial();

@@ -22,10 +22,10 @@ platypus_physics = { path = "../platypus_physics" }
 platypus_scene = { path = "../platypus_scene" }
 platypus_platform = { path = "../platypus_platform" }
 platypus_render = { path = "../platypus_render" }
-platypus_render_gles = { workspace = true }
-platypus_render_cpu = { workspace = true }
-platypus_ui = { workspace = true }
-platypus_ui_native = { workspace = true }
+web_ui_render_gles = { workspace = true }
+web_ui_render_cpu = { workspace = true }
+web_ui_dom = { workspace = true }
+web_ui_react = { workspace = true }
 platypus_engine_api = { path = "../platypus_engine_api" }
 platypus_animation = { path = "../platypus_animation" }
 platypus_scenes = { path = "../platypus_scenes" }
@@ -35,9 +35,9 @@ platypus_components = { path = "../platypus_components" }
 ts_api = { workspace = true }
 platypus_kinds = { path = "../platypus_kinds" }
 # The AOT compiler used as a JIT (its own workspace under tools/).
-platypus_ts = { workspace = true }
-platypus_ts_rt = { workspace = true }
-platypus_ts_ui = { workspace = true }
+web_ui_ts = { workspace = true }
+web_ui_rt = { workspace = true }
+web_ui_bridge = { workspace = true }
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "ico"] }
 notify = "8.2.0"
 arboard = { version = "3.7.0", default-features = false }
@@ -50,11 +50,11 @@ gltf = { version = "1.4.1", default-features = false, features = ["utils", "name
 ufbx = "0.11"
 
 [features]
-# ANGLE linked into the program (Windows), not loaded from libEGL.dll: see platypus_render_gles.
+# ANGLE linked into the program (Windows), not loaded from libEGL.dll: see web_ui_render_gles.
 # On by default (it needs libclang to build: `LIBCLANG_PATH`); `--no-default-features` leaves it
 # out. Off Windows it does nothing.
 default = ["static-angle"]
-static-angle = ["platypus_render_gles/static-angle"]
+static-angle = ["web_ui_render_gles/static-angle"]
 
 # The build script turns resources/icon/icon.png into the window icon and the exe's icon.
 [build-dependencies]

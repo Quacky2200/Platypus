@@ -1982,9 +1982,9 @@ dependencies = [
  "platypus_render_api",
  "platypus_scene",
  "platypus_scenes",
- "platypus_ts",
- "platypus_ts_ui",
  "serde_json",
+ "web_ui_bridge",
+ "web_ui_ts",
 ]
 
 [[package]]
@@ -1993,11 +1993,11 @@ version = "0.1.0"
 dependencies = [
  "platypus_kinds",
  "platypus_physics_api",
- "platypus_ts",
- "platypus_ts_rt",
  "serde_json",
  "ts_api",
+ "web_ui_rt",
  "web_ui_symbols",
+ "web_ui_ts",
 ]
 
 [[package]]
@@ -2138,48 +2138,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "platypus_ts"
-version = "0.1.0"
-dependencies = [
- "cranelift-codegen",
- "cranelift-frontend",
- "cranelift-jit",
- "cranelift-module",
- "cranelift-native",
- "cranelift-object",
- "oxc_allocator",
- "oxc_ast",
- "oxc_ast_visit",
- "oxc_parser",
- "oxc_span",
- "oxc_syntax",
- "platypus_ts_rt",
- "platypus_ui",
- "serde_json",
- "target-lexicon",
- "ts_api",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "platypus_ts_rt"
-version = "0.1.0"
-dependencies = [
- "corosensei",
- "fixed_decimal",
- "icu",
- "jiff",
- "num-bigint 0.4.8",
- "num-integer",
- "num-traits",
- "regress",
- "serde_json",
- "ts_api",
- "web_ui_symbols",
- "writeable",
-]
-
-[[package]]
 name = "platypus_ts_tests"
 version = "0.1.0"
 dependencies = [
@@ -2195,51 +2153,13 @@ dependencies = [
  "platypus_render_api",
  "platypus_scene",
  "platypus_scenes",
- "platypus_ts",
- "platypus_ts_rt",
- "platypus_ts_ui",
- "platypus_ui",
- "platypus_ui_native",
  "serde_json",
  "ts_api",
-]
-
-[[package]]
-name = "platypus_ts_ui"
-version = "0.1.0"
-dependencies = [
- "platypus_ts_rt",
- "platypus_ui",
- "platypus_ui_native",
- "serde_json",
- "ts_api",
- "web_ui_core",
- "web_ui_symbols",
-]
-
-[[package]]
-name = "platypus_ui"
-version = "0.1.0"
-dependencies = [
- "cssparser 0.38.0",
- "parley",
- "precomputed-hash",
- "regex-lite",
- "rustc-hash",
- "selectors",
- "taffy",
- "thiserror",
- "tracing",
- "web_ui_core",
- "wuff",
-]
-
-[[package]]
-name = "platypus_ui_native"
-version = "0.1.0"
-dependencies = [
- "platypus_ui",
- "web_ui_core",
+ "web_ui_bridge",
+ "web_ui_dom",
+ "web_ui_react",
+ "web_ui_rt",
+ "web_ui_ts",
 ]
 
 [[package]]
@@ -2877,6 +2797,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "web_ui_bridge"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "ts_api",
+ "web_ui_core",
+ "web_ui_dom",
+ "web_ui_react",
+ "web_ui_rt",
+ "web_ui_symbols",
+]
+
+[[package]]
 name = "web_ui_core"
 version = "0.1.0"
 dependencies = [
@@ -2885,8 +2818,75 @@ dependencies = [
 ]
 
 [[package]]
+name = "web_ui_dom"
+version = "0.1.0"
+dependencies = [
+ "cssparser 0.38.0",
+ "parley",
+ "precomputed-hash",
+ "regex-lite",
+ "rustc-hash",
+ "selectors",
+ "taffy",
+ "thiserror",
+ "tracing",
+ "web_ui_core",
+ "wuff",
+]
+
+[[package]]
+name = "web_ui_react"
+version = "0.1.0"
+dependencies = [
+ "web_ui_core",
+ "web_ui_dom",
+]
+
+[[package]]
+name = "web_ui_rt"
+version = "0.1.0"
+dependencies = [
+ "corosensei",
+ "fixed_decimal",
+ "icu",
+ "jiff",
+ "num-bigint 0.4.8",
+ "num-integer",
+ "num-traits",
+ "regress",
+ "serde_json",
+ "ts_api",
+ "web_ui_symbols",
+ "writeable",
+]
+
+[[package]]
 name = "web_ui_symbols"
 version = "0.1.0"
+
+[[package]]
+name = "web_ui_ts"
+version = "0.1.0"
+dependencies = [
+ "cranelift-codegen",
+ "cranelift-frontend",
+ "cranelift-jit",
+ "cranelift-module",
+ "cranelift-native",
+ "cranelift-object",
+ "oxc_allocator",
+ "oxc_ast",
+ "oxc_ast_visit",
+ "oxc_parser",
+ "oxc_span",
+ "oxc_syntax",
+ "serde_json",
+ "target-lexicon",
+ "ts_api",
+ "web_ui_dom",
+ "web_ui_rt",
+ "windows-sys 0.61.2",
+]
 
 [[package]]
 name = "wide"

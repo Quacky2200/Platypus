@@ -6,8 +6,8 @@
 //! functions. A development aid for the swap-out work (`docs/research/platypus-ts-sine-demo.md`).
 fn main() {
     // Link everything the test crate's objects call (they are linked into every binary).
-    assert_ne!(platypus_ts_rt::link_anchor(), 0);
-    assert_ne!(platypus_ts_ui::link_anchor(), 0);
+    assert_ne!(web_ui_rt::link_anchor(), 0);
+    assert_ne!(web_ui_bridge::link_anchor(), 0);
     assert_ne!(platypus_ts_tests::engine_api_anchor(), 0);
     assert_ne!(platypus_ts_tests::demo_api_anchor(), 0);
     let _ = platypus_ts_tests::scene_anchor();
@@ -21,7 +21,7 @@ fn main() {
     manifests.extend(platypus_components::manifests());
 
     // Lowering and code generation both (set PLATYPUS_TS_TRACE=1 to see each function as it is built).
-    match platypus_ts::compile_with_manifests(&src, "speed", "chk_", 40000, &manifests) {
+    match web_ui_ts::compile_with_manifests(&src, "speed", "chk_", 40000, &manifests) {
         Ok(out) => println!("ok: {} bytes of object code", out.object.len()),
         Err(e) => {
             println!("error: {e}");

@@ -4,8 +4,8 @@
 //! Shared by the bun-compared language tests: a program of `//## name` cases (each defines
 //! `function t(): string`) is compiled in the process, run in the normal, stress GC and
 //! collection-off modes, and compared with what bun gives for the same case.
-use platypus_ts::jit::{JitOptions, compile_and_load};
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
+use web_ui_ts::jit::{JitOptions, compile_and_load};
 
 /// The source of the case `name` in `cases` (split at `//## name` lines).
 pub fn case(cases: &'static str, name: &str) -> &'static str {

@@ -3,7 +3,7 @@
 
 //! The JIT's line table (`Game::line_table`): compiled code maps back to the lines of the source
 //! it came from, which a crash report prints. IDs are in TESTS.md (M9-TS-3389).
-use platypus_ts::jit::{JitOptions, compile_and_load};
+use web_ui_ts::jit::{JitOptions, compile_and_load};
 
 // M9-TS-3389
 #[test]
@@ -29,7 +29,7 @@ fn compiled_code_maps_to_source_lines() {
     }
     // M9-TS-3390: the system can unwind through the function (its table entry is registered).
     #[cfg(windows)]
-    assert!(platypus_ts::unwind::is_registered(
+    assert!(web_ui_ts::unwind::is_registered(
         game.function("f").unwrap()
     ));
     // Every range lies inside the compiled function.

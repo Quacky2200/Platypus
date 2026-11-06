@@ -5,7 +5,7 @@ own UI, and talking between windows. The example is `examples/windows`. Design a
 `docs/research/platypus-windows.md` (plan: `platypus-windows-plan.md`). Code: `crates/platypus_engine_api/src/window.rs` (the API and its
 state), `crates/platypus_platform/src/windows.rs` and the runner (`docs/platform.md`, "Multi-window"),
 `crates/platypus_app/src/windows.rs` (trees, surfaces, routing, drawing) and `native_render.rs` (`sync_window_roots`),
-`tools/platypus_ts/src/builtins.rs` (the typed members for compiled games) and `tools/platypus_ts/src/lower/messages.rs` (their compiled form).
+`tools/web_ui_ts/src/builtins.rs` (the typed members for compiled games) and `tools/web_ui_ts/src/lower/messages.rs` (their compiled form).
 
 **Honest status.** The winit runner has not been run on a real display. Everything was checked with the fake platform
 (`FakePlatform`), unit tests of the pure parts (`plan`, `place`, `WindowTree`, the message queues) and `--screenshot` runs, where

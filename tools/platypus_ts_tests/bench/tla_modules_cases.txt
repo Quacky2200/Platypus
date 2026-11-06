@@ -1,6 +1,6 @@
 Cases for tests/lang/tla_modules.rs: a program of several modules, each case split at `//## name`
 and each file at `//@ path`. The entry is `main.ts`, which exports `result()`. The test bundles the
-files with platypus_ts, runs the module code and the event loop in the normal, stress GC and
+files with web_ui_ts, runs the module code and the event loop in the normal, stress GC and
 collection-off modes and compares with bun, which runs the files as real ES modules
 (`bun bench/gen_tla_modules_expected.ts`).
 //## importer_waits_for_the_awaiting_module

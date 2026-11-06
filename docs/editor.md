@@ -1,7 +1,7 @@
 # The editor
 
 The editor is a game like any other: `editor/` is built with `platypus-build build editor` and run by the one host,
-`platypus-app editor --project <folder>`. Its UI is Platypus's own React UI, compiled natively by platypus_ts. There is
+`platypus-app editor --project <folder>`. Its UI is Platypus's own React UI, compiled natively by web_ui_ts. There is
 no second binary, no QuickJS bundle and no separate component package: the components (menubar, docking, virtual
 list, tree view, console, project browser, Scene view) are modules of `editor/src`, so a game can copy them in.
 
@@ -595,7 +595,7 @@ command's undo writes the old value back, or removes the key when the file had n
 
 ## Limits and known gaps
 
-- The editor source works around gaps in platypus_ts (listed in `tools/platypus_ts/TODO.md`, "TypeScript gaps"),
+- The editor source works around gaps in web_ui_ts (listed in `tools/web_ui_ts/TODO.md`, "TypeScript gaps"),
   each cited where it is: class lists are built by `cx()` ([classes.ts](../editor/src/classes.ts); mixed-type arrays),
   the `..` row is told apart by index (struct conversion of array elements), `renderRow` carries a `: ReactNode`
   return annotation (no adapter for a function returning an element), and `parseLayout` reads its JSON into a typed

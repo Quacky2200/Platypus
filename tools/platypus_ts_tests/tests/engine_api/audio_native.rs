@@ -7,8 +7,8 @@
 use platypus_engine_api::audio::{self, AudioCommand, PlaybackRef};
 use platypus_engine_api::audio_components;
 use platypus_scene::Scene;
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::audio_native_t::*;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 fn in_every_gc_mode(f: impl Fn()) {
     let _serial = platypus_ts_tests::serial();

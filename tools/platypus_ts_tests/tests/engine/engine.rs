@@ -6,8 +6,8 @@
 //! `Demo.scale(3, 4)` becomes a call of the shim `platypus_Demo_scale`, and handles are plain ids.
 //! Every test runs normally, with a collection at every allocation, and with collection off.
 //! IDs are in TESTS.md (M9-TS-142..).
-use platypus_ts_rt::{link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::eng::*;
+use web_ui_rt::{link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 /// The demo engine's world is thread-local state; each test thread has its own.
 fn in_every_gc_mode(f: impl Fn()) {

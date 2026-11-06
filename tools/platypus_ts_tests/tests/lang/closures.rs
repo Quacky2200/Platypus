@@ -1,13 +1,13 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Closures compiled by `platypus_ts` (`bench/closures.ts`). The expected numbers are what bun
+//! Closures compiled by `web_ui_ts` (`bench/closures.ts`). The expected numbers are what bun
 //! computes from the same file. Every test runs three times: normally, with the collector run
 //! at every allocation (a missing root crashes loudly), and with automatic collection off.
 //! IDs are in TESTS.md (M9-TS-34..).
-use platypus_ts_rt::{Closure, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::clo;
 use platypus_ts_tests::*;
+use web_ui_rt::{Closure, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 fn in_every_gc_mode(f: impl Fn()) {
     let _serial = platypus_ts_tests::serial();
@@ -15,10 +15,10 @@ fn in_every_gc_mode(f: impl Fn()) {
     unsafe { clo::ts_clo_init() };
     f();
     ts_rt_gc_stress(true);
-    let before = platypus_ts_rt::gc_stats().collections;
+    let before = web_ui_rt::gc_stats().collections;
     f();
     assert!(
-        platypus_ts_rt::gc_stats().collections > before,
+        web_ui_rt::gc_stats().collections > before,
         "stress mode collected nothing"
     );
     ts_rt_gc_stress(false);
@@ -139,7 +139,7 @@ fn closures_held_by_the_host_keep_their_captured_state_through_collections() {
         assert_eq!(call0(a), 12.0);
         assert_eq!(call0(b), 101.0);
         assert_eq!(clo::ts_clo_churn(300.0), 44850.0);
-        platypus_ts_rt::ts_rt_gc_collect();
+        web_ui_rt::ts_rt_gc_collect();
         assert_eq!(call0(r), 7.0, "a captured object survives");
         assert_eq!(call0(a), 13.0);
     });
@@ -151,11 +151,11 @@ fn churning_closures_and_cells_is_collected() {
     assert_ne!(link_anchor(), 0);
     unsafe {
         clo::ts_clo_init();
-        let before = platypus_ts_rt::gc_stats();
+        let before = web_ui_rt::gc_stats();
         // 20,000 short-lived arrays, cells and closures.
         assert_eq!(clo::ts_clo_churn(20_000.0), 199_990_000.0);
-        platypus_ts_rt::ts_rt_gc_collect();
-        let after = platypus_ts_rt::gc_stats();
+        web_ui_rt::ts_rt_gc_collect();
+        let after = web_ui_rt::gc_stats();
         assert!(after.collections > before.collections);
         assert!(after.objects < 1_000, "{after:?}");
     }

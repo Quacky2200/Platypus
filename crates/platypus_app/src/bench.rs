@@ -484,7 +484,7 @@ fn text_centre(app: &mut App, text: &str) -> Option<(f64, f64)> {
     app.ui.layout_if_needed();
     let ui = &app.ui;
     let mut blocks = Vec::new();
-    let mut stack = vec![platypus_ui::ROOT];
+    let mut stack = vec![web_ui_dom::ROOT];
     while let Some(id) = stack.pop() {
         if !ui.is_displayed(id) {
             continue;
@@ -516,7 +516,7 @@ pub(crate) fn run(mut app: App, args: &BenchArgs, size: (u32, u32), title: &str)
         )?,
         None => Spec::idle(args),
     };
-    let mut lap = platypus_ts::timing::Lap::start();
+    let mut lap = web_ui_ts::timing::Lap::start();
     let gpu = platypus_render::Gpu::headless().map_err(|e| anyhow::anyhow!("{e}"))?;
     lap.mark("GPU device (headless)");
     let target = FrameTarget::offscreen(&gpu, size.0, size.1);
@@ -591,8 +591,8 @@ pub(crate) fn run(mut app: App, args: &BenchArgs, size: (u32, u32), title: &str)
             let total = t.elapsed();
             if startup_ms.is_none() {
                 startup_ms = Some(since_start().as_secs_f64() * 1000.0);
-                platypus_ts::timing::add("first frame", total.as_secs_f64() * 1000.0);
-                startup_parts = platypus_ts::timing::take();
+                web_ui_ts::timing::add("first frame", total.as_secs_f64() * 1000.0);
+                startup_parts = web_ui_ts::timing::take();
             }
             let app = p.app();
             times.push(FrameTimes {

@@ -4,8 +4,8 @@
 //! The native `Shapes` and `Spline` from compiled code, against the TypeScript the facade used to
 //! compile (`bench/outlines.ts`, prefix `otl_`), in the normal, stress GC and collection-off modes.
 use platypus_scene::Scene;
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::outlines_t::*;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 fn in_every_gc_mode(f: impl Fn()) {
     let _serial = platypus_ts_tests::serial();

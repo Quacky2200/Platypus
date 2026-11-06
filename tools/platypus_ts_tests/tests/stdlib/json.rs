@@ -4,9 +4,9 @@
 //! JSON in compiled code (`bench/json.ts`): `JSON.stringify` and `JSON.parse` from the static types.
 //! `bench/gen_json_expected.ts` ran the same file in bun; every function here must return what bun
 //! returned, in the normal, stress GC and collection-off modes. IDs are in TESTS.md (M9-TS-215..).
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::jsn::*;
 use serde_json::Value;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 fn in_every_gc_mode(f: impl Fn()) {
     let _serial = platypus_ts_tests::serial();

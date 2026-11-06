@@ -26,7 +26,7 @@ next. The plan with every item is [TODO.md](../TODO.md); how the code works is [
   Checked with a fake platform and screenshot runs; the multi-window runner has not been run on a real display.
 - **Assets and packs**: GUID `.meta` files, asset hot reload, cooked textures and models, `.ppk` packs (LZ4 or zstd) under
   a virtual file system.
-- **The native compiler** (M9): `platypus_ts` compiles a game's TypeScript (oxc parser, a typed IR, Cranelift) with a
+- **The native compiler** (M9): `web_ui_ts` compiles a game's TypeScript (oxc parser, a typed IR, Cranelift) with a
   precise garbage collector, closures, classes, async / await, Map / Set, JSON, RegExp and Intl (ICU4X). The engine API
   is Rust annotated with `#[ts_api]`, which also generates the game's TypeScript declarations
   (`types/platypus.d.ts`), so there is no hand-written `.d.ts`. `platypus-build` builds, checks, packages (one `.exe`
@@ -40,7 +40,7 @@ next. The plan with every item is [TODO.md](../TODO.md); how the code works is [
 
 ## Benchmarks
 
-Native (`platypus_ts`) against the QuickJS original of each example, release host, windowless, 1280x720, fixed step
+Native (`web_ui_ts`) against the QuickJS original of each example, release host, windowless, 1280x720, fixed step
 (final run of 2026-10-23, from before the QuickJS removal; details in [benchmarks.md](benchmarks.md)):
 
 - Script-heavy examples gain the most: raindrop-demo 7.22x, fishtank 5.37x, godrays-room 4.88x, world 4.45x, splines
@@ -48,7 +48,7 @@ Native (`platypus_ts`) against the QuickJS original of each example, release hos
   GPU-bound scenes are equal.
 - Start-up, process start to first frame including the JIT compile: 0.42-0.67 s for most examples.
 - A pure script micro-benchmark (the game-rules simulation, 10,000 steps): QuickJS 391 ms, bun (JavaScriptCore JIT) 36.1 ms,
-  `platypus_ts` 9.1 ms (web-ui `docs/platypus-ts-native.md`).
+  `web_ui_ts` 9.1 ms (web-ui `docs/platypus-ts-native.md`).
 
 ## Examples
 
@@ -105,7 +105,7 @@ own README says how it works.
 
 ## What is next
 
-From [TODO.md](../TODO.md) and web-ui's `crates/platypus_ts/TODO.md`:
+From [TODO.md](../TODO.md) and web-ui's `crates/web_ui_ts/TODO.md`:
 
 - **A dynamic `any` / `unknown`** in the compiler, as close to TypeScript as possible, with statically typed code keeping
   its fast path (design: [research/platypus-dynamic-values.md](research/platypus-dynamic-values.md)).

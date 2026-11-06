@@ -73,7 +73,7 @@ use platypus_platform::{
 };
 use platypus_render::wgpu;
 use platypus_render::{Color, Gpu, OffscreenTarget, RenderTarget, UiRenderer, WorldRenderer};
-use platypus_ui::{Clipboard, Input, Interaction, UiTree, events};
+use web_ui_dom::{Clipboard, Input, Interaction, UiTree, events};
 
 const TICK: f64 = 1.0 / 60.0;
 /// Stops a slow frame from triggering a long burst of catch-up ticks.
@@ -355,10 +355,10 @@ fn run() -> Result<()> {
     };
     // `--bench` reports where start-up goes (`startupParts`).
     if args.bench.is_some() {
-        platypus_ts::timing::enable();
+        web_ui_ts::timing::enable();
     }
     platypus_animation::set_threads(animation_threads());
-    let mut lap = platypus_ts::timing::Lap::start();
+    let mut lap = web_ui_ts::timing::Lap::start();
     // The log file sits with the game's settings (not for screenshot runs, which leave
     // the player's files alone; `PLATYPUS_LOG_FILE` still works there).
     let manifest_dir = match resolve_bundle(&args.game) {
@@ -606,7 +606,7 @@ fn run() -> Result<()> {
     if let Some(start) = &manifest.start_scene {
         native.start_scene(&mut scene.scene, &mut ui, start);
     }
-    let mut lap = platypus_ts::timing::Lap::start();
+    let mut lap = web_ui_ts::timing::Lap::start();
 
     // Rebuilds by `platypus-build dev` reload the game (not for screenshot or bench runs).
     let watcher = if offline {
@@ -863,7 +863,7 @@ fn draw_frame(
     target: &RenderTarget<'_>,
     views: &[platypus_render::WorldView],
     textures: &[&wgpu::TextureView],
-    cmds: &[platypus_ui::DrawCmd],
+    cmds: &[web_ui_dom::DrawCmd],
 ) {
     if views.is_empty() {
         renderer.render(gpu, target, CLEAR, cmds);
@@ -989,7 +989,7 @@ struct App {
     audio: Option<Box<dyn platypus_audio::Mixer>>,
     nav: game_input::GamepadNav,
     /// The CSS cursor currently shown: keyword, images, and the scale they were for.
-    cursor: (&'static str, Vec<platypus_ui::CursorImage>, f64),
+    cursor: (&'static str, Vec<web_ui_dom::CursorImage>, f64),
     /// A custom cursor for the platform to show.
     custom_cursor: Option<CustomCursorRequest>,
     /// The game's manifest and the machine, as scripts see them (`__platypus_info`).
@@ -1010,7 +1010,7 @@ struct App {
     clipboard: Option<arboard::Clipboard>,
     /// Whether the window currently accepts IME input, and the last candidate area.
     ime_allowed: bool,
-    ime_area: Option<platypus_ui::Rect>,
+    ime_area: Option<web_ui_dom::Rect>,
     /// Files dragged onto the window from the system.
     file_drag: file_drop::FileDrag,
     /// The game's manifest, for the video-settings dialog `Application.showVideoSettings` opens.
@@ -1271,7 +1271,7 @@ impl App {
         let on_screen = self
             .ui
             .hit_test(ux, uy)
-            .is_some_and(|n| n != platypus_ui::ROOT);
+            .is_some_and(|n| n != web_ui_dom::ROOT);
         if !on_screen
             && !self.panels.map.is_empty()
             && let Some((origin, dir)) = self.camera_ray(px, py)
@@ -1527,8 +1527,8 @@ impl App {
     /// Applies what compiled code asked of nodes it holds refs to (`focus()`, `blur()`,
     /// `scrollTo()`).
     fn apply_node_commands(&mut self) {
-        use platypus_ts_ui::NodeCommand;
-        for c in platypus_ts_ui::take_node_commands() {
+        use web_ui_bridge::NodeCommand;
+        for c in web_ui_bridge::take_node_commands() {
             if let NodeCommand::DragImage(id, x, y) = c {
                 // id 0: no drag image (the screen's interaction holds the drag).
                 let node = (id > 0).then_some(platypus_core::NodeId(id));
@@ -1644,7 +1644,7 @@ impl App {
                     }
                     _ => None,
                 };
-                self.script_cursor.image = Some(platypus_ui::CursorImage {
+                self.script_cursor.image = Some(web_ui_dom::CursorImage {
                     url: src.clone(),
                     hotspot,
                 });
@@ -2466,7 +2466,7 @@ impl PlatformApp for App {
         // `@media (resolution)` follows the window, `(prefers-color-scheme)` the system (or the
         // game's `theme`).
         let dark = self.manifest.dark(gfx.window.as_deref());
-        self.ui.set_media_env(platypus_ui::media::MediaEnv {
+        self.ui.set_media_env(web_ui_dom::media::MediaEnv {
             resolution: scale,
             dark,
             ..self.ui.media_env()
@@ -2643,7 +2643,7 @@ struct ScriptCursor {
     visible: bool,
     lock: CursorLock,
     /// Shown where the UI asks for no particular cursor.
-    image: Option<platypus_ui::CursorImage>,
+    image: Option<web_ui_dom::CursorImage>,
 }
 
 impl Default for ScriptCursor {

@@ -1,7 +1,7 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-// Compiled components driven by the Rust host (`platypus_ts_rt::NativeHost`) with no script engine:
+// Compiled components driven by the Rust host (`web_ui_rt::NativeHost`) with no script engine:
 // `class X extends Component` plus `register(X)`. The host creates, updates and destroys them;
 // the components move their GameObject through the real scene API.
 

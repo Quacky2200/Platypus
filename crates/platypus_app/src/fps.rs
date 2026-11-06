@@ -6,8 +6,8 @@
 //! The counting and text are plain functions; `FpsOverlay` is a tiny UI tree for the text.
 
 use platypus_core::{NodeId, Value};
-use platypus_ui::opcodes::Op;
-use platypus_ui::{DrawCmd, ROOT, UiTree};
+use web_ui_dom::opcodes::Op;
+use web_ui_dom::{DrawCmd, ROOT, UiTree};
 
 /// Frames are counted over windows of about this long (seconds), then shown.
 pub const WINDOW: f64 = 0.25;

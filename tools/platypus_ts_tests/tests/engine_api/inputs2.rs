@@ -4,9 +4,9 @@
 //! `bench/inputs2.ts` compiled against the native engine API and compared with the original
 //! TypeScript run in bun (`bench/gen_inputs2_expected.ts`), in the normal, stress GC and
 //! collection-off modes. IDs are in TESTS.md (M9-TS-632..).
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::inputs2_t::*;
 use serde_json::Value;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 /// Two frames (`bench/inputs2_prelude.ts`): a key released, another pressed, a gamepad gone, and
 /// the window losing focus.

@@ -274,7 +274,7 @@ pub enum Renderer {
     /// The light UI-only path: GLES through EGL (ANGLE linked in on Windows), else wgpu with
     /// small GPU allocations. No 3D world: "3D Not Supported" when the game asks for it.
     Gles,
-    /// The UI drawn on the CPU (`platypus_render_cpu`, softbuffer), no GPU API. UI only, as `gles`.
+    /// The UI drawn on the CPU (`web_ui_render_cpu`, softbuffer), no GPU API. UI only, as `gles`.
     Cpu,
 }
 

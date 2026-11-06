@@ -3,7 +3,7 @@
 
 // Language features the original (QuickJS-era) example sources need, for tests/lang/originals.rs.
 // Each case (split at `//## name`) defines `function t(): string`; the test compiles it with
-// platypus_ts (normal, GC-stress, GC-off) and compares the result with bun's
+// web_ui_ts (normal, GC-stress, GC-off) and compares the result with bun's
 // (`bun bench/gen_cases_expected.ts originals_cases.ts`).
 //## generic_void_from_closure_body
 function under<T>(root: number, build: () => T): T {

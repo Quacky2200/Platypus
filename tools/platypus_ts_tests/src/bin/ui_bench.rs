@@ -3,13 +3,13 @@
 
 //! `ui_bench [rows]`: a UI app (a list of keyed rows: mount, change one row, change every row,
 //! reverse), the compiled TSX (`bench/ui_perf.ts`) rendered by the native reconciler
-//! (`platypus_ui_native`) into a real `UiTree`. The time includes building the descriptions in
+//! (`web_ui_react`) into a real `UiTree`. The time includes building the descriptions in
 //! compiled code, the diff and applying the ops to the tree.
-use platypus_ts_rt::link_anchor;
 use platypus_ts_tests::uip::*;
-use platypus_ui::{ROOT, UiTree};
-use platypus_ui_native::Runtime;
 use std::time::Instant;
+use web_ui_dom::{ROOT, UiTree};
+use web_ui_react::Runtime;
+use web_ui_rt::link_anchor;
 
 const PHASES: [&str; 4] = ["mount", "change one row", "change every row", "reverse"];
 
@@ -29,7 +29,7 @@ fn native_run(n: usize) -> ([f64; 4], usize) {
     for (i, (rev, tick, all)) in STEPS.iter().enumerate() {
         let t = Instant::now();
         let h = unsafe { ts_uip_perfApp(n as f64, *rev, *tick, *all) };
-        let el = platypus_ts_ui::element_from(h);
+        let el = web_ui_bridge::element_from(h);
         let errors = rt.render(root, el, &mut tree);
         assert!(errors.is_empty(), "{errors:?}");
         times[i] = t.elapsed().as_secs_f64() * 1000.0;
@@ -39,7 +39,7 @@ fn native_run(n: usize) -> ([f64; 4], usize) {
 
 fn main() {
     assert_ne!(link_anchor(), 0);
-    assert_ne!(platypus_ts_ui::link_anchor(), 0);
+    assert_ne!(web_ui_bridge::link_anchor(), 0);
     platypus_ts_tests::gc_mode_from_env();
     unsafe { ts_uip_init() };
     let rows: usize = std::env::args()

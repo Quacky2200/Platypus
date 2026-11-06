@@ -3,17 +3,17 @@
 
 //! `sine_bench [frames]`: one frame of the sine-circle demo is the curve (361 points a degree,
 //! Catmull-Rom smoothed to 1,083 points) flattened to the list `render.stroke` takes. Compared:
-//! bun, and the native code `platypus_ts` generated (computing it, then Rust reading the array in
+//! bun, and the native code `web_ui_ts` generated (computing it, then Rust reading the array in
 //! place).
 //!
 //! The second part runs the demo's own class (`bench/sine_demo.ts`, copied verbatim from the
 //! commit before `LineRenderer2D`: `SineCircle.points()` building `Vector3` objects with a point
 //! every degree) both ways: bun, and the compiled code. One source, so it also shows what a
 //! swap-out costs.
-use platypus_ts_rt::{Array, link_anchor};
 use platypus_ts_tests::sine::*;
 use std::process::Command;
 use std::time::Instant;
+use web_ui_rt::{Array, link_anchor};
 
 fn bun(frames: usize, dir: &std::path::Path) -> Option<(f64, f64)> {
     let out = Command::new("bun")

@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! A stack walked from inside an engine call passes through the compiled game's frames in call
-//! order (the unwind tables `platypus_ts::unwind` registers). Windows x64 only. IDs are in
+//! order (the unwind tables `web_ui_ts::unwind` registers). Windows x64 only. IDs are in
 //! TESTS.md (M9-TS-3391).
 #![cfg(all(windows, target_arch = "x86_64"))]
 
-use platypus_ts::jit::{JitOptions, compile_and_load};
 use std::sync::Mutex;
+use web_ui_ts::jit::{JitOptions, compile_and_load};
 
 static SEEN: Mutex<Vec<usize>> = Mutex::new(Vec::new());
 
@@ -15,7 +15,7 @@ extern "C" fn probe_here() {
     let marker = 0usize;
     // SAFETY: the address of a local is this thread's stack pointer, near enough.
     *SEEN.lock().unwrap() =
-        unsafe { platypus_ts::unwind::stack_words(&marker as *const usize as usize) };
+        unsafe { web_ui_ts::unwind::stack_words(&marker as *const usize as usize) };
 }
 
 // M9-TS-3391

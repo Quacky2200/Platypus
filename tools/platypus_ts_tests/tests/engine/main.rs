@@ -1,7 +1,7 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! platypus_ts tests: scenes, GameObjects, components, physics and contacts, animation, the zombie
+//! web_ui_ts tests: scenes, GameObjects, components, physics and contacts, animation, the zombie
 //! sim and the GC over it. One of five test binaries by area, so an edit relinks a smaller one.
 
 mod anim_animator;

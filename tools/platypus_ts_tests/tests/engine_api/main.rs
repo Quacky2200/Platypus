@@ -1,7 +1,7 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! platypus_ts tests: engine services and maths from compiled code (time, input, assets, audio,
+//! web_ui_ts tests: engine services and maths from compiled code (time, input, assets, audio,
 //! rendering data, shapes, the facade). One of five test binaries by area, so an edit relinks a
 //! smaller one.
 

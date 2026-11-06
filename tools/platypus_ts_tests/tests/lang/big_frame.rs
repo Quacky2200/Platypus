@@ -6,7 +6,7 @@
 //! probes it jumped past Windows' stack guard page: a start-up crash about one run in five in
 //! Zombie Horders (a 37 KB `init`), a silent death with no report in anything bigger. IDs are in
 //! TESTS.md (M9-TS-3392).
-use platypus_ts::jit::{JitOptions, compile_and_load};
+use web_ui_ts::jit::{JitOptions, compile_and_load};
 
 // M9-TS-3392
 #[test]

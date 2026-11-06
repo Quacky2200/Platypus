@@ -1,7 +1,7 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! The main window drawn on the CPU (`platypus_render_cpu`: `vello_cpu` into a pixel buffer,
+//! The main window drawn on the CPU (`web_ui_render_cpu`: `vello_cpu` into a pixel buffer,
 //! shown through `softbuffer`), no GPU API at all. Opt-in only (`renderer: "cpu"` or
 //! `--renderer cpu`), never chosen automatically; UI only, like the GLES path: no 3D world,
 //! world panels or secondary windows ("3D Not Supported" when the game asks for the world). If
@@ -13,7 +13,7 @@ use std::time::{Duration, Instant};
 
 use anyhow::{Context as _, Result};
 use platypus_platform::Window;
-use platypus_render_cpu::{CpuRenderer, Presenter};
+use web_ui_render_cpu::{CpuRenderer, Presenter};
 
 use super::App;
 use super::gles_gfx::{Shown, unchanged};
@@ -29,9 +29,9 @@ pub(crate) struct CpuGfx {
 }
 
 /// The background, as the other renderers clear to.
-fn clear() -> platypus_ui::Rgba {
+fn clear() -> web_ui_dom::Rgba {
     let c = super::CLEAR;
-    platypus_ui::Rgba {
+    web_ui_dom::Rgba {
         r: c.r as f32,
         g: c.g as f32,
         b: c.b as f32,
@@ -157,14 +157,14 @@ struct CpuFrame {
     size: (u32, u32),
     scale: f32,
     dpi: f64,
-    cmds: Vec<platypus_ui::DrawCmd>,
-    fps_cmds: Option<Vec<platypus_ui::DrawCmd>>,
+    cmds: Vec<web_ui_dom::DrawCmd>,
+    fps_cmds: Option<Vec<web_ui_dom::DrawCmd>>,
 }
 
 impl CpuFrame {
     /// The UI, and the FPS counter over it at the window's own scale.
-    fn draw<'r>(&self, renderer: &'r mut CpuRenderer) -> &'r platypus_render_cpu::Pixmap {
-        let mut layers: Vec<(f32, &[platypus_ui::DrawCmd])> = vec![(self.scale, &self.cmds)];
+    fn draw<'r>(&self, renderer: &'r mut CpuRenderer) -> &'r web_ui_render_cpu::Pixmap {
+        let mut layers: Vec<(f32, &[web_ui_dom::DrawCmd])> = vec![(self.scale, &self.cmds)];
         if let Some(fps) = &self.fps_cmds {
             layers.push((self.dpi as f32, fps));
         }

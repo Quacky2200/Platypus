@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! The 13 cases of `fixtures/sim.test.ts`, run against native code that
-//! `platypus_ts` compiled from `sim.ts`. Test IDs are in TESTS.md (M9-TS-*).
+//! `web_ui_ts` compiled from `sim.ts`. Test IDs are in TESTS.md (M9-TS-*).
 #![allow(non_snake_case)]
 
-use platypus_ts_rt::{Closure, link_anchor, ts_rt_arr_new};
 use platypus_ts_tests::sim::*;
 use platypus_ts_tests::*;
+use web_ui_rt::{Closure, link_anchor, ts_rt_arr_new};
 
 const W: usize = 1022;
 const H: usize = 750;

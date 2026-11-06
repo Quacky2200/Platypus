@@ -1,7 +1,7 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-//! Test harness for the native code `platypus_ts` generates from `sim.ts`: the generated bindings
+//! Test harness for the native code `web_ui_ts` generates from `sim.ts`: the generated bindings
 //! (layouts, tags, extern functions) plus helpers to build state from Rust.
 #![allow(non_snake_case, clippy::not_unsafe_ptr_arg_deref)] // a test harness: every pointer comes from the generated code
 
@@ -309,10 +309,10 @@ pub fn engine_api_anchor() -> usize {
 #[used]
 static ENGINE_API: fn() -> usize = engine_api_anchor;
 
-/// Keeps the UI bridge (`platypus_ts_ui`) linked into every binary of this crate: the `ui` module's
+/// Keeps the UI bridge (`web_ui_bridge`) linked into every binary of this crate: the `ui` module's
 /// object calls its `ts_ui_*` functions.
 #[used]
-static UI_BRIDGE: fn() -> usize = platypus_ts_ui::link_anchor;
+static UI_BRIDGE: fn() -> usize = web_ui_bridge::link_anchor;
 
 /// Uses `platypus_scene`, so that binaries linking this crate also link its `Scene` API shims.
 pub fn scene_anchor() -> usize {
@@ -1099,11 +1099,11 @@ pub mod gap {
     include!(concat!(env!("OUT_DIR"), "/gap_bindings.rs"));
 }
 
-use platypus_ts_rt::{
+use sim::*;
+use web_ui_rt::{
     Array, Closure, ts_rt_arr_new, ts_rt_arr_push, ts_rt_closure_new, ts_rt_gc_stress,
     ts_rt_obj_new, ts_rt_root_add,
 };
-use sim::*;
 
 /// Allocates a zeroed script object of type `T` whose bindings header is `hdr` (`HDR_<Name>`).
 /// Host allocations never collect.
@@ -1122,7 +1122,7 @@ pub fn root<T>(p: *mut T) -> *mut T {
 pub fn gc_mode_from_env() {
     match std::env::var("PLATYPUS_TS_GC").as_deref() {
         Ok("stress") => ts_rt_gc_stress(true),
-        Ok("off") => platypus_ts_rt::ts_rt_gc_enable(false),
+        Ok("off") => web_ui_rt::ts_rt_gc_enable(false),
         _ => {}
     }
 }

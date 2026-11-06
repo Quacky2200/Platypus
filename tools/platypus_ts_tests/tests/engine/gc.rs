@@ -3,9 +3,9 @@
 
 //! The collector under the zombie sim: it must not change what the game computes, and it must
 //! keep memory bounded. IDs are in TESTS.md (M9-TS-23..25).
-use platypus_ts_rt::{gc_stats, link_anchor, ts_rt_gc_collect, ts_rt_gc_stress};
 use platypus_ts_tests::sim::*;
 use platypus_ts_tests::*;
+use web_ui_rt::{gc_stats, link_anchor, ts_rt_gc_collect, ts_rt_gc_stress};
 
 fn run_busy(steps: usize) -> f64 {
     assert_ne!(link_anchor(), 0);

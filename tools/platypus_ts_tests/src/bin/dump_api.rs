@@ -5,8 +5,8 @@
 //! listing, one line per function: `Namespace.Class kind name(params) -> ret`. A development
 //! aid for the engine facade (what the TypeScript examples can call, and what they cannot).
 fn main() {
-    assert_ne!(platypus_ts_rt::link_anchor(), 0);
-    assert_ne!(platypus_ts_ui::link_anchor(), 0);
+    assert_ne!(web_ui_rt::link_anchor(), 0);
+    assert_ne!(web_ui_bridge::link_anchor(), 0);
     assert_ne!(platypus_ts_tests::engine_api_anchor(), 0);
     assert_ne!(platypus_ts_tests::demo_api_anchor(), 0);
     let _ = platypus_ts_tests::scene_anchor();

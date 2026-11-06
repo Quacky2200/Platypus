@@ -15,7 +15,7 @@ use platypus_platform::{
     InputEvent, WheelDelta, WindowCommand, WindowHost, WindowKey, WindowKind, WindowSpec,
 };
 use platypus_render::{OffscreenTarget, WindowSurface};
-use platypus_ui::{Input, Interaction, UiTree, events};
+use web_ui_dom::{Input, Interaction, UiTree, events};
 
 use super::*;
 
@@ -167,7 +167,7 @@ pub fn draw_window(
     let ui = to_ui(w.physical, w.scale);
     w.tree.set_size(ui.0 as f32, ui.1 as f32);
     w.tree.set_time(now_ms);
-    w.tree.set_media_env(platypus_ui::media::MediaEnv {
+    w.tree.set_media_env(web_ui_dom::media::MediaEnv {
         resolution: w.scale as f32,
         dark,
         ..w.tree.media_env()
@@ -862,7 +862,7 @@ impl App {
                 .is_some_and(|x| x.lifecycle.paused());
             self.in_game(|| win::deliver(d, now_ms));
             if !paused {
-                self.in_game(|| platypus_ts_rt::ts_rt_timers_advance_domain(now_ms, d.0));
+                self.in_game(|| web_ui_rt::ts_rt_timers_advance_domain(now_ms, d.0));
             }
             for (key, event) in self.domains.take_queue(d) {
                 self.window_event(key, event);
@@ -1111,7 +1111,7 @@ mod tests {
     // M9-API-1470
     #[test]
     fn a_virtual_window_draws_its_ui_offscreen() {
-        use platypus_ui::opcodes::{APPEND_CHILD, CREATE, SET_STYLE};
+        use web_ui_dom::opcodes::{APPEND_CHILD, CREATE, SET_STYLE};
         let gpu = platypus_render::testing::shared_gpu();
         let mut renderer = UiRenderer::new(&gpu);
         let mut tree = UiTree::with_system_fonts(1.0, 1.0);

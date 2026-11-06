@@ -17,7 +17,7 @@ pub fn install() {
     if !v.is_empty() && v != "0" {
         ON.store(true, Ordering::Relaxed);
         REGIONS.store(v == "regions", Ordering::Relaxed);
-        platypus_ts::timing::set_mark_hook(mark);
+        web_ui_ts::timing::set_mark_hook(mark);
         mark("process start");
     }
 }

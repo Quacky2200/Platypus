@@ -4,9 +4,9 @@
 //! `bench/anim_animator.ts` compiled against the native engine API and compared with the original
 //! TypeScript run in bun (`bench/gen_anim_animator_expected.ts`), in the normal, stress GC and
 //! collection-off modes. IDs are in TESTS.md (M9-TS-692..).
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::anim_animator_t::*;
 use serde_json::Value;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 /// A new scene and no animation objects.
 fn reset() {

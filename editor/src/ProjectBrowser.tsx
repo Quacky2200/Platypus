@@ -56,7 +56,7 @@ export function ProjectBrowser({ width, height, rowHeight = 22, onOpenFile, onTr
   const root = projectFolder();
   const rootName = root ? baseName(root) : "Project";
   // `..` first when inside a folder, told apart by its place: a `(ProjectEntry & { up?: true })[]`
-  // isn't converted element by element yet (tools/platypus_ts/TODO.md, "An array of `A`").
+  // isn't converted element by element yet (tools/web_ui_ts/TODO.md, "An array of `A`").
   const rows: ProjectEntry[] = path ? [{ name: "..", dir: true, size: 0 }, ...entries] : entries;
   const isUp = (i: number) => path !== "" && i === 0;
 

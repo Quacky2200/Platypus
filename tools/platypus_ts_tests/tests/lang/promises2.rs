@@ -6,10 +6,10 @@
 //! of `bench/promises2_cases.ts` are compiled in the process (the JIT), run in the normal, stress
 //! GC and collection-off modes and compared with bun (`bench/gen_promises2_expected.ts`). IDs are
 //! in TESTS.md (M9-TS-2897..).
-use platypus_ts::jit::{JitOptions, compile_and_load};
-use platypus_ts_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress, ts_rt_run_loop};
 use serde_json::Value;
 use std::cell::RefCell;
+use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress, ts_rt_run_loop};
+use web_ui_ts::jit::{JitOptions, compile_and_load};
 
 const CASES: &str = include_str!("../../bench/promises2_cases.ts");
 
@@ -47,7 +47,7 @@ fn run(src: &str, prefix: &'static str, struct_base: u32) -> Result<Run, String>
             ..Default::default()
         },
     )?;
-    platypus_ts_rt::ts_rt_set_console(Some(capture));
+    web_ui_rt::ts_rt_set_console(Some(capture));
     let mut out: Vec<Run> = Vec::new();
     for mode in 0..3 {
         match mode {
@@ -77,7 +77,7 @@ fn run(src: &str, prefix: &'static str, struct_base: u32) -> Result<Run, String>
     }
     ts_rt_gc_stress(false);
     ts_rt_gc_enable(true);
-    platypus_ts_rt::ts_rt_set_console(None);
+    web_ui_rt::ts_rt_set_console(None);
     if out.iter().any(|r| *r != out[0]) {
         return Err(format!("GC modes disagree: {out:?}"));
     }

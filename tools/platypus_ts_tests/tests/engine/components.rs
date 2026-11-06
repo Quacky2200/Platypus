@@ -7,10 +7,10 @@
 use platypus_components::NativeHost;
 use platypus_scene::Scene;
 use platypus_scene::api::scene_api as api;
-use platypus_ts_rt::{link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 use platypus_ts_tests::cmp::*;
 use std::sync::Mutex;
 use ts_api::Handle;
+use web_ui_rt::{link_anchor, ts_rt_gc_enable, ts_rt_gc_stress};
 
 /// The scripts' globals (`awakes`, `order`) are shared; one test at a time.
 static SERIAL: Mutex<()> = Mutex::new(());
