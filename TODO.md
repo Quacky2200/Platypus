@@ -2341,6 +2341,7 @@ Every API is a crate of its own (a `ts_api` plugin with its manifest and symbols
 - [ ] **Fullscreen API** (`web_api_fullscreen`): `element.requestFullscreen()`, `document.exitFullscreen()`, `fullscreenchange`.
 - [ ] **Workers** (`web_api_worker`): `new Worker(url)`, `postMessage` / `onmessage` with structured clone. Each worker is a thread with its own GC heap (the runtime's heap is already per thread).
 - [ ] **fetch and WebSocket** (`web_api_net`): `fetch` (Request / Response / Headers / streams), `WebSocket`; the M6 design in `docs/research/networking-and-files.md`.
+- [ ] **WebRTC** (`web_api_webrtc`): `RTCPeerConnection` (ICE / STUN / TURN, SDP offer and answer), `RTCDataChannel`, and media tracks with `getUserMedia` (camera, microphone) once `web_api_media` exists; over the `webrtc` crate (webrtc-rs) or libwebrtc, to be decided. Also a transport for M8 multiplayer.
 - [ ] **Service worker** (`web_api_service_worker`): fetch interception and a cache over `web_api_net`.
 - [ ] **Geolocation** (`web_api_geolocation`): the OS location services (Windows.Devices.Geolocation, CoreLocation, GeoClue).
 - [ ] **Clipboard** (`web_api_clipboard`): `navigator.clipboard` read / write text and images (arboard, as the UI already uses).
