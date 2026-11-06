@@ -17,6 +17,23 @@ their own Rust plugins (`#[ts_api]` namespaces) and a TS entry point.
   loop and returns an exit code), the C program only registers plugins and points at a bundle.
 - **Platypus** becomes a web-ui app: the engine crates are ts_api plugins plus a host extension.
 
+### Two entry points
+
+The library is used in one of two ways:
+
+1. **As the app's entry point** (`web_ui_start`, C or Rust `web_ui::App`): the program is a compiled
+   TypeScript / React app. web-ui owns the window, event loop, JIT and renderer; the launcher only
+   registers its plugins (`web_ui_register`) and names the bundle, then returns the exit code
+   `web_ui_start` gives back. `examples/hello-c` and `examples/hello-rust` are this shape.
+2. **As a library inside a Rust host** (what Platypus does): the host keeps its own window, event
+   loop and renderer choice and calls the crates directly: `web_ui_ts` to compile (with its
+   `Extension` and manifests), `web_ui_rt` / `web_ui_bridge` to run, `web_ui_dom` / `web_ui_react`
+   for the UI tree and `web_ui_render*` to draw it, mixed with its own world rendering. The facade
+   is not involved.
+
+The facade is built on the same crates as the second way, so anything the first can do a host can
+do by hand.
+
 ## Decisions (2026-11-05, with the user)
 
 - `platypus_api` -> `ts_api` (crate, `#[ts_api(..)]` attribute, `ts_api_result*` helpers).
