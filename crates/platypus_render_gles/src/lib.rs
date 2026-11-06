@@ -522,7 +522,8 @@ impl GlesRenderer {
     pub fn canvas_bytes(&self) -> usize {
         let (w, h) = self.canvas_size;
         let (sw, sh) = self.seed_size;
-        self.canvases.len() * (w * h * 4) as usize + usize::from(self.seed.is_some()) * (sw * sh * 4) as usize
+        self.canvases.len() * (w * h * 4) as usize
+            + usize::from(self.seed.is_some()) * (sw * sh * 4) as usize
     }
 
     /// Deletes the frame-sized canvases and the seed copy (a window or layer that is idle or hidden: on a software
