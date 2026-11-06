@@ -2362,3 +2362,11 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WAPI-FS-02 | Unit | Fullscreen requests apply on the host's frame, not before: the promise resolves and `fullscreenchange` fires; a node the host can't show rejects; Esc (`exit_by_user`) fires a change; `exitFullscreen` with nothing fullscreen rejects; listeners of other types are not added. |
 | WAPI-FS-03 | Unit | The `document` manifest adds `requestFullscreen` (a promise) to `UiNode` and has a nullable `fullscreenElement` and the `exitFullscreen` promise. |
 | WAPI-FS-04 | Manual | A scratch app asking for fullscreen at start: the window goes 1920 x 1080, the element fills it with its `:fullscreen` style, the promise resolves with `fullscreenElement` set, one `fullscreenchange`. |
+| WUI-TS-02 | Unit | A plugin's TypeScript facade becomes declarations: `__xm_C_m<T>(self: C, ..)` a member of `C` (receiver dropped), `__xt_O_m` a static, `interface` / `type` kept as written, a `/** */` above as the doc; other functions are not declared. |
+| WAPI-WRK-01 | Unit | The worker manifest has the `Worker` class with its constructor, the `self` namespace and the facade; the d.ts declares `MessageEvent<T>`, `postMessage<T>(message: T)` and the typed `addEventListener`, not the JSON natives. |
+| WAPI-WRK-02 | Unit | Outside a worker `self.postMessage` does nothing and `self.addEventListener` gives no token; `pump` with no workers delivers nothing. |
+| WAPI-WRK-03 | Unit | A compiled program starts a worker, posts it a typed object; the worker answers from its own `setTimeout` and the main listener reads the typed answer. |
+| WAPI-WRK-04 | Unit | A worker's messages arrive in order; a worker that calls `self.close()` ends and is forgotten (`running()` is 0). |
+| WAPI-WRK-05 | Unit | Workers that fail to compile or whose URL the host can't load end without messages. |
+| WAPI-WRK-06 | Unit | `build` bundles every `new Worker("<literal>")` program and the workers they start into `workers` (by URL as written); a missing one is a warning. |
+| WAPI-WRK-07 | Manual | `web-ui run examples/hello-app` (release): the worker counts the primes below 5,000,000 and the page shows 348513. |
