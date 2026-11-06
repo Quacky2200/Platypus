@@ -36,7 +36,7 @@ When a choice comes up, don't stop; sort it:
   or the task's completion note.
 - **Important** (architecture, public API or file format, dependency, behaviour users will notice,
   anything costly to undo): still take the recommended option provisionally if work can safely
-  continue on it, and record it in `decisions.md` at the repo root (create it if missing; newest
+  continue on it, and record it in `decisions.md` at the repo root (git-ignored, so never committed; create it if missing; newest
   first, appended, not rewritten). Each entry: date, task, the question, options considered, what
   was chosen provisionally and why, and what changes if the user picks differently. Then continue
   with that task or move to the next one.

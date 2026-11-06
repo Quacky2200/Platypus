@@ -26,3 +26,5 @@ tools/bench/*/types/
 *.meta
 # The local list of unsafe code for review passes; kept out of the repository.
 docs/AUDIT-UNSAFE-CODE.md
+# The agents' running list of provisional decisions (iterate-to-target skill); local to a checkout.
+decisions.md
