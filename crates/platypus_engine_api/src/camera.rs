@@ -39,6 +39,28 @@ impl Handle for TextureRef {
     }
 }
 
+/// A screen UI element (`UiNode`) as the camera API sees it (`targetCanvas`): the node id plus
+/// one, 0 for none, as `web_ui_bridge` makes `UiNode` handles.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct UiNodeRef(pub u64);
+
+impl UiNodeRef {
+    /// The UI node id.
+    pub fn node(self) -> Option<u32> {
+        self.0.checked_sub(1).map(|n| n as u32)
+    }
+}
+
+impl Handle for UiNodeRef {
+    fn to_raw(self) -> u64 {
+        self.0
+    }
+
+    fn from_raw(raw: u64) -> Self {
+        UiNodeRef(raw)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct CameraData {
     pub object: ObjectId,
@@ -62,6 +84,8 @@ pub struct CameraData {
     pub antialiasing: String,
     /// Draws into this texture instead of the screen (0: the screen).
     pub target_texture: TextureRef,
+    /// Draws into this screen UI `<canvas>` element instead, at its box's size (none: 0).
+    pub target_canvas: UiNodeRef,
     /// The editor's ground grid.
     pub scene_grid: bool,
     /// Shows `RenderSettings.fog` (a minimap turns it off).
@@ -274,7 +298,12 @@ fn with<R>(c: CameraRef, f: impl FnOnce(&mut CameraData) -> R) -> Option<R> {
 
 #[ts_api(
     namespace = "Cameras",
-    handles(GameObject = ObjectId, Camera = CameraRef, Texture = TextureRef),
+    handles(
+        GameObject = ObjectId,
+        Camera = CameraRef,
+        Texture = TextureRef,
+        UiNode = UiNodeRef
+    ),
     values(
         Color = Rgba [r: f64, g: f64, b: f64, a: f64],
         Vector2 = V2 [x: f64, y: f64],
@@ -284,7 +313,7 @@ fn with<R>(c: CameraRef, f: impl FnOnce(&mut CameraData) -> R) -> Option<R> {
     )
 )]
 pub mod camera_api {
-    use super::{CAMERAS, CameraData, CameraRef, TextureRef, View, pixel_aspect, with};
+    use super::{CAMERAS, CameraData, CameraRef, TextureRef, UiNodeRef, View, pixel_aspect, with};
     use crate::color::Rgba;
     use platypus_math::{Ray, Rect, V2, V3};
     use platypus_scene::ObjectId;
@@ -321,6 +350,7 @@ pub mod camera_api {
                     layer_cull_spherical: false,
                     antialiasing: "none".to_string(),
                     target_texture: TextureRef(0),
+                    target_canvas: UiNodeRef(0),
                     scene_grid: false,
                     fog: true,
                     exposure: f64::NAN,
@@ -343,6 +373,7 @@ pub mod camera_api {
                 .into_iter()
                 .find(|(_, d)| {
                     d.target_texture.0 == 0
+                        && d.target_canvas.0 == 0
                         && platypus_scene::api::with_scene(|s| s.active(d.object)).unwrap_or(true)
                 })
                 .map_or(CameraRef(0), |(c, _)| c)
@@ -615,6 +646,20 @@ pub mod camera_api {
 
         pub fn set_target_texture(self, t: TextureRef) {
             with(self, |d| d.target_texture = t);
+        }
+
+        /// Draws into this screen UI `<canvas>` element instead of the screen (a `ref`'s
+        /// `current`), at the element's size in pixels, following it as layout changes; none:
+        /// the screen. The element shows the view where the UI draws it.
+        #[property]
+        #[nullable(undefined)]
+        pub fn target_canvas(self) -> UiNodeRef {
+            with(self, |d| d.target_canvas).unwrap_or(UiNodeRef(0))
+        }
+
+        #[nullable(undefined)]
+        pub fn set_target_canvas(self, n: UiNodeRef) {
+            with(self, |d| d.target_canvas = n);
         }
 
         /// Draws the editor's ground grid on y = 0 (not saved with scenes).

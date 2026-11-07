@@ -2182,6 +2182,13 @@ impl WorldRenderer {
         self.material_groups.clear();
     }
 
+    /// Render texture `id`'s colour (sRGB) view, for the UI renderer to show it
+    /// (`UiRenderer::set_external_image`); `None` for another kind of texture.
+    pub fn render_texture_view(&self, id: u32) -> Option<&wgpu::TextureView> {
+        let t = self.textures.get(&id)?;
+        t.target.as_ref().map(|_| &t.srgb)
+    }
+
     /// Makes (or resizes) render texture `id`: cameras draw into it
     /// ([`WorldView::target_texture`]) and materials and sprites show it like any kept
     /// texture ([`WorldTexture::Asset`]).

@@ -48,6 +48,8 @@ struct Camera {
     fxaa: bool,
     /// Draws into this render texture instead of the screen (`targetTexture`).
     target: Option<u32>,
+    /// Draws into this screen UI `<canvas>` node's texture instead (`targetCanvas`).
+    canvas: Option<u32>,
     /// Draws the editor's ground grid (`Camera.sceneGrid`).
     grid: bool,
     /// Shows `RenderSettings.fog` (`Camera.fog`).
@@ -453,6 +455,25 @@ pub struct WorldViews {
     texture_sizes: HashMap<u32, (u32, u32)>,
     /// Renderers watched for animation culling, and what the last frame saw of them.
     pub(crate) culling: crate::anim_cull::Watch,
+    /// The `<canvas>` nodes cameras draw into, with their texture's size.
+    canvas_textures: HashMap<u32, (u32, u32)>,
+}
+
+/// Render textures of `<canvas>` elements (`Camera.targetCanvas`) are this plus the UI node id,
+/// above scripts' textures and the engine's (`models::ENGINE_IDS`).
+const CANVAS_TEXTURES: u32 = 0xE000_0000;
+
+/// The render texture a camera draws into for `<canvas>` node `node`.
+pub fn canvas_texture(node: u32) -> u32 {
+    CANVAS_TEXTURES.wrapping_add(node)
+}
+
+/// What [`WorldViews::sync_canvases`] changed: canvases whose texture was made or resized (node,
+/// texture id, size), and those no camera draws into any more.
+#[derive(Debug, Default, PartialEq)]
+pub struct CanvasChanges {
+    pub made: Vec<(u32, u32, (u32, u32))>,
+    pub gone: Vec<u32>,
 }
 
 impl Default for WorldViews {
@@ -496,7 +517,56 @@ impl Default for WorldViews {
             bone_cache: Default::default(),
             texture_sizes: HashMap::new(),
             culling: crate::anim_cull::Watch::default(),
+            canvas_textures: HashMap::new(),
         }
+    }
+}
+
+impl WorldViews {
+    /// Gives cameras that draw into a `<canvas>` element (`targetCanvas`) a render texture of
+    /// the element's box in pixels (`size_of`; `None` while it isn't laid out, and the camera
+    /// draws nothing), made again when the size changes and removed when no camera draws there.
+    /// Call before the app applies the uploads; it hands the textures to the UI renderer.
+    pub fn sync_canvases(&mut self, size_of: impl Fn(u32) -> Option<(u32, u32)>) -> CanvasChanges {
+        let wanted: HashMap<u32, (u32, u32)> = self
+            .cameras
+            .values()
+            .filter_map(|c| c.canvas)
+            .filter_map(|node| Some((node, size_of(node)?)))
+            .collect();
+        let mut changes = CanvasChanges::default();
+        let gone: Vec<u32> = self
+            .canvas_textures
+            .keys()
+            .filter(|n| !wanted.contains_key(n))
+            .copied()
+            .collect();
+        for node in gone {
+            self.canvas_textures.remove(&node);
+            let id = canvas_texture(node);
+            self.render_textures.remove(&id);
+            self.texture_uploads.push((id, None));
+            changes.gone.push(node);
+        }
+        for (node, size) in wanted {
+            if self.canvas_textures.get(&node) == Some(&size) {
+                continue;
+            }
+            let id = canvas_texture(node);
+            self.canvas_textures.insert(node, size);
+            self.render_textures.insert(id, size);
+            self.render_texture_uploads.push((id, size));
+            changes.made.push((node, id, size));
+        }
+        changes.made.sort_unstable();
+        changes.gone.sort_unstable();
+        changes
+    }
+
+    /// Makes [`Self::sync_canvases`] report every canvas as new again (their textures weren't
+    /// made: no world yet).
+    pub fn forget_canvases(&mut self) {
+        self.canvas_textures.clear();
     }
 }
 
@@ -1080,7 +1150,7 @@ impl WorldViews {
             // `camera component object fov near far [r g b a] depth orthographic
             // orthographicSize [x y w h] clearFlags(skybox|color) cullingMask
             // [32 cull distances]|null cullSpherical antialiasing targetTexture|null grid
-            // fog`
+            // fog targetCanvas(UI node)|null`
             "camera" => {
                 let orthographic = matches!(args.get(7), Some(Value::Bool(true)));
                 let projection = if orthographic {
@@ -1111,6 +1181,10 @@ impl WorldViews {
                     },
                     grid: matches!(args.get(16), Some(Value::Bool(true))),
                     fog: !matches!(args.get(17), Some(Value::Bool(false))),
+                    canvas: match args.get(18) {
+                        Some(Value::Null) | None => None,
+                        _ => Some(id_at(18)?),
+                    },
                     // Kept from before: gizmos come separately.
                     lines: self
                         .cameras
@@ -2095,7 +2169,8 @@ impl WorldViews {
                     });
                 }
                 // A camera with a missing render texture draws nothing.
-                let (target, target_size) = match camera.target {
+                let target = camera.target.or(camera.canvas.map(canvas_texture));
+                let (target, target_size) = match target {
                     Some(t) => (Some(t), *self.render_textures.get(&t)?),
                     None => (None, size),
                 };
@@ -2576,6 +2651,48 @@ mod tests {
             .apply("camera", &camera(None, Some([0.0, 6.0]), true))
             .unwrap();
         assert_eq!(seen(&views), vec![vec![-20.0, -5.0]]);
+    }
+
+    // M5-RND-27
+    #[test]
+    fn canvas_cameras_get_a_texture_that_follows_the_box() {
+        let n = Value::from;
+        let mut scene = ScriptScene::new();
+        scene
+            .apply("create", &[n(1.0), "camera".into(), Value::Null])
+            .unwrap();
+        scene.scene.update_world();
+        let mut views = WorldViews::default();
+        let camera = |canvas: Value| {
+            let mut a = vec![n(100.0), n(1.0), n(60.0), n(0.1), n(1000.0)];
+            a.resize(18, Value::Null);
+            a.push(canvas);
+            a
+        };
+        views.apply("camera", &camera(n(7.0))).unwrap();
+        let tex = canvas_texture(7);
+        // Not laid out yet: no texture, and the camera draws nothing (not on the screen either).
+        assert_eq!(views.sync_canvases(|_| None), CanvasChanges::default());
+        assert!(views.views(&scene, (64, 64), &[]).is_empty());
+        let size = std::cell::Cell::new((40, 30));
+        let changes = views.sync_canvases(|node| (node == 7).then(|| size.get()));
+        assert_eq!(changes.made, vec![(7, tex, (40, 30))]);
+        assert_eq!(views.render_texture_uploads, vec![(tex, (40, 30))]);
+        let v = views.views(&scene, (64, 64), &[]);
+        assert_eq!(v[0].target_texture, Some(tex));
+        // The same size: nothing; a new one: made again.
+        let same = views.sync_canvases(|node| (node == 7).then(|| size.get()));
+        assert_eq!(same, CanvasChanges::default());
+        size.set((80, 30));
+        let changes = views.sync_canvases(|node| (node == 7).then(|| size.get()));
+        assert_eq!(changes.made, vec![(7, tex, (80, 30))]);
+        // Back to the screen: the texture goes.
+        views.texture_uploads.clear();
+        views.apply("camera", &camera(Value::Null)).unwrap();
+        let changes = views.sync_canvases(|_| Some((1, 1)));
+        assert_eq!((changes.made.len(), changes.gone), (0, vec![7]));
+        assert!(matches!(views.texture_uploads[..], [(t, None)] if t == tex));
+        assert_eq!(views.views(&scene, (64, 64), &[])[0].target_texture, None);
     }
 
     // M5-RND-24

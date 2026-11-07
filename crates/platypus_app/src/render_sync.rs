@@ -375,6 +375,7 @@ fn same_camera(
         && a.layer_cull_spherical == b.layer_cull_spherical
         && a.antialiasing == b.antialiasing
         && a.target_texture == b.target_texture
+        && a.target_canvas == b.target_canvas
         && a.scene_grid == b.scene_grid
         && a.fog == b.fog
         && a.exposure_resets == b.exposure_resets
@@ -515,6 +516,10 @@ fn components(
                             },
                             Value::Bool(d.scene_grid),
                             Value::Bool(d.fog),
+                            match d.target_canvas.node() {
+                                Some(node) => n(f64::from(node)),
+                                None => Value::Null,
+                            },
                         ],
                     )?;
                     // `resetExposure()` calls since the last time.

@@ -17,6 +17,7 @@ pub(crate) mod asset_db;
 mod asset_root;
 mod bench;
 pub(crate) mod bone_cache;
+mod canvas_cameras;
 mod cdp;
 mod cloth_sync;
 pub(crate) mod color_space;
@@ -1986,6 +1987,8 @@ impl App {
         // Screenshot runs never wait for the display (as before vsync was on by default).
         gfx.surface
             .set_vsync(&gfx.gpu, self.world_view.quality.vsync && !self.offline);
+        let scale = ui_factor(gfx);
+        let canvases = canvas_cameras::sync(&mut self.world_view, &self.ui, scale);
         if let Some(world) = gfx.world.ensure(&gfx.gpu, self.world_view.needs_world()) {
             apply_world_view(
                 world,
@@ -1994,6 +1997,13 @@ impl App {
                 &mut self.pipeline_warned,
             );
         }
+        canvas_cameras::show(
+            &canvases,
+            &mut self.world_view,
+            &mut gfx.world,
+            &mut gfx.renderer,
+            &gfx.gpu,
+        );
         let now = self.started.elapsed().as_secs_f64() * 1000.0;
         let (quads, textures) = self.panels.render(
             &gfx.gpu,
@@ -2004,7 +2014,6 @@ impl App {
         );
         let views = self.world_view.views(&self.scene, (w, h), &quads);
         let textures: Vec<&wgpu::TextureView> = textures.iter().collect();
-        let scale = ui_factor(gfx);
         let mut cmds = cmds;
         if self.fps_on {
             let now = self.started.elapsed().as_secs_f64();
@@ -2490,6 +2499,7 @@ impl PlatformApp for App {
         // Screenshot runs never wait for the display (as before vsync was on by default).
         gfx.surface
             .set_vsync(&gfx.gpu, self.world_view.quality.vsync && !self.offline);
+        let canvases = canvas_cameras::sync(&mut self.world_view, &self.ui, scale);
         if let Some(world) = gfx.world.ensure(&gfx.gpu, self.world_view.needs_world()) {
             apply_world_view(
                 world,
@@ -2498,6 +2508,13 @@ impl PlatformApp for App {
                 &mut self.pipeline_warned,
             );
         }
+        canvas_cameras::show(
+            &canvases,
+            &mut self.world_view,
+            &mut gfx.world,
+            &mut gfx.renderer,
+            &gfx.gpu,
+        );
         let now = self
             .fake_now
             .unwrap_or_else(Instant::now)
