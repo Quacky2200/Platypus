@@ -703,7 +703,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-12 | Integration | Port: touching an ammo powerup adds 320 rounds. |
 | M9-TS-13 | Integration | Port: zombies speed up a little each level until level 3, then hold. |
 | M9-TS-14 | Unit | `web_ui_ts` lowers a discriminated union of object types to one struct holding every variant's fields, with string-literal tags interned. |
-| M9-TS-15 | Unit | Unsupported code is a compile error naming the line (`typeof`, `any`). |
+| M9-TS-15 | Unit | Unsupported code is a compile error naming the line (`never`); `any` compiles (a dynamic value). |
 | M9-TS-16 | Unit | Array-method callbacks are inlined (no closure call) and exported functions get `ts_` symbols in the object. |
 | M9-TS-17 | Unit | `web_ui_rt`: arrays grow and keep values (17a), strings concat and compare (17b), `Uint8Array.fill` clamps (17c). |
 | M9-TS-18 | Manual | `cargo run --release -p platypus_ts_tests --bin bench` (from `tools/`): QuickJS, bun and the native code run 10,000 steps of a busy state and print the same checksum; timings in `docs/research/platypus-ts-spike.md`. |
@@ -879,7 +879,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-189 | Integration | `continue` and `break` inside `catch`, and two hundred throws and catches with a collection at every allocation (`tests/errors.rs`). |
 | M9-TS-190 | Integration | An uncaught exception leaves the exported function with the exception pending; the host takes the error object (`tests/errors.rs`). |
 | M9-TS-191 | Unit | Only functions that can throw are checked after a call; callers of non-throwing code pay nothing (`web_ui_ts/src/lib.rs`). |
-| M9-TS-192 | Unit | `throw` of a non-Error is a compile error with a reason (`web_ui_ts/src/lib.rs`). |
+| M9-TS-192 | Unit | `throw` of a non-Error compiles (a dynamic value); a `try` with neither `catch` nor `finally` is an error (`web_ui_ts/src/lib.rs`). |
 | M9-TS-193 | Integration | `finally` runs once on a normal exit, after `catch`, and on `return`, in nested order, and while an exception propagates (`tests/errors.rs`). |
 | M9-TS-194 | Integration | `break`, `continue`, `continue label` and `return` pass through `finally`; a `return` in `finally` replaces the one in `try` (`tests/errors.rs`). |
 | M9-TS-195 | Integration | Runtime errors (`repeat(-1)`, `toFixed(101)`, `toString(37)`, `fromCodePoint(-1)`) are catchable `RangeError`s with bun's messages (`tests/errors.rs`). |
@@ -908,7 +908,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-218 | Integration | Sixty-seven malformed texts raise a `SyntaxError` with bun's text (`tests/json.rs`). |
 | M9-TS-219 | Integration | Three hundred objects stringified, parsed and stringified again under a collection at every allocation (`tests/json.rs`). |
 | M9-TS-220 | Integration | A shape mismatch is a `TypeError`, and a syntax error anywhere wins over it (`tests/json.rs`). |
-| M9-TS-221 | Unit | `JSON.parse` without a type, with a reviver, `stringify` with a replacer and of a function are compile errors with a reason (`web_ui_ts/src/lib.rs`). |
+| M9-TS-221 | Unit | `JSON.parse` without a type is a dynamic parse; a reviver, `stringify` with a replacer and of a function are compile errors with a reason (`web_ui_ts/src/lib.rs`). |
 | M9-TS-222 | Integration | `exec` and `test`: the match object (`m[0]`, groups, `index`, `length`, `input`), a miss, `source`, `flags`, `global` equal bun's (`platypus_ts_tests/tests/regexp.rs`, `bench/regexp.ts`, expected data from `bench/gen_regexp_expected.ts`). |
 | M9-TS-223 | Integration | A `g` regex steps through a string with `lastIndex`; a miss resets it (`tests/regexp.rs`). |
 | M9-TS-224 | Integration | Named groups (`m.groups.year`), a missing name, no `groups` without named groups (`tests/regexp.rs`). |
@@ -1721,7 +1721,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3505 | Integration | `new Map(pairs)` from an array of pairs that is not a literal; template parts that are conditionals of different types (`${n > 999 ? "999+" : n}`). |
 | M9-TS-3506 | Integration | A union of interfaces with a tag: a field all members have, tag narrowing after an early `return`, an object literal or spread taking its member, `JSON.stringify` writing the member. |
 | M9-TS-3507 | Integration | A defaulted literal-union closure parameter left out through an interface's optional one, `const` arrows of a block calling each other, `Error.stack` (the first line), `Promise.resolve` / `reject` typed by the context. |
-| M9-TS-3508 | Unit | `any` / `unknown` / `never` are a clear error with the line (not built yet), also through a bare generic interface's `T = unknown` default; with a type argument it compiles. |
+| M9-TS-3508 | Unit | A bare generic interface's `T = unknown` default compiles with `T` the dynamic value, as with a type argument; `never` is a clear error with the line (`tests/lang/editor_gaps.rs`). |
 | M9-TS-3520 | Integration | `currentTarget` is the element whose handler runs, pointer capture through it (`setPointerCapture(e.pointerId)`) becomes the host's node commands, and `defaultPrevented` reads the event as it is now, also in outer handlers (`tests/ui/ui.rs`, `bench/ui.ts` `CaptureBox`). |
 | M9-TS-3521 | Integration | A function component's `ref` prop (`Ref<T>`, React 19) is filled by `useImperativeHandle` (one without a ref renders too); a `"a" \| "b" \| null` state starts null and keeps each tag (`bench/ui.ts` `Picker`). |
 | M9-API-1647 | Unit | `Camera.worldToScreenPoint` inverts `screenToWorldPoint` (perspective and orthographic, a camera in half the window), `screenPointToRay` starts on the near plane through the point, `pixelRect` is `rect` in UI pixels (`camera.rs`). |
@@ -1747,6 +1747,43 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3536 | Unit | A compiler extension's `dts_members` are added to the engine classes it names in `platypus.d.ts` (a test extension adds `tag` to a class with a `gameObject`); with no extension nothing is added (web-ui `web_ui_ts/src/types_dts.rs`). |
 | M9-TS-3537 | Integration | A union inside a union is flattened: an array literal, a string, a number and an object literal go where `Key \| Range` is expected (`Key` itself a union), also as an optional parameter, and equal bun's (`platypus_ts_tests/tests/lang/unions.rs`, `bench/unions_cases.ts`, normal, GC stress, GC off). |
 | M9-TS-3538 | Integration | `JSON.parse` into a union picks the member of the JSON value's kind (numbers, strings, arrays, inside arrays and object fields) and `null` for a nullable union; the values stringify back as bun's (`platypus_ts_tests/tests/lang/unions.rs`, `bench/unions_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3539 | Unit | Guard: typed code (`fixtures/sim.ts`, `examples/arcade`) compiles to the same IR and object code as before dynamic values (FNV-1a hashes in `bench/dynamic_guard.json`; `PLATYPUS_UPDATE_GUARD=1` rewrites them) (`platypus_ts_tests/tests/lang/dynamic.rs`). |
+| M9-TS-3540 | Integration | Box and unbox round trips of numbers, strings, booleans, bigints, objects and arrays through `any`, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3541 | Integration | `typeof` of every kind of dynamic value, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3542 | Integration | Truthiness of dynamic values, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3543 | Integration | `null` vs `undefined` through `any`, `??`, `== null`, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3544 | Integration | Strict equality between dynamic values, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3545 | Integration | `typeof` narrowing of `any` / `unknown`, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3546 | Integration | `instanceof` narrowing of `any` / `unknown`, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3547 | Integration | String conversions of dynamic values (templates, `String()`, `+ ""`, Errors through `toString()`), equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3548 | Integration | `x as any` and back to a typed value, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3549 | Integration | `any` parameters, returns and fields, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3550 | Integration | `any[]` arrays, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3551 | Integration | A mixed `unknown[]` walked with `Array.isArray` and `typeof`, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3552 | Integration | `catch` of thrown non-Error values (strings, numbers, objects, `undefined`), equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3553 | Integration | `catch (e: unknown)` of an Error, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3554 | Integration | `finally` passes thrown and returned values through, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3555 | Integration | Untyped `JSON.parse` gives a dynamic value, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3556 | Integration | Dynamic JSON round trips and pretty printing (JavaScript key order), equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3557 | Integration | Dynamic `JSON.parse` syntax errors with JSC's texts, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3558 | Integration | A property read of `undefined` throws JSC's `undefined is not an object` text, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3559 | Integration | Optional chaining and indexing on `any`, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3560 | Integration | `Record<string, any>`: get, set, `in`, `for..in`, `Object.keys`, stringify as an object, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3561 | Integration | `Record<string, unknown>` from JSON, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3562 | Integration | Generics with `any` type arguments, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3563 | Integration | `JSON.stringify` of other dynamic values, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3564 | Integration | Dynamic values kept in maps, sets and arrays, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3565 | Integration | Boxing `boolean[]` and `(number | null)[]` (copies), equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3566 | Integration | `new Array<any>(n)` slots are `undefined`, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3567 | Integration | `any` in class fields and in typed JSON, equal to bun's (`platypus_ts_tests/tests/lang/dynamic.rs`, `bench/dynamic_cases.ts`, normal, GC stress, GC off). |
+| M9-TS-3568 | Unit | A dynamic value of the wrong kind at a typed boundary (assignment, argument, return, `as T`) is a `TypeError` (`tests/lang/dynamic.rs`). |
+| M9-TS-3569 | Unit | A typed `JSON.parse` of a dynamic shape still validates (`tests/lang/dynamic.rs`). |
+| M9-TS-3570 | Unit | `catch` binds a dynamic value only when the program throws a non-Error; otherwise `(e as Error)` keeps the Error pointer (`tests/lang/dynamic.rs`). |
+| M9-TS-3571 | Unit | What dynamic values don't do yet (calls, `for..of`, arithmetic, property access on typed objects, loose `==`) is a plain error (`tests/lang/dynamic.rs`). |
+| M9-TS-3572 | Unit | Dynamic word encodings: undefined 0, null 2, false 6, true 7, numbers offset by 2^49, objects as pointers (web-ui `web_ui_rt/src/dynv.rs`). |
+| M9-TS-3573 | Unit | Runtime `typeof`, truthiness and strict equality of dynamic words (web-ui `web_ui_rt/src/dynv.rs`). |
+| M9-TS-3574 | Unit | The collector traces dynamic words and skips non-object words (web-ui `web_ui_rt/src/dynv.rs`). |
+| M9-TS-3575 | Unit | Dynamic JSON parse and stringify in JavaScript key order (web-ui `web_ui_rt`). |
 | M9-TS-3532 | Integration | `{...(cond ? handlers(name) : {})}` in JSX sets the taken arm's props and handlers; the `{}` arm sets none (`tests/ui/ui.rs`, `bench/ui.ts` `condSpreadApp`). |
 | M9-TS-3509 | Unit | A function nothing calls is skipped by a build; `check_unused` (`platypus-build build --check-unused`) lowers it too, so its error shows. |
 | M9-SHOT-01 | Unit | `progress-shots` waits longer for effects that settle slowly: 120 frames by default, 900 for `dark-room`, 360 for `godrays-lift` (before the godrays rule), 600 for every `fog*` and other `godrays-*` example (`tests/tools/shots/src/bin/progress_shots.rs`). |
@@ -2430,4 +2467,8 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WAPI-CAN-02 | Unit | Paths: a filled `arc` circle and `isPointInPath`, a negative radius throwing `IndexSizeError`, a 4-wide stroke under `scale(2, 2)` 8 pixels thick, `setLineDash` dashes, even-odd vs non-zero fills, a `clip` kept until `restore`, `roundRect` corners, quadratic and cubic curves. |
 | WAPI-CAN-03 | Unit | Linear and radial gradients through `fillStyle` (read back as a gradient), `addColorStop` outside 0..1 throwing, `destination-out` erasing and unknown operations ignored, `drawImage` of a canvas scaled without smoothing and from a source rect, `putImageData` / `getImageData` round trips (premultiplied precision), transparent black outside the canvas. |
 | WAPI-CAN-04 | Unit | The declarations: `OffscreenCanvas`, `getContext(kind): CanvasRenderingContext2D \| null`, a writable `fillStyle: string \| CanvasGradient` from the facade setter, `getImageData(..): ImageData`, the `OffscreenCanvasRenderingContext2D` alias; no hidden natives. |
+| WAPI-CAN-05 | Unit | A `<canvas>` element is 300 x 150 by default and its `width` / `height` attributes size it (relaid out when they change, nothing to load); it draws as an image of `canvas:<node id>` (web-ui `web_ui_dom/tests/image.rs`). |
+| WAPI-CAN-06 | Unit | The UI image cache uploads a live image (`web_ui_core::live`) when first published and again only when republished, at the new size, and drops its texture when it is removed (web-ui `web_ui_render`). |
+| WAPI-CAN-07 | Unit | `UiNode.getContext("2d")` on a `<canvas>` element: drawing before the first frame is kept when `sync` gives it the element's size and is published; nothing drawn, nothing republished; a later size change clears it; the element going drops its image. |
+| WUI-LIVE-01 | Unit | Publishing a live image bumps its version; a wrong pixel count is ignored; removed images are gone (web-ui `web_ui_core::live`). |
 | WUI-TS-05 | Unit | A facade's `__xs_C_p` setter makes its property writable in the declarations (`p: T`, also with no getter), with its doc (web-ui `web_ui_ts/src/facade_decls.rs`). |

@@ -2382,7 +2382,7 @@ Every API is a crate of its own (a `ts_api` plugin with its manifest and symbols
 - [ ] **DRM** (`web_api_eme`): Encrypted Media Extensions as Chromium and Firefox build them (a CDM process behind `navigator.requestMediaKeySystemAccess`). ClearKey first; Widevine needs a licence from Google and their CDM binary, so the user decides that.
 - [ ] **Canvas** (`web_api_canvas`): the Canvas 2D API, and a canvas that Platypus's world renderer can draw into (the "canvas UI element" in Later), so Platypus games keep working. Provisional design in decisions.md (tiny-skia 0.12).
   - [x] Step 1 (2026-11-07): `OffscreenCanvas` and `CanvasRenderingContext2D` over tiny-skia: state stack, transforms, colours and linear / radial / conic gradients through `fillStyle` / `strokeStyle` (facade getters and setters: `__xs_` now declares writable properties), line styles and dashes, paths with every Canvas curve, fill rules, `clip`, `isPointInPath`, `globalAlpha` and all composite operations, `drawImage` of a canvas, `getImageData` / `putImageData`. Feature `canvas` of `web_api`. `WAPI-CAN-01..04`, `WUI-TS-05`.
-  - [ ] Step 2: a `<canvas>` UI element (web_ui_dom element + attrs, `ref.getContext("2d")`), its pixels uploaded to the UI renderers (wgpu, GLES, CPU) as an image that updates when drawn.
+  - [x] Step 2 (2026-11-07): the `<canvas width height>` element (300 x 150 by default), drawn as an image of `canvas:<node id>`; `ref.getContext("2d")` (a `UiNode` member from the canvas plugin); `web_ui_core::live` images (versioned, process-wide) that the UI image cache re-uploads when republished; `web_api_canvas::sync(tree)` each frame from web-ui's frame hook (sizes from attributes, the first one keeping what was drawn; pixels published when drawn on; dropped with the element). `WAPI-CAN-05..07`, `WUI-LIVE-01`. Not yet: Platypus calling `sync` (it doesn't link `web_api`), a demo in `examples/hello-app`, a check in the window.
   - [ ] Step 3: text: `font`, `fillText` / `strokeText` / `measureText`, `textAlign` / `textBaseline`, through the UI's fonts (swash outlines).
   - [ ] Step 4: Platypus's world renderer drawing into a canvas (the "canvas UI element" in Later).
   - [ ] Follow-ups: shadows, `filter`, `createPattern`, `Path2D`, `drawImage` of images (`ImageBitmap`, `<image>`), per-corner `roundRect` radii, a `DOMMatrix`, whole-canvas compositing for `source-in` / `copy`, `transferControlToOffscreen` / workers, `toBlob` / `toDataURL`.
@@ -2430,7 +2430,10 @@ Left:
 - [ ] **TypeScript conformance after the editor** (audit 2026-10-29, list in tools/web_ui_ts/TODO.md "TypeScript gaps"), in
   this order: cheap diagnostics and library holes (G4, G5, L2, `Object.is`, L5, L7, L8, M3, S10); a null property access
   as a catchable `TypeError` instead of a process crash (R2); dynamic `any` / `unknown` P0-P1
-  (`docs/research/platypus-dynamic-values.md`: D1-D3, R1, untyped `JSON.parse`, `console.log(obj)`); generics (T3, T10, T11,
+  (`docs/research/platypus-dynamic-values.md`: D1-D3, R1, untyped `JSON.parse`, `console.log(obj)`; **P0-P1 done 2026-11-07**,
+  web-ui `9507952`, tests `M9-TS-3539..3575`: the dynamic word, checked conversions, `typeof` / `instanceof` / `Array.isArray`
+  narrowing, dynamic reads, `catch` of non-Errors, untyped `JSON.parse` / `stringify`, `Record<string, any>`; next P2 property
+  access on typed objects and expandos, P3 calls, P4 operators, P5-P7 as the design says); generics (T3, T10, T11,
   T12) and modules (M1, M2, M6); a checker of our own or `tsgo` and a conformance harness against bun (G1, G6), before
   wider TypeScript (T2, S1-S9, A1-A2). Also T14 (an engine subclass handle to its base).
 - [x] **Replace `scripts/screenshots.ts` and `scripts/progress-shots.ts` with Rust tools under `tests/tools/`** (2026-10-28: `tests/tools/shots`, `screenshots` and `progress-shots`; `scripts/` and the root `package.json` bun script are gone).
