@@ -2644,6 +2644,13 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WAPI-MED-08 | Unit | `<audio autoplay loop muted>`: starts by itself, wraps instead of ending, has no box. |
 | WAPI-MED-09 | Unit | The script API compiles and runs: `new Audio(src)`, `muted`, `loop`, `volume`, `readyState`, `addEventListener` removers, `canPlayType`, `play().then(..)`. |
 | WAPI-MED-10 | Unit | `ffvpx.dll` (`FFVPX_DLL` or the target folder's) loads as a decoder-only install (no demuxer, no swscale): `open` says there is no avformat; skipped without the library. |
+| WAPI-MED-11 | Integration | The music files (Ogg Vorbis, FLAC, two MP3s from `WEB_UI_MEDIA_SAMPLES/audio`) open with a duration, rate and channel count and decode finite, non-silent samples; skipped without the folder. |
+| WAPI-MED-12 | Integration | Each Big Buck Bunny file (240p, 480p, 1080p, 4K VP9 + Opus WebM from `WEB_UI_MEDIA_SAMPLES/video`) opens at its size and decodes N frames (`WEB_UI_MEDIA_FRAMES`, default 60) in increasing time order; prints frames per second, ms per frame and the worst frame (informational); a file the decoder cannot open or one that is absent is skipped. |
+| WAPI-MED-13 | Unit | The controls' clock text (`1:05`, `1:02:05`) and filled widths (`50.0%`, clamped). |
+| WAPI-MED-14 | Unit | A `<video>` fits its frame with `contain` by default, follows `objectFit` / `objectPosition` (`scale-down` compares the frame's own size), and draws its `poster` (asking the app to load it) until the first frame (web-ui `web_ui_dom/tests/image.rs`). |
+| WAPI-MED-15 | Unit | `controls` adds the bar's nodes (`wui-media-controls`, play, time, seek, mute, volume and their fills) to a `<video>` through the reconciler; without it there are none. |
+| WAPI-MED-16 | Unit | `accent-color` becomes the seek and volume fills' background and `color-scheme` the bar's `data-scheme`. |
+| WAPI-MED-17 | Unit | A player on a source whose backend `open` takes a second: `start` returns within 250 ms, nothing is ready or drawn meanwhile, then `loadedmetadata` state, the first frame and the playback counters (decoded, shown) arrive from the player thread. |
 | WUI-RTR-01 | Unit | A path splits into pathname, `?search` and `#hash` (a lone `?` or `#` is empty) (web-ui `web_ui_router/src/path.rs`). |
 | WUI-RTR-02 | Unit | Relative targets resolve from the calling route (`edit`, `../9`, `..` past the root), absolute ones stand with doubled slashes squeezed, a target with only `?search` keeps the current path. |
 | WUI-RTR-03 | Unit | Query strings decode `%XX` and `+` and encode back as `encodeURIComponent` does (`a=1&b=x+y`). |
