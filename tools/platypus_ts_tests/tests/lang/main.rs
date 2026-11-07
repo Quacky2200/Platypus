@@ -18,6 +18,7 @@ mod bytes;
 mod classes;
 mod closures;
 mod collections;
+mod const_closure;
 mod debug_lines;
 mod debugger;
 mod destructure;

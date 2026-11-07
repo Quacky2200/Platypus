@@ -1825,6 +1825,8 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3613 | Unit | `ts_api::Bytes` kept by the host comes back as the same object (`===`); writes on either side are seen by the other; host-made arrays work alike (`tests/lang/bytes.rs`). |
 | M9-TS-3614 | Unit | Arrays kept only by the host survive collections (stress, normal, off), and host-made results in a 2000-step loop keep the checksum (`tests/lang/bytes.rs`). |
 | M9-TS-3615 | Unit | The generated declarations say `Uint8Array` for every kind of bytes parameter and result (`tests/lang/bytes.rs`). |
+| M9-TS-3720 | Unit | A closure inside a variable's own initializer can name it (`const id = watch(() => clear(id))`): number, string and class-instance results, run later (`tests/lang/const_closure.rs`). |
+| M9-TS-3721 | Unit | The same with a type annotation and with `let` (`tests/lang/const_closure.rs`). |
 | M9-TS-3532 | Integration | `{...(cond ? handlers(name) : {})}` in JSX sets the taken arm's props and handlers; the `{}` arm sets none (`tests/ui/ui.rs`, `bench/ui.ts` `condSpreadApp`). |
 | M9-TS-3509 | Unit | A function nothing calls is skipped by a build; `check_unused` (`platypus-build build --check-unused`) lowers it too, so its error shows. |
 | M9-SHOT-01 | Unit | `progress-shots` waits longer for effects that settle slowly: 120 frames by default, 900 for `dark-room`, 360 for `godrays-lift` (before the godrays rule), 600 for every `fog*` and other `godrays-*` example (`tests/tools/shots/src/bin/progress_shots.rs`). |
@@ -2442,6 +2444,8 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WAPI-FS-02 | Unit | Fullscreen requests apply on the host's frame, not before: the promise resolves and `fullscreenchange` fires; a node the host can't show rejects; Esc (`exit_by_user`) fires a change; `exitFullscreen` with nothing fullscreen rejects; listeners of other types are not added. |
 | WAPI-FS-03 | Unit | The `document` manifest adds `requestFullscreen` (a promise) to `UiNode` and has a nullable `fullscreenElement` and the `exitFullscreen` promise. |
 | WAPI-FS-04 | Manual | A scratch app asking for fullscreen at start: the window goes 1920 x 1080, the element fills it with its `:fullscreen` style, the promise resolves with `fullscreenElement` set, one `fullscreenchange`. |
+| WAPI-FS-04 | Unit | `toggle_by_user` (F11) shows the page fullscreen, a second press leaves, `fullscreenchange` fires for each, an empty page or a node the host refuses changes nothing (web-ui `web_api_fullscreen`). |
+| WAPI-FS-05 | Unit | `project.json` `fullscreenKey` is off unless it is the boolean `true` (web-ui `web_ui_cli::project`). |
 | WUI-TS-02 | Unit | A plugin's TypeScript facade becomes declarations: `__xm_C_m<T>(self: C, ..)` a member of `C` (receiver dropped), `__xt_O_m` a static, `interface` / `type` kept as written, a `/** */` above as the doc; other functions are not declared. |
 | WAPI-WRK-01 | Unit | The worker manifest has the `Worker` class with its constructor, the `self` namespace and the facade; the d.ts declares `MessageEvent<T>`, `postMessage<T>(message: T)` and the typed `addEventListener`, not the JSON natives. |
 | WAPI-WRK-02 | Unit | Outside a worker `self.postMessage` does nothing and `self.addEventListener` gives no token; `pump` with no workers delivers nothing. |
