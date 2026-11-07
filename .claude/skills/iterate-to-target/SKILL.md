@@ -1,11 +1,13 @@
 ---
 name: iterate-to-target
-description: Default working mode for every conversation. Keep iterating (plan, do, check, next task) until the conversation's plan or target is met, without stopping to ask between steps, unless the user says to stop or pause. Also governs when to compact context between tasks to keep token use low.
+description: Default working mode for every conversation. Keep iterating (plan, do, check, next task) until the conversation's plan or target is met, without stopping to ask between steps, unless the user says to stop or pause. Also governs keeping token use low between tasks (handoffs; it never asks the user to compact).
 ---
 
 # Iterate to target
 
 This is the default mode unless the user says stop, pause, "just answer" or "ask me first".
+
+A copy of this skill lives in web-ui's `.claude/skills/` (`..\web-ui`); change both together.
 
 ## 1. Fix the target
 
@@ -92,31 +94,27 @@ current task and why:
 - Add a short count of tasks done out of total, and any new entry in `decisions.md`, when they
   exist. No filler, no repeating earlier updates.
 
-## 3. Compaction to keep tokens low
+## 3. Handoffs to keep tokens low
 
-Compaction drops detail, so choose the moment. A task finishing is the natural point.
+You cannot run `/compact` yourself, so **never ask the user to compact, suggest it, or stop for it**
+(the user decided this, 2026-11-07). The app compacts on its own when context runs out, and a
+compaction drops detail, so leave a handoff at the right moments and keep working.
 
-**Compact after a task when either holds:**
+**Write a handoff after a task when either holds:**
 - **The next task is unrelated.** Example: "add a button and style it" is followed by "add a tab
   control". The button's code and discussion won't help the tab control.
 - **Context is about 60-90% used and the task just finished.** Use the real figure if the session
   shows one. If you have no figure, estimate: long transcripts, many large file reads or build/test
-  logs, or several finished tasks mean you are probably in that range. Don't guess below 60%; do
-  not compact mid-task.
+  logs, or several finished tasks mean you are probably in that range.
 
-**Do not compact (carry the context) when it is related and needed for the target.** Examples: a
-shared spec several tasks follow (the button spec for every button), a feature or refactor split
-into steps that each rely on the earlier decisions, or a half-finished migration. Compact once the
-whole related group is done instead.
+Not mid-task, and not inside a related group (a shared spec several tasks follow, a feature split
+into steps that rely on earlier decisions, a half-finished migration): write it once the group is
+done.
 
-**How:** you cannot run `/compact` yourself. At the compaction point, finish with a short handoff and
-tell the user "good point to compact" (name why: unrelated next task, or context at roughly N%). The
-handoff, saved in the recap or `TODO.md` "Resume point" (kept to about 30 lines, replaced not
-appended), holds only: the target, what is done and committed, what is next, decisions that
-aren't in the code, files or commands the next task needs. History stays in git. If the app
-compacts automatically, write that handoff before it happens so the summary keeps it.
-
-If the user declines to compact, carry on in the same mode.
+**The handoff** goes in `TODO.md` "Resume point" (about 30 lines, replaced, not appended) and holds
+only the target, what is done and committed, what is next, decisions that aren't in the code, and
+the files or commands the next task needs. History stays in git. Then start the next task at once;
+before an unrelated one, read only what it needs rather than leaning on earlier context.
 
 ## 4. Keep it cheap
 
