@@ -1843,6 +1843,8 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3743 | Unit | `Blob` `text()` / `arrayBuffer()` / `bytes()` return promises. |
 | M9-TS-3744 | Unit | Buffers and views kept only through other buffers, `any` slots and arrays across collections. |
 | M9-TS-3745 | Unit | 20000 encode / decode / `Buffer` round trips with a checksum. |
+| M9-TS-3746 | Integration | A conditional with arms of different types beside a string in `+` / `+=` is the text of the arm taken, as in a template: on the right, on the left, chained, nested, narrowed (`b === null ? "null" : b.length`), after `+=`; each operand runs once, left first (`tests/lang/editor_gaps.rs`; WAPI-AUD-11 needed it). |
+| M9-TS-3747 | Integration | Beside a number, a conditional of a string and a number in `+` is still a compile error, as in `tsc` (`tests/lang/editor_gaps.rs`). |
 | M9-TS-3532 | Integration | `{...(cond ? handlers(name) : {})}` in JSX sets the taken arm's props and handlers; the `{}` arm sets none (`tests/ui/ui.rs`, `bench/ui.ts` `condSpreadApp`). |
 | M9-TS-3509 | Unit | A function nothing calls is skipped by a build; `check_unused` (`platypus-build build --check-unused`) lowers it too, so its error shows. |
 | M9-SHOT-01 | Unit | `progress-shots` waits longer for effects that settle slowly: 120 frames by default, 900 for `dark-room`, 360 for `godrays-lift` (before the godrays rule), 600 for every `fog*` and other `godrays-*` example (`tests/tools/shots/src/bin/progress_shots.rs`). |

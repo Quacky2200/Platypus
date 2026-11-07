@@ -493,3 +493,51 @@ function t(): string {
         "2 1 0 1 2 4",
     );
 }
+
+// M9-TS-3746
+//
+// A conditional with arms of different types beside a string in `+` / `+=` is the text of the
+// arm taken, as in a template (`"set:" + (b === null ? "null" : b.length)`, WAPI-AUD-11): on the
+// right, on the left, chained, nested, narrowed, after `+=`; each operand runs once, left first.
+#[test]
+fn conditionals_of_mixed_types_beside_a_string_in_plus_are_the_arm_taken() {
+    check(
+        r#"
+let order = "";
+function on(tag: string, v: boolean): boolean { order += tag; return v; }
+function len(b: Float32Array | null): string { return "len:" + (b === null ? "null" : b.length); }
+function t(): string {
+  const n = 1000;
+  const m = 5;
+  const right = "n " + (n > 999 ? "999+" : n) + " " + (m > 999 ? "999+" : m);
+  const left = (on("a", true) ? "yes" : 0) + "!" + (on("b", false) ? "yes" : 0) + "!";
+  const chained = "[" + (on("c", true) ? 1.5 : "none") + "]";
+  const nested = "v" + (m > 9 ? "big" : m > 3 ? m * 2 : "small");
+  let acc = "acc";
+  acc += on("d", false) ? "x" : 3;
+  acc += m === 5 ? 7 : "z";
+  const same = "s" + (m > 1 ? 1 : 2) + (m > 1 ? "a" : "b");
+  return [right, left, chained, nested, len(null), len(new Float32Array(3)), acc, same, order].join("|");
+}
+"#,
+        "eg18_",
+        958_000,
+        "n 999+ 5|yes!0!|[1.5]|v10|len:null|len:3|acc37|s1a|abcd",
+    );
+}
+
+// M9-TS-3747
+//
+// Beside a number, a conditional of a string and a number is still an error (as in `tsc`): only
+// a string operand makes `+` a concatenation of the arm taken.
+#[test]
+fn a_mixed_conditional_beside_a_number_in_plus_is_still_an_error() {
+    let src = r#"
+function t(): string {
+  const m = 5;
+  const v = (m > 1 ? "a" : 1) + 2;
+  return "" + v;
+}
+"#;
+    assert!(crate::cases::run(src, "eg19_", 959_000).is_err());
+}
