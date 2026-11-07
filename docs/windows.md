@@ -2,12 +2,17 @@
 
 User guide to the `Window` API: opening tool windows, palettes and dialogs next to the game's own window, giving each its
 own UI, and talking between windows. The example is `examples/windows`. Design and decisions:
-`docs/research/platypus-windows.md` (plan: `platypus-windows-plan.md`). Code: `crates/platypus_engine_api/src/window.rs` (the API and its
-state), `crates/platypus_platform/src/windows.rs` and the runner (`docs/platform.md`, "Multi-window"),
+`docs/research/platypus-windows.md` (plan: `platypus-windows-plan.md`). Code: the API and its state now live in web-ui's
+`web_api_window` crate (`../web-ui/crates/web_api_window`, feature `window` of `web_api`; web-ui `docs/web-api.md` and `docs/app.md`
+"Secondary windows"); `crates/platypus_engine_api/src/window.rs` is only `pub use web_api_window::*`. Differences for Platypus: its
+`log::set_sink` forwards to `web_api_window::set_log_sink`; `app::take_requests` turns `take_quit()` (`Window.main.close()`) into
+`Request::Quit(0)`; the main title is `""` until `set_main`. The API's tests moved to web-ui (`WUI-WIN-01..07`, written, not run);
+`M9-API-1426` stays here as `crates/platypus_engine_api/tests/window_quit.rs`. Platypus's own host code:
+`crates/platypus_platform/src/windows.rs` and the runner (`docs/platform.md`, "Multi-window"),
 `crates/platypus_app/src/windows.rs` (trees, surfaces, routing, drawing) and `native_render.rs` (`sync_window_roots`),
 `tools/web_ui_ts/src/builtins.rs` (the typed members for compiled games) and `tools/web_ui_ts/src/lower/messages.rs` (their compiled form).
 
-**Honest status.** The winit runner has not been run on a real display. Everything was checked with the fake platform
+**Honest status.** The move into web-ui compiled; its tests were written but not run, and no window was opened. The winit runner has not been run on a real display. Everything was checked with the fake platform
 (`FakePlatform`), unit tests of the pure parts (`plan`, `place`, `WindowTree`, the message queues) and `--screenshot` runs, where
 secondary windows are virtual (offscreen, no OS window, no swapchain). Windows is the platform the code was written for; the
 tool-window subclass, `WS_EX_TOOLWINDOW` handling, owner behaviour and DPI changes still need a manual check, and the macOS, X11
