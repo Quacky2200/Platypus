@@ -10,6 +10,8 @@ use web_ui_rt::{Str, link_anchor, ts_rt_gc_enable, ts_rt_gc_stress, ts_rt_str_ne
 
 fn reset() {
     window::reset();
+    // web_api_window's main window starts untitled; the host gives it the manifest's title.
+    window::set_main("Platypus", (1280.0, 720.0), 1.0);
 }
 
 fn in_every_gc_mode(f: impl Fn()) {
