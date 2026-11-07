@@ -3288,6 +3288,7 @@ interface PlatypusStyle :: WebkitTextStroke?: string;
 interface PlatypusStyle :: WebkitTextStrokeColor?: string;
 interface PlatypusStyle :: WebkitTextStrokeWidth?: Length;
 interface PlatypusStyle :: WebkitUserSelect?: "auto" | "text" | "none" | "all" | "contain";
+interface PlatypusStyle :: accentColor?: string;
 interface PlatypusStyle :: alignContent?: string;
 interface PlatypusStyle :: alignItems?: string;
 interface PlatypusStyle :: alignSelf?: string;
@@ -3355,6 +3356,7 @@ interface PlatypusStyle :: clear?: "none" | "left" | "right" | "both" | "inline-
 interface PlatypusStyle :: clip?: string;
 interface PlatypusStyle :: clipPath?: string;
 interface PlatypusStyle :: color?: string;
+interface PlatypusStyle :: colorScheme?: "normal" | "light" | "dark" | "light dark";
 interface PlatypusStyle :: columnGap?: Length;
 interface PlatypusStyle :: contain?: string;
 interface PlatypusStyle :: cursor?: Cursor | `url(${string}`;
