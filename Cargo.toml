@@ -14,21 +14,21 @@ license = "Apache-2.0"
 # Line tables only: full debug info made 185 PDBs of 8.6 GB; panics and backtraces still show lines.
 
 # web-ui (the TypeScript compiler, its runtime and the UI): the one place its folder is
-# written. From the main checkout it is `../web-ui`; this worktree sits deeper.
+# written (a worktree under `.claude/worktrees/` needs `../../../../web-ui` here instead).
 [workspace.dependencies]
-ts_api = { path = "../../../../web-ui/crates/ts_api", default-features = false }
-ts_api_macros = { path = "../../../../web-ui/crates/ts_api_macros" }
-web_api_window = { path = "../../../../web-ui/crates/web_api_window" }
-web_ui_core = { path = "../../../../web-ui/crates/web_ui_core" }
-web_ui_render = { path = "../../../../web-ui/crates/web_ui_render" }
-web_ui_symbols = { path = "../../../../web-ui/crates/web_ui_symbols" }
-web_ui_dom = { path = "../../../../web-ui/crates/web_ui_dom" }
-web_ui_react = { path = "../../../../web-ui/crates/web_ui_react" }
-web_ui_render_gles = { path = "../../../../web-ui/crates/web_ui_render_gles", default-features = false }
-web_ui_render_cpu = { path = "../../../../web-ui/crates/web_ui_render_cpu" }
-web_ui_ts = { path = "../../../../web-ui/crates/web_ui_ts" }
-web_ui_rt = { path = "../../../../web-ui/crates/web_ui_rt" }
-web_ui_bridge = { path = "../../../../web-ui/crates/web_ui_bridge" }
+ts_api = { path = "../web-ui/crates/ts_api", default-features = false }
+ts_api_macros = { path = "../web-ui/crates/ts_api_macros" }
+web_api_window = { path = "../web-ui/crates/web_api_window" }
+web_ui_core = { path = "../web-ui/crates/web_ui_core" }
+web_ui_render = { path = "../web-ui/crates/web_ui_render" }
+web_ui_symbols = { path = "../web-ui/crates/web_ui_symbols" }
+web_ui_dom = { path = "../web-ui/crates/web_ui_dom" }
+web_ui_react = { path = "../web-ui/crates/web_ui_react" }
+web_ui_render_gles = { path = "../web-ui/crates/web_ui_render_gles", default-features = false }
+web_ui_render_cpu = { path = "../web-ui/crates/web_ui_render_cpu" }
+web_ui_ts = { path = "../web-ui/crates/web_ui_ts" }
+web_ui_rt = { path = "../web-ui/crates/web_ui_rt" }
+web_ui_bridge = { path = "../web-ui/crates/web_ui_bridge" }
 
 [profile.dev]
 debug = "line-tables-only"
