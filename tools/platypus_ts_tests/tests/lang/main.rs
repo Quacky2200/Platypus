@@ -20,6 +20,7 @@ mod collections;
 mod debug_lines;
 mod debugger;
 mod destructure;
+mod dynamic;
 mod editor_gaps;
 mod errors;
 mod errors2;

@@ -230,15 +230,19 @@ function t(): string {
 
 // M9-TS-3508
 //
-// `unknown` (and `any`, `never`) are not built yet: the error says so and where, also when a bare
-// generic interface uses its `T = unknown` default; with a type argument it compiles.
+// `unknown` and `any` are dynamic values now (`tests/lang/dynamic.rs`), so a bare generic interface
+// whose `T = unknown` default is used compiles, with `T` the dynamic value, as it does with a type
+// argument; `never` is still not built, and the error says where.
 #[test]
-fn unknown_is_a_clear_error_and_a_default_of_unknown_needs_a_type_argument() {
+fn a_default_of_unknown_is_a_dynamic_value_and_never_is_a_clear_error() {
     let bare = "interface Row<T = unknown> { id: string; data?: T }\nexport function n(rows: Row[]): number { return rows.length; }";
-    let e = web_ui_ts::lower::lower_source(bare).err().unwrap();
-    assert!(e.contains("line 1: `unknown` is not supported yet"), "{e}");
+    assert!(web_ui_ts::lower::lower_source(bare).is_ok());
     let typed = "interface Row<T = unknown> { id: string; data?: T }\nexport function n(rows: Row<number>[]): number { return rows.length; }";
     assert!(web_ui_ts::lower::lower_source(typed).is_ok());
+    let e = web_ui_ts::lower::lower_source("export function f(x: never): number { return 1; }")
+        .err()
+        .unwrap();
+    assert!(e.contains("line 1: `never` is not supported yet"), "{e}");
 }
 
 // M9-TS-3509
