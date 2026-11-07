@@ -14,6 +14,7 @@ mod arraylib;
 mod arrays2;
 mod big_frame;
 mod bigint;
+mod byteapis;
 mod bytes;
 mod classes;
 mod closures;

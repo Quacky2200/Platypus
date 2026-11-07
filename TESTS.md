@@ -1827,6 +1827,22 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3615 | Unit | The generated declarations say `Uint8Array` for every kind of bytes parameter and result (`tests/lang/bytes.rs`). |
 | M9-TS-3720 | Unit | A closure inside a variable's own initializer can name it (`const id = watch(() => clear(id))`): number, string and class-instance results, run later (`tests/lang/const_closure.rs`). |
 | M9-TS-3721 | Unit | The same with a type annotation and with `let` (`tests/lang/const_closure.rs`). |
+| M9-TS-3730 | Unit | `instanceof` of each typed array constructor and `Buffer.isBuffer` on typed and `any` values (a `Buffer` is a `Uint8Array`, subarray views keep their kind), narrowing an `any` to the typed array; bun-compared (`tests/lang/byteapis.rs`, `bench/bytes_cases.ts`; 3730..3745 likewise, in normal, GC-stress and GC-off modes). |
+| M9-TS-3731 | Unit | `TextEncoder.encode` / `encodeInto` (lone surrogates as U+FFFD, whole characters only). |
+| M9-TS-3732 | Unit | `TextDecoder` basics: utf-8, BOM stripped or kept (`ignoreBOM`), malformed bytes repaired, utf-16le, windows-1252 (`latin1` label), no argument. |
+| M9-TS-3733 | Unit | `TextDecoder` `fatal` throws `TypeError`, an unknown label `RangeError`, labels are trimmed and case-folded. |
+| M9-TS-3734 | Unit | `TextDecoder` `{ stream: true }`: UTF-8 and UTF-16LE characters split at every byte, the BOM of a streamed first chunk, a cut character at the end replaced on flush. |
+| M9-TS-3735 | Unit | `atob` / `btoa`: padding, whitespace, missing padding, every malformed form is an `InvalidCharacterError`. |
+| M9-TS-3736 | Unit | `Uint8Array.from` (arrays, typed arrays, strings with a map function), `of`, `Float32Array.from(xs, fn)`, `Array.from(typed)`. |
+| M9-TS-3737 | Unit | ES2025 `toBase64` (alphabet, `omitPadding`), `toHex`, `fromBase64` (alphabet, `lastChunkHandling`), `fromHex`, `setFromBase64`, `setFromHex` with their `SyntaxError`s. |
+| M9-TS-3738 | Unit | `Buffer.from(text, encoding)` / `toString(encoding, start, end)` for utf8, utf16le, ucs2, latin1, binary, ascii, hex, base64, base64url, lenient hex / base64 input, `byteLength`, `isEncoding`, lone surrogates. |
+| M9-TS-3739 | Unit | `Buffer` reads and writes of every width and endianness (`UInt8` .. `Double`, `BigInt64`, `UIntLE(.., 5)`), the `Uint` aliases and the returned offsets. |
+| M9-TS-3740 | Unit | The `RangeError` texts of Node for bad offsets, values out of range (ints, bigints, wide ints), sizes, `swap16`; `TypeError` for an unknown encoding. |
+| M9-TS-3741 | Unit | `Buffer` `equals` / `compare` / `concat` / `indexOf` / `lastIndexOf` / `includes` (string, number, buffer) / `fill` / `alloc` fills / `slice` and `subarray` views / `copy` / `toJSON` / `write` / `swap*` / string conversion / `Buffer.from(ArrayBuffer, offset, length)` shares memory. |
+| M9-TS-3742 | Unit | `Blob` made of strings, typed arrays and blobs: `size`, `type` (lower-cased, invalid types empty), `slice` with negative indices. |
+| M9-TS-3743 | Unit | `Blob` `text()` / `arrayBuffer()` / `bytes()` return promises. |
+| M9-TS-3744 | Unit | Buffers and views kept only through other buffers, `any` slots and arrays across collections. |
+| M9-TS-3745 | Unit | 20000 encode / decode / `Buffer` round trips with a checksum. |
 | M9-TS-3532 | Integration | `{...(cond ? handlers(name) : {})}` in JSX sets the taken arm's props and handlers; the `{}` arm sets none (`tests/ui/ui.rs`, `bench/ui.ts` `condSpreadApp`). |
 | M9-TS-3509 | Unit | A function nothing calls is skipped by a build; `check_unused` (`platypus-build build --check-unused`) lowers it too, so its error shows. |
 | M9-SHOT-01 | Unit | `progress-shots` waits longer for effects that settle slowly: 120 frames by default, 900 for `dark-room`, 360 for `godrays-lift` (before the godrays rule), 600 for every `fog*` and other `godrays-*` example (`tests/tools/shots/src/bin/progress_shots.rs`). |
