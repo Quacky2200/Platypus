@@ -334,6 +334,7 @@ declare class Camera :: static attach(object: GameObject): Camera;
 declare class Camera :: static findOn(object: GameObject): Camera;
 declare class Camera :: static readonly allCameras: Camera[];
 declare class Camera :: static readonly main: Camera | undefined;
+declare class Camera :: targetCanvas: UiNode | undefined;
 declare class Camera :: targetTexture: Texture;
 declare class Camera :: worldToScreenPoint(p: Vector3Like): Vector3;
 declare class CameraFollow
@@ -1776,6 +1777,8 @@ declare class WorldPanel :: tint: Color;
 declare class WorldPanel :: width: number;
 declare const AnimatorController: typeof AnimationController;
 declare const console: { log(...args: unknown[]): void; info(...args: unknown[]): void; debug(...args: unknown[]): void; warn(...args: unknown[]): void; error(...args: unknown[]): void; };
+declare function AudioElement(props: PlatypusProps): ReactElementLike;
+declare function Canvas(props: PlatypusProps): ReactElementLike;
 declare function Dialog(props: PlatypusProps): ReactElementLike;
 declare function Fragment(props: { children?: ReactNode }): ReactElementLike;
 declare function Image(props: PlatypusProps): ReactElementLike;
@@ -1784,6 +1787,7 @@ declare function List(props: PlatypusProps): ReactElementLike;
 declare function Span(props: PlatypusProps): ReactElementLike;
 declare function Text(props: PlatypusProps): ReactElementLike;
 declare function TextArea(props: PlatypusProps): ReactElementLike;
+declare function Video(props: PlatypusProps): ReactElementLike;
 declare function addStyleSheet(css: string): number;
 declare function clearInterval(id: number | undefined): void;
 declare function clearTimeout(id: number | undefined): void;
@@ -2224,6 +2228,7 @@ declare module "@platypus/engine" :: export import TimeUntil = globalThis.TimeUn
 declare module "@platypus/engine" :: export import Transform = globalThis.Transform;
 declare module "@platypus/engine" :: export import TransitionSpec = globalThis.TransitionSpec;
 declare module "@platypus/engine" :: export import UiInspector = globalThis.UiInspector;
+declare module "@platypus/engine" :: export import UiNode = globalThis.UiNode;
 declare module "@platypus/engine" :: export import UiResources = globalThis.UiResources;
 declare module "@platypus/engine" :: export import UiScale = globalThis.UiScale;
 declare module "@platypus/engine" :: export import Vector2 = globalThis.Vector2;
@@ -2254,6 +2259,8 @@ declare module "@platypus/engine" :: export import removeStyleSheet = globalThis
 declare module "@platypus/engine" :: export import setInterval = globalThis.setInterval;
 declare module "@platypus/engine" :: export import setTimeout = globalThis.setTimeout;
 declare module "@platypus/react"
+declare module "@platypus/react" :: export import AudioElement = globalThis.AudioElement;
+declare module "@platypus/react" :: export import Canvas = globalThis.Canvas;
 declare module "@platypus/react" :: export import Dialog = globalThis.Dialog;
 declare module "@platypus/react" :: export import Image = globalThis.Image;
 declare module "@platypus/react" :: export import Input = globalThis.Input;
@@ -2275,6 +2282,7 @@ declare module "@platypus/react" :: export import PlatypusWheelEvent = globalThi
 declare module "@platypus/react" :: export import Span = globalThis.Span;
 declare module "@platypus/react" :: export import Text = globalThis.Text;
 declare module "@platypus/react" :: export import TextArea = globalThis.TextArea;
+declare module "@platypus/react" :: export import Video = globalThis.Video;
 declare module "@platypus/react" :: export import createRoot = globalThis.createRoot;
 declare module "react"
 declare module "react" :: export import Fragment = globalThis.Fragment;
@@ -2485,7 +2493,7 @@ declare namespace InputEventType :: function parse(name: string): number;
 declare namespace JSX
 declare namespace JSX :: interface ElementChildrenAttribute { children: {}; }
 declare namespace JSX :: interface IntrinsicAttributes { key?: string | number; }
-declare namespace JSX :: interface IntrinsicElements { box: PlatypusProps; text: PlatypusProps; span: PlatypusProps; input: PlatypusProps; textarea: PlatypusProps; image: PlatypusProps; list: PlatypusProps; dialog: PlatypusProps; svg: PlatypusProps; [tag: string]: PlatypusProps; }
+declare namespace JSX :: interface IntrinsicElements { box: PlatypusProps; text: PlatypusProps; span: PlatypusProps; input: PlatypusProps; textarea: PlatypusProps; image: PlatypusProps; canvas: PlatypusProps; video: PlatypusProps; audio: PlatypusProps; list: PlatypusProps; dialog: PlatypusProps; svg: PlatypusProps; [tag: string]: PlatypusProps; }
 declare namespace JSX :: type Element = ReactElementLike;
 declare namespace JSX :: type ElementType = string | ((props: any) => ReactNode);
 declare namespace Keyframe
@@ -3087,6 +3095,7 @@ declare type SplineAlignment = "none" | "path";
 declare type SplineLoopMode = "loop" | "pingPong" | "once";
 declare type TangentMode = "auto" | "bezier" | "linear";
 declare type TextureWrapMode = "repeat" | "clamp" | "mirror";
+declare type UiNode = number & { readonly __handle: "UiNode" };
 declare type VolumeDenoising = "none" | "reprojection" | "gaussian" | "both";
 declare type VolumeDetail = "low" | "medium" | "high" | "ultra";
 declare type WindowStyle = "normal" | "tool" | "dialog" | "popup" | "borderless" | "child";
