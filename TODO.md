@@ -2378,6 +2378,8 @@ Every API is a crate of its own (a `ts_api` plugin with its manifest and symbols
 ### Part 4: larger features
 
 - [ ] **WebAssembly:** `WebAssembly.instantiate` / `compile` with imports and exports from TS.
+  - [x] Step 1 (2026-11-07): the engine, web-ui `web_api_wasm`: wasmparser 0.263 validates (WebAssembly 2.0 without SIMD), our own translation to Cranelift IR, JIT per module; instances with memory, globals, a table, host imports, start functions and segments; traps checked in the code (never a fault) and returned as `RuntimeError`s with the spec's messages, the native stack checked against a limit. `WAPI-WASM-01..07`. Not yet: imported memories / tables, several tables, table instructions and reference values, SIMD, threads, exceptions.
+  - [ ] Step 2: the TypeScript API (`WebAssembly.Module`, `Instance`, `instantiate`, `Memory`, `Global`, the error classes) as a plugin of `web_api`. Waits on dynamic values P3 (calls): `instance.exports.f` is a `Function` in a `Record`, called after `as (a: number) => number`, and host imports are functions passed as values.
 - [ ] **WASM to native:** translate `.wasm` to Cranelift IR (as `wasmtime` does), compile it ahead of time and pack the native code into the executable; the JIT path for development.
 - [ ] **Audio / video elements** (`web_api_media`): `<audio>` / `<video>` decoded by FFmpeg (LGPL build, dynamically linked; its licence goes in the notices), frames into the UI renderer as textures.
 - [ ] **DRM** (`web_api_eme`): Encrypted Media Extensions as Chromium and Firefox build them (a CDM process behind `navigator.requestMediaKeySystemAccess`). ClearKey first; Widevine needs a licence from Google and their CDM binary, so the user decides that.
