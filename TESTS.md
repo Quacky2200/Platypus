@@ -2421,6 +2421,26 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WUI-C-02 | Unit | `web_ui_start` with NULL options, or options with neither an entry nor a source, returns exit code 1 without opening a window. |
 | WUI-EX-01 | Manual | `cargo run -p hello-rust -- --screenshot out.png` and `cargo run -p hello-c -- --screenshot out.png` open a window, draw the app (the Rust plugin's greeting; the C plugin's counter) and write the picture. |
 | WUI-APP-08 | Unit | `Source::Bundle`: a bundle built by `web_ui_build::build` starts with its sources deleted; its embedded CSS sizes the box (77 x 11) and assets resolve from the folder above `build/`. |
+| WUI-APP-09 | Unit | Copy and paste in an `<input>` go through the program's clipboard (select all, copy, End, paste: `abcabc`), and `Program::ime_area` is `None` until a field has focus. |
+| WUI-APP-10 | Unit | `Program::reload`: a program that doesn't compile is refused and the old one keeps running; a good one replaces it (the tree shows the new UI) and the old program's pending timer never fires into it. |
+| WUI-APP-11 | Unit | The hot-reload watcher (`watch::Watch`) sees an edit under the watched paths once, and ignores `build/` (and `types/`, `plugins/`). |
+| WUI-GFX-01 | Unit | `Renderer::parse` reads `gles` / `wgpu` / `vulkan` / `cpu` / `auto`; `Auto` tries GLES, then wgpu, then the CPU; a named renderer is the only try. |
+| WUI-GFX-02 | Manual | `web-ui run app --renderer cpu` and `--renderer wgpu` (and `--screenshot out.png` with each) draw the app; with ANGLE's EGL made unavailable (`WEB_UI_ANGLE_DIR` at an empty folder, without `static-angle`) the default falls back to wgpu. |
+| WUI-LIC-01 | Unit | `web-ui package` writes `THIRD-PARTY-NOTICES.md` (the embedded text) beside the package; `--no-notices` leaves it out. |
+| WUI-LIC-02 | Integration | `web_ui_notices`' `notices_are_current`: the committed `THIRD-PARTY-NOTICES.md` is what the generator writes now from web-ui's `Cargo.lock` (skipped where `cargo metadata --offline` can't run). |
+| WUI-LIC-03 | Unit | `web_ui_notices`: SPDX expressions (copy of `M9-LIC-03`). |
+| WUI-LIC-04 | Unit | `web_ui_notices`: licence files classified by name or text (copy of `M9-LIC-04`). |
+| WUI-LIC-05 | Unit | `web_ui_notices`: copyright lines found (copy of `M9-LIC-05`). |
+| WUI-LIC-06 | Unit | `web_ui_notices`: the `--check` comparison (copy of `M9-LIC-06`). |
+| WUI-LIC-07 | Unit | `web_ui_notices`: the dependency tree from `cargo metadata` (copy of `M9-LIC-07`). |
+| WUI-LIC-08 | Unit | `web_ui_notices`: a dual-licensed crate listed once (copy of `M9-LIC-08`). |
+| WUI-LIC-09 | Unit | `web_ui_notices`: `AND` expressions (copy of `M9-LIC-09`). |
+| WUI-LIC-10 | Unit | `web_ui_notices`: MPL-2.0 crates (copy of `M9-LIC-10`). |
+| WUI-LIC-11 | Unit | `web_ui_notices`: unknown licences, copyleft and missing files fail unless allow-listed (copy of `M9-LIC-11`). |
+| WUI-LIC-12 | Unit | `web_ui_notices`: identical licence texts printed once (copy of `M9-LIC-12`). |
+| WUI-LIC-13 | Unit | `web_ui_notices`: NOTICE and reviewed bundled licence files (copy of `M9-LIC-13`). |
+| WUI-TYPES-01 | Unit | The declarations of the web APIs and a plugin manifest name the plugin's namespace and function and the UI (`createRoot`); without the plugin there is no `Calc`. |
+| WUI-TYPES-02 | Unit | `web-ui types` writes `types/web-ui.d.ts` and a `tsconfig.json` only when there is none; an existing tsconfig is left alone and the declarations are rewritten. |
 | WUI-BLD-01 | Unit | `AppBundle::parse` reads `source`, `cssText`, `assets` and `title`, ignores keys it doesn't know (`renderer`), and refuses format 2, a missing `source` and non-JSON. |
 | WUI-BLD-02 | Unit | `AppBundle::stylesheet`: `cssText` wins over the loose file (and counts as `<bundle>.css`); without it the loose `css` file, else `<bundle>.css`, is read; neither: none. |
 | WUI-BLD-03 | Unit | `web_ui_build::build` follows the entry's imports, embeds its imported CSS as `cssText` (`@import`s first), and writes no `cssText` for a program without stylesheets. |
