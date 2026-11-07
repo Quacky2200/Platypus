@@ -2500,6 +2500,15 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WUI-TASK-01 | Unit | `ts_api::task::pending`: values completed on another thread wait until `pump()` on the script thread, then settle in order; `outstanding()` counts the waiting ones. |
 | WUI-TASK-02 | Unit | A cancelled task or one whose `Completer` is dropped never settles and is forgotten. |
 | WUI-TASK-03 | Unit | `ts_api::task::feed`: every value a `Feed` (and its clones) sends arrives in order; the stream is forgotten when the last clone goes. |
+| WUI-TASK-04 | Unit | `ts_api::spawn::run`: pool work resolves, rejects with the error's text, and a panic rejects as "task panicked: ..."; the callbacks run on the calling script thread, the work off it. |
+| WUI-TASK-05 | Unit | 200 concurrent tasks all settle and the pool stays at 8 threads or fewer. |
+| WUI-TASK-06 | Unit | `Task::abort(reason)` rejects once (a second abort does nothing), the work sees its `Cancel` flag, and its late result is dropped. |
+| WUI-TASK-07 | Unit | `spawn::stream`: 1000 back-to-back values sent from another thread arrive in order on the pump, then the `end` listeners run once every sender is dropped; nothing is delivered before the pump. |
+| WUI-TASK-08 | Unit | A stream closed by the script (`Stream::close`) makes `Sender::send` return false and drops what was queued; a pull queue (`on_ready`, `take`) hands values over in order. |
+| WUI-TASK-09 | Unit | A result that arrives after its task was forgotten is dropped quietly; another script thread's tasks never settle on this thread. |
+| WUI-TASK-10 | Unit | `spawn::run_async` (feature `async`): a future on the shared runtime settles on the script thread, can be aborted, and a panic in it rejects. |
+| WUI-TASK-11 | Unit | `#[task]` writes a promise native: `Ok` resolves (`Callback<(T,)>`, or `Callback<()>` for `()`), `Err` rejects with its text; `&str` and `&[T]` parameters are copied for the body; works on a class method. |
+| WUI-TASK-12 | Unit | A `#[task]` function is declared `promise: true` in the manifest (three of three). |
 | NET-POL-01 | Unit | Schemes and the host list follow the policy (`*.domain` matches names under it, never the domain itself; case and a trailing dot ignored). |
 | NET-POL-02 | Unit | Only public addresses pass when private ones are blocked (loopback, RFC 1918, link-local, CGNAT, multicast, broadcast, unique-local, IPv4-mapped forms); any private address in a name's answers refuses it. |
 | NET-POL-03 | Unit | Framing headers (`Host`, `Content-Length`, ..) are forbidden and others (`Authorization`, `Cookie`) are not. |
@@ -2516,6 +2525,23 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WAPI-GEO-01 | Unit | A position or error becomes the facade's JSON (`NaN` and missing values are `null`, quotes escaped); `PositionOptions` are read (a negative timeout is none, `maximumAge` 0 asks fresh). |
 | WAPI-GEO-02 | Unit | With a fake locator, a compiled program gets a typed `GeolocationPosition` from `getCurrentPosition`, a `GeolocationPositionError` (code 3) through the optional `error` callback, and two changing positions from `watchPosition` until `clearWatch`. |
 | WAPI-GEO-03 | Manual | On Windows with location on for desktop apps, `getCurrentPosition` gives this machine's rough position; with it off, `error` gets code 1. |
+| WAPI-SER-01 | Unit | `Settings::from_options` checks `baudRate`, `dataBits`, `stopBits` and `parity` as node-serialport does (messages name the option). |
+| WAPI-SER-02 | Unit | The port list is JSON with `null` for what the system doesn't say. |
+| WAPI-SER-03 | Unit | Settings map to a Windows DCB (byte size, parity, stop bits, the packed flags with DTR / RTS enable or the RTS handshake and CTS flow) and `COMMTIMEOUTS` (`[MAXDWORD, MAXDWORD, 50, 0, 0]`); `COM12` gets the `\\.\` prefix. |
+| WAPI-SER-04 | Unit | Windows identifiers from recorded data: USB vendor / product ids from hardware ids (`USB\VID_2341&PID_0043`, `FTDIBUS\VID_0403+PID_6001+..`), serial numbers from instance ids (made-up ids refused), `COMn` from a friendly name, ports sorted `COM2` before `COM10`. |
+| WAPI-SER-05 | Unit | Linux ports from a fake sysfs tree: ports with a `device`, `ttyS*` only with a driver, USB facts (ids, serial, manufacturer, location) from the folder above. |
+| WAPI-SER-06 | Unit | macOS ports are the `cu.*` devices of a `/dev`-like folder. |
+| WAPI-SER-07 | Unit | `SerialPort.list()` is a promise (task pool) of typed, sorted `PortInfo` (missing fields `undefined`), in three GC modes. |
+| WAPI-SER-08 | Unit | Over a fake port: a compiled program opens, writes text and bytes, drains, receives `data` events (`Uint8Array`), closes; the `open` / `data` / `close` events and callbacks come in node's order; `path`, `baudRate`, `isOpen`; three GC modes. |
+| WAPI-SER-09 | Unit | Failures: a callback gets the error (`Opening COM404: File not found`, `Port is not open`, `Port is already open`, refused options, a busy port), or an `error` event when no callback was given. |
+| WAPI-SER-10 | Unit | `set` (defaults dtr and rts true, brk false), `update({ baudRate })`, `flush`, `get` run in order on the writer thread; the device sees the lines, settings and purge. |
+| WAPI-SER-11 | Unit | An unplugged port reports `error` then `close`, `isOpen` is false, a later write fails with `Port is not open`. |
+| WAPI-SER-12 | Unit | 20000 bytes in 200 chunks arrive in order; after `close()` finishes nothing more is delivered (a stream closed by script). |
+| WAPI-SER-13 | Unit | A port and listener reachable only from Rust (after a collection, in all GC modes) still get their `data` event. |
+| WAPI-SER-14 | Unit | An echoing port returns every write, text and bytes, in order. |
+| WAPI-SER-15 | Unit | Real ports: on Linux and macOS a pty pair (`openpty`) loops back both ways through termios (read, write, drain, `update`, hang-up seen as an error); on Windows two ports named in `WEB_UI_SERIAL_TEST_PORTS=COM5,COM6` (com0com or two wired adapters) exchange 256 bytes each way, a locked port refuses a second open, closed ports reopen; skips when the variable is unset. |
+| WAPI-SER-16 | Unit | The system's own port list reads without failing (prints it). |
+| WAPI-SER-17 | Manual | `examples/serial-monitor` (`web-ui run`) lists a real device's port, opens it, prints its lines and sends text back. |
 | WAPI-AUD-01 | Unit | `AudioParam` automation follows the spec's curves: the value before any event, `setValueAtTime` jumps, linear and exponential ramps from the event before, `setTargetAtTime` at one time constant (1/e of the way left), clamping to the nominal range, pruning past events without changing later values, `cancelScheduledValues`. |
 | WAPI-AUD-02 | Unit | Biquad coefficients are the spec's (lowpass passes 10 Hz, cuts 10 kHz, gain Q dB at the corner; peaking +6 dB at its centre); oscillator shapes start as the web's; a sine on FFT bin 8 peaks there; decibels scale to bytes. |
 | WAPI-AUD-03 | Unit | An oscillator through a gain plays only between `start` and `stop` (sample-exact), up-mixes mono to both channels and calls its `ended` listener once; a buffer source plays a slower buffer interpolated at its own rate and ends at its last frame. |
