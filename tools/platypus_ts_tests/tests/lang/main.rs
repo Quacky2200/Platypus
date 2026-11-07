@@ -21,6 +21,7 @@ mod debug_lines;
 mod debugger;
 mod destructure;
 mod dynamic;
+mod dynamic_calls;
 mod editor_gaps;
 mod errors;
 mod errors2;

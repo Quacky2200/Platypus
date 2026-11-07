@@ -22,7 +22,9 @@ use std::path::Path;
 // hashes of the build made before dynamic values were added. A change that touches typed code (a
 // `Box` node, a dyn table, a spill slot, a changed array header constant) changes a hash and fails
 // here. When a change to typed code is meant (a new optimisation), rerun with
-// `PLATYPUS_UPDATE_GUARD=1` and commit the new file.
+// `PLATYPUS_UPDATE_GUARD=1` and commit the new file. (Phase P3 refreshed the hashes with a compiler
+// from before P3 plus one typed fix, the key of `m.set(k, v)` rooted while `v` is evaluated, and
+// added `fixtures/guard_typed.ts`.)
 fn fnv(bytes: &[u8]) -> String {
     let mut h: u64 = 0xcbf2_9ce4_8422_2325;
     for b in bytes {
@@ -63,6 +65,10 @@ fn typed_code_is_unchanged_by_dynamic_values() {
     let mut got: Vec<(String, String)> = Vec::new();
     let bench = web_ui_ts::modules::bundle(&root.join("fixtures/sim.ts")).unwrap();
     got.extend(guard_hashes("sim", &bench.source, &[]));
+    // M9-TS-3607: closures, callbacks, method calls and `for..of` of typed values (what phase P3
+    // made dynamic counterparts of) stay as they were.
+    let typed = web_ui_ts::modules::bundle(&root.join("fixtures/guard_typed.ts")).unwrap();
+    got.extend(guard_hashes("typed", &typed.source, &[]));
     let entry = root.join("../../examples/arcade/src/main.tsx");
     let bundle = web_ui_ts::modules::bundle(&entry).unwrap();
     got.extend(guard_hashes("arcade", &bundle.source, &guard_manifests()));

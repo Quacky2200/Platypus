@@ -2379,7 +2379,7 @@ Every API is a crate of its own (a `ts_api` plugin with its manifest and symbols
 
 - [ ] **WebAssembly:** `WebAssembly.instantiate` / `compile` with imports and exports from TS.
   - [x] Step 1 (2026-11-07): the engine, web-ui `web_api_wasm`: wasmparser 0.263 validates (WebAssembly 2.0 without SIMD), our own translation to Cranelift IR, JIT per module; instances with memory, globals, a table, host imports, start functions and segments; traps checked in the code (never a fault) and returned as `RuntimeError`s with the spec's messages, the native stack checked against a limit. `WAPI-WASM-01..07`. Not yet: imported memories / tables, several tables, table instructions and reference values, SIMD, threads, exceptions.
-  - [ ] Step 2: the TypeScript API (`WebAssembly.Module`, `Instance`, `instantiate`, `Memory`, `Global`, the error classes) as a plugin of `web_api`. Waits on dynamic values P3 (calls): `instance.exports.f` is a `Function` in a `Record`, called after `as (a: number) => number`, and host imports are functions passed as values.
+  - [ ] Step 2: the TypeScript API (`WebAssembly.Module`, `Instance`, `instantiate`, `Memory`, `Global`, the error classes) as a plugin of `web_api`. Dynamic values P3 (calls) is done (2026-11-07; hosts call boxed closures with `web_ui_rt::dynv_call::call`): `instance.exports.f` is a `Function` in a `Record`, called after `as (a: number) => number`, and host imports are functions passed as values.
 - [ ] **WASM to native:** translate `.wasm` to Cranelift IR (as `wasmtime` does), compile it ahead of time and pack the native code into the executable; the JIT path for development.
 - [ ] **Audio / video elements** (`web_api_media`): `<audio>` / `<video>` decoded by FFmpeg (LGPL build, dynamically linked; its licence goes in the notices), frames into the UI renderer as textures.
 - [ ] **DRM** (`web_api_eme`): Encrypted Media Extensions as Chromium and Firefox build them (a CDM process behind `navigator.requestMediaKeySystemAccess`). ClearKey first; Widevine needs a licence from Google and their CDM binary, so the user decides that.
@@ -2435,8 +2435,11 @@ Left:
   as a catchable `TypeError` instead of a process crash (R2); dynamic `any` / `unknown` P0-P1
   (`docs/research/platypus-dynamic-values.md`: D1-D3, R1, untyped `JSON.parse`, `console.log(obj)`; **P0-P1 done 2026-11-07**,
   web-ui `9507952`, tests `M9-TS-3539..3575`: the dynamic word, checked conversions, `typeof` / `instanceof` / `Array.isArray`
-  narrowing, dynamic reads, `catch` of non-Errors, untyped `JSON.parse` / `stringify`, `Record<string, any>`; next P2 property
-  access on typed objects and expandos, P3 calls, P4 operators, P5-P7 as the design says); generics (T3, T10, T11,
+  narrowing, dynamic reads, `catch` of non-Errors, untyped `JSON.parse` / `stringify`, `Record<string, any>`; **P3 calls done
+  2026-11-07**, tests `M9-TS-3576..3609`: boxed closures callable through `any` (trampolines), `any` to function types
+  (adapters), method calls on class instances, plain objects, strings, arrays, maps, sets and numbers through `any`,
+  `for..of` over `any`, a host entry `web_ui_rt::dynv_call::call`; next P2 property access on typed objects and expandos,
+  P4 operators, P5-P7 as the design says); generics (T3, T10, T11,
   T12) and modules (M1, M2, M6); a checker of our own or `tsgo` and a conformance harness against bun (G1, G6), before
   wider TypeScript (T2, S1-S9, A1-A2). Also T14 (an engine subclass handle to its base).
 - [x] **Replace `scripts/screenshots.ts` and `scripts/progress-shots.ts` with Rust tools under `tests/tools/`** (2026-10-28: `tests/tools/shots`, `screenshots` and `progress-shots`; `scripts/` and the root `package.json` bun script are gone).
