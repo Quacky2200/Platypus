@@ -1819,6 +1819,12 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-TS-3607 | Unit | Guard: a typed program of closures, callbacks, method calls and `for..of` (`fixtures/guard_typed.ts`) compiles to the same IR and object code with the code for calls through `any` (`tests/lang/dynamic.rs`). |
 | M9-TS-3608 | Unit | Runtime: values named as in JSC messages, a never-boxed closure refused, builtin string / array methods by name, typed arrays keep their element type (web-ui `web_ui_rt/src/dynv_call.rs`). |
 | M9-TS-3609 | Unit | Deliberate differences of calls through `any`: typed arrays and maps keep their element type, detached methods keep `this`, closures check argument types (`tests/lang/dynamic_calls.rs`). |
+| M9-TS-3610 | Unit | Bytes at the boundary: `&[u8]`, `&mut [u8]`, `Vec<u8>` and `ts_api::Bytes` are manifest type `bytes`, declared `Uint8Array`; the shims read and write a typed array in place, a null array is empty (web-ui `ts_api/tests/strings.rs`). |
+| M9-TS-3611 | Unit | A compiled program's `Uint8Array` is read (`&[u8]`) and written (`&mut [u8]`) in place by a host function; a `subarray` or `ArrayBuffer` view passes its window (`tests/lang/bytes.rs`). |
+| M9-TS-3612 | Unit | A `Vec<u8>` result is a new `Uint8Array`; a `Vec<u8>` parameter is a copy; an optional one left out is empty (`tests/lang/bytes.rs`). |
+| M9-TS-3613 | Unit | `ts_api::Bytes` kept by the host comes back as the same object (`===`); writes on either side are seen by the other; host-made arrays work alike (`tests/lang/bytes.rs`). |
+| M9-TS-3614 | Unit | Arrays kept only by the host survive collections (stress, normal, off), and host-made results in a 2000-step loop keep the checksum (`tests/lang/bytes.rs`). |
+| M9-TS-3615 | Unit | The generated declarations say `Uint8Array` for every kind of bytes parameter and result (`tests/lang/bytes.rs`). |
 | M9-TS-3532 | Integration | `{...(cond ? handlers(name) : {})}` in JSX sets the taken arm's props and handlers; the `{}` arm sets none (`tests/ui/ui.rs`, `bench/ui.ts` `condSpreadApp`). |
 | M9-TS-3509 | Unit | A function nothing calls is skipped by a build; `check_unused` (`platypus-build build --check-unused`) lowers it too, so its error shows. |
 | M9-SHOT-01 | Unit | `progress-shots` waits longer for effects that settle slowly: 120 frames by default, 900 for `dark-room`, 360 for `godrays-lift` (before the godrays rule), 600 for every `fog*` and other `godrays-*` example (`tests/tools/shots/src/bin/progress_shots.rs`). |
