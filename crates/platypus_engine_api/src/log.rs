@@ -27,6 +27,16 @@ thread_local! {
 
 /// Where log lines go; `None` puts them on stderr again.
 pub fn set_sink(sink: Option<Sink>) {
+    // The `Window` API (web-ui's crate) logs through its own sink: it follows this one.
+    web_api_window::set_log_sink(sink.is_some().then(|| {
+        Box::new(|level, message: &str| {
+            let level = match level {
+                web_api_window::LogLevel::Warn => Level::Warn,
+                web_api_window::LogLevel::Error => Level::Error,
+            };
+            emit(level, message);
+        }) as Box<dyn FnMut(web_api_window::LogLevel, &str)>
+    }));
     SINK.with(|s| *s.borrow_mut() = sink);
 }
 

@@ -195,7 +195,12 @@ pub fn set_focus(focused: bool, paused: bool) -> FocusChange {
 
 /// What scripts asked since the last call.
 pub fn take_requests() -> Vec<Request> {
-    STATE.with(|s| std::mem::take(&mut s.borrow_mut().requests))
+    let mut requests = STATE.with(|s| std::mem::take(&mut s.borrow_mut().requests));
+    // A script closed the main window (`Window.main.close()`): the game ends, as `quit()` does.
+    if crate::window::take_quit() {
+        requests.push(Request::Quit(0));
+    }
+    requests
 }
 
 /// Back to a focused, running game with nothing set by scripts (a test, or a reload).

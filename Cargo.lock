@@ -4116,6 +4116,7 @@ dependencies = [
  "platypus_scene",
  "serde_json",
  "ts_api",
+ "web_api_window",
 ]
 
 [[package]]
@@ -5975,6 +5976,14 @@ checksum = "5a6580f308b1fad9207618087a65c04e7a10bc77e02c8e84e9b00dd4b12fa0bb"
 dependencies = [
  "js-sys",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "web_api_window"
+version = "0.1.0"
+dependencies = [
+ "serde_json",
+ "ts_api",
 ]
 
 [[package]]
