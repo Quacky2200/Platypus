@@ -2627,3 +2627,44 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WAPI-MED-08 | Unit | `<audio autoplay loop muted>`: starts by itself, wraps instead of ending, has no box. |
 | WAPI-MED-09 | Unit | The script API compiles and runs: `new Audio(src)`, `muted`, `loop`, `volume`, `readyState`, `addEventListener` removers, `canPlayType`, `play().then(..)`. |
 | WAPI-MED-10 | Unit | `ffvpx.dll` (`FFVPX_DLL` or the target folder's) loads as a decoder-only install (no demuxer, no swscale): `open` says there is no avformat; skipped without the library. |
+| WUI-RTR-01 | Unit | A path splits into pathname, `?search` and `#hash` (a lone `?` or `#` is empty) (web-ui `web_ui_router/src/path.rs`). |
+| WUI-RTR-02 | Unit | Relative targets resolve from the calling route (`edit`, `../9`, `..` past the root), absolute ones stand with doubled slashes squeezed, a target with only `?search` keeps the current path. |
+| WUI-RTR-03 | Unit | Query strings decode `%XX` and `+` and encode back as `encodeURIComponent` does (`a=1&b=x+y`). |
+| WUI-RTR-04 | Unit | The most specific route wins (a static segment beats a param, an index route wins at its parent's path), params are percent-decoded, case does not matter by default (web-ui `web_ui_router/src/matching.rs`). |
+| WUI-RTR-05 | Unit | A trailing `*` takes the rest (`*` param, the base stops before it); a catch-all route is the not-found; no catch-all and no match gives none. |
+| WUI-RTR-06 | Unit | `matchPath` (end or prefix) and `generatePath` (params encoded, a splat filled in) agree. |
+| WUI-RTR-07 | Unit | The memory history pushes, replaces, goes back and forward (out of range does nothing), and a push drops the entries ahead (`web_ui_router/src/history.rs`). |
+| WUI-RTR-08 | Unit | Initial entries are resolved, the first has the key `default`, the others have their own, an empty list is `/`. |
+| WUI-RTR-10 | Unit | A compiled `createRouter` + `<RouterProvider>` renders nested layouts: `Component` of the parent around `<Outlet />`, `useParams()` gives `:id` (web-ui `web_ui_router/tests/main.rs`). |
+| WUI-RTR-11 | Unit | A click on a `<Link>` navigates (the layout stays, the outlet changes), and a `useNavigate()` `navigate(-1)` goes back. |
+| WUI-RTR-12 | Unit | An unknown path falls to the `*` route (`params["*"]`), and `<Navigate replace>` redirects as an effect of its first render. |
+| WUI-RTR-13 | Unit | `useSearchParams` reads the query and its setter pushes a new one; `navigate("edit", { state })` resolves from the route and `useLocation().state` carries the value. |
+| WUI-RTR-14 | Unit | `router.navigate`, `{ replace }` and `back()` called from timers outside the tree re-render the app (`useNavigationType`: POP, PUSH, REPLACE) and call `router.subscribe` listeners. |
+| WUI-RTR-15 | Unit | `generatePath`, `matchPath`, `useMatch` and `URLSearchParams` (`append`, `delete`, `getAll`, `toString`) work in a compiled program. |
+| WUI-RTR-16 | Unit | A `<NavLink>` has the class `active` on its target and below it, not with `end`, and not on other targets. |
+| WAPI-NTF-01 | Unit | Events have the web's names (`show`, `click`, `close`, `error`) (web-ui `web_api_notification/src/lib.rs`). |
+| WAPI-NTF-02 | Unit | The Windows toast XML escapes the title and body and names the icon as a `file:` URL, `silent` adds `<audio silent>`. |
+| WAPI-NTF-03 | Unit | With a fake backend, `new Notification(title, { body, icon, tag, silent })` shows once with those fields, and `show`, `click` and `close` events reach `onshow`, `onclick` and `addEventListener("close")` after the pump (web-ui `web_api_notification/tests/main.rs`). |
+| WAPI-NTF-04 | Unit | `close()` asks the backend (and the notification reports `close`), `permission` / `requestPermission()` give `denied` when the backend says so, and a refused notification fires `error` with the reason in `error` and never `show`. |
+| WAPI-NTF-05 | Unit | The generated declarations are the web's (`Notification`, `NotificationOptions`, `NotificationPermission`, `onclick`, `close`, `addEventListener`) without the hidden natives. |
+| WAPI-NTF-06 | Manual | On Windows, `new Notification("Hi", { body: "there" })` shows a toast; clicking it fires `onclick`, dismissing it `onclose`. On Linux the same through the notification daemon (a click fires `onclick`); on macOS it shows but reports no events. |
+| WAPI-MSS-01 | Unit | The facade's metadata JSON gives the title, artist and album and the cover (the artwork image with the most pixels; a path becomes a `file:` URL; empty clears) (web-ui `web_api_media_session/src/lib.rs`). |
+| WAPI-MSS-02 | Unit | The OS's controls become the web's actions: a play / pause key is the one the session is not in, `SeekBy` gives `seekOffset`, `SetPosition` gives `seekTime`. |
+| WAPI-MSS-03 | Unit | With a fake backend, assigning a `MediaMetadata`, `playbackState` and `setPositionState` reach it (title, cover, state, duration, position, rate), and `metadata` / `playbackState` read back (web-ui `web_api_media_session/tests/main.rs`). |
+| WAPI-MSS-04 | Unit | Controls pressed on the fake OS call the handlers set with `setActionHandler` with `action`, `seekOffset` and `seekTime`; a handler set to `null` and an action with none are ignored. |
+| WAPI-MSS-05 | Unit | The generated declarations are the web's (`MediaMetadata`, `MediaImage`, `MediaSessionActionDetails`, `navigator.mediaSession`'s `metadata`, `playbackState`, `setActionHandler`, `setPositionState`) without the hidden natives. |
+| WAPI-MSS-06 | Manual | On Windows with a window open, setting metadata and `playbackState = "playing"` shows the title in the volume flyout and on the lock screen; the media keys call the handlers. On Linux the player shows in the desktop's media widget; on macOS in Now Playing. |
+| WUI-DSK-01 | Unit | A host-set window handle wins, and a process with no window of its own has none (web-ui `desktop_window/src/lib.rs`). |
+| WUI-DSK-02 | Unit | Thumbnail toolbar buttons read their JSON (`disabled`, `dismissonclick`, `hidden`, ...) and progress modes parse (web-ui `desktop_taskbar/src/lib.rs`). |
+| WUI-DSK-03 | Unit | With a fake backend, `Taskbar.setProgressBar` (0 to 1 normal, below 0 none, above 1 indeterminate, `{ mode }` wins), `setOverlayIcon(path \| null, description)` and `flashFrame` reach it as Electron reads them (web-ui `desktop_taskbar/tests/main.rs`). |
+| WUI-DSK-04 | Unit | `Taskbar.setThumbarButtons([{ icon, tooltip, flags, click }])` reaches the backend and a click reports the button's position to its `click` (a position that is no button is ignored). |
+| WUI-DSK-05 | Unit | The generated declarations are Electron's (`Taskbar.setProgressBar` / `setOverlayIcon` / `setThumbarButtons` / `flashFrame`, `ThumbarButton`, `ThumbarButtonFlag`) without the hidden natives. |
+| WUI-DSK-06 | Manual | On Windows with a window open: `Taskbar.setProgressBar(0.4)` fills the taskbar button's bar, `"paused"` turns it yellow, `-1` removes it; `setOverlayIcon("badge.png", "1")` puts the icon on the button's corner; `setThumbarButtons` shows the buttons under the thumbnail and a click runs its handler; `flashFrame(true)` flashes the button. |
+| WUI-STO-01 | Unit | Store ids are unique and never 0 (web-ui `web_ui_store/src/lib.rs`). |
+| WUI-STO-02 | Unit | `create<S>((set, get, api) => ..)` gives a store; `useBear.use(selector)` reads a slice, a click on an action (`set({..})`, `api.update(fn)`) re-renders the component (web-ui `web_ui_store/tests/main.rs`). |
+| WUI-STO-03 | Unit | `createStore` outside components: `setState` merges, `update` takes an updater, `subscribe` gets the new and previous state and its remover stops it, `getInitialState` keeps the first state. |
+| WUI-STO-04 | Unit | A component that selects `fish` renders again only when `fish` changes, not for `bears`. |
+| WUI-STO-05 | Unit | A selector that builds an array renders again only when an item changed: `useShallow` keeps the old array while the items are `===`. |
+| WUI-STO-06 | Unit | `persist<S, Saved>(creator, { name, partialize })` writes `{"version":0,"state":{..}}` to `localStorage` after each `set`, and a second run starts from it (what `partialize` left out starts afresh). |
+| WUI-STO-07 | Unit | The generated declarations are Zustand's (`StoreApi<T>`, `StateCreator<T>`, `create`, `createStore`, `useStore`, `useShallow`, `persist`) without the hidden natives. |
+| WUI-RTR-17 | Unit | The generated declarations name React Router's API (`RouteObject`, `createRouter`, `useNavigate`, `useParams`, `Link`, `Outlet`, `matchPath`, `URLSearchParams`) and leave the hidden natives out. |
