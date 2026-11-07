@@ -592,6 +592,12 @@ texture (`WorldTexture::Asset(id)`). `Texture.destroy()` removes it.
 `Camera.targetTexture` (camera op argument 15, `null` clears it) sets `WorldView.target_texture`. A camera
 with a target texture is not `Camera.main` and is not a screen view.
 
+`Camera.targetCanvas` (a screen UI `<canvas>` element) uses the same path: `WorldViews::sync_canvases`
+(`canvas_cameras.rs`) makes and resizes a render texture per such camera from the element's box at the UI's pixel
+scale, and the UI renderer shows `WorldRenderer::render_texture_view` where it draws the element
+(`UiRenderer::set_external_image`). Input passthrough, canvases in other windows or world panels are not done, and
+views out of sight still render.
+
 `render_views` draws in this order: shadows, then the render textures (`render_into_texture`, each
 texture's cameras in depth order, with the world's lights and sky but no bloom, grading or FXAA), then the
 screen. So the screen sees this frame's picture. A camera cannot sample its own texture: in its own

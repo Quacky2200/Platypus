@@ -208,7 +208,10 @@ draws, the app reads per-thread registries and a command queue. **No change to `
   kind each): `Light`, `PlaneRenderer`, `MeshRenderer`, `SkinnedMeshRenderer`, `Mirror`, `ReflectionProbe`, `LODGroup`, `WorldPanel`,
   `SpriteRenderer`, `LineRenderer2D`. The host reads them with `platypus_render_api::lights()`, `mesh_renderers()`, ... (`Vec<(Ref, Data)>`)
   and removes the components of destroyed objects with `platypus_render_api::destroyed(&objects)`. `Camera` gains `clearFlags`, `rect`,
-  `cullingMask`, `layerCullDistances`, `layerCullSpherical`, `antialiasing`, `targetTexture`, `sceneGrid`.
+  `cullingMask`, `layerCullDistances`, `layerCullSpherical`, `antialiasing`, `targetTexture`, `targetCanvas`, `sceneGrid`. `Camera.targetCanvas` (a `UiNode`, a `ref`'s `current` of a React `<canvas>`;
+  `UiNodeRef`) draws the camera into that screen UI element at its box's size in pixels, following layout changes, and the UI shows the view
+  where it draws the element (`examples/canvas-view`). Not done yet: pointer and key passthrough to the view, canvases in secondary windows
+  or world panels, and a view out of sight (scrolled or clipped away) still renders.
 - **`PostProcess`** (`postfx.rs`, a handle class over a registry, not a component): `PostProcess.create(effect)` with the enum
   `PostEffect` (the built-in effects; their table and WGSL are `EFFECTS` / `postfx/*.wgsl`), `createCustom(source, parameters?)`,
   `enabled`, `order`, `camera` (`Camera | null`), `setFloat` / `setColor` / `setVector` and their getters. The host reads the enabled
