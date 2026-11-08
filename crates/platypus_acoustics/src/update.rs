@@ -224,29 +224,69 @@ fn send_target(
     }
 }
 
+/// How strongly a zone applies at a world point (0 when its object is gone).
+pub(crate) fn weight_at(z: &Zone, point: [f64; 3]) -> f64 {
+    let Some((p, r, s)) = pose(z.object) else {
+        return 0.0;
+    };
+    let rel = r.inverse() * (Vec3::new(point[0] as f32, point[1] as f32, point[2] as f32) - p);
+    let local = [f64::from(rel.x), f64::from(rel.y), f64::from(rel.z)];
+    let (sx, sy, sz) = (
+        f64::from(s.x.abs()),
+        f64::from(s.y.abs()),
+        f64::from(s.z.abs()),
+    );
+    let extent = match z.shape {
+        crate::model::Shape::Sphere => [z.radius * sx.max(sy).max(sz), 0.0, 0.0],
+        crate::model::Shape::Box => [
+            z.size[0] * 0.5 * sx,
+            z.size[1] * 0.5 * sy,
+            z.size[2] * 0.5 * sz,
+        ],
+    };
+    zone_weight(z.shape, local, extent, z.inner, z.curve, z.invert)
+}
+
 /// How strongly each zone applies where the listener is.
 fn zone_weights(zones: &[(u32, Zone)], listener: [f64; 3]) -> Vec<f64> {
-    zones
+    zones.iter().map(|(_, z)| weight_at(z, listener)).collect()
+}
+
+/// What `probe` needs: the occluders, the probed layers and the ray spread.
+pub(crate) fn probe_settings() -> (HashMap<ObjectId, OccluderSpec>, u32, f64) {
+    let (layers, spread) = st(|s| (s.settings.occlusion_layers, s.settings.ray_spread));
+    (occluder_specs(), layers, spread)
+}
+
+/// How loud the world is at a point: playing loud sources and fresh noises that reach it.
+pub(crate) fn level_at(point: [f64; 3]) -> f64 {
+    let (specs, layers, spread) = probe_settings();
+    let (events, time, lifetime) = st(|s| (s.events.clone(), s.time, s.settings.event_lifetime));
+    let gain = |at: [f64; 3]| probe(at, point, &specs, layers, spread).gain;
+    let mut level = 0.0f64;
+    for v in source_views()
         .iter()
-        .map(|(_, z)| {
-            let Some((p, r, s)) = pose(z.object) else {
-                return 0.0;
-            };
-            let rel = r.inverse()
-                * (Vec3::new(listener[0] as f32, listener[1] as f32, listener[2] as f32) - p);
-            let local = [f64::from(rel.x), f64::from(rel.y), f64::from(rel.z)];
-            let (sx, sy, sz) = (f64::from(s.x.abs()), f64::from(s.y.abs()), f64::from(s.z.abs()));
-            let extent = match z.shape {
-                crate::model::Shape::Sphere => [z.radius * sx.max(sy).max(sz), 0.0, 0.0],
-                crate::model::Shape::Box => [
-                    z.size[0] * 0.5 * sx,
-                    z.size[1] * 0.5 * sy,
-                    z.size[2] * 0.5 * sz,
-                ],
-            };
-            zone_weight(z.shape, local, extent, z.inner, z.curve, z.invert)
-        })
-        .collect()
+        .filter(|v| v.loudness > 0.0 && v.playing)
+    {
+        let at = position(v.object);
+        let d = len(sub(at, point));
+        if d < v.loudness {
+            level = level.max(heard_level(
+                v.loudness,
+                d,
+                gain(at) * v.volume.clamp(0.0, 1.0),
+                1.0,
+            ));
+        }
+    }
+    for e in events.iter().filter(|e| !e.pulse) {
+        let d = len(sub(e.position, point));
+        if d < e.loudness {
+            let fade = (1.0 - (time - e.born) / lifetime).clamp(0.0, 1.0);
+            level = level.max(heard_level(e.loudness, d, gain(e.position), 1.0) * fade);
+        }
+    }
+    level
 }
 
 fn update_zones(listener: [f64; 3]) {
@@ -282,7 +322,12 @@ fn update_zones(listener: [f64; 3]) {
         }
         // Tracks that lost their last zone go back to open.
         let now: Vec<u32> = per_track.keys().copied().collect();
-        let gone: Vec<u32> = s.driven.iter().copied().filter(|t| !now.contains(t)).collect();
+        let gone: Vec<u32> = s
+            .driven
+            .iter()
+            .copied()
+            .filter(|t| !now.contains(t))
+            .collect();
         for t in gone {
             send_target(&mut s.sent, t, &FxTarget::OPEN, t != 0);
         }
@@ -401,7 +446,13 @@ fn update_sources(
                     && frame != state.checked)
         {
             let p = scaled(
-                probe(listener, pos, specs, settings.occlusion_layers, settings.ray_spread),
+                probe(
+                    listener,
+                    pos,
+                    specs,
+                    settings.occlusion_layers,
+                    settings.ray_spread,
+                ),
                 v.occlusion,
             );
             next.checked = frame;
@@ -497,7 +548,14 @@ fn update_sensors(
         let here = position(object);
         let gain_to = |at: [f64; 3]| {
             if occlusion && any_occluder {
-                probe(here, at, specs, settings.occlusion_layers, settings.ray_spread).gain
+                probe(
+                    here,
+                    at,
+                    specs,
+                    settings.occlusion_layers,
+                    settings.ray_spread,
+                )
+                .gain
             } else {
                 1.0
             }
@@ -511,7 +569,12 @@ fn update_sensors(
             if dist > v.loudness * sensitivity.max(0.0) {
                 continue;
             }
-            let l = heard_level(v.loudness, dist, gain_to(at) * v.volume.clamp(0.0, 1.0), sensitivity);
+            let l = heard_level(
+                v.loudness,
+                dist,
+                gain_to(at) * v.volume.clamp(0.0, 1.0),
+                sensitivity,
+            );
             level = level.max(l);
             if l >= threshold {
                 hearing_now.push(v.object);
@@ -584,6 +647,7 @@ pub fn update(dt: f64) {
         (
             s.settings.enabled,
             s.zones.iter().next().is_some()
+                || !s.driven.is_empty()
                 || s.occluders.iter().next().is_some()
                 || s.sensors.iter().next().is_some()
                 || !s.events.is_empty()
@@ -601,8 +665,8 @@ pub fn update(dt: f64) {
             let v = scale3(sub(listener, prev), 1.0 / dt);
             // A little smoothing: the listener's position is a camera and can jitter.
             let k = 1.0 - (-dt * 20.0).exp();
-            for i in 0..3 {
-                s.listener_velocity[i] += (v[i] - s.listener_velocity[i]) * k;
+            for (cur, new) in s.listener_velocity.iter_mut().zip(v) {
+                *cur += (new - *cur) * k;
             }
         }
         s.listener_prev = Some(listener);

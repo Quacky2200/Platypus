@@ -30,6 +30,7 @@ platypus_engine_api = { path = "../platypus_engine_api" }
 platypus_animation = { path = "../platypus_animation" }
 platypus_scenes = { path = "../platypus_scenes" }
 platypus_physics_api = { path = "../platypus_physics_api" }
+platypus_acoustics = { path = "../platypus_acoustics" }
 platypus_render_api = { path = "../platypus_render_api" }
 platypus_components = { path = "../platypus_components" }
 ts_api = { workspace = true }

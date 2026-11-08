@@ -225,7 +225,7 @@ impl SourceData {
         p
     }
 
-    fn play(&mut self) {
+    pub fn play(&mut self) {
         if !audio::sound_exists(self.clip) {
             platypus_log("AudioSource has no clip");
             return;

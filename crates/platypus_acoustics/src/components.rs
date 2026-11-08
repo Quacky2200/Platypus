@@ -4,7 +4,7 @@
 //! The script side: the `AudioZone`, `AudioOccluder` and `SoundSensor` components, the
 //! `SoundEvent` handle and the `Acoustics` namespace.
 
-use crate::model::{Curve, Shape, heard_level};
+use crate::model::{Curve, Shape};
 use crate::state::{
     AudioOccluderRef, AudioZoneRef, Occluder, Sensor, SoundEventRef, SoundSensorRef, Zone,
     push_event, st,
@@ -108,6 +108,21 @@ pub(crate) fn sensors_on(object: ObjectId) -> Vec<SoundSensorRef> {
             .map(|(i, _)| SoundSensorRef(i))
             .collect()
     })
+}
+
+#[cfg(test)]
+pub(crate) fn occluder_open(o: AudioOccluderRef, openness: f64) {
+    occluder(o, |o| o.openness = openness);
+}
+
+/// Registers a Rust closure as a sensor's `onHear` (tests).
+#[cfg(test)]
+pub(crate) fn test_on_hear(x: SoundSensorRef, f: impl Fn(f64) + 'static) {
+    sensor(x, |x| {
+        x.callbacks.push(Callback::from_fn(
+            move |(_, level): (HandleArg<SoundEventRef>, f64)| f(level),
+        ))
+    });
 }
 
 /// Removes the acoustics components of destroyed objects.
@@ -611,11 +626,11 @@ pub mod acoustics_api {
     /// Makes a noise at `position` that sensors within `loudness` metres can hear (`kind`
     /// says what it was; `source` is the object that made it, if any). It stays in
     /// `Acoustics.eventAt` for `eventLifetime` seconds, for a radar or a map to draw.
-    #[optional(kind = "noise", source)]
+    #[optional(source)]
     pub fn emit(position: V3, loudness: f64, kind: &str, source: ObjectId) -> SoundEventRef {
-        let source = (source != super::none_object()
-            && source.to_raw_nonzero())
-        .then_some(source);
+        let source = with_scene(|s| s.contains(source))
+            .unwrap_or(false)
+            .then_some(source);
         SoundEventRef(push_event(
             super::arr(position),
             loudness.max(0.0),
@@ -722,21 +737,4 @@ pub mod acoustics_api {
             (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt()
         })
     }
-}
-
-/// Is `object` a real handle (not the "no object" value)?
-trait RawNonZero {
-    fn to_raw_nonzero(&self) -> bool;
-}
-
-impl RawNonZero for ObjectId {
-    fn to_raw_nonzero(&self) -> bool {
-        with_scene(|s| s.get(*self).is_some()).unwrap_or(true)
-    }
-}
-
-/// `heard_level` for scripts that want the raw curve.
-#[allow(dead_code)]
-fn _curve_is_public() -> f64 {
-    heard_level(1.0, 0.0, 1.0, 1.0)
 }

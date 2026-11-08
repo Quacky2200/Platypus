@@ -611,6 +611,18 @@ layout pass):
 | ACO-FX-02 | Integration | `fx highpass` on a bus removes a steady (low) level. |
 | ACO-FX-03 | Integration | A bus's reverb and echo leave a tail after the sound ended; with their wet level at 0 there is none. |
 | ACO-FX-04 | Unit | An emitter has a low-pass; effects it lacks are ignored; unknown properties, a bus made without effects and unknown tracks are errors. |
+| ACO-FX-05 | Integration | The master mix is track 0 with the full chain: `fx 0 lowpass 300` dulls everything. |
+| ACO-MOD-01 | Unit | A sphere zone is full in its core, linear across the gradient, zero at the edge; inverted it is the opposite. |
+| ACO-MOD-02 | Unit | A box zone uses its own half sizes (the tightest axis decides); the four curves agree at the ends and differ between. |
+| ACO-MOD-03 | Unit | Zones blend from open with the later (higher priority) winning; frequencies glide on a log scale; an untouched filter stays exactly open. |
+| ACO-MOD-04 | Unit | Walls multiply gains and cutoff ratios; an open occluder passes everything; side rays average; a source can ask for less occlusion. |
+| ACO-MOD-05 | Unit | Sensor level falls with distance squared, is scaled by wall gain and sensitivity, and is 0 for a source with no loudness. |
+| ACO-MOD-06 | Unit | Doppler: coming raises, leaving lowers, crossing and standing still change nothing; the level scales it; speeds are held under the speed of sound. |
+| ACO-SYS-01 | Integration | A zone drives the master's low-pass and reverb by the listener's depth, sends only changes, and opens the track when the zone is removed. |
+| ACO-SYS-02 | Integration | A box zone on a named bus drives its volume, measured in the object's scaled space. |
+| ACO-SYS-03 | Integration | A source behind an occluder gets a low-pass and a quieter emitter; opening the occluder opens it again. |
+| ACO-SYS-04 | Integration | A sensor hears each noise once, quieter through a wall, and not past its reach. |
+| ACO-SYS-05 | Integration | Doppler changes a moving source's playback rate (higher coming, lower going, 1 when still). |
 
 ---
 

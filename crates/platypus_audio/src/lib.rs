@@ -203,14 +203,16 @@ impl<B: Backend> Audio<B>
 where
     B::Error: std::fmt::Debug,
 {
-    pub fn with_settings(settings: AudioManagerSettings<B>) -> Result<Self, String> {
+    pub fn with_settings(mut settings: AudioManagerSettings<B>) -> Result<Self, String> {
+        // The master mix has the full chain, as track 0: a zone can colour everything heard.
+        let master_fx = add_fx!(settings.main_track_builder, FxLevel::Full, 19_500.0);
         let manager = AudioManager::new(settings).map_err(|e| format!("{e:?}"))?;
         Ok(Self {
             manager,
             sounds: HashMap::new(),
             instances: HashMap::new(),
             tracks: HashMap::new(),
-            fx: HashMap::new(),
+            fx: master_fx.map(|f| (0, f)).into_iter().collect(),
             listener: None,
             master: Decibels::IDENTITY,
             muted: false,
@@ -222,6 +224,9 @@ where
     /// is assumed to run at 44.1 kHz or more).
     pub fn set_sample_rate(&mut self, rate: u32) {
         self.max_cutoff = (f64::from(rate) * 0.45).min(19_500.0);
+        for fx in self.fx.values_mut() {
+            fx.set_max_cutoff(self.max_cutoff);
+        }
     }
 
     pub fn backend_mut(&mut self) -> &mut B {

@@ -239,6 +239,7 @@ pub fn manifests() -> Vec<String> {
     all.push(platypus_scene::api::scene_api::MANIFEST.to_json());
     all.extend(platypus_scenes::manifests());
     all.extend(platypus_physics_api::manifests());
+    all.extend(platypus_acoustics::manifests());
     all.extend(platypus_render_api::manifests());
     all.extend(platypus_components::manifests());
     all.push(web_ui_bridge::manifest_json());

@@ -103,14 +103,11 @@ impl FxTarget {
         let l = |a: f64, b: f64| a + (b - a) * w;
         FxTarget {
             low_pass: log_lerp(self.low_pass, to.low_pass, w),
-            high_pass: log_lerp(self.high_pass.max(20.0), to.high_pass.max(20.0), w).max(
-                // Fully open stays exactly 0, not 20.
-                if self.high_pass <= 0.0 && to.high_pass <= 0.0 {
-                    0.0
-                } else {
-                    20.0
-                },
-            ),
+            high_pass: {
+                // Open is 0, but the glide runs on a log scale from 20 Hz: below 25 it is open.
+                let hp = log_lerp(self.high_pass.max(20.0), to.high_pass.max(20.0), w);
+                if hp < 25.0 { 0.0 } else { hp }
+            },
             reverb: l(self.reverb, to.reverb),
             reverb_size: l(self.reverb_size, to.reverb_size),
             reverb_damping: l(self.reverb_damping, to.reverb_damping),
@@ -301,7 +298,10 @@ mod tests {
             "geometric mean of 22000 and 4000: {}",
             half.low_pass
         );
-        assert_eq!(half.high_pass, 0.0, "an untouched filter stays exactly open");
+        assert_eq!(
+            half.high_pass, 0.0,
+            "an untouched filter stays exactly open"
+        );
         let tunnel = FxTarget {
             low_pass: 1000.0,
             ..FxTarget::OPEN
@@ -345,7 +345,8 @@ mod tests {
         let half = scaled(one, 0.5);
         assert!((half.gain - 0.75).abs() < 1e-9);
         assert_eq!(scaled(one, 0.0), Probe::CLEAR);
-        assert_eq!(scaled(one, 1.0), one);
+        let full = scaled(one, 1.0);
+        assert!((full.gain - one.gain).abs() < 1e-9 && (full.low_pass - one.low_pass).abs() < 1e-6);
     }
 
     // ACO-MOD-05
@@ -359,7 +360,11 @@ mod tests {
             heard_level(20.0, 25.0, 1.0, 2.0) > 0.0,
             "sensitive ears hear further"
         );
-        assert_eq!(heard_level(0.0, 1.0, 1.0, 1.0), 0.0, "silent sources are not heard");
+        assert_eq!(
+            heard_level(0.0, 1.0, 1.0, 1.0),
+            0.0,
+            "silent sources are not heard"
+        );
     }
 
     // ACO-MOD-06

@@ -176,6 +176,7 @@ fn every_manifest_function_symbol_resolves_after_reading_the_manifests() {
     all.extend(platypus_engine_api::manifests());
     all.extend(platypus_scenes::manifests());
     all.extend(platypus_physics_api::manifests());
+    all.extend(platypus_acoustics::manifests());
     all.extend(platypus_render_api::manifests());
     all.extend(platypus_components::manifests());
     let mut missing = Vec::new();

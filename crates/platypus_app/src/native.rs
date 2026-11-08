@@ -146,6 +146,7 @@ fn manifests() -> Vec<String> {
     all.push(platypus_scene::api::scene_api::MANIFEST.to_json());
     all.extend(platypus_scenes::manifests());
     all.extend(platypus_physics_api::manifests());
+    all.extend(platypus_acoustics::manifests());
     all.extend(platypus_render_api::manifests());
     all.extend(platypus_components::manifests());
     all.push(web_ui_bridge::manifest_json());
@@ -182,6 +183,7 @@ fn register_kinds() {
     platypus_render_api::register_kinds();
     platypus_engine_api::audio_components::register_kinds();
     platypus_physics_api::register_kinds();
+    platypus_acoustics::register_kinds();
 }
 
 /// A compiled game in the running app.
@@ -199,6 +201,8 @@ pub struct Native {
     /// `createRoot(panel).render(..)` calls: the panel's handle and its root element, for the
     /// app (each panel has its own tree and runtime).
     panel_mounts: Vec<(u64, web_ui_react::Element)>,
+    /// The last frame's time, for acoustics (Doppler speeds, glides).
+    last_dt: f64,
     /// `createRoot(win).render(..)` calls for windows other than the main one: the window's handle
     /// and its root element, for the app (each window has its own tree and runtime).
     window_mounts: Vec<(u64, web_ui_react::Element)>,
@@ -297,6 +301,7 @@ impl Native {
             generation,
             remount: None,
             panel_mounts: Vec::new(),
+            last_dt: 1.0 / 60.0,
             window_mounts: Vec::new(),
             reload_closes: Vec::new(),
             env,
@@ -509,6 +514,7 @@ impl Native {
         platypus_render_api::destroyed(gone);
         for o in gone {
             platypus_physics_api::object_destroyed(*o);
+            platypus_acoustics::object_destroyed(*o);
         }
         log_faults(self.host.settle());
     }
@@ -614,6 +620,7 @@ impl Native {
         {
             let _scope = platypus_scene::api::enter(scene);
             platypus_engine_api::time::advance(dt);
+            self.last_dt = dt;
             ts_rt_timers_advance(now_ms);
             ts_rt_microtasks_run();
             if self.started {
@@ -632,6 +639,7 @@ impl Native {
             }
             // Emitters and the listener follow their objects.
             platypus_engine_api::audio_components::pre_render();
+            platypus_acoustics::update(self.last_dt);
         }
         self.after_script(scene, ui);
     }
@@ -755,6 +763,7 @@ impl Native {
         platypus_engine_api::camera::reset();
         platypus_render_api::reset();
         platypus_physics_api::reset();
+        platypus_acoustics::reset();
         platypus_scenes::reset();
         platypus_engine_api::window::reset();
     }
@@ -864,6 +873,7 @@ impl Native {
         platypus_render_api::reset();
         super::native_render::reconfigure();
         platypus_physics_api::reset();
+        platypus_acoustics::reset();
         platypus_scenes::reset();
         // Timers and awaits of the old code would run it against the new world.
         web_ui_rt::ts_rt_events_clear();

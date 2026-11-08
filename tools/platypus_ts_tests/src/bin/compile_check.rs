@@ -17,6 +17,7 @@ fn main() {
     manifests.extend(platypus_engine_api::manifests());
     manifests.extend(platypus_scenes::manifests());
     manifests.extend(platypus_physics_api::manifests());
+    manifests.extend(platypus_acoustics::manifests());
     manifests.extend(platypus_render_api::manifests());
     manifests.extend(platypus_components::manifests());
 

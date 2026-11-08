@@ -70,7 +70,9 @@ macro_rules! add_fx {
         } else {
             let low = $builder.add_effect(crate::fx::bypassed_filter(
                 kira::effect::filter::FilterMode::LowPass,
-                max_cutoff,
+                // Bypassed anyway; a value any sample rate can run (the real limit comes with
+                // the first `set`).
+                1000.0,
             ));
             let full = (level == crate::fx::FxLevel::Full).then(|| {
                 let high = $builder.add_effect(crate::fx::bypassed_filter(
@@ -96,6 +98,10 @@ pub(crate) fn echo_builder() -> DelayBuilder {
 }
 
 impl Fx {
+    pub(crate) fn set_max_cutoff(&mut self, max: f64) {
+        self.max_cutoff = max;
+    }
+
     pub(crate) fn new(low: FilterHandle, full: Option<Full>, max_cutoff: f64) -> Fx {
         Fx {
             low,

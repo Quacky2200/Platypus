@@ -368,3 +368,22 @@ fn emitters_have_a_low_pass_and_effects_report_errors() {
             .is_err()
     );
 }
+
+// ACO-FX-05
+#[test]
+fn the_master_mix_has_effects_as_track_zero() {
+    let mut a = audio();
+    a.load_frames(1, RATE, buzz(3.0));
+    op(&mut a, "play", vec![num(10.0), num(1.0), Value::Null]);
+    assert!(level(&a.backend_mut().render(400))[0] > 0.4);
+    op(
+        &mut a,
+        "fx",
+        vec![num(0.0), "lowpass".into(), num(300.0), num(0.0)],
+    );
+    a.backend_mut().render(800);
+    assert!(
+        level(&a.backend_mut().render(800))[0] < 0.05,
+        "everything is dulled"
+    );
+}
