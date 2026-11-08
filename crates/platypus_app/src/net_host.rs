@@ -125,11 +125,19 @@ mod tests {
         assert_eq!(a.port(), 7777);
         assert_eq!(t, Trust::InsecureDev);
         assert!(parse_address("localhost:1").is_ok());
-        assert!(parse_address("203.0.113.9:7777").unwrap_err().contains("not a local address"));
+        assert!(
+            parse_address("203.0.113.9:7777")
+                .unwrap_err()
+                .contains("not a local address")
+        );
         let fp = "ab".repeat(32);
         let (_, t) = parse_address(&format!("203.0.113.9:7777#{fp}")).unwrap();
         assert_eq!(t, Trust::Fingerprint([0xab; 32]));
-        assert!(parse_address("203.0.113.9:7777#xyz").unwrap_err().contains("64 hex"));
+        assert!(
+            parse_address("203.0.113.9:7777#xyz")
+                .unwrap_err()
+                .contains("64 hex")
+        );
         assert!(parse_address("not an address").is_err());
     }
 }
