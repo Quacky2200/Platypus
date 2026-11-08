@@ -14,6 +14,8 @@
 #[cfg(feature = "net-debug")]
 pub mod conditioned;
 pub mod loopback;
+pub mod replica;
+pub mod schema;
 pub mod session;
 pub mod transport;
 pub mod wire;

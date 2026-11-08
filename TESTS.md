@@ -2788,4 +2788,16 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M8-NET-08 | Unit | QUIC (`platypus_net_quic`, real localhost sockets): every channel carries data both ways; reliable messages keep their order and a 3 MiB unordered one arrives whole; an oversize datagram is refused and unknown peers error; certificate fingerprints round-trip through text. |
 | M8-NET-09 | Unit | QUIC trust and close: a client pinning the wrong fingerprint never connects (a `Disconnected` error, no `Connected`); a reliable message sent just before `disconnect` arrives before the close. |
 | M8-NET-10 | Unit | A `Session` handshakes and exchanges messages in both directions over real QUIC with a pinned certificate. |
+| M8-REP-01 | Unit | Replicated values: every type round-trips; quantised floats are whole steps and make small changes equal (and the wire smaller); bad values (a bad bool byte, an `i32` past its range, truncation) read as `None`. |
+| M8-REP-02 | Unit | The schema hash follows everything that changes the wire (names, types, quantisation, owner-write, order); `check` refuses duplicate classes or fields and more than 64 fields. |
+| M8-REP-03 | Unit | `Value::lerp` blends floats, vectors and rotations (normalised, shorter arc) and steps other types at the halfway point. |
+| M8-REP-04 | Unit | Replication: a spawned object and its changes reach the client; after an acknowledgement only changed fields are sent, and nothing is sent when nothing changed. |
+| M8-REP-05 | Unit | Two clients converge on the server's values through 40 % loss of states and acks while values change and change back (the baseline is rebuilt from stored states, not from the latest). |
+| M8-REP-06 | Unit | A state that names an object the client has not spawned yet is dropped and never acknowledged; once the spawn arrives the same state applies. |
+| M8-REP-07 | Unit | Interest: an object spawns on a client when it comes into view and despawns when it leaves. |
+| M8-REP-08 | Unit | Owner-written fields: the owner's write reaches the server; a non-owner, a server-only field, and a forged message for another player's object are all refused; the owner reads its own pending write at once. |
+| M8-REP-09 | Unit | Ownership transfer reaches every client that knows the object and moves the right to write owner fields. |
+| M8-REP-10 | Unit | A state of 400 objects splits into datagram-sized chunks (each under 1100 bytes) and a client behind 10 % loss still converges. |
+| M8-REP-11 | Unit | Interpolation blends between the two ticks around a fractional render tick for fields marked `interpolate`, steps for others, and clamps to the nearest state outside the stored range. |
+| M8-REP-12 | Unit | Random garbage fed to the replica client and server never panics, and replication keeps working after it. |
 | M8-HLS-03 | Manual | `platypus-app examples/hello --headless --tick-rate 1000 --frames 2000` runs the game's scripts to the end with no window and no GPU device (checked 2026-11-08); `examples/physics --headless --frames 180` takes about 3 s at 60 iterations a second. |
