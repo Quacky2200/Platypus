@@ -2792,6 +2792,10 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | AI-06 | Unit | Line of sight (3D DDA) sees open space and stops at blocks; smoothing collapses an open path to its two ends (`AI-07`); an expansion limit gives up (`AI-08`). |
 | AI-10 | Unit | Steering: arrive comes to rest on the target; flee, separation and pursue (`AI-11`, `AI-12`) go the right way. |
 | AI-13 | Unit | An agent follows a smoothed path around a wall to its end without entering a blocked cell. |
+| AI-20 | Unit | `NavGrid` handle: a path around a box wall starts and ends at the given points, blocked cells and line of sight agree, and a destroyed grid gives an empty path. |
+| AI-21 | Unit | A blocked end or a goal outside the grid gives an empty path. |
+| AI-22 | Unit | `Steering` seek, flee, arrive and separation head the right way and stay within `maxForce`. |
+| AI-23 | Manual | `platypus-build build examples/bot-nav` compiles scripts calling `NavGrid` and `Steering` (checked 2026-11-08; not yet run in the app). |
 
 ## M8 — Multiplayer (`docs/research/multiplayer.md`)
 

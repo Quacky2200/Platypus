@@ -429,6 +429,22 @@ On or off, in order: `--fps` / `--no-fps` on the command line; off with `PLATYPU
 in `package.json`; otherwise on, except in `--screenshot` runs (off unless `--fps`, so goldens and the `screenshots` tool's renders don't change).
 The editor's `project.json` turns it off (`"fps": false`); `--fps` still shows it. A short screenshot run shows the partial window.
 
+## Bot AI: `NavGrid` and `Steering` (`platypus_ai`, `platypus_engine_api::ai`)
+
+`platypus_ai` is plain Rust (no engine types): generic A* (`astar.rs`), `NavGrid` (`grid.rs`: 3D cells,
+6/18/26 connectivity, per-cell weights of at least 1, blocked corners unless `corner_cutting`, line of
+sight by 3D DDA, string-pulling smoothing) and steering (`steering.rs`). `engine_api/src/ai.rs` declares
+the script side:
+
+- `new NavGrid(size, origin, cellSize = 1)`: a handle (kept per thread, `destroy()` forgets it, `ai::reset`
+  clears all). Cells are `Vector3`s of whole numbers. `setBlocked`, `isBlocked`, `setBoxBlocked(min, max, blocked)`,
+  `setWeight`, `setConnectivity(6 | 18 | 26)`, `setCornerCutting`, `setMaxExpansions`, `worldToCell`, `cellToWorld`,
+  `findPath(from, to, smooth = true)` (world points from `from` to `to`; empty when there is no route) and
+  `lineOfSight(a, b)`.
+- `Steering.seek / flee / arrive / pursue / evade / separation / wander`: pure functions of position and
+  velocity that return an acceleration of at most `maxForce`; the game adds them up and integrates. `examples/bot-nav`
+  walks a bot around a wall with them. Tests `AI-01`..`13` (Rust) and `AI-20`..`22` (the script API).
+
 ## Fog, light shafts and exposure in native games (2026-10-21)
 
 The render features of `js/engine` that `docs/world-rendering.md` describes (fog, height fog, light shafts, auto exposure, light

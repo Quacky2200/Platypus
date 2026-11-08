@@ -12,6 +12,7 @@
 
 pub use platypus_math;
 
+pub mod ai;
 pub mod animation;
 pub mod animator;
 pub mod app;
@@ -97,6 +98,8 @@ pub fn manifests() -> Vec<String> {
         spline::spline_api::MANIFEST.to_json(),
         event_list::event_list_api::MANIFEST.to_json(),
         spline::spline_animate_api::MANIFEST.to_json(),
+        ai::nav_grid_api::MANIFEST.to_json(),
+        ai::steering_api::MANIFEST.to_json(),
     ]);
     all
 }

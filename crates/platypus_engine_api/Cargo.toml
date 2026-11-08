@@ -19,6 +19,7 @@ jiff = "0.2"
 serde_json = "1"
 ts_api = { workspace = true, features = ["glam"] }
 web_api_window = { workspace = true }
+platypus_ai = { path = "../platypus_ai" }
 platypus_animation = { path = "../platypus_animation" }
 platypus_math = { path = "../platypus_math" }
 platypus_scene = { path = "../platypus_scene" }
