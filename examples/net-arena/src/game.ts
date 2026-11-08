@@ -11,7 +11,7 @@
 // rewinding the players it tests to where the shooter saw them (lag compensation). Other
 // players and props are drawn from the interpolated replicated state.
 
-import { HALF, WHITE, applyLook, buildMap, makeProp, updateLasers } from "./map";
+import { HALF, WHITE, applyLook, buildMap, makeProp, setFog, updateLasers } from "./map";
 import type { Laser, MapInfo } from "./map";
 import {
   KILL_LIMIT, MAX_REWIND, MAX_SPEED, RESPAWN_SECONDS, ROUND_SECONDS, SHIELD_SECONDS, SHOT_DAMAGE, SPRINT,
@@ -159,6 +159,7 @@ export class Arena extends Component {
   private bot = false;
   private verbose = false;
   private botDist = 99;
+  private playingFog = true;
   private lastLog = 0;
   private fireAt = 0;
   private beams: { go: GameObject; until: number }[] = [];
@@ -234,6 +235,12 @@ export class Arena extends Component {
     if (this.mode === "server") this.serverFrame(dt);
     else if (this.mode === "client") this.clientFrame(dt);
     else this.orbit(dt);
+    // Players see a small foggy world; the menu and the server watch it from afar.
+    const playing = this.mode === "client" && this.localId !== 0;
+    if (playing !== this.playingFog) {
+      this.playingFog = playing;
+      setFog(!playing);
+    }
     this.updateBeams();
     // A line a second for logs and tests: who is here and how the network is doing.
     if (this.mode !== "menu" && Time.time - this.lastLog >= 1) {

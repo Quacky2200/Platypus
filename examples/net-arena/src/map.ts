@@ -103,7 +103,7 @@ export interface Laser {
 function laser(a: Vector3, b: Vector3, lasers: Laser[]) {
   const mid = a.add(b).scale(0.5);
   const len = b.sub(a).magnitude;
-  const go = new GameObject("Laser", { position: mid, rotation: Quaternion.lookRotation(b.sub(a)), scale: new Vector3(0.035, 0.035, len) });
+  const go = new GameObject("Laser", { position: mid, rotation: Quaternion.lookRotation(b.sub(a)), scale: new Vector3(0.07, 0.07, len) });
   go.addComponent(MeshRenderer, { mesh: "cube", material: MATERIALS.laser }).shadowCastingMode = "off";
   for (const p of [a, b]) box("Post", new Vector3(p.x, p.y / 2, p.z), new Vector3(0.14, p.y, 0.14), MATERIALS.post);
   const glow = new GameObject("Laser glow", { position: mid });
@@ -179,6 +179,12 @@ export function buildMap(): MapInfo {
 /** Pulses the lasers' glow. */
 export function updateLasers(lasers: Laser[], t: number) {
   for (const l of lasers) l.light.intensity = 2.2 + 0.7 * Math.sin(t * 3 + l.phase);
+}
+
+/** Fog for watching from a distance (the menu, the server) or for playing (close, to hide the edge). */
+export function setFog(watching: boolean) {
+  RenderSettings.fogStartDistance = watching ? 45 : FOG_START;
+  RenderSettings.fogEndDistance = watching ? 140 : FOG_END;
 }
 
 /** The scene's look: bright overcast, white fog, no sun. */
