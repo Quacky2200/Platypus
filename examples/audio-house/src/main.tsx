@@ -19,9 +19,9 @@ const floorMaterial = new Material(Color.hex("#8a6b4a"), Color.black, 0.3);
 const woodMaterial = new Material(Color.hex("#6b4a2d"), Color.black, 0.35);
 
 /** A solid box with a collider, optionally something sound cannot pass. */
-function slab(name: string, center: Vector3, size: Vector3, material: Material, occludes = true): GameObject {
+function slab(name: string, center: Vector3, size: Vector3, material: Material, occludes = true, solid = true): GameObject {
   const go = GameObject.createPrimitive("cube", { position: center, scale: size });
-  go.addComponent(BoxCollider);
+  if (solid) go.addComponent(BoxCollider);
   go.name = name;
   go.getComponent(MeshRenderer)!.material = material;
   if (occludes) go.addComponent(AudioOccluder, { openness: 0, absorption: 0.6, lowPass: 800 });
@@ -131,7 +131,7 @@ class Player extends Component {
     const moving = dir.magnitude > 0.01;
     if (moving) dir = dir.normalized;
     const speed = input.getKey("ShiftLeft") ? 5 : 2.6;
-    this.vy = this.controller.isGrounded ? -1 : this.vy - 16 * dt;
+    this.vy = this.controller.isGrounded ? -0.3 : this.vy - 16 * dt;
     this.controller.move(dir.scale(speed * dt).add(new Vector3(0, this.vy * dt, 0)));
     const pitch = (this.pitch * Math.PI) / 180;
     const look = new Vector3(Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
@@ -213,7 +213,7 @@ function room(p: Vector3): string {
   const inside = p.x > HOUSE.x0 && p.x < HOUSE.x1 && p.z > HOUSE.z0 && p.z < HOUSE.z1;
   if (!inside) return "Outside";
   const floor = p.y > HOUSE.storey - 0.2 ? "Upstairs" : "Downstairs";
-  if (p.x > 3.5 && p.x < 7 && p.z > -1 && p.z < 2) return `${floor}: stairwell`;
+  if (p.x > 1.2 && p.x < 7 && p.z > -1 && p.z < 2) return `${floor}: stairwell`;
   return `${floor}: ${p.x < 0 ? "west room" : "east room"}`;
 }
 
@@ -235,11 +235,11 @@ class HouseWorld extends Component {
     const { x0, x1, z0, z1, storey } = HOUSE;
     const t = 0.3;
     const H = storey;
-    // Floors: the ground slab, and the first floor with a stairwell hole at x 3.5..7, z -1..2.
+    // Floors: the ground slab, and the first floor with a stairwell hole at x 1.2..7, z -1..2.
     slab("Ground floor", new Vector3(0, -0.1, 0), new Vector3(x1 - x0, 0.2, z1 - z0), floorMaterial, false);
-    slab("Floor 1 main", new Vector3((x0 + 3.5) / 2, H, 0), new Vector3(3.5 - x0, t, z1 - z0), floorMaterial);
-    slab("Floor 1 north", new Vector3((3.5 + x1) / 2, H, (z0 + -1) / 2), new Vector3(x1 - 3.5, t, -1 - z0), floorMaterial);
-    slab("Floor 1 south", new Vector3((3.5 + x1) / 2, H, (2 + z1) / 2), new Vector3(x1 - 3.5, t, z1 - 2), floorMaterial);
+    slab("Floor 1 main", new Vector3((x0 + 1.2) / 2, H, 0), new Vector3(1.2 - x0, t, z1 - z0), floorMaterial);
+    slab("Floor 1 north", new Vector3((1.2 + x1) / 2, H, (z0 + -1) / 2), new Vector3(x1 - 1.2, t, -1 - z0), floorMaterial);
+    slab("Floor 1 south", new Vector3((1.2 + x1) / 2, H, (2 + z1) / 2), new Vector3(x1 - 1.2, t, z1 - 2), floorMaterial);
     // Outer walls, both storeys (with a window-sized gap left out of nothing: shut house).
     for (const lvl of [0, 1]) {
       const y = lvl * H + H / 2 + (lvl === 0 ? 0 : t / 2);
@@ -260,17 +260,30 @@ class HouseWorld extends Component {
     for (const [name, p] of [
       ["Doorway downstairs", new Vector3(0, 1.1, 0)],
       ["Doorway upstairs", new Vector3(0, H + t / 2 + 1.1, 0)],
-      ["Stairwell bottom", new Vector3(4.2, 1.2, 0.5)],
-      ["Stairwell top", new Vector3(5.2, H + 0.8, 0.5)],
+      ["Stairwell", new Vector3(4.1, H, 0.5)],
     ] as const) {
       new GameObject(name, { position: p }).addComponent(AudioPortal);
     }
-    // A staircase up the stairwell, climbing along +x.
-    const steps = 10;
+    // A staircase filling the stairwell, climbing along +x from x 1.2 to 7: 17 gentle steps (0.19 m
+    // each, well under the controller's step height) up to the first floor's top at the east end,
+    // where you step off sideways onto the floor beside it.
+    const steps = 17;
+    const top = H + t / 2;
+    const run = (x1 - 1.2) / steps;
     for (let i = 0; i < steps; i++) {
-      const rise = (H / steps) * (i + 1);
-      slab(`Step ${i}`, new Vector3(3.6 + i * 0.33, rise / 2, 0.5), new Vector3(0.33, rise, 2.8), floorMaterial, false);
+      const rise = (top / steps) * (i + 1);
+      slab(`Step ${i}`, new Vector3(1.2 + run * (i + 0.5), rise / 2, 0.5), new Vector3(run, rise, 3.0), floorMaterial, false, false);
     }
+    // The steps only look like steps: you walk up an invisible ramp along their nosings (about
+    // 28 degrees, under the controller's slope limit), which a character controller climbs
+    // reliably where it can stall on real risers.
+    const angle = Math.atan2(top, x1 - 1.2);
+    const ramp = new GameObject("Stair ramp", {
+      position: new Vector3((1.2 + x1) / 2, top / 2, 0.5),
+      rotation: Quaternion.euler(0, 0, (angle * 180) / Math.PI),
+      scale: new Vector3(Math.hypot(x1 - 1.2, top), 0.2, 3.0),
+    });
+    ramp.addComponent(BoxCollider);
 
     // Lights.
     for (const [x, y, z] of [
@@ -349,7 +362,7 @@ class HouseWorld extends Component {
 
     // The player.
     const p = new GameObject("Player", { position: new Vector3(-4, 0.95, 0) });
-    p.addComponent(CharacterController, { radius: 0.3, height: 1.8 });
+    p.addComponent(CharacterController, { radius: 0.3, height: 1.8, stepOffset: 0.4 });
     p.addComponent(AudioSource, { spatialBlend: 1, maxDistance: 20 });
     const eyes = new GameObject("Eyes", { parent: p, position: new Vector3(0, 0.7, 0) });
     eyes.addComponent(Camera, { fieldOfView: 70, backgroundColor: Color.hex("#9bc4e8"), nearClipPlane: 0.05 });
