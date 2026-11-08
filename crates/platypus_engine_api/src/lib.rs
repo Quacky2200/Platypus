@@ -100,6 +100,7 @@ pub fn manifests() -> Vec<String> {
         spline::spline_animate_api::MANIFEST.to_json(),
         ai::nav_grid_api::MANIFEST.to_json(),
         ai::steering_api::MANIFEST.to_json(),
+        ai::goap_api::MANIFEST.to_json(),
     ]);
     all
 }

@@ -25,3 +25,11 @@ for (let frame = 0; frame < 3000 && next < path.length; frame++) {
   position = position.add(velocity.scale(dt));
 }
 console.log("arrived: " + (position.distance(to) < 0.5));
+
+// What to do once there: a GOAP planner picks the cheapest way to get a fire going.
+const brain = new Goap();
+brain.addAction("pickUpAxe", 1, ["!hasAxe"], ["hasAxe"]);
+brain.addAction("chopTree", 2, ["hasAxe"], ["hasWood"]);
+brain.addAction("buyWood", 10, ["hasCoins"], ["hasWood"]);
+brain.addAction("buildFire", 1, ["hasWood"], ["fire", "!hasWood"]);
+console.log("plan: " + brain.plan(["hasCoins"], ["fire"]).join(" > "));

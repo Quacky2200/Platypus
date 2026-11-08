@@ -444,6 +444,12 @@ the script side:
 - `Steering.seek / flee / arrive / pursue / evade / separation / wander`: pure functions of position and
   velocity that return an acceleration of at most `maxForce`; the game adds them up and integrates. `examples/bot-nav`
   walks a bot around a wall with them. Tests `AI-01`..`13` (Rust) and `AI-20`..`22` (the script API).
+- `new Goap()` (`goap.rs`): goal-oriented action planning over named boolean facts (at most 64; `"!name"` is
+  false, unlisted facts are false). `addAction(name, cost, preconditions, effects)` (false when its literals
+  contradict), `plan(facts, goal)` (action names in order; empty when the goal is already met *or* there is
+  no plan), `canPlan(facts, goal)`, `setMaxExpansions`, `destroy()`. A* runs over world states
+  (`astar::search`, a goal predicate); the estimate is the cheapest action's cost while the goal is unmet.
+  Tests `AI-30`..`35` (Rust), `AI-24` (script API).
 
 ## Fog, light shafts and exposure in native games (2026-10-21)
 

@@ -2795,6 +2795,9 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | AI-20 | Unit | `NavGrid` handle: a path around a box wall starts and ends at the given points, blocked cells and line of sight agree, and a destroyed grid gives an empty path. |
 | AI-21 | Unit | A blocked end or a goal outside the grid gives an empty path. |
 | AI-22 | Unit | `Steering` seek, flee, arrive and separation head the right way and stay within `maxForce`. |
+| AI-24 | Unit | `Goap` handle: plans in order, tells "no plan" (`canPlan`) from "already met", rejects contradictory actions, and a destroyed planner plans nothing. |
+| AI-30 | Unit | GOAP picks the cheapest plan (chopping over buying wood), and costs decide between routes (`AI-31`). |
+| AI-32 | Unit | GOAP: a met goal needs no actions, an impossible one no plan; negative goals and effects work (`AI-33`); bad literals and a 65th fact are errors (`AI-34`); the expansion limit gives up (`AI-35`). |
 | AI-23 | Manual | `platypus-build build examples/bot-nav` compiles scripts calling `NavGrid` and `Steering` (checked 2026-11-08; not yet run in the app). |
 
 ## M8 — Multiplayer (`docs/research/multiplayer.md`)

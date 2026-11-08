@@ -56,19 +56,37 @@ pub fn find_path_limited<G: Graph>(
     goal: G::Node,
     max_expansions: usize,
 ) -> Option<Path<G::Node>> {
+    search(
+        graph,
+        start,
+        |n| n == goal,
+        |n| graph.heuristic(n, goal),
+        max_expansions,
+    )
+}
+
+/// A* to any node `is_goal` accepts, guided by `heuristic` (the estimated cost left from a node;
+/// never an overestimate, and 0 is always safe). The graph's own `heuristic` is not used.
+pub fn search<G: Graph>(
+    graph: &G,
+    start: G::Node,
+    is_goal: impl Fn(G::Node) -> bool,
+    heuristic: impl Fn(G::Node) -> f32,
+    max_expansions: usize,
+) -> Option<Path<G::Node>> {
     let mut open = BinaryHeap::new();
     let mut best: HashMap<G::Node, f32> = HashMap::new();
     let mut came: HashMap<G::Node, G::Node> = HashMap::new();
     let mut edges = Vec::new();
     best.insert(start, 0.0);
     open.push(Open {
-        f: graph.heuristic(start, goal),
+        f: heuristic(start),
         g: 0.0,
         node: start,
     });
     let mut expanded = 0usize;
     while let Some(Open { g, node, .. }) = open.pop() {
-        if node == goal {
+        if is_goal(node) {
             let mut nodes = vec![node];
             let mut at = node;
             while let Some(&p) = came.get(&at) {
@@ -94,7 +112,7 @@ pub fn find_path_limited<G: Graph>(
                 best.insert(next, ng);
                 came.insert(next, node);
                 open.push(Open {
-                    f: ng + graph.heuristic(next, goal),
+                    f: ng + heuristic(next),
                     g: ng,
                     node: next,
                 });

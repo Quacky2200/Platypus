@@ -1814,7 +1814,8 @@ Design and API: `docs/spatial-audio.md`. Tests `ACO-*`.
 - [x] A* over any `Graph`, `NavGrid` (3D cells, 6/18/26 connectivity, weights, line of sight, smoothing), steering (`AI-01`..`13`)
 - [x] `#[ts_api]` script API: `NavGrid`, `Steering` (`AI-20`..`23`)
 - [ ] Navmesh from scene colliders, dynamic obstacles / replanning
-- [ ] Simple GOAP (actions, goals, planner over A*)
+- [x] Simple GOAP: boolean facts, costed actions, A* planner, `Goap` script API (`AI-24`, `AI-30`..`35`)
+- [ ] GOAP follow-ups: a goal-priority picker, replanning when an action fails, numeric facts
 - [ ] Mass navigation: flow fields for crowds (rats), local avoidance
 - [ ] Small neural nets (tiny feed-forward, evolvable)
 

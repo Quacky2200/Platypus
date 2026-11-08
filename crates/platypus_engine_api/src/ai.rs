@@ -7,7 +7,7 @@
 
 use glam::{IVec3, Vec3};
 use platypus_ai::steering::Agent;
-use platypus_ai::{Connectivity, NavGrid};
+use platypus_ai::{Connectivity, Goap, NavGrid};
 use platypus_math::{V3, v3};
 use std::cell::RefCell;
 use ts_api::{Handle, ts_api};
@@ -32,6 +32,7 @@ thread_local! {
 /// Forgets every grid (a reload, or a test).
 pub fn reset() {
     GRIDS.with(|g| g.borrow_mut().clear());
+    PLANNERS.with(|g| g.borrow_mut().clear());
 }
 
 fn with_grid<R>(r: NavGridRef, f: impl FnOnce(&mut NavGrid) -> R) -> Option<R> {
@@ -166,6 +167,108 @@ pub mod nav_grid_api {
         /// Whether the straight line between two world points crosses only free cells.
         pub fn line_of_sight(self, a: V3, b: V3) -> bool {
             with_grid(self, |g| g.line_of_sight(vec(a), vec(b))).unwrap_or(false)
+        }
+    }
+}
+
+/// A `Goap` planner by number (1-based: 0 is "none").
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct GoapRef(pub u32);
+
+impl Handle for GoapRef {
+    fn to_raw(self) -> u64 {
+        u64::from(self.0)
+    }
+    fn from_raw(raw: u64) -> Self {
+        GoapRef(raw as u32)
+    }
+}
+
+thread_local! {
+    static PLANNERS: RefCell<Vec<Option<Goap>>> = const { RefCell::new(Vec::new()) };
+}
+
+fn with_planner<R>(r: GoapRef, f: impl FnOnce(&mut Goap) -> R) -> Option<R> {
+    PLANNERS.with(|g| {
+        let mut g = g.borrow_mut();
+        let i = (r.0 as usize).checked_sub(1)?;
+        g.get_mut(i)?.as_mut().map(f)
+    })
+}
+
+fn strs(v: &[String]) -> Vec<&str> {
+    v.iter().map(String::as_str).collect()
+}
+
+#[ts_api(namespace = "Goap", handles(Goap = GoapRef))]
+pub mod goap_api {
+    use super::*;
+
+    /// Goal-oriented action planning. Facts are named booleans (up to 64); a literal is a fact name,
+    /// or `"!name"` for false, and a fact a list doesn't mention is false. An action has a cost,
+    /// preconditions and effects (all literals); `plan` finds the cheapest list of actions that takes
+    /// the world from its facts to ones meeting the goal.
+    impl GoapRef {
+        /// `new Goap()`: a planner with no actions.
+        pub fn create() -> GoapRef {
+            PLANNERS.with(|all| {
+                let mut all = all.borrow_mut();
+                all.push(Some(Goap::new()));
+                GoapRef(all.len() as u32)
+            })
+        }
+
+        /// Forgets the planner (a handle is a number, nothing frees it by itself).
+        pub fn destroy(self) {
+            PLANNERS.with(|all| {
+                let mut all = all.borrow_mut();
+                if let Some(slot) = (self.0 as usize)
+                    .checked_sub(1)
+                    .and_then(|i| all.get_mut(i))
+                {
+                    *slot = None;
+                }
+            });
+        }
+
+        /// Adds an action; false when its literals contradict each other or there are more than 64 facts.
+        pub fn add_action(
+            self,
+            name: String,
+            cost: f64,
+            preconditions: &[String],
+            effects: &[String],
+        ) -> bool {
+            with_planner(self, |g| {
+                g.add_action(&name, cost as f32, &strs(preconditions), &strs(effects))
+                    .is_ok()
+            })
+            .unwrap_or(false)
+        }
+
+        /// Gives up a plan after this many expanded states (no limit by default).
+        pub fn set_max_expansions(self, count: f64) {
+            with_planner(self, |g| {
+                g.max_expansions = (count >= 1.0).then_some(count as usize);
+            });
+        }
+
+        /// The names of the actions to run, in order, from the facts that are true now to a state
+        /// meeting every goal literal. Empty when the goal is already met, and also when there is no
+        /// plan (check `canPlan`).
+        pub fn plan(self, facts: &[String], goal: &[String]) -> Vec<String> {
+            with_planner(self, |g| g.plan_names(&strs(facts), &strs(goal)))
+                .and_then(Result::ok)
+                .flatten()
+                .unwrap_or_default()
+        }
+
+        /// Whether any plan exists.
+        pub fn can_plan(self, facts: &[String], goal: &[String]) -> bool {
+            with_planner(self, |g| g.plan_names(&strs(facts), &strs(goal)))
+                .and_then(Result::ok)
+                .flatten()
+                .is_some()
         }
     }
 }
@@ -309,6 +412,24 @@ mod tests {
             g.find_path(v3(0.5, 0.5, 0.5), v3(40.0, 0.5, 0.5), true)
                 .is_empty()
         );
+    }
+
+    // AI-24
+    #[test]
+    fn goap_handle_plans_and_tells_no_plan_from_already_met() {
+        reset();
+        let s = |v: &[&str]| v.iter().map(|x| x.to_string()).collect::<Vec<_>>();
+        let g = GoapRef::create();
+        assert!(g.add_action("getAxe".into(), 1.0, &s(&["!axe"]), &s(&["axe"])));
+        assert!(g.add_action("chop".into(), 2.0, &s(&["axe"]), &s(&["wood"])));
+        assert!(!g.add_action("bad".into(), 1.0, &s(&["a", "!a"]), &[]));
+        assert_eq!(g.plan(&[], &s(&["wood"])), ["getAxe", "chop"]);
+        assert!(g.can_plan(&[], &s(&["wood"])));
+        assert!(g.plan(&s(&["wood"]), &s(&["wood"])).is_empty());
+        assert!(g.can_plan(&s(&["wood"]), &s(&["wood"])));
+        assert!(!g.can_plan(&[], &s(&["moon"])));
+        g.destroy();
+        assert!(!g.can_plan(&[], &s(&["wood"])));
     }
 
     // AI-22
