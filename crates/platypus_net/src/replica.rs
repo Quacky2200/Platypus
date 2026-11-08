@@ -223,6 +223,20 @@ impl ReplicaServer {
         true
     }
 
+    /// Whether a player has been told about an object (so an RPC about it makes sense to them).
+    pub fn knows(&self, player: PlayerId, id: NetId) -> bool {
+        self.peers
+            .get(&player)
+            .is_some_and(|p| p.known.contains_key(&id))
+    }
+
+    /// The players being replicated to, in id order.
+    pub fn players(&self) -> Vec<PlayerId> {
+        let mut p: Vec<_> = self.peers.keys().copied().collect();
+        p.sort_unstable();
+        p
+    }
+
     /// Handles a replication message from a player (acks, owner-written fields); anything else or
     /// anything malformed is ignored.
     pub fn handle(&mut self, from: PlayerId, bytes: &[u8]) {

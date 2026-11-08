@@ -13,6 +13,7 @@
 
 #[cfg(feature = "net-debug")]
 pub mod conditioned;
+pub mod host;
 pub mod loopback;
 pub mod replica;
 pub mod schema;

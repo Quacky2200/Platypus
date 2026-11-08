@@ -2800,4 +2800,10 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M8-REP-10 | Unit | A state of 400 objects splits into datagram-sized chunks (each under 1100 bytes) and a client behind 10 % loss still converges. |
 | M8-REP-11 | Unit | Interpolation blends between the two ticks around a fractional render tick for fields marked `interpolate`, steps for others, and clamps to the nearest state outside the stored range. |
 | M8-REP-12 | Unit | Random garbage fed to the replica client and server never panics, and replication keeps working after it. |
+| M8-HOST-01 | Unit | `NetHost` over loopback: two players join, the server spawns an object, both clients get the spawn and its values, and only the owner sees `is_mine`. |
+| M8-HOST-02 | Unit | RPCs follow the schema: the owner's `Server` RPC runs, a non-owner's is dropped (counted) unless the RPC allows anyone; the server's `Owner` RPC reaches only the owner and `All` reaches everyone who knows the object; wrong-direction and unknown calls are errors for the caller. |
+| M8-HOST-03 | Unit | A client sending more than the allowed RPCs a second has the excess dropped and counted (120 run, 180 dropped of 300). |
+| M8-HOST-04 | Unit | Malformed RPC packets (empty, unknown id, absurd argument count, bad value tag) are dropped and counted, never delivered. |
+| M8-HOST-05 | Unit | A player that drops and returns with its token gets the same player id (`resumed`) and every spawn again, still owning its object. |
+| M8-HOST-06 | Unit | Replication and reliable RPCs work over a link with 80 ms latency, jitter, 15 % burst loss, duplication and reordering; the final value matches the server's. |
 | M8-HLS-03 | Manual | `platypus-app examples/hello --headless --tick-rate 1000 --frames 2000` runs the game's scripts to the end with no window and no GPU device (checked 2026-11-08); `examples/physics --headless --frames 180` takes about 3 s at 60 iterations a second. |

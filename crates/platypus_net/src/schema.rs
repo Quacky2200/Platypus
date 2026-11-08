@@ -49,6 +49,31 @@ impl FieldType {
         })
     }
 
+    fn tag(self) -> u8 {
+        match self {
+            FieldType::Bool => 0,
+            FieldType::I32 => 1,
+            FieldType::F32 => 2,
+            FieldType::Vec3 => 3,
+            FieldType::Quat => 4,
+            FieldType::Str => 5,
+            FieldType::Ref => 6,
+        }
+    }
+
+    fn from_tag(t: u8) -> Option<FieldType> {
+        Some(match t {
+            0 => FieldType::Bool,
+            1 => FieldType::I32,
+            2 => FieldType::F32,
+            3 => FieldType::Vec3,
+            4 => FieldType::Quat,
+            5 => FieldType::Str,
+            6 => FieldType::Ref,
+            _ => return None,
+        })
+    }
+
     /// Whether neighbouring snapshots can be blended (`@sync({ interpolate: true })`).
     pub fn blendable(self) -> bool {
         matches!(self, FieldType::F32 | FieldType::Vec3 | FieldType::Quat)
@@ -150,11 +175,94 @@ impl ClassDef {
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Schema {
     pub classes: Vec<ClassDef>,
+    pub rpcs: Vec<RpcDef>,
+}
+
+/// Who an RPC goes to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RpcTarget {
+    /// Client to server.
+    Server,
+    /// Server to the object's owner.
+    Owner,
+    /// Server to every client that knows the object.
+    All,
+}
+
+impl RpcTarget {
+    pub fn name(self) -> &'static str {
+        match self {
+            RpcTarget::Server => "server",
+            RpcTarget::Owner => "owner",
+            RpcTarget::All => "all",
+        }
+    }
+
+    pub fn parse(s: &str) -> Option<RpcTarget> {
+        Some(match s {
+            "server" => RpcTarget::Server,
+            "owner" => RpcTarget::Owner,
+            "all" => RpcTarget::All,
+            _ => return None,
+        })
+    }
+}
+
+/// A remote procedure: a name, where it runs and (for client-to-server calls) who may call it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RpcDef {
+    pub name: String,
+    pub target: RpcTarget,
+    /// For `Server` RPCs: only the object's owner may call it (the default).
+    pub require_owner: bool,
+    /// Sent on the reliable channel (the default) or unreliably.
+    pub reliable: bool,
+}
+
+impl RpcDef {
+    pub fn new(name: &str, target: RpcTarget) -> RpcDef {
+        RpcDef {
+            name: name.to_owned(),
+            target,
+            require_owner: true,
+            reliable: true,
+        }
+    }
+
+    /// Anyone may call this server RPC, not only the owner.
+    pub fn from_anyone(mut self) -> RpcDef {
+        self.require_owner = false;
+        self
+    }
+
+    pub fn unreliable(mut self) -> RpcDef {
+        self.reliable = false;
+        self
+    }
 }
 
 impl Schema {
     pub fn new(classes: Vec<ClassDef>) -> Schema {
-        Schema { classes }
+        Schema {
+            classes,
+            rpcs: Vec::new(),
+        }
+    }
+
+    pub fn with_rpcs(mut self, rpcs: Vec<RpcDef>) -> Schema {
+        self.rpcs = rpcs;
+        self
+    }
+
+    pub fn rpc_id(&self, name: &str) -> Option<u16> {
+        self.rpcs
+            .iter()
+            .position(|r| r.name == name)
+            .map(|i| i as u16)
+    }
+
+    pub fn rpc(&self, id: u16) -> Option<&RpcDef> {
+        self.rpcs.get(usize::from(id))
     }
 
     pub fn class_id(&self, name: &str) -> Option<u16> {
@@ -186,6 +294,15 @@ impl Schema {
                 ));
             }
             text.push('}');
+        }
+        for r in &self.rpcs {
+            text.push_str(&format!(
+                "rpc {}:{}:{}:{};",
+                r.name,
+                r.target.name(),
+                u8::from(r.require_owner),
+                u8::from(r.reliable)
+            ));
         }
         text.bytes().fold(0xcbf2_9ce4_8422_2325, |h, b| {
             (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3)
@@ -300,6 +417,19 @@ impl Value {
             FieldType::Str => Value::Str(r.str(1024)?),
             FieldType::Ref => Value::Ref(r.varint()?),
         })
+    }
+
+    /// Writes the value with its type in front (RPC arguments, which have no field to say).
+    pub fn write_tagged(&self, w: &mut Writer) {
+        let tag = self.ty().tag();
+        w.u8(tag);
+        self.write(w, &FieldDef::new("", self.ty()));
+    }
+
+    /// Reads a value written by `write_tagged`.
+    pub fn read_tagged(r: &mut Reader<'_>) -> Option<Value> {
+        let ty = FieldType::from_tag(r.u8()?)?;
+        Value::read(r, &FieldDef::new("", ty))
     }
 
     /// Blends two values (`t` 0 to 1) for interpolation; types that cannot blend take `self` until `t` passes a half.
