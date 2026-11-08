@@ -1953,6 +1953,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6b464fbc74e149a392436b17d523f769e057cb6877f6a5c4618bc6f11800548"
 
 [[package]]
+name = "platypus_acoustics"
+version = "0.1.0"
+dependencies = [
+ "glam 0.34.1",
+ "platypus_engine_api",
+ "platypus_kinds",
+ "platypus_math",
+ "platypus_physics_api",
+ "platypus_scene",
+ "serde_json",
+ "ts_api",
+]
+
+[[package]]
 name = "platypus_animation"
 version = "0.1.0"
 dependencies = [
@@ -1973,6 +1987,7 @@ dependencies = [
  "oxc_ast",
  "oxc_parser",
  "oxc_span",
+ "platypus_acoustics",
  "platypus_components",
  "platypus_core",
  "platypus_engine_api",
@@ -2141,6 +2156,7 @@ name = "platypus_ts_tests"
 version = "0.1.0"
 dependencies = [
  "glam 0.34.1",
+ "platypus_acoustics",
  "platypus_animation",
  "platypus_components",
  "platypus_core",
