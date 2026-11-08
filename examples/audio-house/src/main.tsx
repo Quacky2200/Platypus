@@ -226,7 +226,9 @@ class HouseWorld extends Component {
     RenderSettings.ambientMode = "color";
     RenderSettings.ambientLight = new Color(0.32, 0.33, 0.38, 1);
     // Ground and sun.
-    const ground = GameObject.createPrimitive("cube", { position: new Vector3(0, -0.25, 0), scale: new Vector3(60, 0.5, 60) });
+    // Its top is 2 cm under the house's ground-floor slab (y 0), so the two never share a plane
+    // (they flickered against each other: z-fighting).
+    const ground = GameObject.createPrimitive("cube", { position: new Vector3(0, -0.27, 0), scale: new Vector3(60, 0.5, 60) });
     ground.getComponent(MeshRenderer)!.material = new Material(Color.hex("#4d6b3c"), Color.black, 0.1);
     ground.addComponent(BoxCollider);
     const sun = new GameObject("Sun", { rotation: Quaternion.euler(-48, 30, 0) });
