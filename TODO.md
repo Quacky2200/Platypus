@@ -1813,19 +1813,31 @@ Design: `docs/research/multiplayer.md` (Fusion / Fish-Net / Lightyear inspired, 
 - [x] **M8.a** `--headless` (2026-11-08, `M8-HLS-01..03`): a paced loop on the fake platform with no window, GPU or renderer
   (`platypus_app/src/headless.rs`), `--tick-rate`, `--frames`. Left for M8.b: signal handling for a clean shutdown, a per-second
   stats line, and a null audio mixer (the mixer still opens on a game's first sound)
-- [ ] **M8.b** `platypus_net`: transport trait, loopback with link conditioner, QUIC (`quinn`), handshake with schema hash
-- [ ] **M8.c** Replication: `@sync` schema from the compiler, spawn / despawn, snapshots and deltas, interest, `NetworkTime`
-- [ ] **M8.d** `@rpc.*`, `@input`, ownership and authority transfer, roles (server, host, client, spectator)
-- [ ] **M8.e** Prediction: rewindable rapier spike, reconcile, interpolation, lag compensation, predicted spawns
+- [x] **M8.b** (2026-11-08, `M8-NET-01..10`) `platypus_net`: transport trait, loopback, QUIC (`platypus_net_quic`), session with
+  handshake (schema / version hash), reconnect tokens, heartbeats, timeouts, grace. Left: Steam / WebRTC transports
+- [x] **M8.c** (2026-11-08, `M8-REP-01..12`, `M8-HOST-01..06`) Replication: schema, spawn / despawn, chunked state deltas against the
+  acknowledged baseline, interest, owner-written fields, interpolation, `NetHost`. Left: `@sync` from the compiler (the script
+  API takes the same schema as text: `Network.defineClass`), `NetworkTime` as an API, smallest-three quaternions, per-field reliable
+- [x] **M8.d** (2026-11-08, `M8-API-01..05`) RPCs (`server` / `owner` / `all`, ownership and rate checks), ownership transfer,
+  roles server and client, the script `Network` namespace. Left: `@rpc` decorators, host (listen server) and spectator roles,
+  tick-stamped `@input` buffers
+- [ ] **M8.e** Prediction: rewindable rapier spike, reconcile, ~~interpolation~~ (done), ~~lag compensation~~ (done in the arena's
+  script: history rewind of players), predicted spawns. The arena trusts the owner's position (server-validated) for now
 - [ ] **M8.f** Steam (`steamworks`): relay transport and lobbies
 - [ ] **M8.g** Tools: editor network panel, server metrics
-- [ ] `examples/net-arena` (grows with M8.b-e): a bounded white town from `fog-white-room` (houses, cars, red lasers, invisible
-  walls inside the fog), a laser gun, React Host / Join menu (localhost matchmaking), debug network panel;
-  server-owned match flow (spawn, die, respawn, kills, kill feed) and an in-memory session scoreboard (not saved)
+- [x] `examples/net-arena` first version (2026-11-08): a bounded white town (houses, cars, red lasers, invisible walls inside the
+  fog), a laser gun with lag-compensated hits, Host / Join menu (address field; localhost), F1 debug panel (latency, jitter, loss,
+  freeze, blackhole, drop), server-owned match flow (spawn, die, respawn, kills, kill feed, rounds) and a session scoreboard.
+  Run by a headless server and two bots over QUIC: kills, deaths and scores agree on all three, also at 300 ms and 8 % loss.
+  Left: LAN discovery for the lobby list, a real listen-server host, the arena's physics props and the car checked in play,
+  camera framing after a respawn, fault scenarios as automated tests (`--lag` / `--loss` bots are the start)
 - [ ] `examples/net-voice` (after M8.d; needs web-ui's media tracks, `getUserMedia` and audio capture): proximity voice chat and webcam
   screens in the net-arena town, WebRTC tracks against our own datagram channel compared, consent and "you are live" indicators,
   synthetic mic / camera for CI (`docs/research/multiplayer.md` §9.3)
-- [ ] `Conditioned` transport (debug only, feature `net-debug`): latency, jitter, loss, duplication, reorder, bandwidth cap, disconnect, freeze, seeded fault scripts
+- [x] `Conditioned` transport (debug only, feature `net-debug`): latency, jitter, loss, duplication, reorder, bandwidth cap, disconnect,
+  freeze, corruption, seeded. Left: JSON fault scripts, and `platypus-build package` refusing a host built with the feature
+- [ ] Before merging `m8-multiplayer`: full workspace sweep, `cd tools && cargo run -p platypus_notices` (new crates: quinn, rustls,
+  ring, rcgen ...), restore the web-ui paths in `Cargo.toml` / `tools/Cargo.toml` (the worktree edits are local)
 - [ ] Later: cross-play backend (accounts, matchmaking, leaderboards, cloud saves; Nakama or our own), WebRTC browser clients,
   lockstep mode, host migration, server-only code split, headless-only package
 
