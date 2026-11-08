@@ -1363,6 +1363,8 @@ impl App {
             return;
         };
         mixer.advance(elapsed);
+        let (level, running, error) = mixer.mic_status();
+        platypus_engine_api::audio::set_mic_status(f64::from(level), running, &error);
         let ended = mixer.poll();
         if !ended.is_empty() {
             self.native_audio_ended(&ended);

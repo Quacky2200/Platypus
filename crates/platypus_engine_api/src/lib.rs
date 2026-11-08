@@ -73,6 +73,7 @@ pub fn manifests() -> Vec<String> {
         screen::screen_api::MANIFEST.to_json(),
         screen::quality_api::MANIFEST.to_json(),
         audio::audio_api::MANIFEST.to_json(),
+        audio::microphone_api::MANIFEST.to_json(),
         audio_components::audio_source_api::MANIFEST.to_json(),
         audio_components::audio_listener_api::MANIFEST.to_json(),
         random::rng_api::MANIFEST.to_json(),

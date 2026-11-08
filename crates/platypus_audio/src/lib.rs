@@ -13,10 +13,12 @@
 //! [`Audio::poll`] reports instances that finished, so scripts can drop them.
 
 mod fx;
+mod live;
 mod offline;
 
 pub use fx::FxLevel;
 use fx::{Fx, add_fx};
+pub use live::{Capture, LiveFeed};
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::sync::Arc;
@@ -114,6 +116,8 @@ fn stream_data(
 enum Instance {
     Static(StaticSoundHandle),
     Stream(StreamingSoundHandle<FromFileError>),
+    /// A microphone (or other live feed): only its volume and stopping are controlled.
+    Live(LiveFeed),
 }
 
 /// A bus (plain sub-track) or an emitter (spatial sub-track).
@@ -181,6 +185,9 @@ pub struct Audio<B: Backend = DefaultBackend> {
     sounds: HashMap<ScriptId, Sound>,
     instances: HashMap<ScriptId, Instance>,
     tracks: HashMap<ScriptId, Track>,
+    /// The microphone, once started, and why starting it failed last.
+    capture: Option<Capture>,
+    mic_error: String,
     /// Effect chains of the tracks made with them (see [`FxLevel`]).
     fx: HashMap<ScriptId, Fx>,
     listener: Option<ListenerHandle>,
@@ -213,6 +220,8 @@ where
             instances: HashMap::new(),
             tracks: HashMap::new(),
             fx: master_fx.map(|f| (0, f)).into_iter().collect(),
+            capture: None,
+            mic_error: String::new(),
             listener: None,
             master: Decibels::IDENTITY,
             muted: false,
@@ -338,6 +347,41 @@ where
         Ok(())
     }
 
+    /// Plays a live feed (a microphone, or a test's samples) as instance `id`, on `track` (a bus
+    /// or emitter) or the master.
+    pub fn play_live(
+        &mut self,
+        id: ScriptId,
+        feed: LiveFeed,
+        track: Option<ScriptId>,
+        volume: f32,
+    ) -> Result<(), String> {
+        feed.set_gain(volume);
+        let data = live::LiveData(feed.clone());
+        let played = match track {
+            Some(t) => match self.tracks.get_mut(&t) {
+                Some(Track::Bus(h)) => h.play(data),
+                Some(Track::Emitter(h)) => h.play(data),
+                None => return Err(format!("no bus or emitter {t}")),
+            },
+            None => self.manager.play(data),
+        };
+        played.map_err(|e| format!("{e:?}"))?;
+        if let Some(old) = self.instances.insert(id, Instance::Live(feed)) {
+            stop(old, Tween::default());
+        }
+        Ok(())
+    }
+
+    /// The microphone's level (RMS, 0 to 1), whether it is running, and why it last failed to
+    /// start (empty if it did not).
+    pub fn mic_status(&self) -> (f32, bool, String) {
+        match &self.capture {
+            Some(c) if !c.feed().stopped() => (c.feed().level(), true, String::new()),
+            _ => (0.0, false, self.mic_error.clone()),
+        }
+    }
+
     /// Runs one `audio.*` op (the name without the prefix). `load` needs the file's
     /// bytes, so the app handles it and calls [`Self::load`].
     pub fn apply(&mut self, name: &str, args: &[Value]) -> Result<(), String> {
@@ -378,6 +422,9 @@ where
                     }
                     ("pan", Instance::Static(h)) => h.set_panning(Panning(v.clamp(-1.0, 1.0)), t),
                     ("pan", Instance::Stream(h)) => h.set_panning(Panning(v.clamp(-1.0, 1.0)), t),
+                    ("volume", Instance::Live(feed)) => feed.set_gain(v),
+                    // A live input has no speed or pan of its own: bus and emitter place it.
+                    (_, Instance::Live(_)) => {}
                     (other, _) => return Err(format!("unknown sound property `{other}`")),
                 }
             }
@@ -397,7 +444,27 @@ where
                     // Kept until it has faded out; `poll` reports it then.
                     (_, Instance::Static(h)) => h.stop(t),
                     (_, Instance::Stream(h)) => h.stop(t),
+                    ("stop", Instance::Live(feed)) => feed.stop(),
+                    (_, Instance::Live(_)) => {}
                 }
+            }
+            // `micStart id track|null [volume]`: the default microphone, played on a bus or
+            // emitter (the master if none) as instance `id`. It reads the input device, which
+            // can fail (no microphone, permission), so the error comes back.
+            "micStart" => {
+                let id = a.id(0)?;
+                let volume = a.opt_num(2).unwrap_or(1.0);
+                let feed = match &self.capture {
+                    Some(c) if !c.feed().stopped() => c.feed(),
+                    _ => {
+                        let c = Capture::start().inspect_err(|e| self.mic_error = e.clone())?;
+                        self.mic_error.clear();
+                        let feed = c.feed();
+                        self.capture = Some(c);
+                        feed
+                    }
+                };
+                self.play_live(id, feed, a.opt_id(1), volume)?;
             }
             "seek" => {
                 let id = a.id(0)?;
@@ -405,7 +472,7 @@ where
                 match self.instances.get_mut(&id) {
                     Some(Instance::Static(h)) => h.seek_to(to),
                     Some(Instance::Stream(h)) => h.seek_to(to),
-                    None => {}
+                    Some(Instance::Live(_)) | None => {}
                 }
             }
             "unload" => {
@@ -581,6 +648,7 @@ where
             .filter(|(_, i)| match i {
                 Instance::Static(h) => h.state() == PlaybackState::Stopped,
                 Instance::Stream(h) => h.state() == PlaybackState::Stopped,
+                Instance::Live(feed) => feed.stopped(),
             })
             .map(|(&id, _)| id)
             .collect();
@@ -615,6 +683,7 @@ fn stop(instance: Instance, t: Tween) {
     match instance {
         Instance::Static(mut h) => h.stop(t),
         Instance::Stream(mut h) => h.stop(t),
+        Instance::Live(feed) => feed.stop(),
     }
 }
 
@@ -692,6 +761,8 @@ pub trait Mixer {
     fn advance(&mut self, seconds: f64);
     /// See [`Audio::set_muted`].
     fn set_muted(&mut self, muted: bool);
+    /// The microphone's level, whether it runs, and its last error (see [`Audio::mic_status`]).
+    fn mic_status(&self) -> (f32, bool, String);
 }
 
 impl Mixer for Audio<DefaultBackend> {
@@ -710,6 +781,9 @@ impl Mixer for Audio<DefaultBackend> {
     fn advance(&mut self, _seconds: f64) {}
     fn set_muted(&mut self, muted: bool) {
         Audio::set_muted(self, muted)
+    }
+    fn mic_status(&self) -> (f32, bool, String) {
+        Audio::mic_status(self)
     }
 }
 
@@ -733,6 +807,9 @@ impl Mixer for Audio<OfflineBackend> {
     }
     fn set_muted(&mut self, muted: bool) {
         Audio::set_muted(self, muted)
+    }
+    fn mic_status(&self) -> (f32, bool, String) {
+        Audio::mic_status(self)
     }
 }
 

@@ -387,3 +387,57 @@ fn the_master_mix_has_effects_as_track_zero() {
         "everything is dulled"
     );
 }
+
+// ACO-LIVE-01
+#[test]
+fn a_live_feed_plays_through_a_bus_with_effects_and_stops() {
+    let mut a = audio();
+    op(
+        &mut a,
+        "bus",
+        vec![num(1.0), Value::Null, num(1.0), num(2.0)],
+    );
+    let feed = platypus_audio::LiveFeed::new(RATE);
+    a.play_live(20, feed.clone(), Some(1), 1.0).unwrap();
+    // Nothing yet: silence, not a crash.
+    assert_eq!(level(&a.backend_mut().render(200)), [0.0, 0.0]);
+    // A steady voice arrives in blocks while the mixer renders.
+    let mut heard = 0.0;
+    for _ in 0..10 {
+        feed.push(&[0.5; 200]);
+        heard = level(&a.backend_mut().render(200))[0];
+    }
+    assert!(heard > 0.3, "the live input is audible: {heard}");
+    assert!(feed.level() > 0.4);
+    // The bus's high-pass takes a steady level away, as it would a voice's lows.
+    op(
+        &mut a,
+        "fx",
+        vec![num(1.0), "highpass".into(), num(1500.0), num(0.0)],
+    );
+    let mut thin = 1.0;
+    for _ in 0..10 {
+        feed.push(&[0.5; 200]);
+        thin = level(&a.backend_mut().render(200))[0];
+    }
+    assert!(thin < 0.1, "effects colour the live voice: {thin}");
+    // Its volume is a property of the instance, and stopping ends it.
+    op(
+        &mut a,
+        "fx",
+        vec![num(1.0), "highpass".into(), num(0.0), num(0.0)],
+    );
+    op(
+        &mut a,
+        "set",
+        vec![num(20.0), "volume".into(), num(0.0), num(0.0)],
+    );
+    feed.push(&[0.5; 200]);
+    a.backend_mut().render(200);
+    feed.push(&[0.5; 200]);
+    assert!(level(&a.backend_mut().render(200))[0] < 0.01);
+    op(&mut a, "stop", vec![num(20.0)]);
+    assert_eq!(a.poll(), vec![20]);
+    // A missing bus is an error, not a hang.
+    assert!(a.play_live(21, feed, Some(99), 1.0).is_err());
+}

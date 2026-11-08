@@ -120,6 +120,12 @@ pub enum AudioCommand {
         glide: f64,
     },
     RemoveTrack(u32),
+    /// Plays the microphone as `playback` on a bus or emitter (the master if none).
+    MicStart {
+        playback: PlaybackRef,
+        track: Option<u32>,
+        volume: f64,
+    },
     Listener {
         position: [f64; 3],
         rotation: [f64; 4],
@@ -216,6 +222,14 @@ impl AudioCommand {
                 vec![json!(emitter.0), json!(position), json!(glide)],
             ),
             AudioCommand::RemoveTrack(t) => ("removeTrack", vec![json!(t)]),
+            AudioCommand::MicStart {
+                playback,
+                track,
+                volume,
+            } => (
+                "micStart",
+                vec![json!(playback.0), id(*track), json!(volume)],
+            ),
             AudioCommand::Listener { position, rotation } => {
                 ("listener", vec![json!(position), json!(rotation)])
             }
@@ -277,6 +291,9 @@ struct State {
     cache: HashMap<String, SoundRef>,
     master: f64,
     listener: Option<([f64; 3], [f64; 4])>,
+    /// The microphone as the host last reported it: level, running, last error.
+    mic: (f64, bool, String),
+    mic_playback: Option<PlaybackRef>,
 }
 
 thread_local! {
@@ -285,6 +302,35 @@ thread_local! {
 
 fn st<R>(f: impl FnOnce(&mut State) -> R) -> R {
     STATE.with(|s| f(&mut s.borrow_mut()))
+}
+
+/// The host reports the microphone each frame: its level (0 to 1), whether it runs, and why it
+/// last failed to start.
+pub fn set_mic_status(level: f64, running: bool, error: &str) {
+    st(|s| s.mic = (level, running, error.to_string()));
+}
+
+/// Starts the microphone on a bus or emitter (`track`), as a playback; replaces the one before.
+pub fn start_microphone(track: Option<u32>, volume: f64) -> PlaybackRef {
+    st(|s| {
+        if let Some(old) = s.mic_playback.take() {
+            s.commands.push(AudioCommand::Stop(old, 0.0));
+        }
+        s.playbacks.push(PlaybackData {
+            sound: SoundRef(0),
+            playing: true,
+            paused: false,
+            on_ended: Vec::new(),
+        });
+        let playback = PlaybackRef(s.playbacks.len() as u32);
+        s.mic_playback = Some(playback);
+        s.commands.push(AudioCommand::MicStart {
+            playback,
+            track,
+            volume,
+        });
+        playback
+    })
 }
 
 /// Where the listener last was set (position and rotation), if a script set one.
@@ -916,5 +962,50 @@ pub mod audio_api {
         pub fn set_echo(self, wet: f64, fade: f64) {
             super::set_fx(self.0, "echo", wet, fade);
         }
+    }
+}
+
+#[ts_api(
+    namespace = "Microphone",
+    handles(Playback = PlaybackRef, Bus = BusRef, Emitter = EmitterRef)
+)]
+pub mod microphone_api {
+    use super::*;
+
+    /// Plays the default microphone through the mixer, on a bus (made with `effects`, so zones
+    /// and filters can colour your voice) or an emitter (so it comes from a place), or on the
+    /// main mix. There is no VoIP in it: it is your own voice, live. Use headphones, or it
+    /// feeds back. Check `running` / `error` after a moment (it may be refused).
+    #[optional(bus, emitter, volume = 1)]
+    pub fn start(bus: BusRef, emitter: EmitterRef, volume: f64) -> PlaybackRef {
+        let track = opt(emitter).map(|e| e.0).or(opt(bus).map(|b| b.0));
+        super::start_microphone(track, volume)
+    }
+
+    /// Stops the microphone.
+    pub fn stop() {
+        st(|s| {
+            if let Some(p) = s.mic_playback.take() {
+                s.commands.push(AudioCommand::Stop(p, 0.0));
+            }
+        });
+    }
+
+    /// How loud the input is now, 0 to 1.
+    #[property]
+    pub fn level() -> f64 {
+        st(|s| s.mic.0)
+    }
+
+    /// Whether the microphone is capturing.
+    #[property]
+    pub fn running() -> bool {
+        st(|s| s.mic.1)
+    }
+
+    /// Why starting failed (no microphone, permission refused), or an empty string.
+    #[property]
+    pub fn error() -> String {
+        st(|s| s.mic.2.clone())
     }
 }

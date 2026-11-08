@@ -14,3 +14,4 @@ kira = "0.12.5"
 symphonia = { version = "0.6.1", default-features = false }
 mint = "0.5.9"
 tracing = "0.1.44"
+cpal = "0.18.2"
