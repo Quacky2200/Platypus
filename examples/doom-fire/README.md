@@ -34,6 +34,7 @@ A screenshot run needs a fixed clock, or the fire has barely started: add `--fra
 |---|---|
 | Space | Put the fire out, or light it again (the source row decays or recovers column by column) |
 | G | Switch between particles and the grid |
+| P | Grid pixel size: original (256x144 cells), double (128x72) or triple (85x48), cycling; the grid restarts cold and regrows |
 | Up / Down | Grid flame height, as a fraction of the screen (starts at 0.35). Cooling is set from it, so it stays the same however many cells the grid has |
 
 ## Differences from the original

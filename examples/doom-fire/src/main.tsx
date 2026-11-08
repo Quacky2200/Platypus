@@ -53,8 +53,10 @@ const BOTTOM = -5.2;
 const MAX_RATE = 60; // particles per second from a column at full heat
 const MAX_LIFE = 2.1;
 
-const GRID_W = 256;
-const GRID_H = 144;
+// The grid at pixel size 1 (the cells' size 1x); pixel size 2 and 3 make the cells that much bigger,
+// so the grid has that much fewer of them.
+const BASE_W = 256;
+const BASE_H = 144;
 const VIEW_H = 10; // world units the camera sees from top to bottom (orthographicSize 5)
 const TICK = 1 / 30; // the fire updates at this rate
 
@@ -72,6 +74,8 @@ type Mode = "particles" | "grid";
 let mode: Mode = "particles";
 const modeListeners = new Set<(m: Mode) => void>();
 let flameHeight = 0.35; // grid mode: the fraction of the screen's height a flame cools out in (Up / Down)
+let pixelSize = 1; // grid mode: how big a cell is, 1 (original), 2 (double) or 3 (triple) (P)
+const pixelListeners = new Set<(v: number) => void>();
 let burning = true;
 const burningListeners = new Set<(v: boolean) => void>();
 
@@ -79,6 +83,8 @@ class DoomFire extends Component {
   private source: number[] = []; // heat of each column's source (the bottom row)
   private grid: number[] = [];
   private pixels: Color[] = []; // the grid as colours, bottom row first
+  private gw = BASE_W; // the grid's size in cells, set by the pixel size
+  private gh = BASE_H;
   private view: SpriteRenderer | null = null;
   private texture: Texture | null = null;
   private emitters: ParticleSystem[] = [];
@@ -89,10 +95,7 @@ class DoomFire extends Component {
     const cam = new GameObject("Main Camera", { position: new Vector3(0, 0, 10) });
     cam.addComponent(Camera, { orthographic: true, orthographicSize: 5, backgroundColor: Color.hex("#070707") });
 
-    for (let i = 0; i < GRID_W * GRID_H; i++) {
-      this.grid.push(0);
-      this.pixels.push(HEAT_COLORS[0]!);
-    }
+    this.resizeGrid(pixelSize);
     // The grid's sprite covers the view (20 x 10 units); it is empty until grid mode shows it.
     const screen = new GameObject("grid", { position: Vector3.zero });
     this.view = screen.addComponent(SpriteRenderer, { sprite: null, sortingOrder: 10 });
@@ -134,6 +137,18 @@ class DoomFire extends Component {
     this.setMode(mode);
   }
 
+  // A new pixel size starts the grid cold: the fire grows back from the source row in a moment.
+  private resizeGrid(size: number) {
+    this.gw = Math.floor(BASE_W / size);
+    this.gh = Math.floor(BASE_H / size);
+    this.grid = [];
+    this.pixels = [];
+    for (let i = 0; i < this.gw * this.gh; i++) {
+      this.grid.push(0);
+      this.pixels.push(HEAT_COLORS[0]!);
+    }
+  }
+
   private setMode(m: Mode) {
     mode = m;
     for (const ps of this.emitters) {
@@ -151,6 +166,11 @@ class DoomFire extends Component {
     }
     if (input.getKeyDown("ArrowUp")) flameHeight = Math.min(1, flameHeight + 0.05);
     if (input.getKeyDown("ArrowDown")) flameHeight = Math.max(0.1, flameHeight - 0.05);
+    if (input.getKeyDown("KeyP")) {
+      pixelSize = pixelSize >= 3 ? 1 : pixelSize + 1;
+      this.resizeGrid(pixelSize);
+      for (const f of pixelListeners) f(pixelSize);
+    }
     if (input.getKeyDown("KeyG")) this.setMode(mode === "particles" ? "grid" : "particles");
 
     this.acc += dt;
@@ -188,7 +208,10 @@ class DoomFire extends Component {
   // The original's update: each cell takes the cell below minus a random amount, moved sideways by chance.
   private stepGrid() {
     const g = this.grid;
-    const cool = Math.min(1, MAX_HEAT / (GRID_H * flameHeight));
+    const GRID_W = this.gw;
+    const GRID_H = this.gh;
+    // Heat lost per row on average: under 1 on a fine grid, over 1 on a coarse one.
+    const cool = MAX_HEAT / (GRID_H * flameHeight);
     const last = (GRID_H - 1) * GRID_W;
     for (let x = 0; x < GRID_W; x++) g[last + x] = this.source[Math.floor((x * COLUMNS) / GRID_W)]!;
     for (let row = 1; row < GRID_H; row++) {
@@ -196,11 +219,12 @@ class DoomFire extends Component {
         const below = g[row * GRID_W + x]!;
         const decay = Math.floor(Math.random() * 3);
         // The original only moves left and cools by `decay & 1` (a third of a step per row on average), so
-        // its height depends on the grid's size. Here the chance of cooling per row is set so a flame
-        // cools out after `flameHeight` of the grid's rows, and a cell moves one cell either way
+        // its height depends on the grid's size. Here the heat lost per row is random around a mean set
+        // so a flame cools out after `flameHeight` of the grid's rows, and a cell moves one cell either way
         // (moving only left leaves the right edge stale).
         const dx = x + 1 - decay;
-        if (dx >= 0 && dx < GRID_W) g[(row - 1) * GRID_W + dx] = Math.max(0, below - (Math.random() < cool ? 1 : 0));
+        const lost = Math.floor(Math.random() * 2 * cool + Math.random());
+        if (dx >= 0 && dx < GRID_W) g[(row - 1) * GRID_W + dx] = Math.max(0, below - lost);
       }
     }
     // Texture.create takes the bottom row first.
@@ -224,19 +248,24 @@ register({ DoomFire });
 function Hud() {
   const [m, setM] = useState(mode);
   const [on, setOn] = useState(burning);
+  const [px, setPx] = useState(pixelSize);
   useEffect(() => {
     modeListeners.add(setM);
     burningListeners.add(setOn);
+    pixelListeners.add(setPx);
     return () => {
       modeListeners.delete(setM);
       burningListeners.delete(setOn);
+      pixelListeners.delete(setPx);
     };
   }, []);
+  const size = px === 1 ? "original" : px === 2 ? "double" : "triple";
   return (
     <box style={{ width: "100%", height: "100%", pointerEvents: "none" }}>
       <box style={{ position: "absolute", left: 20, top: 20, padding: "10px 16px", borderRadius: 10, backgroundColor: "rgba(0, 0, 0, 0.55)", flexDirection: "column", gap: 4 }}>
-        <text style={{ color: "#ffd27a", fontSize: 18, fontWeight: 600 }}>{`Doom fire: ${m}${on ? "" : " (out)"}`}</text>
-        <text style={{ color: "#e8c9a0", fontSize: 13 }}>Space: light / put out · G: particles / grid · Up / Down: grid flame height</text>
+        <text style={{ color: "#ffd27a", fontSize: 18, fontWeight: 600 }}>{`Doom fire: ${m}${m === "grid" ? ` (${size} pixels)` : ""}${on ? "" : " (out)"}`}</text>
+        <text style={{ color: "#e8c9a0", fontSize: 13 }}>Space: light / put out · G: particles / grid</text>
+        <text style={{ color: "#e8c9a0", fontSize: 13 }}>Grid: P: pixel size · Up / Down: flame height</text>
         <text style={{ color: "#a08868", fontSize: 11 }}>after filipedeschamps/doom-fire-algorithm (MIT)</text>
       </box>
     </box>
