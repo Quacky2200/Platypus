@@ -1,0 +1,21 @@
+# Copyright 2026 The Platypus Authors
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "platypus_net"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+# Multiplayer's lower layers (M8.b, design: docs/research/multiplayer.md): the transport trait, a
+# loopback transport, the debug-only fault-injecting wrapper and the session (handshake, schema
+# check, heartbeats, timeouts, reconnect tokens). No sockets here: QUIC is `platypus_net_quic`.
+[features]
+# `Conditioned` (latency, loss, ... on any transport). Debug and tests only: `platypus-build
+# package` never builds a release exe with it.
+default = ["net-debug"]
+net-debug = []
+
+[dependencies]
+tracing = "0.1.44"
