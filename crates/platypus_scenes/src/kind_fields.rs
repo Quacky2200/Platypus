@@ -168,6 +168,30 @@ pub fn register() {
                 json!(500.0),
                 "Where it stops getting quieter (3D).",
             ),
+            f(
+                "effects",
+                "bool",
+                json!(false),
+                "Gives its emitter the full effect chain (high-pass, reverb, echo); set before it plays.",
+            ),
+            f(
+                "dopplerLevel",
+                "f64",
+                json!(0.0),
+                "How much pitch follows its speed towards or away from the listener (0 off, 1 physical).",
+            ),
+            f(
+                "loudness",
+                "f64",
+                json!(0.0),
+                "Metres a SoundSensor hears it from while it plays; 0 means sensors do not hear it.",
+            ),
+            f(
+                "occlusion",
+                "f64",
+                json!(1.0),
+                "How much walls between it and the listener muffle it (0 to 1).",
+            ),
         ],
     );
     register_fields("AudioListener", Vec::new());

@@ -19,6 +19,7 @@ const woodMaterial = new Material(Color.hex("#6b4a2d"), Color.black, 0.35);
 /** A solid box with a collider, optionally something sound cannot pass. */
 function slab(name: string, center: Vector3, size: Vector3, material: Material, occludes = true): GameObject {
   const go = GameObject.createPrimitive("cube", { position: center, scale: size });
+  go.addComponent(BoxCollider);
   go.name = name;
   go.getComponent(MeshRenderer)!.material = material;
   if (occludes) go.addComponent(AudioOccluder, { openness: 0, absorption: 0.6, lowPass: 800 });
@@ -58,6 +59,7 @@ function makeDoor(name: string, hinge: Vector3): GameObject {
   const pivot = new GameObject(`${name} hinge`, { position: hinge });
   const panel = GameObject.createPrimitive("cube", { parent: pivot, position: new Vector3(0, 1.1, 1.0), scale: new Vector3(0.12, 2.2, 2.0) });
   panel.name = name;
+  panel.addComponent(BoxCollider);
   panel.getComponent(MeshRenderer)!.material = woodMaterial;
   panel.addComponent(AudioOccluder, { openness: 0, absorption: 0.7, lowPass: 650 });
   // The hinge turns, the panel (with its collider and occluder) goes with it.
@@ -112,8 +114,10 @@ class Player extends Component {
     const speed = input.getKey("ShiftLeft") ? 5 : 2.6;
     this.vy = this.controller.isGrounded ? -1 : this.vy - 16 * dt;
     this.controller.move(dir.scale(speed * dt).add(new Vector3(0, this.vy * dt, 0)));
-    this.cam.transform.localRotation = Quaternion.euler(this.pitch, 0, 0);
-    this.transform.rotation = Quaternion.euler(0, this.yaw, 0);
+    const pitch = (this.pitch * Math.PI) / 180;
+    const look = new Vector3(Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
+    this.cam.transform.rotation = Quaternion.lookRotation(look);
+    this.transform.rotation = Quaternion.lookRotation(fwd);
 
     // Footsteps, quieter when walking slowly.
     if (moving && this.controller.isGrounded) {
@@ -162,7 +166,7 @@ class Player extends Component {
     const look = this.cam.transform.rotation.rotate(Vector3.forward);
     const target = eye.add(look.scale(0.9)).add(new Vector3(0, -0.25, 0));
     r.transform.position = r.transform.position.lerp(target, Math.min(1, dt * 14));
-    r.transform.rotation = Quaternion.euler(0, this.yaw, 0);
+    r.transform.rotation = Quaternion.lookRotation(new Vector3(Math.sin((this.yaw * Math.PI) / 180), 0, -Math.cos((this.yaw * Math.PI) / 180)));
   }
 
   private useDoor() {
@@ -194,10 +198,9 @@ function room(p: Vector3): string {
   return `${floor}: ${p.x < 0 ? "west room" : "east room"}`;
 }
 
-let player: Player;
-let radioA: AudioSource; // upstairs, always playing
-let radioB: AudioSource; // the portable one
-let cupboardDoor: Door;
+let player: Player | null = null;
+let radioA: AudioSource | null = null; // upstairs, always playing
+let radioB: AudioSource | null = null; // the portable one
 
 class HouseWorld extends Component {
   override onStart() {
@@ -206,6 +209,7 @@ class HouseWorld extends Component {
     // Ground and sun.
     const ground = GameObject.createPrimitive("cube", { position: new Vector3(0, -0.25, 0), scale: new Vector3(60, 0.5, 60) });
     ground.getComponent(MeshRenderer)!.material = new Material(Color.hex("#4d6b3c"), Color.black, 0.1);
+    ground.addComponent(BoxCollider);
     const sun = new GameObject("Sun", { rotation: Quaternion.euler(-48, 30, 0) });
     sun.addComponent(Light, { type: "directional", intensity: 0.7, shadows: "soft", shadowStrength: 0.7 });
 
@@ -269,6 +273,7 @@ class HouseWorld extends Component {
     // The portable radio, downstairs in the west room, grabbable.
     const portable = GameObject.createPrimitive("cube", { position: new Vector3(-4.5, 1.2, 2.5), scale: new Vector3(0.42, 0.26, 0.18) });
     portable.name = "Portable radio";
+    portable.addComponent(BoxCollider);
     portable.getComponent(MeshRenderer)!.material = new Material(Color.hex("#2e86c1"), Color.black, 0.4);
     const body = portable.addComponent(Rigidbody, { mass: 1.2 });
     const radio = portable.addComponent(Radio);
@@ -296,7 +301,7 @@ class HouseWorld extends Component {
     slab("Cupboard base", new Vector3(cx, 0.0, cz), new Vector3(1.08, 0.08, 0.88), woodMaterial);
     const cdoor = makeDoor("Cupboard door", new Vector3(cx - 0.5, 0, cz + 0.4));
     cdoor.transform.localScale = new Vector3(1, 0.54, 0.4);
-    cupboardDoor = cdoor.getComponent(Door)!;
+    const cupboardDoor = cdoor.getComponent(Door)!;
     cupboardDoor.baseYaw = 90;
     cupboardDoor.swing = -105;
 
@@ -314,7 +319,7 @@ class HouseWorld extends Component {
     });
 
     // The player.
-    const p = new GameObject("Player", { position: new Vector3(-4, 0.95, -1) });
+    const p = new GameObject("Player", { position: new Vector3(-4, 0.95, 0) });
     p.addComponent(CharacterController, { radius: 0.3, height: 1.8 });
     p.addComponent(AudioSource, { spatialBlend: 1, maxDistance: 20 });
     const eyes = new GameObject("Eyes", { parent: p, position: new Vector3(0, 0.7, 0) });
@@ -326,7 +331,8 @@ class HouseWorld extends Component {
   }
 }
 
-register({ HouseWorld, Door, Radio, Player });
+register({ HouseWorld });
+register({ Door, Radio, Player }, { spawn: false });
 
 function bar(v: number, color: string) {
   return (
@@ -347,7 +353,7 @@ function Hud() {
     loop();
     return () => clearTimeout(id);
   }, []);
-  if (!player) return <box />;
+  if (!player || !radioA || !radioB) return <box />;
   const ear = player.position;
   const a = Acoustics.transmission(ear, radioA.transform.position);
   const b = Acoustics.transmission(ear, radioB.transform.position);

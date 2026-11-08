@@ -25,6 +25,7 @@ const floorMaterial = new Material(Color.hex("#2b3038"), Color.black, 0.2);
 function wall(center: Vector3, size: Vector3): GameObject {
   const go = GameObject.createPrimitive("cube", { position: center, scale: size });
   go.getComponent(MeshRenderer)!.material = wallMaterial;
+  go.addComponent(BoxCollider);
   go.addComponent(AudioOccluder, { openness: 0, absorption: 0.55, lowPass: 900 });
   return go;
 }
@@ -65,7 +66,8 @@ class Guard extends Component {
     } else {
       this.heading += 20 * dt;
     }
-    this.transform.rotation = Quaternion.euler(0, this.heading, 0);
+    const h = (this.heading * Math.PI) / 180;
+    this.transform.rotation = Quaternion.lookRotation(new Vector3(Math.sin(h), 0, Math.cos(h)));
     this.alert = Math.max(0, this.alert - dt);
     if (this.alert === 0) this.turnTo = null;
     const a = Math.min(1, this.alert / 2);
@@ -138,6 +140,7 @@ class Player extends Component {
       scale: Vector3.one.scale(0.25),
     });
     g.getComponent(MeshRenderer)!.material = new Material(Color.hex("#3d5a3d"), Color.black, 0.3);
+    g.addComponent(SphereCollider);
     const body = g.addComponent(Rigidbody, { mass: 0.5 });
     body.velocity = this.facing.scale(7).add(new Vector3(0, 3, 0));
     g.addComponent(AudioSource, { spatialBlend: 1, maxDistance: 40 });
@@ -209,6 +212,7 @@ class RadarWorld extends Component {
     // The level: a floor, an outer wall and rooms off a corridor.
     const floor = GameObject.createPrimitive("cube", { position: new Vector3(0, -0.25, 0), scale: new Vector3(44, 0.5, 34) });
     floor.getComponent(MeshRenderer)!.material = floorMaterial;
+    floor.addComponent(BoxCollider);
     const H = 2.2;
     wall(new Vector3(0, H / 2, -17), new Vector3(44, H, 0.4));
     wall(new Vector3(0, H / 2, 17), new Vector3(44, H, 0.4));
@@ -263,7 +267,7 @@ class RadarWorld extends Component {
     player.addComponent(AudioListener);
     player.addComponent(Player);
 
-    const cam = new GameObject("Main Camera", { position: new Vector3(0, 24, 8), rotation: Quaternion.euler(70, 0, 0) });
+    const cam = new GameObject("Main Camera", { position: new Vector3(0, 24, 8), rotation: Quaternion.lookRotation(new Vector3(0, -24, -8)) });
     camera = cam.addComponent(Camera, { fieldOfView: 50, backgroundColor: Color.hex("#10131a") });
   }
 
@@ -275,7 +279,8 @@ class RadarWorld extends Component {
   }
 }
 
-register({ RadarWorld, Guard, Grenade, Player });
+register({ RadarWorld });
+register({ Guard, Grenade, Player }, { spawn: false });
 
 function Radar() {
   const [, tick] = useState(0);

@@ -309,7 +309,7 @@ SOUNDS = {
 
 # Which example gets which sounds.
 EXAMPLES = {
-    "audio-house": ["radio_music", "voice", "knock", "door", "footstep", "static", "beep"],
+    "audio-house": ["radio_music", "voice", "knock", "door", "footstep", "static", "beep", "wind"],
     "audio-radar": ["footstep", "gunshot", "beep", "explosion", "engine", "voice"],
     "audio-cave": ["voice", "drips", "nature", "waves", "wind", "footstep", "radio_music"],
     "audio-road": ["engine", "horn", "shout", "wind", "radio_music"],

@@ -70,7 +70,7 @@ class Walker extends Component {
     }
     this.x += move * 2.2 * dt;
     this.transform.position = new Vector3(this.x, 1, 0);
-    if (move !== 0) this.transform.rotation = Quaternion.euler(0, move > 0 ? 90 : -90, 0);
+    if (move !== 0) this.transform.rotation = Quaternion.lookRotation(new Vector3(move, 0, 0));
     if (move !== 0) {
       this.stepTimer -= dt;
       if (this.stepTimer <= 0) {
@@ -174,7 +174,7 @@ class CaveWorld extends Component {
     person.addComponent(AudioSource, { spatialBlend: 0, outputBus: worldBus });
     walker = person.addComponent(Walker);
 
-    const cam = new GameObject("Main Camera", { position: new Vector3(18, 3, 16), rotation: Quaternion.euler(8, 180, 0) });
+    const cam = new GameObject("Main Camera", { position: new Vector3(18, 3, 16), rotation: Quaternion.lookRotation(new Vector3(0, -2, -16)) });
     cam.addComponent(Camera, { fieldOfView: 45, backgroundColor: Color.hex("#9bc4e8") });
     cam.addComponent(CameraFollow);
   }
@@ -189,7 +189,8 @@ class CameraFollow extends Component {
   }
 }
 
-register({ CaveWorld, Walker, CameraFollow });
+register({ CaveWorld });
+register({ Walker, CameraFollow }, { spawn: false });
 
 function Hud() {
   const [, tick] = useState(0);

@@ -118,8 +118,8 @@ class RoadWorld extends Component {
     const sun = new GameObject("Sun", { rotation: Quaternion.euler(-50, 25, 0) });
     sun.addComponent(Light, { type: "directional", intensity: 0.7 });
     box("Verge", new Vector3(0, -0.5, 0), new Vector3(200, 1, 30), "#4f7d3a");
-    box("Road", new Vector3(0, -0.45, -4), new Vector3(200, 0.1, 8), "#3a3d44");
-    for (let i = -9; i <= 9; i++) box("Line", new Vector3(i * 8, -0.38, -4), new Vector3(2.5, 0.02, 0.2), "#e8eefc");
+    box("Road", new Vector3(0, 0.05, -4), new Vector3(200, 0.1, 8), "#3a3d44");
+    for (let i = -9; i <= 9; i++) box("Line", new Vector3(i * 8, 0.11, -4), new Vector3(2.5, 0.02, 0.2), "#e8eefc");
 
     // Two lanes: z = -2.5 goes towards +x, z = -5.5 towards -x.
     makeCar("Hatchback", -2.5, 1, 25, "#e74c3c", -55, new Vector3(3.8, 1.4, 1.7));
@@ -131,13 +131,12 @@ class RoadWorld extends Component {
     me = new GameObject("You", { position: new Vector3(0, 1, 2.5) });
     const body = GameObject.createPrimitive("capsule", { parent: me, scale: new Vector3(0.7, 0.9, 0.7) });
     body.getComponent(MeshRenderer)!.material = new Material(Color.hex("#7bd88f"), Color.black, 0.3);
-    // The listener faces the road (its -z), so cars driving to +x pass from left to right.
-    me.transform.rotation = Quaternion.euler(0, 180, 0);
+    // The listener faces -z by default: the road, so cars driving to +x pass from left to right.
     me.addComponent(AudioListener);
     me.addComponent(AudioSource, { spatialBlend: 0 });
     me.addComponent(Verge);
 
-    const cam = new GameObject("Main Camera", { position: new Vector3(0, 3.2, 12), rotation: Quaternion.euler(10, 180, 0) });
+    const cam = new GameObject("Main Camera", { position: new Vector3(0, 3.2, 12), rotation: Quaternion.lookRotation(new Vector3(0, -2.5, -12)) });
     cam.addComponent(Camera, { fieldOfView: 55, backgroundColor: Color.hex("#9bc4e8") });
     cam.addComponent(CamFollow);
   }
@@ -149,7 +148,8 @@ class CamFollow extends Component {
   }
 }
 
-register({ RoadWorld, Car, Verge, CamFollow });
+register({ RoadWorld });
+register({ Car, Verge, CamFollow }, { spawn: false });
 
 function Hud() {
   const [, tick] = useState(0);
