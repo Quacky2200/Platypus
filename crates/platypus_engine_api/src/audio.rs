@@ -287,6 +287,11 @@ fn st<R>(f: impl FnOnce(&mut State) -> R) -> R {
     STATE.with(|s| f(&mut s.borrow_mut()))
 }
 
+/// Where the listener last was set (position and rotation), if a script set one.
+pub fn listener() -> Option<([f64; 3], [f64; 4])> {
+    st(|s| s.listener)
+}
+
 /// The commands since the last call, in order.
 pub fn take_commands() -> Vec<AudioCommand> {
     st(|s| std::mem::take(&mut s.commands))
@@ -482,7 +487,19 @@ pub fn create_emitter(
     })
 }
 
-/// Sets an effect parameter of a bus or emitter (see [`AudioCommand::Fx`]).
+/// Sets the volume of a bus or emitter track (`None`: the master), over `fade` seconds.
+pub fn set_track_volume(track: Option<u32>, volume: f64, fade: f64) {
+    st(|s| {
+        s.commands.push(AudioCommand::TrackVolume {
+            track,
+            volume,
+            fade,
+        })
+    });
+}
+
+/// Sets an effect parameter of a bus or emitter (see [`AudioCommand::Fx`]); track 0 is the
+/// master mix.
 pub fn set_fx(track: u32, property: &str, value: f64, fade: f64) {
     st(|s| {
         s.commands.push(AudioCommand::Fx {

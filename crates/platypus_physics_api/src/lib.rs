@@ -238,6 +238,35 @@ pub(crate) fn do_raycast_all(
     })
 }
 
+/// The GameObjects whose colliders the segment from `from` to `to` crosses, nearest first (once
+/// per collider; colliders that belong to no object are left out). An acoustic probe: what
+/// stands between a sound and an ear. Colliders `from` is inside are not crossed (the rule of
+/// [`physics_api::raycast`]), so probe from the listener's side.
+pub fn segment_objects(from: V3, to: V3, layer_mask: u32) -> Vec<ObjectId> {
+    let d = V3 {
+        x: to.x - from.x,
+        y: to.y - from.y,
+        z: to.z - from.z,
+    };
+    let len = (d.x * d.x + d.y * d.y + d.z * d.z).sqrt();
+    if len < 1e-6 {
+        return Vec::new();
+    }
+    st(|s| {
+        let accept = |collider: u32| on_layers(s, collider, layer_mask);
+        s.physics
+            .raycast_all(
+                [from.x as f32, from.y as f32, from.z as f32],
+                [d.x as f32, d.y as f32, d.z as f32],
+                len as f32,
+                &accept,
+            )
+            .into_iter()
+            .filter_map(|(collider, _, _)| object_in(s, collider))
+            .collect()
+    })
+}
+
 /// The colliders a sphere touches whose GameObject's layer is in `layer_mask`.
 pub(crate) fn do_overlap_sphere(center: V3, radius: f64, layer_mask: u32) -> Vec<u32> {
     st(|s| {

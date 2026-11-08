@@ -360,7 +360,8 @@ pub fn set_doppler_factor(s: AudioSourceRef, factor: f64) {
         }
         d.doppler_factor = factor;
         let rate = d.pitch * factor;
-        d.each_playing(|p| set_playback(p, "rate", rate, 0.0));
+        // A short glide so the pitch slides between frames instead of stepping.
+        d.each_playing(|p| set_playback(p, "rate", rate, 0.05));
     });
 }
 
