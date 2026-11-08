@@ -1787,6 +1787,23 @@ Research and design: [docs/research/networking-and-files.md](docs/research/netwo
   - [x] `examples/postfx`: a colonnade with every effect switchable (menu and keys), a custom
     WGSL effect, a tour mode, `-- <effect names>` to start with some on
 
+## Spatial audio (2026-11-08, branch `claude/spatial-audio`)
+
+Design and API: `docs/spatial-audio.md`. Tests `ACO-*`.
+
+- [x] Effect chains on buses, emitters and the master (low-pass, high-pass, reverb, echo), `audio.fx` ops (`ACO-FX-01..05`)
+- [x] `platypus_acoustics`: `AudioZone` (sphere / box, inner fraction, curve, invert, ambience bed, per-bus targets),
+  `AudioOccluder` (rays from the listener through `platypus_physics_api::segment_objects`), `SoundSensor` + `Acoustics.emit`,
+  Doppler (`AudioSource.dopplerLevel`), scene-file kinds and Inspector fields (`ACO-MOD-01..06`, `ACO-SYS-01..05`)
+- [x] `Microphone` as a live feed on a bus (`ACO-LIVE-01`); a manual check with a real device is still to do
+- [x] Examples `audio-house`, `audio-radar` (noise events, sensors, radar overlay, ripples through walls by a custom post-process),
+  `audio-cave` (voice, cave echo gradient, nature and drips beds, the sea, optional microphone), `audio-road` (Doppler)
+- [ ] Listen to the examples on a device and tune the numbers (cutoffs, gains, ripple speed); only `--screenshot` runs were possible while writing them
+- [ ] Occlusion around corners (portals or a path search), elevation cues / HRTF, zones that colour sources as well as the listener
+- [ ] `SoundEvent.id`, zone gizmos in the editor's Scene view (the radius, inner core and curve drawn), a gradient curve editor
+- [ ] A remote voice through the mixer (needs web-ui `MediaStream` audio tracks), microphone device choice and input gain
+- [ ] A `docs/differences` note: Doppler defaults to 0 here, 1 in Unity
+
 ## M8 — Multiplayer
 
 Design: `docs/research/multiplayer.md` (Fusion / Fish-Net / Lightyear inspired, server-authoritative, Steam first).
