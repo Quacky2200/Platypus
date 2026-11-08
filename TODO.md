@@ -1789,7 +1789,24 @@ Research and design: [docs/research/networking-and-files.md](docs/research/netwo
 
 ## M8 — Multiplayer
 
-- [ ] QUIC transport, Steam multiplayer (`steamworks`), `@sync` / `@rpc`
+Design: `docs/research/multiplayer.md` (Fusion / Fish-Net / Lightyear inspired, server-authoritative, Steam first).
+
+- [ ] **M8.a** `--headless`: fixed-step host with no window, renderer or audio; tests run a game N ticks
+- [ ] **M8.b** `platypus_net`: transport trait, loopback with link conditioner, QUIC (`quinn`), handshake with schema hash
+- [ ] **M8.c** Replication: `@sync` schema from the compiler, spawn / despawn, snapshots and deltas, interest, `NetworkTime`
+- [ ] **M8.d** `@rpc.*`, `@input`, ownership and authority transfer, roles (server, host, client, spectator)
+- [ ] **M8.e** Prediction: rewindable rapier spike, reconcile, interpolation, lag compensation, predicted spawns
+- [ ] **M8.f** Steam (`steamworks`): relay transport and lobbies
+- [ ] **M8.g** Tools: editor network panel, server metrics
+- [ ] `examples/net-arena` (grows with M8.b-e): a bounded white town from `fog-white-room` (houses, cars, red lasers, invisible
+  walls inside the fog), a laser gun, React Host / Join menu (localhost matchmaking), debug network panel;
+  server-owned match flow (spawn, die, respawn, kills, kill feed) and an in-memory session scoreboard (not saved)
+- [ ] `examples/net-voice` (after M8.d; needs web-ui's media tracks, `getUserMedia` and audio capture): proximity voice chat and webcam
+  screens in the net-arena town, WebRTC tracks against our own datagram channel compared, consent and "you are live" indicators,
+  synthetic mic / camera for CI (`docs/research/multiplayer.md` §9.3)
+- [ ] `Conditioned` transport (debug only, feature `net-debug`): latency, jitter, loss, duplication, reorder, bandwidth cap, disconnect, freeze, seeded fault scripts
+- [ ] Later: cross-play backend (accounts, matchmaking, leaderboards, cloud saves; Nakama or our own), WebRTC browser clients,
+  lockstep mode, host migration, server-only code split, headless-only package
 
 ## M9 — Script backends, AOT and release packaging
 
