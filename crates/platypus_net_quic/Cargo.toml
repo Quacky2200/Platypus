@@ -1,0 +1,26 @@
+# Copyright 2026 The Platypus Authors
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "platypus_net_quic"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+# The QUIC transport of `platypus_net` (M8.b): datagrams for the unreliable channels, one ordered
+# stream and one stream per message for the reliable ones. quinn on its own small tokio runtime,
+# rustls' `ring` provider (aws-lc-rs needs CMake and NASM), the same versions web-ui's
+# `web_api_quic` uses. Servers use a self-signed certificate that clients pin by fingerprint.
+[dependencies]
+platypus_net = { path = "../platypus_net", default-features = false }
+quinn = { version = "0.11", default-features = false, features = ["runtime-tokio", "rustls-ring"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+rcgen = { version = "0.14", default-features = false, features = ["ring", "pem"] }
+ring = "0.17"
+bytes = "1"
+tokio = { version = "1.53", features = ["rt-multi-thread", "net", "time", "sync", "macros"] }
+tracing = "0.1.44"
+
+[dev-dependencies]
+platypus_net = { path = "../platypus_net" }
