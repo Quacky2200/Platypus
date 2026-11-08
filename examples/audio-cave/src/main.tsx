@@ -113,6 +113,7 @@ class CaveWorld extends Component {
       size: new Vector3(length + 24, 8, 12),
       innerFraction: 0.55,
       curve: "smooth",
+      affectsSources: true,
       lowPass: 3800,
       reverb: 0.8,
       reverbSize: 0.8,
@@ -123,6 +124,20 @@ class CaveWorld extends Component {
     });
     caveZone.addBus(voiceBus);
     caveZone.addBus(worldBus);
+
+    // A radio left in the cave: the zone also colours sources, so it echoes where it stands,
+    // however far from it you are.
+    const radio = GameObject.createPrimitive("cube", { position: new Vector3(CAVE.back + 5, 0.5, 1.2), scale: new Vector3(0.5, 0.3, 0.2) });
+    radio.getComponent(MeshRenderer)!.material = new Material(Color.hex("#c0392b"), Color.black, 0.3);
+    radio.addComponent(AudioSource, {
+      clip: audio.load(SOUND("radio_music")),
+      loop: true,
+      spatialBlend: 1,
+      minDistance: 2,
+      maxDistance: 40,
+      effects: true,
+      volume: 0.5,
+    }).play();
 
     // The outdoors: wind and birds, everywhere except in the cave.
     const outdoors = new GameObject("Outdoors zone", { position: new Vector3(mid - 2, 2, 0) });

@@ -81,6 +81,9 @@ pub struct SourceData {
     emitter: Option<EmitterRef>,
     emitter_key: String,
     sent_position: Option<[f64; 3]>,
+    /// Where acoustics says it is heard from (round a wall, through a portal), or `None`: its
+    /// object's place. The emitter goes there instead.
+    virtual_position: Option<[f64; 3]>,
 }
 
 #[derive(Default)]
@@ -171,6 +174,7 @@ impl SourceData {
             emitter: None,
             emitter_key: String::new(),
             sent_position: None,
+            virtual_position: None,
         }
     }
 
@@ -263,22 +267,32 @@ fn platypus_log(message: &str) {
 /// Keeps emitters on their objects (only sending real moves) and the listener on its object.
 /// Call once a frame after transforms are final.
 pub fn pre_render() {
-    let sources: Vec<(usize, ObjectId, EmitterRef, Option<[f64; 3]>)> = st(|s| {
+    type Row = (
+        usize,
+        ObjectId,
+        EmitterRef,
+        Option<[f64; 3]>,
+        Option<[f64; 3]>,
+    );
+    let sources: Vec<Row> = st(|s| {
         s.sources
             .iter()
             .enumerate()
             .filter_map(|(i, d)| {
                 let d = d.as_ref()?;
-                Some((i, d.object, d.emitter?, d.sent_position))
+                Some((i, d.object, d.emitter?, d.sent_position, d.virtual_position))
             })
             .collect()
     });
-    for (i, object, emitter, sent) in sources {
-        let p = world_position(object);
+    for (i, object, emitter, sent, heard_from) in sources {
+        // Where it is heard from: its object, or the portal acoustics sent the sound round by.
+        let p = heard_from.unwrap_or_else(|| world_position(object));
         if sent == Some(p) {
             continue;
         }
-        move_emitter(emitter, p, 0.0);
+        // A virtual position glides (it jumps when the way round changes); the real one follows
+        // the object at once.
+        move_emitter(emitter, p, if heard_from.is_some() { 0.12 } else { 0.0 });
         st(|s| {
             if let Some(Some(d)) = s.sources.get_mut(i) {
                 d.sent_position = Some(p);
@@ -349,6 +363,12 @@ pub fn source_views() -> Vec<SourceView> {
             })
             .collect()
     })
+}
+
+/// Says where a source is heard from (`None`: from its object): the emitter moves there on the
+/// next [`pre_render`]. Acoustics uses it to send sound round a wall by a portal.
+pub fn set_virtual_position(s: AudioSourceRef, position: Option<[f64; 3]>) {
+    source(s, |d| d.virtual_position = position);
 }
 
 /// Gives a source the pitch factor of its speed (see `SourceData`): its playbacks change rate

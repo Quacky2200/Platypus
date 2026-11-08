@@ -6,15 +6,17 @@
 //! [`update`] once a frame, after transforms are final and before the audio commands are taken.
 
 use crate::model::{
-    FxTarget, OccluderSpec, Probe, average, blend_zones, doppler, heard_level, scaled, through,
-    zone_weight,
+    FxTarget, OccluderSpec, Probe, average, blend_zones, detour_wins, doppler, head_cue,
+    heard_level, scaled, through, through_portal, zone_weight,
 };
 use crate::state::{Event, SoundEventRef, Zone, push_event, st};
 use glam::{Quat, Vec3};
 use platypus_engine_api::audio::{
     self, BusRef, PlayOptions, PlaybackRef, play_sound, set_fx, set_track_volume,
 };
-use platypus_engine_api::audio_components::{SourceView, set_doppler_factor, source_views};
+use platypus_engine_api::audio_components::{
+    SourceView, set_doppler_factor, set_virtual_position, source_views,
+};
 use platypus_math::V3;
 use platypus_scene::ObjectId;
 use platypus_scene::api::with_scene;
@@ -417,6 +419,7 @@ pub(crate) fn stop_ambience(p: PlaybackRef) {
 fn update_sources(
     dt: f64,
     listener: [f64; 3],
+    listener_forward: [f64; 3],
     listener_velocity: [f64; 3],
     views: &[SourceView],
     specs: &HashMap<ObjectId, OccluderSpec>,
@@ -428,6 +431,8 @@ fn update_sources(
             s.occluders.iter().next().is_some() || s.settings.occlusion_layers != 0,
         )
     });
+    let portals = portal_list();
+    let source_zones = source_zone_list();
     for v in views {
         let pos = position(v.object);
         let state = st(|s| s.src.get(&v.source.0).copied().unwrap_or_default());
@@ -436,35 +441,71 @@ fn update_sources(
             next.gain = 1.0;
             next.low_pass = 22000.0;
             next.doppler = 1.0;
+            next.occ_gain = 1.0;
+            next.occ_low_pass = 22000.0;
         }
-        // Occlusion: dull and quieten the emitter by what stands in the way.
         if let Some(emitter) = v.emitter
-            && any_occluder
             && v.playing
-            && (!state.started
-                || (frame + u64::from(v.source.0)).is_multiple_of(PROBE_EVERY)
-                    && frame != state.checked)
         {
-            let p = scaled(
-                probe(
-                    listener,
-                    pos,
-                    specs,
-                    settings.occlusion_layers,
-                    settings.ray_spread,
-                ),
-                v.occlusion,
-            );
-            next.checked = frame;
-            next.started = true;
-            if changed(state.low_pass.max(1.0), p.low_pass, 0.04) || !state.started {
-                set_fx(emitter.0, "lowpass", p.low_pass, GLIDE);
-                next.low_pass = p.low_pass;
+            // Occlusion, or the way round by a portal: re-probed every few frames.
+            let due = !state.started
+                || (frame + u64::from(v.source.0)).is_multiple_of(PROBE_EVERY)
+                    && frame != state.checked;
+            if any_occluder && due {
+                let direct = scaled(
+                    probe(
+                        listener,
+                        pos,
+                        specs,
+                        settings.occlusion_layers,
+                        settings.ray_spread,
+                    ),
+                    v.occlusion,
+                );
+                next.checked = frame;
+                next.started = true;
+                let mut result = direct;
+                let mut heard_from = None;
+                if v.occlusion > 0.0
+                    && direct.gain < 0.85
+                    && let Some((round, at)) = best_detour(
+                        listener,
+                        pos,
+                        &portals,
+                        specs,
+                        settings.occlusion_layers,
+                        direct,
+                    )
+                {
+                    result = scaled(round, v.occlusion);
+                    heard_from = Some(at);
+                }
+                next.occ_gain = result.gain;
+                next.occ_low_pass = result.low_pass;
+                if differs(state.virtual_pos, heard_from) {
+                    next.virtual_pos = heard_from;
+                    set_virtual_position(v.source, heard_from);
+                }
             }
-            if changed(state.gain, p.gain, 0.04) {
-                set_track_volume(Some(emitter.0), p.gain, GLIDE);
-                next.gain = p.gain;
-            }
+            // The cues that change every frame: the head's shading of what is behind or
+            // above, and the zones that colour sources where they stand.
+            let apparent = next.virtual_pos.unwrap_or(pos);
+            let to = sub(apparent, listener);
+            let dist = len(to);
+            let head = if dist > 1e-3 {
+                head_cue(
+                    listener_forward,
+                    scale3(to, 1.0 / dist),
+                    settings.head_shadow,
+                )
+            } else {
+                22000.0
+            };
+            let zone = source_zone_fx(&source_zones, pos);
+            let mut target = if v.effects { zone } else { FxTarget::OPEN };
+            target.low_pass = next.occ_low_pass.min(head).min(zone.low_pass);
+            target.volume = next.occ_gain * zone.volume;
+            st(|s| send_target(&mut s.sent, emitter.0, &target, true));
         }
         // Doppler: the pitch follows how fast the source closes on the listener.
         if v.doppler_level > 0.0 && v.emitter.is_some() {
@@ -498,6 +539,101 @@ fn update_sources(
             }
         });
     }
+}
+
+/// The enabled portals: where each is, and what it lets through.
+fn portal_list() -> Vec<PortalAt> {
+    let all: Vec<_> = st(|s| s.portals.iter().map(|(_, p)| *p).collect());
+    all.into_iter()
+        .filter(|p| p.enabled)
+        .map(|p| PortalAt {
+            at: position(p.object),
+            gain: p.gain,
+            radius: p.radius,
+            low_pass: p.low_pass,
+        })
+        .collect()
+}
+
+struct PortalAt {
+    at: [f64; 3],
+    gain: f64,
+    radius: f64,
+    low_pass: f64,
+}
+
+/// The zones that colour sources too, lowest priority first.
+fn source_zone_list() -> Vec<Zone> {
+    let mut zones: Vec<Zone> = st(|s| {
+        s.zones
+            .iter()
+            .filter(|(_, z)| z.enabled && z.affects_sources)
+            .map(|(_, z)| z.clone())
+            .collect()
+    });
+    zones.sort_by(|a, b| a.priority.total_cmp(&b.priority));
+    zones
+}
+
+/// What the source zones make of a sound that stands at `pos`.
+fn source_zone_fx(zones: &[Zone], pos: [f64; 3]) -> FxTarget {
+    blend_zones(
+        &zones
+            .iter()
+            .map(|z| (weight_at(z, pos), z.target))
+            .collect::<Vec<_>>(),
+    )
+}
+
+fn differs(a: Option<[f64; 3]>, b: Option<[f64; 3]>) -> bool {
+    match (a, b) {
+        (None, None) => false,
+        (Some(a), Some(b)) => len(sub(a, b)) > 0.05,
+        _ => true,
+    }
+}
+
+/// The best way round a wall by a portal, if it beats going through: what reaches the listener
+/// by it, and where the sound is heard from (the portal's direction, the whole path away, so
+/// the distance falloff fits).
+fn best_detour(
+    listener: [f64; 3],
+    pos: [f64; 3],
+    portals: &[PortalAt],
+    specs: &HashMap<ObjectId, OccluderSpec>,
+    layers: u32,
+    direct: Probe,
+) -> Option<(Probe, [f64; 3])> {
+    let mut best: Option<(Probe, f64, [f64; 3])> = None;
+    for p in portals {
+        let to_portal = len(sub(p.at, listener));
+        let from_portal = len(sub(pos, p.at));
+        if to_portal < 1e-3 || from_portal < 1e-3 {
+            continue;
+        }
+        let first = ray(listener, p.at, specs, layers);
+        // The far leg starts a little short of the portal, so a door in it is counted once
+        // (by the near leg, which runs into its middle).
+        let start = add(
+            p.at,
+            scale3(
+                sub(pos, p.at),
+                p.radius.min(from_portal * 0.5) / from_portal,
+            ),
+        );
+        let second = ray(start, pos, specs, layers);
+        let (round, path) =
+            through_portal(to_portal, from_portal, first, second, p.gain, p.low_pass);
+        let better = best
+            .as_ref()
+            .is_none_or(|(b, bp, _)| round.gain / path.max(1.0) > b.gain / bp.max(1.0));
+        if better {
+            best = Some((round, path, scale3(sub(p.at, listener), 1.0 / to_portal)));
+        }
+    }
+    let (round, path, dir) = best?;
+    detour_wins(direct, len(sub(pos, listener)), round, path)
+        .then(|| (round, add(listener, scale3(dir, path))))
 }
 
 /// Pulses from sources that are loud, so sensors and the radar see them.
@@ -659,7 +795,13 @@ pub fn update(dt: f64) {
     if !enabled || !(any || doppler_used || views.iter().any(|v| v.loudness > 0.0)) {
         return;
     }
-    let listener = audio::listener().map_or([0.0; 3], |(p, _)| p);
+    let (listener, listener_forward) =
+        audio::listener().map_or(([0.0; 3], [0.0, 0.0, -1.0]), |(p, r)| {
+            // The listener looks down its -z, as the camera does.
+            let f =
+                Quat::from_xyzw(r[0] as f32, r[1] as f32, r[2] as f32, r[3] as f32) * Vec3::NEG_Z;
+            (p, [f64::from(f.x), f64::from(f.y), f64::from(f.z)])
+        });
     let listener_velocity = st(|s| {
         if let Some(prev) = s.listener_prev {
             let v = scale3(sub(listener, prev), 1.0 / dt);
@@ -674,7 +816,16 @@ pub fn update(dt: f64) {
     });
     let specs = occluder_specs();
     update_zones(listener);
-    update_sources(dt, listener, listener_velocity, &views, &specs);
+    update_sources(
+        dt,
+        listener,
+        listener_forward,
+        listener_velocity,
+        &views,
+        &specs,
+    );
+    // Emitters that were sent round a portal move now, not next frame.
+    platypus_engine_api::audio_components::pre_render();
     pulse_sources(&views);
     let deliveries = update_sensors(dt, &views, &specs);
     // Callbacks run last, with no state borrowed: they may emit, move sensors or add zones.

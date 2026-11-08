@@ -192,6 +192,52 @@ pub fn scaled(p: Probe, strength: f64) -> Probe {
     }
 }
 
+/// The low-pass cutoff (Hz) a head puts on a sound: behind the listener the ears shade it, and
+/// above or below the pinnae do. Panning alone cannot tell front from back or up from down;
+/// this dullness can. `forward` and `to_source` are unit vectors (world space, y up);
+/// `strength` 0 leaves it open, 1 takes a source directly behind down to 4.5 kHz and one
+/// straight above or below to 9 kHz.
+pub fn head_cue(forward: [f64; 3], to_source: [f64; 3], strength: f64) -> f64 {
+    let s = strength.clamp(0.0, 1.0);
+    let ahead = forward[0] * to_source[0] + forward[1] * to_source[1] + forward[2] * to_source[2];
+    let behind = (-ahead).clamp(0.0, 1.0);
+    let elevation = to_source[1].abs().clamp(0.0, 1.0);
+    let back = log_lerp(22000.0, 4500.0, behind.powf(1.5) * s);
+    let up = log_lerp(22000.0, 9000.0, elevation * s);
+    back.min(up)
+}
+
+/// One way round a wall: through a portal. The two legs (listener to portal, portal to source)
+/// each left a probe; `portal_gain` and `portal_low_pass` are the portal's own.
+/// The result is what reaches the listener by that way, and the path's length.
+pub fn through_portal(
+    to_portal: f64,
+    from_portal: f64,
+    first: Probe,
+    second: Probe,
+    portal_gain: f64,
+    portal_low_pass: f64,
+) -> (Probe, f64) {
+    let gain = first.gain * second.gain * portal_gain.clamp(0.0, 1.0);
+    let ratio = (first.low_pass / 22000.0)
+        * (second.low_pass / 22000.0)
+        * (portal_low_pass.clamp(MIN_CUTOFF, 22000.0) / 22000.0);
+    (
+        Probe {
+            gain,
+            low_pass: (22000.0 * ratio).clamp(MIN_CUTOFF, 22000.0),
+        },
+        to_portal + from_portal,
+    )
+}
+
+/// Whether the way round (gain over path length, the inverse-distance rule) beats going
+/// straight through: it must win by a tenth, so the choice does not flicker.
+pub fn detour_wins(direct: Probe, direct_distance: f64, round: Probe, path: f64) -> bool {
+    let metric = |p: Probe, d: f64| p.gain / d.max(1.0);
+    metric(round, path) > metric(direct, direct_distance) * 1.1
+}
+
 /// How loud something sounds to a sensor, 0 to 1: full at the source, falling to nothing at
 /// `radius` metres (squared, as sound spreads), times the gain the walls left.
 pub fn heard_level(radius: f64, distance: f64, gain: f64, sensitivity: f64) -> f64 {
@@ -386,5 +432,64 @@ mod tests {
         assert!(exaggerated > toward);
         assert_eq!(doppler(to, [-30.0, 0.0, 0.0], [0.0; 3], c, 0.0), 1.0);
         assert!(doppler(to, [-900.0, 0.0, 0.0], [0.0; 3], c, 1.0).is_finite());
+    }
+
+    // ACO-MOD-07
+    #[test]
+    fn the_head_dulls_what_is_behind_and_above() {
+        let fwd = [0.0, 0.0, -1.0];
+        let cue = |to: [f64; 3], s| head_cue(fwd, to, s);
+        assert_eq!(cue([0.0, 0.0, -1.0], 1.0), 22000.0, "ahead is open");
+        assert_eq!(cue([1.0, 0.0, 0.0], 1.0), 22000.0, "to the side is open");
+        assert!(
+            (cue([0.0, 0.0, 1.0], 1.0) - 4500.0).abs() < 1e-6,
+            "behind is dull"
+        );
+        assert!(
+            (cue([0.0, 1.0, 0.0], 1.0) - 9000.0).abs() < 1e-6,
+            "above is a little dull"
+        );
+        assert!(cue([0.0, -1.0, 0.0], 1.0) < 22000.0, "and so is below");
+        assert_eq!(
+            cue([0.0, 0.0, 1.0], 0.0),
+            22000.0,
+            "strength 0 turns it off"
+        );
+        // Between: a source behind and to the right is not as dull as one directly behind.
+        let h = std::f64::consts::FRAC_1_SQRT_2;
+        let diag = cue([h, 0.0, h], 1.0);
+        assert!(diag > 4500.0 && diag < 22000.0, "{diag}");
+    }
+
+    // ACO-MOD-08
+    #[test]
+    fn the_way_round_a_wall_wins_when_the_wall_costs_more_than_the_detour() {
+        let wall = Probe {
+            gain: 0.3,
+            low_pass: 700.0,
+        };
+        // Through a doorway: both legs clear.
+        let (round, path) = through_portal(4.0, 5.0, Probe::CLEAR, Probe::CLEAR, 1.0, 9000.0);
+        assert_eq!(path, 9.0);
+        assert!((round.gain - 1.0).abs() < 1e-9);
+        assert!(
+            (round.low_pass - 9000.0).abs() < 1e-6,
+            "edges take the highs off"
+        );
+        // Straight through the wall: 8 m, a third of the gain. Round: 9 m, all of it.
+        assert!(detour_wins(wall, 8.0, round, path));
+        // A door that is open all the way is not worth a detour.
+        assert!(!detour_wins(Probe::CLEAR, 8.0, round, path));
+        // A shut door in the portal's leg takes it away again.
+        let shut = Probe {
+            gain: 0.2,
+            low_pass: 600.0,
+        };
+        let (blocked, path) = through_portal(4.0, 5.0, shut, Probe::CLEAR, 1.0, 9000.0);
+        assert!(!detour_wins(wall, 8.0, blocked, path));
+        assert!(blocked.low_pass < round.low_pass && blocked.low_pass >= MIN_CUTOFF);
+        // A closed portal passes nothing.
+        let (closed, _) = through_portal(4.0, 5.0, Probe::CLEAR, Probe::CLEAR, 0.0, 9000.0);
+        assert_eq!(closed.gain, 0.0);
     }
 }

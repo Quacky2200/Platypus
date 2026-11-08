@@ -4,7 +4,7 @@
 //! Tests of the whole path: scene objects, physics rays and the audio commands that come out
 //! (`ACO-SYS-*`). The maths alone is tested in `model.rs`.
 
-use crate::components::{attach_occluder, attach_sensor, attach_zone, zone};
+use crate::components::{attach_occluder, attach_portal, attach_sensor, attach_zone, zone};
 use crate::model::Shape;
 use crate::state::{push_event, st};
 use crate::update::update;
@@ -281,4 +281,147 @@ fn doppler_changes_the_rate_of_a_moving_source() {
     }
     let still = rate(&audio::take_commands()).expect("rate set");
     assert!((still - 1.0).abs() < 0.01, "still: {still}");
+}
+
+/// A source with an emitter that is playing (3D, with the full chain if asked).
+fn playing_source(object: ObjectId, effects: bool) -> platypus_engine_api::audio::EmitterRef {
+    let src = attach_source(object);
+    platypus_engine_api::audio_components::with_source(src, |d| {
+        d.spatial_blend = 1.0;
+        d.effects = effects;
+        d.clip = audio::cached_sound("s.wav");
+        d.play();
+    });
+    audio::take_commands();
+    source_views()
+        .iter()
+        .find(|v| v.object == object)
+        .and_then(|v| v.emitter)
+        .expect("an emitter")
+}
+
+// ACO-SYS-06
+//
+// A wall between listener and radio, with an opening round its end marked by a portal: the radio
+// is heard from the portal (its emitter moves there) and duller by the edge, not as muffled as
+// through the wall.
+#[test]
+fn a_portal_sends_sound_round_a_wall_and_it_is_heard_from_the_opening() {
+    let mut scene = setup();
+    let _scope = platypus_scene::api::enter(&mut scene);
+    let wall = make("wall", 5.0, 0.0, 0.0);
+    BoxColliderRef::attach(wall).set_size(V3 {
+        x: 0.5,
+        y: 10.0,
+        z: 6.0,
+    });
+    attach_occluder(wall);
+    let doorway = make("doorway", 5.0, 0.0, 5.0);
+    attach_portal(doorway);
+    let radio = make("radio", 10.0, 0.0, 0.0);
+    let emitter = playing_source(radio, false);
+    step();
+    audio::set_listener([0.0; 3], [0.0, 0.0, 0.0, 1.0]);
+    update(0.016);
+    let cmds = audio::take_commands();
+    let heard_from = cmds.iter().rev().find_map(|c| match c {
+        AudioCommand::EmitterPosition {
+            emitter: e,
+            position,
+            ..
+        } if e.0 == emitter.0 => Some(*position),
+        _ => None,
+    });
+    let at = heard_from.expect("the emitter moved to the portal's direction");
+    assert!(
+        at[2] > 8.0 && at[0] > 5.0,
+        "round by the doorway at +z: {at:?}"
+    );
+    let low = fx(&cmds, emitter.0, "lowpass").expect("dulled");
+    assert!(
+        low > 4000.0 && low < 12000.0,
+        "dulled by the edge, not by the wall: {low}"
+    );
+    // The portal is shut (a script closes a window): back to the wall.
+    crate::components::portal(crate::AudioPortalRef(1), |p| p.gain = 0.0);
+    for _ in 0..8 {
+        update(0.016);
+    }
+    let cmds = audio::take_commands();
+    let low = fx(&cmds, emitter.0, "lowpass").expect("muffled again");
+    assert!(low < 1500.0, "through the wall: {low}");
+    let back = cmds.iter().rev().find_map(|c| match c {
+        AudioCommand::EmitterPosition {
+            emitter: e,
+            position,
+            ..
+        } if e.0 == emitter.0 => Some(*position),
+        _ => None,
+    });
+    assert!(
+        back.is_some_and(|p| (p[0] - 10.0).abs() < 1e-6 && p[2].abs() < 1e-6),
+        "heard from the radio again: {back:?}"
+    );
+}
+
+// ACO-SYS-07
+//
+// A zone that affects sources colours an emitter by where it stands: reverb on one inside, none
+// on one outside; a zone that does not leaves sources alone.
+#[test]
+fn a_zone_can_colour_the_sources_standing_in_it() {
+    let mut scene = setup();
+    let _scope = platypus_scene::api::enter(&mut scene);
+    let cave = make("cave", 0.0, 0.0, 0.0);
+    let z = attach_zone(cave);
+    zone(z, |z| {
+        z.radius = 10.0;
+        z.inner = 1.0;
+        z.target.reverb = 0.6;
+        z.target.low_pass = 3000.0;
+    });
+    let inside = make("inside", 2.0, 0.0, 0.0);
+    let outside = make("outside", 30.0, 0.0, 0.0);
+    let e_in = playing_source(inside, true);
+    let e_out = playing_source(outside, true);
+    audio::set_listener([50.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]);
+    update(0.016);
+    let off = audio::take_commands();
+    assert_eq!(
+        fx(&off, e_in.0, "reverb"),
+        None,
+        "zones colour the listener only by default"
+    );
+    zone(z, |z| z.affects_sources = true);
+    update(0.016);
+    let cmds = audio::take_commands();
+    assert!((fx(&cmds, e_in.0, "reverb").unwrap() - 0.6).abs() < 1e-6);
+    assert!(fx(&cmds, e_in.0, "lowpass").unwrap() < 3500.0);
+    assert_eq!(
+        fx(&cmds, e_out.0, "reverb"),
+        None,
+        "outside the zone nothing changes"
+    );
+}
+
+// ACO-SYS-08
+//
+// Behind the listener a source loses its highs; ahead of it, it does not.
+#[test]
+fn sounds_behind_the_listener_are_dulled_and_those_ahead_are_not() {
+    let mut scene = setup();
+    let _scope = platypus_scene::api::enter(&mut scene);
+    // Something to switch acoustics on (an occluder far away).
+    attach_occluder(make("anything", 100.0, 0.0, 100.0));
+    let behind = make("behind", 0.0, 0.0, 10.0);
+    let ahead = make("ahead", 0.0, 0.0, -10.0);
+    let e_behind = playing_source(behind, false);
+    let e_ahead = playing_source(ahead, false);
+    // The listener looks down -z.
+    audio::set_listener([0.0; 3], [0.0, 0.0, 0.0, 1.0]);
+    update(0.016);
+    let cmds = audio::take_commands();
+    let dull = fx(&cmds, e_behind.0, "lowpass").expect("dulled");
+    assert!(dull > 8000.0 && dull < 12000.0, "{dull}");
+    assert_eq!(fx(&cmds, e_ahead.0, "lowpass"), None, "ahead stays open");
 }

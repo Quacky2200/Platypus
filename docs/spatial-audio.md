@@ -59,6 +59,26 @@ answers the same question for scripts (1 clear, 0 blocked).
 Floors are occluders too; the stairwell is a hole in them, so a sound upstairs is dull through the floor and clearer
 where the rays find the opening (`audio-house`).
 
+## Round corners: portals (`AudioPortal`)
+
+A portal is an object standing in an opening (a doorway, a window, a stairwell). When occlusion finds a source dulled below
+85% and portals exist, acoustics tries each: a ray from the listener to the portal (running into a door standing in it, so
+the door counts), and one from a little short of the portal (`radius`, 0.25 m) to the source. The way round is the product
+of the two legs and the portal's `gain`, with the cutoffs multiplied and the portal's own `lowPass` (9000 Hz: edges take
+the highs off); its length is the two legs added. It is used when gain over length beats the straight way's by 10%. Then
+the source's emitter is moved (`audio_components::set_virtual_position`, gliding over 0.12 s) to the portal's direction at the
+whole path's distance, so it is heard from the opening and fades as the walk round would. Closing a portal (`gain` 0 or
+`enabled` false) puts the source back behind its wall. Only the first hop is tried.
+
+## Head cue and sources in zones
+
+`Acoustics.headShadow` (0 to 1, default 0.5) low-passes a source by where it is: directly behind the listener down to 4.5 kHz,
+straight above or below to 9 kHz, at full strength. Panning cannot tell front from back or up from down; dullness can.
+
+A zone with `affectsSources` also blends its target (by the weight at each source's place, priority order) into the emitters
+of `AudioSource`s: low-pass and volume on any emitter, reverb, echo and high-pass on those made with `effects: true`. This is
+combined with occlusion and the head cue (the lowest cutoff wins, gains multiply) and sent as one change per property.
+
 ## Noises and sensors (`Acoustics`, `SoundSensor`)
 
 `Acoustics.emit(position, loudness, kind, source?)` makes a noise (loudness is the reach in metres). Playing `AudioSource`s
@@ -98,8 +118,11 @@ Inspector fields, the zone's gradient controls among them); `object_destroyed` c
 
 ## Known limits
 
-- Occlusion is straight lines: sound does not bend round corners or through doorways it cannot see, and there is no
-  early-reflection or room-size model beyond the zone's reverb settings.
-- No HRTF: panning is left to right; elevation shows in occlusion and sensor events only.
-- Zones colour the listener, not sources; a source inside a cave does not echo for a listener outside.
-- The microphone has no echo cancellation, device choice or input gain yet.
+- Sound bends round a wall only through an `AudioPortal` you place, one hop (listener to portal to source): no path
+  search, no two-door routes, and there is no early-reflection or room-size model beyond the zone's reverb settings.
+- No HRTF: panning is left to right, and front/back and up/down are told only by the head cue's dullness
+  (`Acoustics.headShadow`); there are no per-ear delays or spectral notches.
+- A zone colours sources only when `affectsSources` is set, and only emitters made with `effects: true` take its reverb
+  and echo (the low-pass and volume apply to any emitter); it does not move the sound, and a source inside a zone does
+  not echo for another zone's listener.
+- The microphone has no echo cancellation, device choice or input gain beyond its `volume` yet.

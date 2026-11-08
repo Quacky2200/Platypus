@@ -1799,7 +1799,9 @@ Design and API: `docs/spatial-audio.md`. Tests `ACO-*`.
 - [x] Examples `audio-house`, `audio-radar` (noise events, sensors, radar overlay, ripples through walls by a custom post-process),
   `audio-cave` (voice, cave echo gradient, nature and drips beds, the sea, optional microphone), `audio-road` (Doppler)
 - [ ] Listen to the examples on a device and tune the numbers (cutoffs, gains, ripple speed); only `--screenshot` runs were possible while writing them
-- [ ] Occlusion around corners (portals or a path search), elevation cues / HRTF, zones that colour sources as well as the listener
+- [x] Sound round corners by `AudioPortal`s (heard from the opening), a head cue for front/back and up/down
+  (`Acoustics.headShadow`), zones that colour sources (`affectsSources`) (`ACO-MOD-07..08`, `ACO-SYS-06..08`)
+- [ ] A path search instead of placed portals (two-door routes), real HRTF (per-ear delay, spectral notches), early reflections
 - [ ] `SoundEvent.id`, zone gizmos in the editor's Scene view (the radius, inner core and curve drawn), a gradient curve editor
 - [ ] A remote voice through the mixer (needs web-ui `MediaStream` audio tracks), microphone device choice and input gain
 - [ ] A `docs/differences` note: Doppler defaults to 0 here, 1 in Unity

@@ -6,11 +6,11 @@
 //! gradient controls are its `radius` / `size`, `innerFraction` and `curve`.
 
 use crate::components::{
-    attach_occluder, attach_sensor, attach_zone, occluders_on, remove_occluder, remove_sensor,
-    remove_zone, sensors_on, zones_on,
+    attach_occluder, attach_portal, attach_sensor, attach_zone, occluders_on, portals_on,
+    remove_occluder, remove_portal, remove_sensor, remove_zone, sensors_on, zones_on,
 };
 use crate::model::{Curve, Shape};
-use crate::state::{AudioOccluderRef, AudioZoneRef, SoundSensorRef, st};
+use crate::state::{AudioOccluderRef, AudioPortalRef, AudioZoneRef, SoundSensorRef, st};
 use platypus_engine_api::audio::{self, SoundRef};
 use platypus_kinds::{FieldDoc, Kind, Props, register, register_fields};
 use platypus_scene::ObjectId;
@@ -77,6 +77,7 @@ fn zone_kind() -> Kind {
                 m.insert("innerFraction".into(), json!(z.inner));
                 m.insert("curve".into(), json!(curve_name(z.curve)));
                 m.insert("invert".into(), json!(z.invert));
+                m.insert("affectsSources".into(), json!(z.affects_sources));
                 m.insert("priority".into(), json!(z.priority));
                 m.insert("lowPass".into(), json!(z.target.low_pass));
                 m.insert("highPass".into(), json!(z.target.high_pass));
@@ -119,6 +120,7 @@ fn zone_kind() -> Kind {
                             }
                         }),
                         "invert" => v.as_bool().map(|x| z.invert = x),
+                        "affectsSources" => v.as_bool().map(|x| z.affects_sources = x),
                         "priority" => num(v).map(|x| z.priority = x),
                         "lowPass" => num(v).map(|x| z.target.low_pass = x),
                         "highPass" => num(v).map(|x| z.target.high_pass = x),
@@ -205,6 +207,54 @@ fn occluder_kind() -> Kind {
     }
 }
 
+fn portal_kind() -> Kind {
+    let get = |h: u64| AudioPortalRef(h as u32);
+    Kind {
+        name: "AudioPortal".into(),
+        create: Box::new(|o| Ok(u64::from(attach_portal(ObjectId::from_raw(o)).0))),
+        on: Box::new(|o| {
+            portals_on(ObjectId::from_raw(o))
+                .into_iter()
+                .map(|p| u64::from(p.0))
+                .collect()
+        }),
+        save: Box::new(move |h| {
+            let mut m = Map::new();
+            crate::components::portal(get(h), |p| {
+                m.insert("enabled".into(), json!(p.enabled));
+                m.insert("gain".into(), json!(p.gain));
+                m.insert("radius".into(), json!(p.radius));
+                m.insert("lowPass".into(), json!(p.low_pass));
+            });
+            m
+        }),
+        load: Box::new(move |h, props: &Props| {
+            let mut warnings = Vec::new();
+            crate::components::portal(get(h), |p| {
+                for (k, v) in props {
+                    let ok = match k.as_str() {
+                        "enabled" => v.as_bool().map(|b| p.enabled = b),
+                        "gain" => num(v).map(|n| p.gain = n),
+                        "radius" => num(v).map(|n| p.radius = n),
+                        "lowPass" => num(v).map(|n| p.low_pass = n),
+                        other => {
+                            warn_unknown(other, &mut warnings);
+                            continue;
+                        }
+                    };
+                    if ok.is_none() {
+                        warnings.push(format!("property `{k}` has a value of the wrong shape"));
+                    }
+                }
+            });
+            warnings
+        }),
+        awake: Box::new(|_| {}),
+        object: Box::new(move |h| crate::components::portal(get(h), |p| p.object.to_raw())),
+        destroy: Box::new(move |h| remove_portal(get(h))),
+    }
+}
+
 fn sensor_kind() -> Kind {
     let get = |h: u64| SoundSensorRef(h as u32);
     Kind {
@@ -262,6 +312,31 @@ fn sensor_kind() -> Kind {
 pub fn register_kinds() {
     register(zone_kind());
     register(occluder_kind());
+    register(portal_kind());
+    register_fields(
+        "AudioPortal",
+        vec![
+            f(
+                "enabled",
+                "bool",
+                json!(true),
+                "A portal that is not enabled passes nothing.",
+            ),
+            f("gain", "f64", json!(1.0), "How much gets through (0 to 1)."),
+            f(
+                "radius",
+                "f64",
+                json!(0.25),
+                "Metres short of the portal the far leg stops, so a door in it counts once.",
+            ),
+            f(
+                "lowPass",
+                "f64",
+                json!(9000.0),
+                "The low-pass cutoff (Hz) of sound that bends through.",
+            ),
+        ],
+    );
     register(sensor_kind());
     register_fields(
         "AudioZone",
@@ -307,6 +382,12 @@ pub fn register_kinds() {
                 "bool",
                 json!(false),
                 "Strongest outside the volume instead of inside (nature outside a cave).",
+            ),
+            f(
+                "affectsSources",
+                "bool",
+                json!(false),
+                "Also colours the AudioSources (with effects) that stand in it, by where each stands.",
             ),
             f(
                 "priority",

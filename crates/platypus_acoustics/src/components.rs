@@ -6,8 +6,8 @@
 
 use crate::model::{Curve, Shape};
 use crate::state::{
-    AudioOccluderRef, AudioZoneRef, Occluder, Sensor, SoundEventRef, SoundSensorRef, Zone,
-    push_event, st,
+    AudioOccluderRef, AudioPortalRef, AudioZoneRef, Occluder, Portal, Sensor, SoundEventRef,
+    SoundSensorRef, Zone, push_event, st,
 };
 use crate::update::{events, probe, stop_ambience};
 use platypus_engine_api::audio::{BusRef, SoundRef};
@@ -38,6 +38,30 @@ fn vec3(a: [f64; 3]) -> V3 {
 
 pub(crate) fn zone<R>(z: AudioZoneRef, f: impl FnOnce(&mut Zone) -> R) -> Option<R> {
     st(|s| s.zones.get_mut(z.0).map(f))
+}
+
+pub(crate) fn portal<R>(p: AudioPortalRef, f: impl FnOnce(&mut Portal) -> R) -> Option<R> {
+    st(|s| s.portals.get_mut(p.0).map(f))
+}
+
+pub(crate) fn attach_portal(object: ObjectId) -> AudioPortalRef {
+    platypus_kinds::components_changed();
+    AudioPortalRef(st(|s| s.portals.add(Portal::new(object))))
+}
+
+pub(crate) fn remove_portal(p: AudioPortalRef) {
+    platypus_kinds::components_changed();
+    st(|s| s.portals.remove(p.0));
+}
+
+pub(crate) fn portals_on(object: ObjectId) -> Vec<AudioPortalRef> {
+    st(|s| {
+        s.portals
+            .iter()
+            .filter(|(_, p)| p.object == object)
+            .map(|(i, _)| AudioPortalRef(i))
+            .collect()
+    })
 }
 
 fn occluder<R>(o: AudioOccluderRef, f: impl FnOnce(&mut Occluder) -> R) -> Option<R> {
@@ -129,6 +153,9 @@ pub(crate) fn test_on_hear(x: SoundSensorRef, f: impl Fn(f64) + 'static) {
 pub fn object_destroyed(object: ObjectId) {
     for z in zones_on(object) {
         remove_zone(z);
+    }
+    for p in portals_on(object) {
+        remove_portal(p);
     }
     for o in occluders_on(object) {
         remove_occluder(o);
@@ -362,6 +389,18 @@ pub mod audio_zone_api {
             super::zone(self, |z| z.ambience_bus = bus.0);
         }
 
+        /// Also colours the `AudioSource`s that stand in the zone (their emitters, made with
+        /// `effects`), by where each stands, not only the listener: a radio in a cave echoes for
+        /// someone outside it.
+        #[property]
+        pub fn affects_sources(self) -> bool {
+            super::zone(self, |z| z.affects_sources).unwrap_or(false)
+        }
+
+        pub fn set_affects_sources(self, on: bool) {
+            super::zone(self, |z| z.affects_sources = on);
+        }
+
         /// Names a bus the zone processes (made with `effects`). With none named it processes
         /// the master mix.
         pub fn add_bus(self, bus: BusRef) {
@@ -393,6 +432,80 @@ pub mod audio_zone_api {
 
         pub fn remove(self) {
             super::remove_zone(self);
+        }
+    }
+}
+
+#[ts_api(
+    namespace = "AudioPortal",
+    handles(AudioPortal = AudioPortalRef, GameObject = ObjectId)
+)]
+pub mod audio_portal_api {
+    use super::*;
+
+    impl AudioPortalRef {
+        /// Adds an `AudioPortal` to a GameObject standing in an opening (a doorway, a window, a
+        /// stairwell). When a wall is between a source and the listener and the way round by a
+        /// portal is better, the source is heard from the portal, quieter and duller, with the
+        /// distance of the whole way round: sound seems to come through the door.
+        pub fn attach(object: ObjectId) -> AudioPortalRef {
+            super::attach_portal(object)
+        }
+
+        pub fn find_on(object: ObjectId) -> AudioPortalRef {
+            super::portals_on(object)
+                .first()
+                .copied()
+                .unwrap_or(AudioPortalRef(0))
+        }
+
+        #[property]
+        pub fn game_object(self) -> ObjectId {
+            super::portal(self, |p| p.object).unwrap_or_else(super::none_object)
+        }
+
+        #[property]
+        pub fn enabled(self) -> bool {
+            super::portal(self, |p| p.enabled).unwrap_or(false)
+        }
+
+        pub fn set_enabled(self, on: bool) {
+            super::portal(self, |p| p.enabled = on);
+        }
+
+        /// How much gets through, 0 to 1: a window a script can shut.
+        #[property]
+        pub fn gain(self) -> f64 {
+            super::portal(self, |p| p.gain).unwrap_or(1.0)
+        }
+
+        pub fn set_gain(self, v: f64) {
+            super::portal(self, |p| p.gain = v.clamp(0.0, 1.0));
+        }
+
+        /// Metres short of the portal that the far leg stops (0.25), so a door standing in the
+        /// opening is counted once.
+        #[property]
+        pub fn radius(self) -> f64 {
+            super::portal(self, |p| p.radius).unwrap_or(0.25)
+        }
+
+        pub fn set_radius(self, v: f64) {
+            super::portal(self, |p| p.radius = v.clamp(0.0, 5.0));
+        }
+
+        /// The low-pass cutoff in Hz of sound that bends through (9000): edges take the highs off.
+        #[property]
+        pub fn low_pass(self) -> f64 {
+            super::portal(self, |p| p.low_pass).unwrap_or(9000.0)
+        }
+
+        pub fn set_low_pass(self, hz: f64) {
+            super::portal(self, |p| p.low_pass = hz.clamp(100.0, 22000.0));
+        }
+
+        pub fn remove(self) {
+            super::remove_portal(self);
         }
     }
 }
@@ -697,6 +810,19 @@ pub mod acoustics_api {
 
     pub fn set_ray_spread(v: f64) {
         st(|s| s.settings.ray_spread = v.clamp(0.0, 10.0));
+    }
+
+    /// How much sounds behind or above the listener lose their highs (0 to 1, default 0.5):
+    /// the cue that tells front from back and up from down, which panning cannot. It applies
+    /// to `AudioSource`s while acoustics is in use (a zone, occluder, sensor, noise or
+    /// Doppler source exists).
+    #[property]
+    pub fn head_shadow() -> f64 {
+        st(|s| s.settings.head_shadow)
+    }
+
+    pub fn set_head_shadow(v: f64) {
+        st(|s| s.settings.head_shadow = v.clamp(0.0, 1.0));
     }
 
     /// Seconds a noise stays in the list (3).

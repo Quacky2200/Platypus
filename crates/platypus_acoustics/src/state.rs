@@ -39,6 +39,10 @@ numbered_handle!(
     AudioOccluderRef
 );
 numbered_handle!(
+    /// An `AudioPortal` by number (1-based: 0 is "none").
+    AudioPortalRef
+);
+numbered_handle!(
     /// A `SoundSensor` by number (1-based: 0 is "none").
     SoundSensorRef
 );
@@ -111,6 +115,8 @@ pub struct Zone {
     pub ambience_bus: u32,
     /// How strongly it applies at the listener, as of the last update.
     pub weight: f64,
+    /// Also colours the `AudioSource`s that stand in it (their emitters), not only the listener.
+    pub affects_sources: bool,
     pub(crate) playback: Option<PlaybackRef>,
     pub(crate) paused: bool,
     pub(crate) sent_volume: f64,
@@ -134,6 +140,7 @@ impl Zone {
             ambience_volume: 1.0,
             ambience_bus: 0,
             weight: 0.0,
+            affects_sources: false,
             playback: None,
             paused: false,
             sent_volume: -1.0,
@@ -157,6 +164,33 @@ impl Occluder {
             openness: 0.0,
             absorption: 0.55,
             low_pass: 900.0,
+        }
+    }
+}
+
+/// An opening sound can bend through (a doorway, a window, a stairwell): when a wall is in the
+/// way, a source is heard as coming from the portal, by the way round.
+#[derive(Clone, Copy)]
+pub struct Portal {
+    pub object: ObjectId,
+    pub enabled: bool,
+    /// How much gets through, 0 to 1 (a window that can be shut by a script).
+    pub gain: f64,
+    /// Metres short of the portal the source-side leg stops, so a door in the opening is
+    /// counted once.
+    pub radius: f64,
+    /// The low-pass cutoff (Hz) of sound that bends through: edges take the highs off.
+    pub low_pass: f64,
+}
+
+impl Portal {
+    pub fn new(object: ObjectId) -> Portal {
+        Portal {
+            object,
+            enabled: true,
+            gain: 1.0,
+            radius: 0.25,
+            low_pass: 9000.0,
         }
     }
 }
@@ -221,6 +255,8 @@ pub struct Settings {
     pub occlusion_layers: u32,
     /// How far (metres) to the sides of the straight line the extra probe rays go.
     pub ray_spread: f64,
+    /// How much sounds behind or above the listener lose their highs, 0 to 1.
+    pub head_shadow: f64,
     pub event_lifetime: f64,
     pub pulse_interval: f64,
 }
@@ -232,6 +268,7 @@ impl Default for Settings {
             speed_of_sound: 343.0,
             occlusion_layers: 0,
             ray_spread: 0.4,
+            head_shadow: 0.5,
             event_lifetime: 3.0,
             pulse_interval: 0.8,
         }
@@ -241,18 +278,25 @@ impl Default for Settings {
 /// What the update remembers about one `AudioSource`.
 #[derive(Clone, Copy, Default)]
 pub(crate) struct SrcState {
+    /// The gain and cutoff last sent to its emitter (the combined result).
     pub gain: f64,
     pub low_pass: f64,
     pub checked: u64,
     pub doppler: f64,
     pub last_pulse: f64,
     pub started: bool,
+    /// What occlusion (or the way round through a portal) left of it at the last probe.
+    pub occ_gain: f64,
+    pub occ_low_pass: f64,
+    /// Where it is heard from when the way round is through a portal.
+    pub virtual_pos: Option<[f64; 3]>,
 }
 
 #[derive(Default)]
 pub(crate) struct State {
     pub zones: Slots<Zone>,
     pub occluders: Slots<Occluder>,
+    pub portals: Slots<Portal>,
     pub sensors: Slots<Sensor>,
     pub events: Vec<Event>,
     pub next_event: u32,

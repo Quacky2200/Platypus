@@ -21,7 +21,9 @@ mod update;
 
 pub use components::object_destroyed;
 pub use kinds::register_kinds;
-pub use state::{AudioOccluderRef, AudioZoneRef, SoundEventRef, SoundSensorRef, reset};
+pub use state::{
+    AudioOccluderRef, AudioPortalRef, AudioZoneRef, SoundEventRef, SoundSensorRef, reset,
+};
 pub use update::update;
 
 /// The manifests of this crate's script API.
@@ -29,6 +31,7 @@ pub fn manifests() -> Vec<String> {
     vec![
         components::audio_zone_api::MANIFEST.to_json(),
         components::audio_occluder_api::MANIFEST.to_json(),
+        components::audio_portal_api::MANIFEST.to_json(),
         components::sound_sensor_api::MANIFEST.to_json(),
         components::sound_event_api::MANIFEST.to_json(),
         components::acoustics_api::MANIFEST.to_json(),

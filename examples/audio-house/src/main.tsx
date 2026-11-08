@@ -3,7 +3,9 @@
 
 // A two-storey house that sounds like one. Walls, floors and doors are AudioOccluders: a radio
 // behind a shut door is dull and quiet, with the door open it is clear, and one upstairs is heard
-// through the floor but loudest at the stairwell where the way is open. Grab the portable radio
+// through the floor, but it comes down the stairwell when you stand in the east room: AudioPortals
+// mark the doorways and the stairwell, and a source behind a wall is heard from the opening it
+// bends through, duller, from the right direction. Grab the portable radio
 // (E) and carry it about, or shut it in the cupboard (F at the door) and listen to it muffle.
 //
 // Walk: WASD or arrows. Turn: drag with a mouse button, or Q / R. E: grab or drop the radio.
@@ -235,6 +237,16 @@ class HouseWorld extends Component {
       slab(`Partition b${lvl}`, new Vector3(0, py, (z1 + 1) / 2), new Vector3(t, h, z1 - 1), wallMaterial);
       slab(`Lintel${lvl}`, new Vector3(0, lvl * H + (lvl === 0 ? 2.6 : 2.9 + t / 2), 0), new Vector3(t, 0.8, 2.0), wallMaterial);
       makeDoor(lvl === 0 ? "Door downstairs" : "Door upstairs", new Vector3(0, lvl * H + (lvl === 0 ? 0 : t / 2), -1));
+    }
+    // Portals: the openings sound can bend through. A radio in the other room is heard from
+    // the doorway (muffled by the door if it is shut), and one upstairs comes down the stairwell.
+    for (const [name, p] of [
+      ["Doorway downstairs", new Vector3(0, 1.1, 0)],
+      ["Doorway upstairs", new Vector3(0, H + t / 2 + 1.1, 0)],
+      ["Stairwell bottom", new Vector3(4.2, 1.2, 0.5)],
+      ["Stairwell top", new Vector3(5.2, H + 0.8, 0.5)],
+    ] as const) {
+      new GameObject(name, { position: p }).addComponent(AudioPortal);
     }
     // A staircase up the stairwell, climbing along +x.
     const steps = 10;

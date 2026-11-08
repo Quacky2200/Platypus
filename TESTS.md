@@ -623,6 +623,11 @@ layout pass):
 | ACO-SYS-03 | Integration | A source behind an occluder gets a low-pass and a quieter emitter; opening the occluder opens it again. |
 | ACO-SYS-04 | Integration | A sensor hears each noise once, quieter through a wall, and not past its reach. |
 | ACO-SYS-05 | Integration | Doppler changes a moving source's playback rate (higher coming, lower going, 1 when still). |
+| ACO-SYS-06 | Integration | With a portal round a wall's end, a source behind the wall is heard from the portal's direction, duller by the edge rather than the wall; closing the portal puts it back behind the wall. |
+| ACO-SYS-07 | Integration | A zone with `affectsSources` gives an emitter inside it the zone's reverb and low-pass, and leaves one outside alone; without the flag sources are untouched. |
+| ACO-SYS-08 | Integration | A source behind the listener is dulled by the head cue; one ahead stays open. |
+| ACO-MOD-07 | Unit | The head cue: ahead and to the side open, behind 4.5 kHz, above or below 9 kHz at full strength, off at 0, in between for diagonals. |
+| ACO-MOD-08 | Unit | A portal's two legs combine (gains and cutoffs multiply, path adds); the way round wins only when it beats the wall by a tenth; a shut door in a leg or a closed portal loses it. |
 
 ---
 
