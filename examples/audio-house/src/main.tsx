@@ -8,7 +8,7 @@
 // bends through, duller, from the right direction. Grab the portable radio
 // (E) and carry it about, or shut it in the cupboard (F at the door) and listen to it muffle.
 //
-// Walk: WASD or arrows. Turn: drag with a mouse button, or Q / R. E: grab or drop the radio.
+// Walk: WASD or arrows. Look: the mouse (the cursor is locked: Esc frees it, a click locks it again; Q / R also turn, Y inverts). E: grab or drop the radio.
 // F: open or shut the nearest door. Outside the walls a wind bed fades in (an inverted AudioZone).
 
 const HOUSE = { x0: -7, x1: 7, z0: -5, z1: 5, storey: 3 };
@@ -92,16 +92,33 @@ class Player extends Component {
   hold: Radio | null = null;
   steps!: AudioSource;
 
+  /** Mouse look with the cursor held (Esc lets go, a click takes it back). */
+  private locked = true;
+  /** Moving the mouse up looks up; Y flips it. */
+  invertLook = false;
+
   override onStart() {
     this.controller = this.getComponent(CharacterController)!;
     this.steps = this.getComponent(AudioSource)!;
+    Cursor.lockState = CursorLockMode.Locked;
   }
 
   override onUpdate(dt: number) {
-    if (input.getMouseButton(0) || input.getMouseButton(1)) {
+    if (input.getKeyDown("Escape")) {
+      this.locked = false;
+      Cursor.lockState = CursorLockMode.None;
+    } else if (!this.locked && input.getMouseButtonDown(0)) {
+      this.locked = true;
+      Cursor.lockState = CursorLockMode.Locked;
+    }
+    if (input.getKeyDown("KeyY")) this.invertLook = !this.invertLook;
+    // Locked: every movement turns the view. Free: drag with a button held, as before.
+    if (this.locked || input.getMouseButton(0) || input.getMouseButton(1)) {
       const d = input.mouseDelta;
-      this.yaw += d.x * 0.25;
-      this.pitch = Math.min(70, Math.max(-60, this.pitch + d.y * 0.2));
+      this.yaw += d.x * 0.15;
+      // The mouse reports up as positive: up looks up (pitch is positive downwards).
+      const up = this.invertLook ? -d.y : d.y;
+      this.pitch = Math.min(70, Math.max(-60, this.pitch - up * 0.15));
     }
     if (input.getKey("KeyQ")) this.yaw -= 100 * dt;
     if (input.getKey("KeyR")) this.yaw += 100 * dt;
@@ -383,7 +400,7 @@ function Hud() {
           {bar(b, "#3498db")}
         </box>
         <text style={{ color: "#8f9bb3", fontSize: 12 }}>The bars show how much of each radio gets through to you.</text>
-        <text style={{ color: "#8f9bb3", fontSize: 12 }}>WASD move · Q / R or drag turn · E grab / drop radio · F door</text>
+        <text style={{ color: "#8f9bb3", fontSize: 12 }}>WASD move · mouse look (Esc frees the cursor, click to lock) · Y invert · E grab / drop radio · F door</text>
         {doors.map((d) => (
           <text key={d.name} style={{ color: d.door.opened ? "#7be07b" : "#e0907b", fontSize: 12 }}>
             {d.name}: {d.door.opened ? "open" : "shut"}
