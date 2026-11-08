@@ -87,10 +87,8 @@ class Player extends Component {
   private yaw = 90;
   private pitch = 0;
   private vy = 0;
-  private stepTimer = 0;
   radio!: Radio;
   hold: Radio | null = null;
-  steps!: AudioSource;
 
   /** Mouse look with the cursor held (Esc lets go, a click takes it back). */
   private locked = true;
@@ -99,7 +97,6 @@ class Player extends Component {
 
   override onStart() {
     this.controller = this.getComponent(CharacterController)!;
-    this.steps = this.getComponent(AudioSource)!;
     Cursor.lockState = CursorLockMode.Locked;
   }
 
@@ -137,17 +134,6 @@ class Player extends Component {
     const look = new Vector3(Math.sin(yaw) * Math.cos(pitch), -Math.sin(pitch), -Math.cos(yaw) * Math.cos(pitch));
     this.cam.transform.rotation = Quaternion.lookRotation(look);
     this.transform.rotation = Quaternion.lookRotation(fwd);
-
-    // Footsteps, quieter when walking slowly.
-    if (moving && this.controller.isGrounded) {
-      this.stepTimer -= dt;
-      if (this.stepTimer <= 0) {
-        this.stepTimer = speed > 4 ? 0.3 : 0.48;
-        this.steps.playOneShot(SOUND("footstep"), speed > 4 ? 0.9 : 0.55);
-        // Footsteps are noises other things (sensors) could hear.
-        Acoustics.emit(this.transform.position, speed > 4 ? 9 : 4, "footstep", this.gameObject!);
-      }
-    }
 
     if (input.getKeyDown("KeyE")) this.grab();
     if (input.getKeyDown("KeyF")) this.useDoor();
@@ -365,7 +351,6 @@ class HouseWorld extends Component {
     // The player.
     const p = new GameObject("Player", { position: new Vector3(-4, 0.95, 0) });
     p.addComponent(CharacterController, { radius: 0.3, height: 1.8, stepOffset: 0.4 });
-    p.addComponent(AudioSource, { spatialBlend: 1, maxDistance: 20 });
     const eyes = new GameObject("Eyes", { parent: p, position: new Vector3(0, 0.7, 0) });
     eyes.addComponent(Camera, { fieldOfView: 70, backgroundColor: Color.hex("#9bc4e8"), nearClipPlane: 0.05 });
     eyes.addComponent(AudioListener);
