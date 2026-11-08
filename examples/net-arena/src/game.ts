@@ -157,6 +157,8 @@ export class Arena extends Component {
   private controller: CharacterController | null = null;
   private localId = 0;
   private bot = false;
+  private verbose = false;
+  private botDist = 99;
   private lastLog = 0;
   private fireAt = 0;
   private beams: { go: GameObject; until: number }[] = [];
@@ -174,6 +176,7 @@ export class Arena extends Component {
     this.camera.transform.rotation = Quaternion.lookRotation(new Vector3(0, -0.4, 1));
     const args = Application.args;
     this.bot = args.includes("--bot");
+    this.verbose = args.includes("--verbose");
     const at = args.indexOf("--connect");
     if (args.includes("--server")) this.begin("server");
     else if (at >= 0) {
@@ -446,6 +449,7 @@ export class Arena extends Component {
   }
 
   private onFire(player: number, yawDeg: number, rewindMs: number, now: number) {
+    if (this.verbose) console.log(`[net server] fire from ${player} yaw=${yawDeg} rewind=${rewindMs}`);
     const shooter = this.players.get(player);
     if (!shooter || !Network.getBool(shooter.net, "alive") || now - shooter.lastShot < 0.22) return;
     if (!this.matchRunning() || !Number.isFinite(yawDeg)) return;
@@ -467,6 +471,9 @@ export class Arena extends Component {
       const b = ox * dir.x + oz * dir.z;
       const k = ox * ox + oz * oz - 0.45 * 0.45;
       const disc = b * b - k;
+      if (this.verbose) {
+        console.log(`[net server] target ${o.name} at (${c.x},${c.z}) across=${ox * dir.z - oz * dir.x} along=${-b} hist=${o.hist.length}`);
+      }
       if (disc < 0) continue;
       const d = -b - Math.sqrt(disc);
       if (d > 0 && d < reach) {
@@ -475,6 +482,10 @@ export class Arena extends Component {
       }
     }
     const to = origin.add(dir.scale(reach));
+    if (this.verbose) {
+      const o = origin;
+      console.log(`[net server] shot from (${o.x},${o.z}) dir=(${dir.x},${dir.z}) wall=${wall ? wall.distance : -1} reach=${reach} victim=${victim ? victim.name : "none"}`);
+    }
     Network.rpc(shooter.net, "beam", [fmt(origin), fmt(to), `b:${victim ? 1 : 0}`].join(SEP));
     if (!victim) return;
     const hp = Network.getNumber(victim.net, "hp") - SHOT_DAMAGE;
@@ -561,6 +572,17 @@ export class Arena extends Component {
       case "connected":
         this.me = parseFloat(e.f[0]);
         hud.status = `connected as player ${this.me}`;
+        // `--lag <ms round trip>` and `--loss <percent>` make this client's network bad, for tests.
+        {
+          const a = Application.args;
+          const lag = a.indexOf("--lag");
+          const loss = a.indexOf("--loss");
+          if (lag >= 0 || loss >= 0) {
+            const rtt = lag >= 0 ? parseFloat(a[lag + 1] ?? "0") : 0;
+            const pct = loss >= 0 ? parseFloat(a[loss + 1] ?? "0") : 0;
+            Network.debugConditions(rtt / 4, rtt / 10, pct);
+          }
+        }
         break;
       case "rejected":
         this.end(`the server refused us: ${e.f[0]} (is it the same build?)`);
@@ -656,7 +678,13 @@ export class Arena extends Component {
     else if (name === "hurt") hud.hurt = Time.time + 0.25;
     else if (name === "teleport" && this.localId !== 0) {
       const p = argVec(args[0]);
-      this.views.get(this.localId)!.go.transform.position = p;
+      if (this.verbose) console.log(`[net client] teleport to (${p.x},${p.z})`);
+      // A controller keeps its own position: make a fresh one where the player is put.
+      const go = this.views.get(this.localId)!.go;
+      this.controller?.destroy();
+      go.transform.position = p;
+      this.controller = go.addComponent(CharacterController, { radius: 0.3, height: 1.8 });
+      this.controller.center = new Vector3(0, 0.95, 0);
       this.vy = 0;
     }
   }
@@ -682,9 +710,25 @@ export class Arena extends Component {
     const right = new Vector3(Math.cos(yawR), 0, -Math.sin(yawR));
     // A bot (`--bot`) walks and shoots by itself, for tests with no one at the keyboard.
     const bt = Time.time;
-    const x = this.bot ? Math.sin(bt * 0.9 + this.me) : (input.getKey("KeyD") || input.getKey("ArrowRight") ? 1 : 0) - (input.getKey("KeyA") || input.getKey("ArrowLeft") ? 1 : 0);
-    const z = this.bot ? Math.cos(bt * 0.6 + this.me * 2) : (input.getKey("KeyW") || input.getKey("ArrowUp") ? 1 : 0) - (input.getKey("KeyS") || input.getKey("ArrowDown") ? 1 : 0);
-    if (this.bot) this.yaw += 40 * dt;
+    // (Camera yaw faces the target, so "forward" walks at it; it strafes while it goes.)
+    const x = this.bot ? Math.sin(bt * 1.3 + this.me) * 0.6 : (input.getKey("KeyD") || input.getKey("ArrowRight") ? 1 : 0) - (input.getKey("KeyA") || input.getKey("ArrowLeft") ? 1 : 0);
+    const z = this.bot ? (this.botDist > 6 ? 1 : -0.3) : (input.getKey("KeyW") || input.getKey("ArrowUp") ? 1 : 0) - (input.getKey("KeyS") || input.getKey("ArrowDown") ? 1 : 0);
+    if (this.bot) {
+      // Aim at the nearest other player.
+      let best = Infinity;
+      const me = view.go.transform.position;
+      for (const [id, o] of this.views) {
+        if (o.local || o.kind !== 0 || !Network.getBool(id, "alive")) continue;
+        const dx = o.shown.x - me.x;
+        const dz = o.shown.z - me.z;
+        const d = Math.hypot(dx, dz);
+        if (d < best) {
+          best = d;
+          this.yaw = (Math.atan2(dx, dz) * 180) / Math.PI;
+        }
+      }
+      this.botDist = best;
+    }
     let dir = fwd.scale(z).add(right.scale(x));
     const moving = alive && dir.magnitude > 0.01;
     if (moving) dir = dir.normalized;
@@ -710,7 +754,8 @@ export class Arena extends Component {
     view.animator?.setFloat("speed", moved);
 
     // What the others need: where I am, which way, how fast. The server checks the position.
-    Network.setVec3(this.localId, "pos", after.x, after.y, after.z);
+    const wrote = Network.setVec3(this.localId, "pos", after.x, after.y, after.z);
+    if (this.verbose && Time.time - this.lastLog < 0.02) console.log(`[net client] wrote pos (${after.x},${after.z}) ok=${wrote} ${wrote ? "" : Network.lastError()}`);
     Network.setNumber(this.localId, "yaw", this.facingDeg);
     Network.setNumber(this.localId, "speed", moved);
     Network.setBool(this.localId, "sprint", sprint);
