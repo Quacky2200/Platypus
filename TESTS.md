@@ -2750,3 +2750,11 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WUI-STO-06 | Unit | `persist<S, Saved>(creator, { name, partialize })` writes `{"version":0,"state":{..}}` to `localStorage` after each `set`, and a second run starts from it (what `partialize` left out starts afresh). |
 | WUI-STO-07 | Unit | The generated declarations are Zustand's (`StoreApi<T>`, `StateCreator<T>`, `create`, `createStore`, `useStore`, `useShallow`, `persist`) without the hidden natives. |
 | WUI-RTR-17 | Unit | The generated declarations name React Router's API (`RouteObject`, `createRouter`, `useNavigate`, `useParams`, `Link`, `Outlet`, `matchPath`, `URLSearchParams`) and leave the hidden natives out. |
+
+## M8 — Multiplayer (`docs/research/multiplayer.md`)
+
+| ID | Kind | Checks |
+|---|---|---|
+| M8-HLS-01 | Unit | `--headless` and `--tick-rate N` parse (default 60 iterations a second); a rate outside 1..=1000 or not a number is refused. |
+| M8-HLS-02 | Unit | The headless loop pacer waits for its deadline, and a loop that fell far behind skips the missed deadlines instead of bursting. |
+| M8-HLS-03 | Manual | `platypus-app examples/hello --headless --tick-rate 1000 --frames 2000` runs the game's scripts to the end with no window and no GPU device (checked 2026-11-08); `examples/physics --headless --frames 180` takes about 3 s at 60 iterations a second. |

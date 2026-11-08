@@ -34,6 +34,7 @@ mod fps;
 mod frame_target;
 mod game_input;
 mod gles_gfx;
+mod headless;
 mod host;
 mod identity;
 pub(crate) mod info;
@@ -92,6 +93,8 @@ struct Args {
     game: PathBuf,
     screenshot: Option<PathBuf>,
     frames: u32,
+    /// `--frames` was on the command line (a headless run stops after that many iterations).
+    frames_given: bool,
     /// Cook the game's assets (`--cook`) and exit.
     cook: bool,
     /// `--fps` / `--no-fps`: the FPS counter on or off, over the defaults.
@@ -105,6 +108,8 @@ struct Args {
     script_args: Vec<String>,
     /// `--bench`: a windowless timed run (see `bench.rs`).
     bench: Option<bench::BenchArgs>,
+    /// `--headless`: no window, GPU or audio device, for servers and tests (see `headless.rs`).
+    headless: Option<headless::HeadlessArgs>,
     /// `--crash-dialog <folder>`: the crash dialog's own run (`crash_dialog.rs`), whatever game
     /// a packaged exe holds.
     crash_dialog: bool,
@@ -149,7 +154,7 @@ enum InspectTool {
 impl Args {
     /// No player: a screenshot or bench run.
     fn offline(&self) -> bool {
-        self.screenshot.is_some() || self.bench.is_some()
+        self.screenshot.is_some() || self.bench.is_some() || self.headless.is_some()
     }
 }
 
@@ -185,7 +190,7 @@ fn parse_args() -> Result<Args> {
 /// Parses the arguments after the program name. The game is the first argument that isn't
 /// an option, or the current folder when there's none.
 fn parse_args_from(args: impl IntoIterator<Item = std::ffi::OsString>) -> Result<Args> {
-    let usage = "usage: platypus-app [game folder | game.pbundle | main.ts] [--screenshot out.png] [--frames N] [--cook] [--fps | --no-fps] [--renderer vulkan|gles|cpu] [--video-settings-prompt | --no-video-settings-prompt] [--data folder] [--project folder] [-- script args]
+    let usage = "usage: platypus-app [game folder | game.pbundle | main.ts] [--screenshot out.png] [--frames N] [--headless [--tick-rate N]] [--cook] [--fps | --no-fps] [--renderer vulkan|gles|cpu] [--video-settings-prompt | --no-video-settings-prompt] [--data folder] [--project folder] [-- script args]
        platypus-app editor --project <folder> (the editor, working on a project folder)
        platypus-app [game] --bench [--bench-input spec.json] [--bench-out out.json] [--warmup N] [--frames N] [--fixed-dt seconds] [--size WxH]
        platypus-app --licenses (prints the third-party notices built into the program and exits)
@@ -197,12 +202,14 @@ games are built with `platypus-build build`; arguments after -- reach scripts as
         game: PathBuf::from("."),
         screenshot: None,
         frames: 60,
+        frames_given: false,
         cook: false,
         fps: None,
         data: None,
         asset_root: None,
         script_args: Vec::new(),
         bench: None,
+        headless: None,
         crash_dialog: false,
         video_prompt: None,
         video_dialog: false,
@@ -220,6 +227,13 @@ games are built with `platypus-build build`; arguments after -- reach scripts as
         if let Some(flag) = arg.to_str().filter(|s| bench::is_flag(s)) {
             let bench = parsed.bench.get_or_insert_with(bench::BenchArgs::default);
             bench.flag(flag, &mut args).context(usage)?;
+            continue;
+        }
+        if let Some(flag) = arg.to_str().filter(|s| headless::is_flag(s)) {
+            let headless = parsed
+                .headless
+                .get_or_insert_with(headless::HeadlessArgs::default);
+            headless.flag(flag, &mut args).context(usage)?;
             continue;
         }
         match arg.to_str() {
@@ -301,6 +315,7 @@ games are built with `platypus-build build`; arguments after -- reach scripts as
     if let Some(game) = game {
         parsed.game = game;
     }
+    parsed.frames_given = frames_given;
     // `--frames` is the measured frames of a bench run without an input file.
     if let Some(bench) = parsed.bench.as_mut()
         && frames_given
@@ -546,6 +561,7 @@ fn run() -> Result<()> {
     // goes into the prefs read below.
     if !args.video_dialog
         && args.bench.is_none()
+        && args.headless.is_none()
         && video_prompt::should_prompt(
             args.video_prompt,
             manifest.video_settings_prompt,
@@ -742,6 +758,11 @@ fn run() -> Result<()> {
     if let Some(bench) = args.bench {
         let size = bench.size.unwrap_or((width, height));
         return bench::run(app, &bench, size, manifest.window_title());
+    }
+    // A headless run makes no window and no graphics device; `--frames N` stops it after N iterations.
+    if let Some(headless) = &args.headless {
+        let frames = (args.frames_given).then_some(args.frames);
+        return headless::run(app, headless, frames, manifest.window_title());
     }
     // Screenshot runs make no OS windows for secondary windows: they draw offscreen.
     let virtual_windows = app.screenshot.is_some();

@@ -379,6 +379,17 @@ windows keep vsync off (never call `set_vsync(true)` on them: several FIFO swapc
 the surface must be dropped before its OS window is destroyed, i.e. in `window_closed`. A surface cannot be made without a real window,
 so this function has no unit test.
 
+## Headless runs
+
+`platypus-app <game> --headless [--tick-rate N] [--frames N]` runs a game with no window, GPU device or renderer (the audio mixer still opens on a game's first sound, as in any run; a null mixer for servers is a follow-up)
+([headless.rs](../crates/platypus_app/src/headless.rs); design: `docs/research/multiplayer.md` §7). It is the base of the dedicated
+server: scripts, the scene, physics, timers and `Application.quit` run as in a normal run on the fake platform (as `--bench` does),
+but no graphics device is made, so `App::frame` skips drawing. Like screenshot and bench runs it is offline: in-memory prefs, no
+file watching, no video-settings prompt. The loop is paced at `--tick-rate` iterations a second (default 60: a sleep, then a spin for
+the last millisecond; a loop that falls behind skips the missed deadlines). Fixed-step physics keeps its own 60 Hz clock.
+`--frames N` stops after N iterations; otherwise it runs until the game quits (or the process is killed: there is no signal handler
+yet, which M8.b's server shutdown will add). Not done yet: `--server` / `--connect` and the network, a metrics line per second.
+
 ## Limits
 
 - One monitor: the window's current monitor is used, and there is no way to pick another.

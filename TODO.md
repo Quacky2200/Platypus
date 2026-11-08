@@ -1791,7 +1791,9 @@ Research and design: [docs/research/networking-and-files.md](docs/research/netwo
 
 Design: `docs/research/multiplayer.md` (Fusion / Fish-Net / Lightyear inspired, server-authoritative, Steam first).
 
-- [ ] **M8.a** `--headless`: fixed-step host with no window, renderer or audio; tests run a game N ticks
+- [x] **M8.a** `--headless` (2026-11-08, `M8-HLS-01..03`): a paced loop on the fake platform with no window, GPU or renderer
+  (`platypus_app/src/headless.rs`), `--tick-rate`, `--frames`. Left for M8.b: signal handling for a clean shutdown, a per-second
+  stats line, and a null audio mixer (the mixer still opens on a game's first sound)
 - [ ] **M8.b** `platypus_net`: transport trait, loopback with link conditioner, QUIC (`quinn`), handshake with schema hash
 - [ ] **M8.c** Replication: `@sync` schema from the compiler, spawn / despawn, snapshots and deltas, interest, `NetworkTime`
 - [ ] **M8.d** `@rpc.*`, `@input`, ownership and authority transfer, roles (server, host, client, spectator)
