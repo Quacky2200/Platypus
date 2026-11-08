@@ -1810,6 +1810,13 @@ Design and API: `docs/spatial-audio.md`. Tests `ACO-*`.
 - [ ] A remote voice through the mixer (needs web-ui `MediaStream` audio tracks), microphone device choice and input gain
 - [ ] A `docs/differences` note: Doppler defaults to 0 here, 1 in Unity
 
+## Bot AI (branch `bot-ai`, `crates/platypus_ai`)
+- [x] A* over any `Graph`, `NavGrid` (3D cells, 6/18/26 connectivity, weights, line of sight, smoothing), steering (`AI-01`..`13`)
+- [ ] `#[ts_api]` script API (`Navigation`, steering helpers), navmesh from scene colliders, dynamic obstacles / replanning
+- [ ] Simple GOAP (actions, goals, planner over A*)
+- [ ] Mass navigation: flow fields for crowds (rats), local avoidance
+- [ ] Small neural nets (tiny feed-forward, evolvable)
+
 ## M8 — Multiplayer
 
 Design: `docs/research/multiplayer.md` (Fusion / Fish-Net / Lightyear inspired, server-authoritative, Steam first).

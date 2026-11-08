@@ -2781,6 +2781,18 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WUI-STO-07 | Unit | The generated declarations are Zustand's (`StoreApi<T>`, `StateCreator<T>`, `create`, `createStore`, `useStore`, `useShallow`, `persist`) without the hidden natives. |
 | WUI-RTR-17 | Unit | The generated declarations name React Router's API (`RouteObject`, `createRouter`, `useNavigate`, `useParams`, `Link`, `Outlet`, `matchPath`, `URLSearchParams`) and leave the hidden natives out. |
 
+## Bot AI (`crates/platypus_ai`)
+
+| ID | Kind | What |
+|---|---|---|
+| AI-01 | Unit | A* on an open 3D grid walks the straight diagonal; six-connectivity costs the Manhattan distance (`AI-02`). |
+| AI-03 | Unit | Walls are walked around through a gap; a sealed goal has no path; `nearest_free` leaves a blocked cell (`AI-09`). |
+| AI-04 | Unit | Diagonals don't cut blocked corners unless `corner_cutting` is on. |
+| AI-05 | Unit | Per-cell weights steer paths around expensive cells. |
+| AI-06 | Unit | Line of sight (3D DDA) sees open space and stops at blocks; smoothing collapses an open path to its two ends (`AI-07`); an expansion limit gives up (`AI-08`). |
+| AI-10 | Unit | Steering: arrive comes to rest on the target; flee, separation and pursue (`AI-11`, `AI-12`) go the right way. |
+| AI-13 | Unit | An agent follows a smoothed path around a wall to its end without entering a blocked cell. |
+
 ## M8 — Multiplayer (`docs/research/multiplayer.md`)
 
 | ID | Kind | Checks |
