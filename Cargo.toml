@@ -19,6 +19,7 @@ license = "Apache-2.0"
 ts_api = { path = "../web-ui/crates/ts_api", default-features = false }
 ts_api_macros = { path = "../web-ui/crates/ts_api_macros" }
 web_api_window = { path = "../web-ui/crates/web_api_window" }
+desktop_window = { path = "../web-ui/crates/desktop_window" }
 web_ui_core = { path = "../web-ui/crates/web_ui_core" }
 web_ui_render = { path = "../web-ui/crates/web_ui_render" }
 web_ui_symbols = { path = "../web-ui/crates/web_ui_symbols" }

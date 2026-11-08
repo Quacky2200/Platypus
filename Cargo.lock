@@ -1113,6 +1113,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "desktop_window"
+version = "0.1.0"
+dependencies = [
+ "windows",
+]
+
+[[package]]
 name = "dispatch"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4036,6 +4043,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "arboard",
+ "desktop_window",
  "gltf",
  "image",
  "notify",
@@ -6079,6 +6087,7 @@ dependencies = [
  "mozangle",
  "raw-window-handle",
  "tracing",
+ "web_ui_core",
  "web_ui_dom",
  "web_ui_render",
  "windows-sys 0.61.2",

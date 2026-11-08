@@ -38,6 +38,8 @@ platypus_kinds = { path = "../platypus_kinds" }
 web_ui_ts = { workspace = true }
 web_ui_rt = { workspace = true }
 web_ui_bridge = { workspace = true }
+# The game's Windows app id, registration and Start-menu shortcut (`identity.rs`).
+desktop_window = { workspace = true }
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "ico"] }
 notify = "8.2.0"
 arboard = { version = "3.7.0", default-features = false }

@@ -49,6 +49,8 @@ pub(crate) struct GlesGfx {
     report: (u32, Duration, Instant),
     /// What the window shows now, so an unchanged frame isn't redrawn.
     shown: Option<Shown>,
+    /// Since when the window has been visible (`shown_if_settled`).
+    visible_since: Option<Instant>,
     /// When the first frame was shown, and whether the driver was trimmed since (`trim_due`).
     first_frame: Option<Instant>,
     trimmed: bool,
@@ -110,6 +112,7 @@ impl GlesGfx {
             context,
             report: (0, Duration::ZERO, Instant::now()),
             shown: None,
+            visible_since: None,
             first_frame: None,
             trimmed: false,
         })
@@ -151,6 +154,29 @@ pub(crate) fn unchanged(
     shown.is_some_and(|(sz, sc, c, f)| {
         *sz == size && *sc == scale.to_bits() && c.as_slice() == cmds && f.as_deref() == fps_cmds
     })
+}
+
+/// How long after the window shows every frame is still presented, changed or not.
+const SETTLE: Duration = Duration::from_millis(500);
+
+/// What to remember as shown after presenting `frame` (so identical frames are skipped): nothing
+/// while the window is hidden or for `SETTLE` after it shows. The first frame is drawn before the
+/// window is shown (`platypus_platform`), and presents to a hidden or just-shown window can be
+/// lost; remembering one would skip every later, identical frame and leave a static UI black (the
+/// crash dialog). `visible` is `Window::is_visible` (`None`: the platform can't tell);
+/// `visible_since` is kept by the caller.
+pub(crate) fn shown_if_settled(
+    visible_since: &mut Option<Instant>,
+    visible: Option<bool>,
+    now: Instant,
+    frame: Shown,
+) -> Option<Shown> {
+    if visible == Some(false) {
+        *visible_since = None;
+        return None;
+    }
+    let since = *visible_since.get_or_insert(now);
+    (now.duration_since(since) >= SETTLE).then_some(frame)
 }
 
 impl App {
@@ -318,7 +344,12 @@ impl App {
         if let Err(e) = gles.context.swap_buffers() {
             tracing::error!("{e}");
         }
-        gles.shown = Some((size, scale.to_bits(), cmds, fps_cmds));
+        gles.shown = shown_if_settled(
+            &mut gles.visible_since,
+            gles.window.is_visible(),
+            Instant::now(),
+            (size, scale.to_bits(), cmds, fps_cmds),
+        );
         gles.first_frame.get_or_insert_with(Instant::now);
         self.render_time += started.elapsed();
         gles.report.0 += 1;
@@ -357,6 +388,31 @@ mod tests {
         assert!(!trim_due(true, s(5000), None));
         assert!(!trim_due(false, s(5000), Some("0")));
         assert!(trim_due(false, s(5000), Some("1")));
+    }
+
+    // M2-GLES-20
+    #[test]
+    fn frames_are_presented_again_until_the_window_has_been_visible_a_while() {
+        let frame: Shown = ((640, 420), 1.0f32.to_bits(), Vec::new(), None);
+        let t0 = Instant::now();
+        let ms = |n| t0 + Duration::from_millis(n);
+        let mut since = None;
+        // Hidden (the first frame): not remembered, so the next identical frame is drawn.
+        let hidden = shown_if_settled(&mut since, Some(false), t0, frame.clone());
+        assert!(!unchanged(hidden.as_ref(), (640, 420), 1.0, &[], None));
+        // Just shown: still presented every frame.
+        assert!(shown_if_settled(&mut since, Some(true), ms(10), frame.clone()).is_none());
+        assert!(shown_if_settled(&mut since, Some(true), ms(400), frame.clone()).is_none());
+        // Settled: remembered, identical frames are skipped.
+        let settled = shown_if_settled(&mut since, Some(true), ms(510), frame.clone());
+        assert!(unchanged(settled.as_ref(), (640, 420), 1.0, &[], None));
+        // Hidden again (minimised) starts over.
+        assert!(shown_if_settled(&mut since, Some(false), ms(600), frame.clone()).is_none());
+        assert!(shown_if_settled(&mut since, Some(true), ms(700), frame.clone()).is_none());
+        // A platform that can't tell is taken as visible.
+        let mut unknown = None;
+        assert!(shown_if_settled(&mut unknown, None, t0, frame.clone()).is_none());
+        assert!(shown_if_settled(&mut unknown, None, ms(500), frame).is_some());
     }
 
     // Frame caps follow the monitor's refresh rate; 60 Hz when it doesn't say.

@@ -160,6 +160,7 @@ See [DESIGN.md](DESIGN.md) for the architecture these tests check.
 | M2-GLES-17 | Integration | A radial gradient from `transparent` 44px to red 52px matches between the two executors and fades without darkening. |
 | M2-GLES-18 | Integration | An absolute dropdown in a static rounded `overflow: hidden` bar shows in full below it while one in a positioned bar is clipped at its height, the same in both executors. |
 | M2-GLES-19 | Integration | After `release_canvases` (an idle window or layer gives back its frame-sized canvases and seed) the next `render_over` with a backdrop blur draws the same pixels, and `canvas_bytes` is 0 in between. |
+| M2-GLES-20 | Unit | `platypus-app`'s light paths (GLES, CPU) skip identical frames only once the window has been visible 500 ms: frames presented while it is hidden (the first one, drawn before it shows) or just shown are not remembered, so they are presented again; hiding it starts over, a platform that can't tell counts as visible. A static UI (the crash dialog, `hello --no-fps`) is no longer black. |
 | M2-KRN-01 | Integration | The CPU plan executor (`web_ui_render_cpu::plan`) draws boxes, solid, dashed and dotted borders, per-side colours and linear, radial and conic gradients as the GLES executor does (into a plain RGBA8 target; skipped without EGL). |
 | M2-KRN-02 | Integration | Outer and inset box shadows match the GLES executor. |
 | M2-KRN-03 | Integration | Children of a rounded `overflow: hidden` box are clipped as by the GLES executor. |
@@ -1670,6 +1671,8 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M9-LIC-14 | Unit | `platypus-app --licenses` asks for the notices whatever else is on the line; the embedded text is the committed file (`crates/platypus_app`). |
 | M9-LIC-15 | Integration | `platypus-app --licenses` prints the embedded notices and exits 0 without opening a window (`crates/platypus_app/tests/licenses.rs`). |
 | M9-LIC-16 | Unit | `platypus-build package` writes the embedded `THIRD-PARTY-NOTICES.md` beside the exe; `--no-notices` leaves it out. |
+| M9-ID-01 | Unit | A game without an `identifier` gets no Windows app identity: no app id, registration or icon file (`platypus_app` `identity.rs`). |
+| M9-ID-02 | Unit | The registered app icon is the game's icon as a PNG of at most 256 px (aspect kept; pixels not matching the size fail), rewritten only when its bytes change. |
 | M9-REN-01 | Unit | A game built before the rename to Platypus still runs: `build/game.irbundle` is a native bundle and reads like `game.pbundle` (the host logs a deprecation note when it falls back to it). |
 | M9-REN-02 | Unit | The deprecated `package.json` fallback reads an `iron` section as well as `platypus` (`platypus` wins when both are there). |
 | M9-REN-03 | Unit | Scene and prefab files saved with `"format": "iron.scene"` / `"iron.prefab"` still load. |

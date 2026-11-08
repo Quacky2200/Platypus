@@ -35,6 +35,7 @@ mod frame_target;
 mod game_input;
 mod gles_gfx;
 mod host;
+mod identity;
 pub(crate) mod info;
 mod lazy_world;
 mod licenses;
@@ -132,6 +133,9 @@ struct Args {
     inspect_tool: InspectTool,
     /// `--devtools-port <port>`: the DevTools protocol server on this port (`cdp.rs`).
     cdp_port: Option<u16>,
+    /// A packaged single-file game (its code in the exe): it registers its app id and keeps a
+    /// Start-menu shortcut (`identity.rs`).
+    packaged: bool,
 }
 
 /// The protocol `--inspect-brk` serves.
@@ -173,6 +177,7 @@ fn parse_args() -> Result<Args> {
             .map_err(anyhow::Error::msg)?,
         );
         args.game = dir;
+        args.packaged = true;
     }
     Ok(args)
 }
@@ -208,6 +213,7 @@ games are built with `platypus-build build`; arguments after -- reach scripts as
         inspect_brk: false,
         inspect_tool: InspectTool::Devtools,
         cdp_port: None,
+        packaged: false,
     };
     let mut frames_given = false;
     while let Some(arg) = args.next() {
@@ -720,6 +726,11 @@ fn run() -> Result<()> {
     };
     // The game's own icon, else Platypus's.
     let icon = Some(manifest.window_icon(&code_root));
+    // The game's own app id (taskbar group, pinned icon) before its window exists; not for
+    // screenshot / bench runs or the editor.
+    if !offline && args.project.is_none() && !args.video_dialog {
+        identity::apply(&manifest, icon.as_ref(), args.packaged);
+    }
     // A window opens at the saved window size (a fixed one at its own); fullscreen modes are
     // applied once it exists.
     let (width, height) = (

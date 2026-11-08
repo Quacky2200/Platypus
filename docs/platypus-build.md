@@ -103,7 +103,7 @@ A leading `//` comment line is allowed; otherwise plain JSON.
 | `title` | `${firstName}'s Game` | window title (the initial value; the game can change it at run time), `ProductName`, settings folder |
 | `subtitle` | none | an optional second line under the title (a series' episode): the video-settings prompt's header and `Application.subtitle`; not in the window title or version info; an empty string is none |
 | `company` | `${firstName}'s Company` | `CompanyName`, settings folder |
-| `identifier` | `dev.platypus.${name}` | reverse-DNS id (`Application.identifier`); sanitised: each dot part keeps letters, digits, `-`, `_`, empty parts go, a part starting with a digit gets `_` |
+| `identifier` | `dev.platypus.${name}` | reverse-DNS id (`Application.identifier`; on Windows also the process's app id, so each game gets its own taskbar group, and a packaged game registers it with its title and icon and keeps a Start-menu shortcut carrying it, which the media flyout and toasts take the name from); sanitised: each dot part keeps letters, digits, `-`, `_`, empty parts go, a part starting with a digit gets `_` |
 | `version` | `0.1.0` | `FileVersion`, `ProductVersion` |
 | `description` | `${title}` | `FileDescription` |
 | `license` | `private` | `private` (all rights reserved), `custom`, or an SPDX id: MIT, Apache-2.0, GPL-2.0-only/-or-later, GPL-3.0-only/-or-later, LGPL-2.1-only, LGPL-3.0-only, AGPL-3.0-only, BSD-2-Clause, BSD-3-Clause, ISC, MPL-2.0, Unlicense, CC0-1.0, CC-BY-4.0, CC-BY-SA-4.0, Zlib, BSL-1.0, 0BSD (case-insensitive; `UNLICENSED` means `private`). Anything else is an error naming the file and line |

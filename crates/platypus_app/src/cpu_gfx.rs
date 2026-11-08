@@ -16,7 +16,7 @@ use platypus_platform::Window;
 use web_ui_render_cpu::{CpuRenderer, Presenter};
 
 use super::App;
-use super::gles_gfx::{Shown, unchanged};
+use super::gles_gfx::{Shown, shown_if_settled, unchanged};
 
 pub(crate) struct CpuGfx {
     pub(crate) window: Arc<Window>,
@@ -26,6 +26,8 @@ pub(crate) struct CpuGfx {
     report: (u32, Duration, Instant),
     /// What the window shows now, so an unchanged frame isn't redrawn.
     shown: Option<Shown>,
+    /// Since when the window has been visible (`shown_if_settled`).
+    visible_since: Option<Instant>,
 }
 
 /// The background, as the other renderers clear to.
@@ -62,6 +64,7 @@ impl App {
             presenter,
             report: (0, Duration::ZERO, Instant::now()),
             shown: None,
+            visible_since: None,
         });
         true
     }
@@ -136,7 +139,12 @@ impl App {
         if let Err(e) = cpu.presenter.present(pixmap) {
             tracing::error!("CPU present: {e}");
         }
-        cpu.shown = Some((f.size, f.scale.to_bits(), f.cmds, f.fps_cmds));
+        cpu.shown = shown_if_settled(
+            &mut cpu.visible_since,
+            cpu.window.is_visible(),
+            Instant::now(),
+            (f.size, f.scale.to_bits(), f.cmds, f.fps_cmds),
+        );
         self.render_time += started.elapsed();
         cpu.report.0 += 1;
         cpu.report.1 += started.elapsed();
