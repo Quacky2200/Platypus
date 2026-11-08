@@ -108,7 +108,8 @@ class Player extends Component {
   }
   override onUpdate(dt: number) {
     const x = (input.getKey("KeyD") || input.getKey("ArrowRight") ? 1 : 0) - (input.getKey("KeyA") || input.getKey("ArrowLeft") ? 1 : 0);
-    const z = (input.getKey("KeyW") || input.getKey("ArrowUp") ? 1 : 0) - (input.getKey("KeyS") || input.getKey("ArrowDown") ? 1 : 0);
+    // Up the screen is -z (the camera looks down with north at -z), so W is -z.
+    const z = (input.getKey("KeyS") || input.getKey("ArrowDown") ? 1 : 0) - (input.getKey("KeyW") || input.getKey("ArrowUp") ? 1 : 0);
     let dir = new Vector3(x, 0, z);
     const moving = dir.magnitude > 0.01;
     if (moving) {
