@@ -12,8 +12,11 @@
 //!
 //! [`Audio::poll`] reports instances that finished, so scripts can drop them.
 
+mod fx;
 mod offline;
 
+pub use fx::FxLevel;
+use fx::{Fx, add_fx};
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::sync::Arc;
@@ -178,11 +181,15 @@ pub struct Audio<B: Backend = DefaultBackend> {
     sounds: HashMap<ScriptId, Sound>,
     instances: HashMap<ScriptId, Instance>,
     tracks: HashMap<ScriptId, Track>,
+    /// Effect chains of the tracks made with them (see [`FxLevel`]).
+    fx: HashMap<ScriptId, Fx>,
     listener: Option<ListenerHandle>,
     /// The master volume scripts set; the main track plays it unless muted.
     master: Decibels,
     /// Silenced while the game is paused in the background (`runInBackground`).
     muted: bool,
+    /// The highest filter cutoff (Hz): a filter set past the sample rate's limit blows up.
+    max_cutoff: f64,
 }
 
 impl Audio<DefaultBackend> {
@@ -203,10 +210,18 @@ where
             sounds: HashMap::new(),
             instances: HashMap::new(),
             tracks: HashMap::new(),
+            fx: HashMap::new(),
             listener: None,
             master: Decibels::IDENTITY,
             muted: false,
+            max_cutoff: 19_500.0,
         })
+    }
+
+    /// Tells the mixer the output's sample rate, so filters stay below its limit (a device
+    /// is assumed to run at 44.1 kHz or more).
+    pub fn set_sample_rate(&mut self, rate: u32) {
+        self.max_cutoff = (f64::from(rate) * 0.45).min(19_500.0);
     }
 
     pub fn backend_mut(&mut self) -> &mut B {
@@ -391,10 +406,13 @@ where
             "unload" => {
                 self.sounds.remove(&a.id(0)?);
             }
-            // `bus id parent|null volume`
+            // `bus id parent|null volume [fx]`: `fx` 1 adds a low-pass, 2 the full chain.
             "bus" => {
                 let id = a.id(0)?;
-                let builder = TrackBuilder::new().volume(gain_to_db(a.opt_num(2).unwrap_or(1.0)));
+                let mut builder =
+                    TrackBuilder::new().volume(gain_to_db(a.opt_num(2).unwrap_or(1.0)));
+                let level = FxLevel::from_number(a.opt_num(3).map_or(0.0, f64::from));
+                let fx = add_fx!(builder, level, self.max_cutoff);
                 let handle = match a.opt_id(1) {
                     Some(p) => match self.tracks.get_mut(&p) {
                         Some(Track::Bus(parent)) => parent.add_sub_track(builder),
@@ -405,19 +423,40 @@ where
                 }
                 .map_err(|e| e.to_string())?;
                 self.tracks.insert(id, Track::Bus(handle));
+                self.fx.remove(&id);
+                if let Some(fx) = fx {
+                    self.fx.insert(id, fx);
+                }
             }
-            // `emitter id [x y z] [minDistance maxDistance] parent|null`
+            // `fx id property value tweenSeconds`: `lowpass` / `highpass` (Hz), `reverb` /
+            // `echo` (wet 0..1), `reverbSize`, `reverbDamping`, on a track made with effects.
+            "fx" => {
+                let id = a.id(0)?;
+                let t = tween(a.opt_num(3).unwrap_or(0.0));
+                let value = f64::from(a.num(2)?);
+                let property = a.str(1)?;
+                match self.fx.get_mut(&id) {
+                    Some(fx) => fx.set(property, value, t)?,
+                    None if self.tracks.contains_key(&id) => {
+                        return Err(format!("track {id} was made without effects"));
+                    }
+                    None => return Err(format!("no bus or emitter {id}")),
+                }
+            }
+            // `emitter id [x y z] [minDistance maxDistance] parent|null [fx]`
             "emitter" => {
                 let id = a.id(0)?;
                 let position = mint3(a.floats::<3>(1)?);
                 let d = a.floats::<2>(2).unwrap_or([1.0, 50.0]);
-                let builder = SpatialTrackBuilder::new()
+                let mut builder = SpatialTrackBuilder::new()
                     .distances(SpatialTrackDistances {
                         min_distance: d[0].max(0.0),
                         max_distance: d[1].max(d[0] + 0.01),
                     })
                     // Inverse-square-like falloff between the distances.
                     .attenuation_function(Easing::OutPowi(2));
+                let level = FxLevel::from_number(a.opt_num(4).map_or(0.0, f64::from));
+                let fx = add_fx!(builder, level, self.max_cutoff);
                 let listener = self.listener()?;
                 let handle = match a.opt_id(3) {
                     Some(p) => match self.tracks.get_mut(&p) {
@@ -435,6 +474,10 @@ where
                 }
                 .map_err(|e| e.to_string())?;
                 self.tracks.insert(id, Track::Emitter(handle));
+                self.fx.remove(&id);
+                if let Some(fx) = fx {
+                    self.fx.insert(id, fx);
+                }
             }
             // `trackVolume id|null volume tweenSeconds` (null: the master)
             "trackVolume" => {
@@ -477,7 +520,9 @@ where
             }
             // `removeTrack id`: its sounds stop with it.
             "removeTrack" => {
-                self.tracks.remove(&a.id(0)?);
+                let id = a.id(0)?;
+                self.tracks.remove(&id);
+                self.fx.remove(&id);
             }
             // `listener [x y z] [qx qy qz qw]`: where the player's ears are.
             "listener" => {
@@ -699,5 +744,8 @@ pub fn open_mixer(offline: bool) -> Box<dyn Mixer> {
         backend_settings: 48_000,
         ..Default::default()
     };
-    Box::new(Audio::<OfflineBackend>::with_settings(settings).expect("offline mixing can't fail"))
+    let mut audio =
+        Audio::<OfflineBackend>::with_settings(settings).expect("offline mixing can't fail");
+    audio.set_sample_rate(48_000);
+    Box::new(audio)
 }

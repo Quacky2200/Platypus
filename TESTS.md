@@ -607,6 +607,10 @@ layout pass):
 | M4-AUD-02 | Integration | An emitter 1 m to the right pans right, fades at 10 m, is silent past its max distance, and pans left when moved to the left. |
 | M4-AUD-03 | Integration | Volume and hard panning set the channel levels; a bus at ¼ volume scales what plays on it; muting the master silences everything; a stopped sound is reported ended once it has faded. |
 | M4-AUD-04 | Unit | Gains convert to decibels (0 → silence); bad audio ops (unknown sounds, buses and emitters, NaN, unknown names) are rejected. |
+| ACO-FX-01 | Integration | A bus made with effects passes the highest frequency until `fx lowpass 300` removes it, and passes it again at 22000. |
+| ACO-FX-02 | Integration | `fx highpass` on a bus removes a steady (low) level. |
+| ACO-FX-03 | Integration | A bus's reverb and echo leave a tail after the sound ended; with their wet level at 0 there is none. |
+| ACO-FX-04 | Unit | An emitter has a low-pass; effects it lacks are ignored; unknown properties, a bus made without effects and unknown tracks are errors. |
 
 ---
 

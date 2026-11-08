@@ -8,11 +8,20 @@ use platypus_core::Value;
 const RATE: u32 = 8000;
 
 fn audio() -> Audio<OfflineBackend> {
-    Audio::with_settings(AudioManagerSettings {
+    let mut a = Audio::with_settings(AudioManagerSettings {
         backend_settings: RATE,
         ..Default::default()
     })
-    .unwrap()
+    .unwrap();
+    a.set_sample_rate(RATE);
+    a
+}
+
+/// The highest frequency there is: +0.5, -0.5, +0.5 ... (a low-pass should kill it).
+fn buzz(seconds: f32) -> Vec<[f32; 2]> {
+    (0..(seconds * RATE as f32) as usize)
+        .map(|i| if i % 2 == 0 { [0.5, 0.5] } else { [-0.5, -0.5] })
+        .collect()
 }
 
 /// A constant (DC) mono signal: easy to measure gains on.
@@ -232,4 +241,130 @@ fn gains_convert_to_decibels_and_bad_ops_fail() {
     }
     // Stopping something already finished is fine.
     op(&mut a, "stop", vec![num(123.0)]);
+}
+
+// ACO-FX-01
+#[test]
+fn a_bus_low_pass_removes_highs_and_opens_again() {
+    let mut a = audio();
+    a.load_frames(1, RATE, buzz(3.0));
+    op(
+        &mut a,
+        "bus",
+        vec![num(1.0), Value::Null, num(1.0), num(2.0)],
+    );
+    op(&mut a, "play", vec![num(10.0), num(1.0), num(1.0)]);
+    let open = level(&a.backend_mut().render(400))[0];
+    assert!(
+        open > 0.4,
+        "bus without a filter set passes the highs: {open}"
+    );
+
+    op(
+        &mut a,
+        "fx",
+        vec![num(1.0), "lowpass".into(), num(300.0), num(0.0)],
+    );
+    a.backend_mut().render(800);
+    let muffled = level(&a.backend_mut().render(800))[0];
+    assert!(muffled < 0.05, "highs removed: {muffled}");
+
+    op(
+        &mut a,
+        "fx",
+        vec![num(1.0), "lowpass".into(), num(22000.0), num(0.0)],
+    );
+    a.backend_mut().render(800);
+    let back = level(&a.backend_mut().render(800))[0];
+    assert!(back > 0.4, "open again: {back}");
+}
+
+// ACO-FX-02
+#[test]
+fn a_high_pass_removes_the_lows() {
+    let mut a = audio();
+    a.load_frames(1, RATE, tone(3.0));
+    op(
+        &mut a,
+        "bus",
+        vec![num(1.0), Value::Null, num(1.0), num(2.0)],
+    );
+    op(&mut a, "play", vec![num(10.0), num(1.0), num(1.0)]);
+    op(
+        &mut a,
+        "fx",
+        vec![num(1.0), "highpass".into(), num(1500.0), num(0.0)],
+    );
+    a.backend_mut().render(1600);
+    let thin = level(&a.backend_mut().render(800))[0];
+    assert!(thin < 0.05, "a steady level is all low: {thin}");
+}
+
+// ACO-FX-03
+#[test]
+fn reverb_and_echo_leave_a_tail_after_the_sound_ends() {
+    let tail = |property: &str| {
+        let mut a = audio();
+        a.load_frames(1, RATE, tone(0.1));
+        op(
+            &mut a,
+            "bus",
+            vec![num(1.0), Value::Null, num(1.0), num(2.0)],
+        );
+        op(
+            &mut a,
+            "fx",
+            vec![num(1.0), property.into(), num(1.0), num(0.0)],
+        );
+        op(&mut a, "play", vec![num(10.0), num(1.0), num(1.0)]);
+        a.backend_mut().render((RATE as f32 * 0.15) as usize);
+        level(&a.backend_mut().render((RATE as f32 * 0.4) as usize))[0]
+    };
+    // The reverb's size changes nothing while its wet level is still 0.
+    let dry = tail("reverbSize");
+    assert!(dry < 1e-4, "no tail without them: {dry}");
+    assert!(tail("reverb") > 1e-3, "reverb rings on");
+    assert!(tail("echo") > 1e-3, "echo repeats");
+}
+
+// ACO-FX-04
+#[test]
+fn emitters_have_a_low_pass_and_effects_report_errors() {
+    let mut a = audio();
+    op(
+        &mut a,
+        "emitter",
+        vec![
+            num(5.0),
+            arr(&[0.0, 0.0, -1.0]),
+            arr(&[1.0, 50.0]),
+            Value::Null,
+            num(1.0),
+        ],
+    );
+    op(
+        &mut a,
+        "fx",
+        vec![num(5.0), "lowpass".into(), num(500.0), num(0.0)],
+    );
+    // Only the full chain has a reverb: asking an emitter that lacks it is ignored, not fatal.
+    op(
+        &mut a,
+        "fx",
+        vec![num(5.0), "reverb".into(), num(0.5), num(0.0)],
+    );
+    assert!(
+        a.apply("fx", &[num(5.0), "wobble".into(), num(1.0)])
+            .is_err()
+    );
+    // A plain bus made without effects, and a track that does not exist.
+    op(&mut a, "bus", vec![num(2.0), Value::Null, num(1.0)]);
+    assert!(
+        a.apply("fx", &[num(2.0), "lowpass".into(), num(500.0)])
+            .is_err()
+    );
+    assert!(
+        a.apply("fx", &[num(77.0), "lowpass".into(), num(500.0)])
+            .is_err()
+    );
 }

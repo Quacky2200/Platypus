@@ -87,12 +87,24 @@ pub enum AudioCommand {
         bus: BusRef,
         parent: Option<u32>,
         volume: f64,
+        /// 0 none, 1 low-pass only, 2 the full chain (low-pass, high-pass, reverb, echo).
+        fx: u8,
     },
     Emitter {
         emitter: EmitterRef,
         position: [f64; 3],
         distances: [f64; 2],
         bus: Option<u32>,
+        /// As for `Bus`.
+        fx: u8,
+    },
+    /// An effect parameter of a track made with effects (`lowpass`, `highpass`, `reverb`,
+    /// `reverbSize`, `reverbDamping`, `echo`), over `fade` seconds.
+    Fx {
+        track: u32,
+        property: String,
+        value: f64,
+        fade: f64,
     },
     /// `None` is the master volume.
     TrackVolume {
@@ -158,12 +170,17 @@ impl AudioCommand {
                 bus,
                 parent,
                 volume,
-            } => ("bus", vec![json!(bus.0), id(*parent), json!(volume)]),
+                fx,
+            } => (
+                "bus",
+                vec![json!(bus.0), id(*parent), json!(volume), json!(fx)],
+            ),
             AudioCommand::Emitter {
                 emitter,
                 position,
                 distances,
                 bus,
+                fx,
             } => (
                 "emitter",
                 vec![
@@ -171,7 +188,17 @@ impl AudioCommand {
                     json!(position),
                     json!(distances),
                     id(*bus),
+                    json!(fx),
                 ],
+            ),
+            AudioCommand::Fx {
+                track,
+                property,
+                value,
+                fade,
+            } => (
+                "fx",
+                vec![json!(track), json!(property), json!(value), json!(fade)],
             ),
             AudioCommand::TrackVolume {
                 track,
@@ -419,7 +446,7 @@ pub fn stop_playback(p: PlaybackRef, fade: f64) {
     st(|s| s.commands.push(AudioCommand::Stop(p, fade)));
 }
 
-pub fn create_bus(volume: f64, parent: Option<BusRef>) -> BusRef {
+pub fn create_bus(volume: f64, parent: Option<BusRef>, effects: bool) -> BusRef {
     st(|s| {
         s.next_track += 1;
         let bus = BusRef(s.next_track);
@@ -427,16 +454,19 @@ pub fn create_bus(volume: f64, parent: Option<BusRef>) -> BusRef {
             bus,
             parent: parent.map(|p| p.0),
             volume,
+            fx: if effects { 2 } else { 0 },
         });
         bus
     })
 }
 
+/// An emitter always has a low-pass (what occlusion drives); `effects` adds the rest.
 pub fn create_emitter(
     position: [f64; 3],
     min_distance: f64,
     max_distance: f64,
     bus: Option<BusRef>,
+    effects: bool,
 ) -> EmitterRef {
     st(|s| {
         s.next_track += 1;
@@ -446,9 +476,22 @@ pub fn create_emitter(
             position,
             distances: [min_distance, max_distance],
             bus: bus.map(|b| b.0),
+            fx: if effects { 2 } else { 1 },
         });
         emitter
     })
+}
+
+/// Sets an effect parameter of a bus or emitter (see [`AudioCommand::Fx`]).
+pub fn set_fx(track: u32, property: &str, value: f64, fade: f64) {
+    st(|s| {
+        s.commands.push(AudioCommand::Fx {
+            track,
+            property: property.to_string(),
+            value,
+            fade,
+        })
+    });
 }
 
 pub fn move_emitter(e: EmitterRef, position: [f64; 3], glide: f64) {
@@ -544,21 +587,33 @@ pub mod audio_api {
     }
 
     /// A mixer bus: its volume and pause apply to everything on it (and on its sub-buses).
-    #[optional(volume = 1, parent)]
-    pub fn create_bus(volume: f64, parent: BusRef) -> BusRef {
-        super::create_bus(volume, opt(parent))
+    ///
+    /// With `effects` the bus has a low-pass, a high-pass, a reverb and an echo that
+    /// `setLowPass`, `setHighPass`, `setReverb` and `setEcho` drive (all off at first): a voice
+    /// bus that a cave zone or a radio filter can colour, a bus a room's ambience plays on.
+    #[optional(volume = 1, parent, effects)]
+    pub fn create_bus(volume: f64, parent: BusRef, effects: bool) -> BusRef {
+        super::create_bus(volume, opt(parent), effects)
     }
 
     /// A point in the world sounds play from: they pan and fade with its distance and direction
     /// from the listener. Full volume within `minDistance` (1), silent beyond `maxDistance` (50).
-    #[optional(min_distance = 1, max_distance = 50, bus)]
+    /// It has a low-pass (`setLowPass`); `effects` adds the high-pass, reverb and echo of a bus.
+    #[optional(min_distance = 1, max_distance = 50, bus, effects)]
     pub fn create_emitter(
         position: V3,
         min_distance: f64,
         max_distance: f64,
         bus: BusRef,
+        effects: bool,
     ) -> EmitterRef {
-        super::create_emitter(arr3(position), min_distance, max_distance, opt(bus))
+        super::create_emitter(
+            arr3(position),
+            min_distance,
+            max_distance,
+            opt(bus),
+            effects,
+        )
     }
 
     /// Where the player hears from (usually the camera).
@@ -759,6 +814,43 @@ pub mod audio_api {
         pub fn remove(self) {
             super::remove_track(self.0);
         }
+
+        /// Low-pass cutoff in Hz (22000 is open): muffled behind a wall, under water.
+        /// Needs a bus made with `effects`.
+        #[optional(fade = 0)]
+        pub fn set_low_pass(self, hz: f64, fade: f64) {
+            super::set_fx(self.0, "lowpass", hz, fade);
+        }
+
+        /// High-pass cutoff in Hz (0 is open): thin and tinny, a telephone, a radio.
+        #[optional(fade = 0)]
+        pub fn set_high_pass(self, hz: f64, fade: f64) {
+            super::set_fx(self.0, "highpass", hz, fade);
+        }
+
+        /// Reverb: how much of the wet signal is mixed in (0 to 1).
+        #[optional(fade = 0)]
+        pub fn set_reverb(self, wet: f64, fade: f64) {
+            super::set_fx(self.0, "reverb", wet, fade);
+        }
+
+        /// How big the reverberating room sounds (0 to 1).
+        #[optional(fade = 0)]
+        pub fn set_reverb_size(self, size: f64, fade: f64) {
+            super::set_fx(self.0, "reverbSize", size, fade);
+        }
+
+        /// How fast the reverb loses its highs (0 bright, 1 dull).
+        #[optional(fade = 0)]
+        pub fn set_reverb_damping(self, damping: f64, fade: f64) {
+            super::set_fx(self.0, "reverbDamping", damping, fade);
+        }
+
+        /// Echo: how much of the repeats is mixed in (0 to 1).
+        #[optional(fade = 0)]
+        pub fn set_echo(self, wet: f64, fade: f64) {
+            super::set_fx(self.0, "echo", wet, fade);
+        }
     }
 
     impl EmitterRef {
@@ -782,6 +874,30 @@ pub mod audio_api {
         /// Removes the emitter; sounds on it stop.
         pub fn remove(self) {
             super::remove_track(self.0);
+        }
+
+        /// Low-pass cutoff in Hz (22000 is open): what occlusion turns down.
+        #[optional(fade = 0)]
+        pub fn set_low_pass(self, hz: f64, fade: f64) {
+            super::set_fx(self.0, "lowpass", hz, fade);
+        }
+
+        /// High-pass cutoff in Hz (0 is open). Needs an emitter made with `effects`.
+        #[optional(fade = 0)]
+        pub fn set_high_pass(self, hz: f64, fade: f64) {
+            super::set_fx(self.0, "highpass", hz, fade);
+        }
+
+        /// Reverb wet level (0 to 1). Needs `effects`.
+        #[optional(fade = 0)]
+        pub fn set_reverb(self, wet: f64, fade: f64) {
+            super::set_fx(self.0, "reverb", wet, fade);
+        }
+
+        /// Echo wet level (0 to 1). Needs `effects`.
+        #[optional(fade = 0)]
+        pub fn set_echo(self, wet: f64, fade: f64) {
+            super::set_fx(self.0, "echo", wet, fade);
         }
     }
 }

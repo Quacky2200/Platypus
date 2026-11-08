@@ -62,6 +62,19 @@ pub struct SourceData {
     pub pan_stereo: f64,
     pub mute: bool,
     pub looped: bool,
+    /// The emitter gets the full effect chain (high-pass, reverb, echo), not only the low-pass
+    /// occlusion drives. Applies when the emitter is made, so set it before playing.
+    pub effects: bool,
+    /// How much the pitch follows the source's speed towards or away from the listener
+    /// (0 none, 1 as in life). Acoustics applies it.
+    pub doppler_level: f64,
+    /// How far (metres) a `SoundSensor` can hear this source at full volume; 0 is silent to sensors.
+    pub loudness: f64,
+    /// How much occluders in the way dull this source (0 none, 1 fully). Acoustics applies it.
+    pub occlusion: f64,
+    /// The pitch factor acoustics found for the source's speed (1: none): playbacks run at
+    /// `pitch * doppler_factor`.
+    doppler_factor: f64,
     main: Option<PlaybackRef>,
     paused: bool,
     all: Vec<PlaybackRef>,
@@ -147,6 +160,11 @@ impl SourceData {
             pan_stereo: 0.0,
             mute: false,
             looped: false,
+            effects: false,
+            doppler_level: 0.0,
+            loudness: 0.0,
+            occlusion: 1.0,
+            doppler_factor: 1.0,
             main: None,
             paused: false,
             all: Vec::new(),
@@ -162,10 +180,11 @@ impl SourceData {
             return (self.output_bus, None);
         }
         let key = format!(
-            "{},{},{}",
+            "{},{},{},{}",
             self.min_distance,
             self.max_distance,
-            self.output_bus.map_or(String::new(), |b| b.0.to_string())
+            self.output_bus.map_or(String::new(), |b| b.0.to_string()),
+            self.effects
         );
         if self.emitter.is_none() || key != self.emitter_key {
             // Remaking it stops what played on the old one, as moving the source would in Unity.
@@ -181,6 +200,7 @@ impl SourceData {
                 self.min_distance,
                 self.max_distance,
                 self.output_bus,
+                self.effects,
             ));
             self.emitter_key = key;
         }
@@ -193,7 +213,7 @@ impl SourceData {
             sound,
             PlayOptions {
                 volume,
-                rate: self.pitch,
+                rate: self.pitch * self.doppler_factor,
                 pan: self.pan_stereo,
                 looped,
                 bus,
@@ -287,6 +307,61 @@ pub fn pre_render() {
             }
         });
     }
+}
+
+/// What the acoustics system reads of an `AudioSource`.
+#[derive(Clone, Copy, Debug)]
+pub struct SourceView {
+    pub source: AudioSourceRef,
+    pub object: ObjectId,
+    /// The emitter it plays from (3D sources that have played).
+    pub emitter: Option<EmitterRef>,
+    /// Something it started is still playing.
+    pub playing: bool,
+    pub max_distance: f64,
+    pub volume: f64,
+    pub doppler_level: f64,
+    pub loudness: f64,
+    pub occlusion: f64,
+    pub effects: bool,
+}
+
+/// Every `AudioSource` (those on destroyed objects are gone already).
+pub fn source_views() -> Vec<SourceView> {
+    st(|s| {
+        s.sources
+            .iter()
+            .enumerate()
+            .filter_map(|(i, d)| {
+                let d = d.as_ref()?;
+                Some(SourceView {
+                    source: AudioSourceRef(i as u32 + 1),
+                    object: d.object,
+                    emitter: d.emitter,
+                    playing: d.all.iter().any(|p| audio::is_playing(*p)) && !d.paused,
+                    max_distance: d.max_distance,
+                    volume: gain(d),
+                    doppler_level: d.doppler_level,
+                    loudness: d.loudness,
+                    occlusion: d.occlusion,
+                    effects: d.effects,
+                })
+            })
+            .collect()
+    })
+}
+
+/// Gives a source the pitch factor of its speed (see `SourceData`): its playbacks change rate
+/// when the factor does.
+pub fn set_doppler_factor(s: AudioSourceRef, factor: f64) {
+    source(s, |d| {
+        if (d.doppler_factor - factor).abs() < 1e-4 {
+            return;
+        }
+        d.doppler_factor = factor;
+        let rate = d.pitch * factor;
+        d.each_playing(|p| set_playback(p, "rate", rate, 0.0));
+    });
 }
 
 /// Playbacks the mixer finished: sources forget them.
@@ -426,7 +501,8 @@ fn none_object() -> ObjectId {
         GameObject = ObjectId,
         Sound = SoundRef,
         Playback = PlaybackRef,
-        Bus = BusRef
+        Bus = BusRef,
+        Emitter = EmitterRef
     ),
     values(Vector3 = V3 [x: f64, y: f64, z: f64])
 )]
@@ -553,8 +629,63 @@ pub mod audio_source_api {
         pub fn set_pitch(self, v: f64) {
             super::source(self, |d| {
                 d.pitch = v;
-                d.each_playing(|p| set_playback(p, "rate", v, 0.0));
+                let rate = v * d.doppler_factor;
+                d.each_playing(|p| set_playback(p, "rate", rate, 0.0));
             });
+        }
+
+        /// The emitter has the full effect chain (high-pass, reverb, echo) as well as the
+        /// low-pass. Set it before the first `play()`.
+        #[property]
+        pub fn effects(self) -> bool {
+            super::source(self, |d| d.effects).unwrap_or(false)
+        }
+
+        pub fn set_effects(self, on: bool) {
+            super::source(self, |d| d.effects = on);
+        }
+
+        /// How much pitch follows the source's speed towards or away from the listener (0 none,
+        /// 1 as in life, above 1 exaggerated): a passing car, someone shouting from a moving
+        /// truck. Needs `Acoustics` (the host runs it each frame).
+        #[property]
+        pub fn doppler_level(self) -> f64 {
+            super::source(self, |d| d.doppler_level).unwrap_or(0.0)
+        }
+
+        pub fn set_doppler_level(self, v: f64) {
+            super::source(self, |d| d.doppler_level = v.max(0.0));
+        }
+
+        /// How far (metres) a `SoundSensor` hears this source at full volume; 0 (default) means
+        /// sensors do not hear it. It counts while the source is playing.
+        #[property]
+        pub fn loudness(self) -> f64 {
+            super::source(self, |d| d.loudness).unwrap_or(0.0)
+        }
+
+        pub fn set_loudness(self, v: f64) {
+            super::source(self, |d| d.loudness = v.max(0.0));
+        }
+
+        /// How much occluders (walls, doors, floors) between the source and the listener
+        /// muffle it: 0 not at all, 1 fully (default).
+        #[property]
+        pub fn occlusion(self) -> f64 {
+            super::source(self, |d| d.occlusion).unwrap_or(1.0)
+        }
+
+        pub fn set_occlusion(self, v: f64) {
+            super::source(self, |d| d.occlusion = v.clamp(0.0, 1.0));
+        }
+
+        /// The emitter this source plays from (0 for a flat 2D source or before it plays):
+        /// for `setLowPass`, `setReverb` and the rest of an emitter's effects.
+        #[property]
+        pub fn emitter(self) -> EmitterRef {
+            super::source(self, |d| d.emitter)
+                .flatten()
+                .unwrap_or(EmitterRef(0))
         }
 
         /// -1 left to 1 right, for 2D sounds.
@@ -661,7 +792,8 @@ pub mod audio_source_api {
         /// away with the sound.
         #[optional(volume = 1)]
         pub fn play_clip_at_point(clip: SoundRef, position: V3, volume: f64) -> PlaybackRef {
-            let emitter = create_emitter([position.x, position.y, position.z], 1.0, 50.0, None);
+            let emitter =
+                create_emitter([position.x, position.y, position.z], 1.0, 50.0, None, false);
             let p = play_sound(
                 clip,
                 PlayOptions {
@@ -804,6 +936,10 @@ fn source_kind() -> Kind {
                 m.insert("panStereo".into(), json!(d.pan_stereo));
                 m.insert("mute".into(), json!(d.mute));
                 m.insert("loop".into(), json!(d.looped));
+                m.insert("effects".into(), json!(d.effects));
+                m.insert("dopplerLevel".into(), json!(d.doppler_level));
+                m.insert("loudness".into(), json!(d.loudness));
+                m.insert("occlusion".into(), json!(d.occlusion));
             });
             m
         }),
@@ -822,6 +958,10 @@ fn source_kind() -> Kind {
                         "panStereo" => number(v).map(|x| d.pan_stereo = x),
                         "mute" => v.as_bool().map(|x| d.mute = x),
                         "loop" => v.as_bool().map(|x| d.looped = x),
+                        "effects" => v.as_bool().map(|x| d.effects = x),
+                        "dopplerLevel" => number(v).map(|x| d.doppler_level = x),
+                        "loudness" => number(v).map(|x| d.loudness = x),
+                        "occlusion" => number(v).map(|x| d.occlusion = x),
                         other => {
                             warnings.push(format!("no property `{other}` yet; dropped"));
                             continue;
