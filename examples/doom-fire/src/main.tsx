@@ -53,8 +53,8 @@ const BOTTOM = -5.2;
 const MAX_RATE = 60; // particles per second from a column at full heat
 const MAX_LIFE = 2.1;
 
-// The grid at pixel size 1 (the cells' size 1x); pixel size 2 and 3 make the cells that much bigger,
-// so the grid has that much fewer of them.
+// The grid at the finest setting (pixel size 3). Size 1, the original's chunky pixels, has a third of the
+// cells across and down; size 2 two thirds.
 const BASE_W = 256;
 const BASE_H = 144;
 const VIEW_H = 10; // world units the camera sees from top to bottom (orthographicSize 5)
@@ -74,7 +74,7 @@ type Mode = "particles" | "grid";
 let mode: Mode = "particles";
 const modeListeners = new Set<(m: Mode) => void>();
 let flameHeight = 0.35; // grid mode: the fraction of the screen's height a flame cools out in (Up / Down)
-let pixelSize = 1; // grid mode: how big a cell is, 1 (original), 2 (double) or 3 (triple) (P)
+let pixelSize = 1; // grid mode: the resolution, 1 (original, chunky pixels), 2 (double) or 3 (triple) (P)
 const pixelListeners = new Set<(v: number) => void>();
 let burning = true;
 const burningListeners = new Set<(v: boolean) => void>();
@@ -139,8 +139,8 @@ class DoomFire extends Component {
 
   // A new pixel size starts the grid cold: the fire grows back from the source row in a moment.
   private resizeGrid(size: number) {
-    this.gw = Math.floor(BASE_W / size);
-    this.gh = Math.floor(BASE_H / size);
+    this.gw = Math.floor((BASE_W * size) / 3);
+    this.gh = Math.floor((BASE_H * size) / 3);
     this.grid = [];
     this.pixels = [];
     for (let i = 0; i < this.gw * this.gh; i++) {
