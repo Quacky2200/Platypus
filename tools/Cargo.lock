@@ -2041,6 +2041,7 @@ dependencies = [
  "platypus_core",
  "platypus_kinds",
  "platypus_math",
+ "platypus_net",
  "platypus_scene",
  "serde_json",
  "ts_api",
@@ -2059,6 +2060,13 @@ name = "platypus_math"
 version = "0.1.0"
 dependencies = [
  "ts_api",
+]
+
+[[package]]
+name = "platypus_net"
+version = "0.1.0"
+dependencies = [
+ "tracing",
 ]
 
 [[package]]

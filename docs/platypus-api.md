@@ -295,6 +295,13 @@ The closure returns nothing.
   `input.onKeyDown` gets `(code, repeat)` (no layout `key`); gamepad events get the id as a number. `Assets.onChanged` gets the paths as
   one string, one per line. Scene events get the `Scene` handle and the mode as `"single"` / `"additive"`. Listeners are called at once
   (`SceneManager` after the load or unload finished); `take_events()` still works.
+## Network (`Network`)
+
+`platypus_engine_api::network`: multiplayer for scripts. Classes and RPCs are declared from text
+(`Network.defineClass`, `Network.defineRpc`), `startServer` / `connect` queue requests that `platypus_app` serves with QUIC,
+and scripts poll `Network.takeEvents()` and read or write fields by object id. The layers, text formats, event
+lines and the arena are in [multiplayer.md](multiplayer.md).
+
 ## Handles and the engine namespaces
 
 A handle (an engine id such as a GameObject, a component, a texture) is a `u64` on the compiled side (`Handle::to_raw`); `0` is

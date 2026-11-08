@@ -48,6 +48,7 @@ pub(crate) mod models;
 mod models_fbx;
 mod native;
 mod native_pump;
+mod net_host;
 mod native_render;
 mod notice;
 mod panels;
@@ -1213,6 +1214,8 @@ impl App {
         if self.lifecycle.paused() {
             return;
         }
+        // The network: script requests (`Network.startServer` / `connect`), then packets in and out.
+        net_host::pump(now.duration_since(self.started));
         let (elapsed, ticks) = self.clock.advance(now, TICK, MAX_TICKS_PER_FRAME);
         for _ in 0..ticks {
             // Script time leaves out applying what scripts asked for (`native_after`): that is

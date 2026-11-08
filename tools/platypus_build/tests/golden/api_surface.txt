@@ -2038,6 +2038,7 @@ declare interface WindowSize
 declare interface WindowSize :: height: number;
 declare interface WindowSize :: width: number;
 declare module "@platypus/engine"
+declare module "@platypus/engine" :: export import AddEventListenerOptions = globalThis.AddEventListenerOptions;
 declare module "@platypus/engine" :: export import Animation = globalThis.Animation;
 declare module "@platypus/engine" :: export import AnimationBlendTree = globalThis.AnimationBlendTree;
 declare module "@platypus/engine" :: export import AnimationBuilder = globalThis.AnimationBuilder;
@@ -2097,6 +2098,7 @@ declare module "@platypus/engine" :: export import ContactPoint = globalThis.Con
 declare module "@platypus/engine" :: export import ContactPoint2D = globalThis.ContactPoint2D;
 declare module "@platypus/engine" :: export import Cursor = globalThis.Cursor;
 declare module "@platypus/engine" :: export import CursorLockMode = globalThis.CursorLockMode;
+declare module "@platypus/engine" :: export import DOMRect = globalThis.DOMRect;
 declare module "@platypus/engine" :: export import DateTime = globalThis.DateTime;
 declare module "@platypus/engine" :: export import Debug = globalThis.Debug;
 declare module "@platypus/engine" :: export import EdgeCollider2D = globalThis.EdgeCollider2D;
@@ -2104,6 +2106,7 @@ declare module "@platypus/engine" :: export import Editor = globalThis.Editor;
 declare module "@platypus/engine" :: export import EditorScene = globalThis.EditorScene;
 declare module "@platypus/engine" :: export import Emitter = globalThis.Emitter;
 declare module "@platypus/engine" :: export import EventList = globalThis.EventList;
+declare module "@platypus/engine" :: export import EventListenerOptions = globalThis.EventListenerOptions;
 declare module "@platypus/engine" :: export import ExposureMetering = globalThis.ExposureMetering;
 declare module "@platypus/engine" :: export import FieldInfo = globalThis.FieldInfo;
 declare module "@platypus/engine" :: export import FileStat = globalThis.FileStat;
@@ -2147,6 +2150,7 @@ declare module "@platypus/engine" :: export import MeshData = globalThis.MeshDat
 declare module "@platypus/engine" :: export import MeshRenderer = globalThis.MeshRenderer;
 declare module "@platypus/engine" :: export import Mirror = globalThis.Mirror;
 declare module "@platypus/engine" :: export import Model = globalThis.Model;
+declare module "@platypus/engine" :: export import Network = globalThis.Network;
 declare module "@platypus/engine" :: export import NumberList = globalThis.NumberList;
 declare module "@platypus/engine" :: export import ParticleBurst = globalThis.ParticleBurst;
 declare module "@platypus/engine" :: export import ParticleShapeSpec = globalThis.ParticleShapeSpec;
@@ -2242,6 +2246,7 @@ declare module "@platypus/engine" :: export import VolumeDenoising = globalThis.
 declare module "@platypus/engine" :: export import VolumeDetail = globalThis.VolumeDetail;
 declare module "@platypus/engine" :: export import VolumetricFogSettings = globalThis.VolumetricFogSettings;
 declare module "@platypus/engine" :: export import Window = globalThis.Window;
+declare module "@platypus/engine" :: export import WindowEventMap = globalThis.WindowEventMap;
 declare module "@platypus/engine" :: export import WindowOptions = globalThis.WindowOptions;
 declare module "@platypus/engine" :: export import WindowSize = globalThis.WindowSize;
 declare module "@platypus/engine" :: export import WindowStyle = globalThis.WindowStyle;
@@ -2258,6 +2263,7 @@ declare module "@platypus/engine" :: export import register = globalThis.registe
 declare module "@platypus/engine" :: export import removeStyleSheet = globalThis.removeStyleSheet;
 declare module "@platypus/engine" :: export import setInterval = globalThis.setInterval;
 declare module "@platypus/engine" :: export import setTimeout = globalThis.setTimeout;
+declare module "@platypus/engine" :: export import window = globalThis.window;
 declare module "@platypus/react"
 declare module "@platypus/react" :: export import AudioElement = globalThis.AudioElement;
 declare module "@platypus/react" :: export import Canvas = globalThis.Canvas;
@@ -2549,6 +2555,50 @@ declare namespace Matrix4x4 :: function orthographic(left: number, right: number
 declare namespace Matrix4x4 :: function perspective(fovDegrees: number, aspect: number, near: number, far: number): Matrix4x4;
 declare namespace Matrix4x4 :: function trs(position: Vector3, rotation: Quaternion): Matrix4x4;
 declare namespace Matrix4x4 :: function trs(position: Vector3, rotation: Quaternion, scale: Vector3): Matrix4x4;
+declare namespace Network
+declare namespace Network :: function badPackets(): number;
+declare namespace Network :: function className(class_: number): string;
+declare namespace Network :: function connect(address: string, name: string): void;
+declare namespace Network :: function debugConditions(latencyMs: number, jitterMs: number, lossPercent: number, duplicatePercent?: number, bandwidthKbps?: number): boolean;
+declare namespace Network :: function debugConditions(latencyMs: number, jitterMs: number, lossPercent: number, options?: { duplicatePercent?: number; bandwidthKbps?: number }): boolean;
+declare namespace Network :: function debugFault(fault: string): boolean;
+declare namespace Network :: function defineClass(name: string, fields: string): boolean;
+declare namespace Network :: function defineRpc(name: string, target: string, flags?: string): boolean;
+declare namespace Network :: function defineRpc(name: string, target: string, options?: { flags?: string }): boolean;
+declare namespace Network :: function despawn(id: number): boolean;
+declare namespace Network :: function disconnect(): void;
+declare namespace Network :: function droppedRpcs(): number;
+declare namespace Network :: function getBool(id: number, field: string): boolean;
+declare namespace Network :: function getNumber(id: number, field: string): number;
+declare namespace Network :: function getQuat(id: number, field: string): number[];
+declare namespace Network :: function getString(id: number, field: string): string;
+declare namespace Network :: function getVec3(id: number, field: string): number[];
+declare namespace Network :: function hasDebug(): boolean;
+declare namespace Network :: function isClient(): boolean;
+declare namespace Network :: function isConnected(): boolean;
+declare namespace Network :: function isMine(id: number): boolean;
+declare namespace Network :: function isServer(): boolean;
+declare namespace Network :: function lastError(): string;
+declare namespace Network :: function localPlayer(): number;
+declare namespace Network :: function owner(id: number): number;
+declare namespace Network :: function playerName(player: number): string;
+declare namespace Network :: function players(): number[];
+declare namespace Network :: function rpc(id: number, name: string, args?: string): boolean;
+declare namespace Network :: function rpc(id: number, name: string, options?: { args?: string }): boolean;
+declare namespace Network :: function rtt(options?: { player?: number }): number;
+declare namespace Network :: function rtt(player?: number): number;
+declare namespace Network :: function setBool(id: number, field: string, options?: { value?: boolean }): boolean;
+declare namespace Network :: function setBool(id: number, field: string, value: boolean): boolean;
+declare namespace Network :: function setNumber(id: number, field: string, value: number): boolean;
+declare namespace Network :: function setOwner(id: number, owner: number): boolean;
+declare namespace Network :: function setQuat(id: number, field: string, x: number, y: number, z: number, w: number): boolean;
+declare namespace Network :: function setString(id: number, field: string, value: string): boolean;
+declare namespace Network :: function setVec3(id: number, field: string, x: number, y: number, z: number): boolean;
+declare namespace Network :: function spawn(class_: string, prefab: string, options?: { owner?: number }): number;
+declare namespace Network :: function spawn(class_: string, prefab: string, owner?: number): number;
+declare namespace Network :: function startServer(port: number, maxPlayers?: number, tickRate?: number): void;
+declare namespace Network :: function startServer(port: number, options?: { maxPlayers?: number; tickRate?: number }): void;
+declare namespace Network :: function takeEvents(): string;
 declare namespace Physics
 declare namespace Physics :: function addBall(radius: number): PhysicsCollider;
 declare namespace Physics :: function addBox(half: Vector3): PhysicsCollider;
@@ -3078,6 +3128,9 @@ declare namespace input :: function onGamepadConnected(f: (a0: number) => void):
 declare namespace input :: function onGamepadDisconnected(f: (a0: number) => void): number;
 declare namespace input :: function onKeyDown(f: (a0: string, a1: boolean) => void): number;
 declare namespace input :: function onKeyUp(f: (a0: string) => void): number;
+declare namespace window
+declare namespace window :: function addEventListener<K extends keyof WindowEventMap>(type: K, listener: (e: WindowEventMap[K]) => void, options?: boolean | AddEventListenerOptions): void;
+declare namespace window :: function removeEventListener<K extends keyof WindowEventMap>(type: K, listener: (e: WindowEventMap[K]) => void, options?: boolean | EventListenerOptions): void;
 declare type AnimationCullingType = "alwaysAnimate" | "basedOnRenderers";
 declare type AnimatorController = AnimationController;
 declare type AnimatorCullingMode = "alwaysAnimate" | "cullUpdateTransforms" | "cullCompletely";
@@ -3099,6 +3152,21 @@ declare type UiNode = number & { readonly __handle: "UiNode" };
 declare type VolumeDenoising = "none" | "reprojection" | "gaussian" | "both";
 declare type VolumeDetail = "low" | "medium" | "high" | "ultra";
 declare type WindowStyle = "normal" | "tool" | "dialog" | "popup" | "borderless" | "child";
+interface AddEventListenerOptions
+interface AddEventListenerOptions :: capture?: boolean;
+interface AddEventListenerOptions :: once?: boolean;
+interface AddEventListenerOptions :: passive?: boolean;
+interface DOMRect
+interface DOMRect :: readonly bottom: number;
+interface DOMRect :: readonly height: number;
+interface DOMRect :: readonly left: number;
+interface DOMRect :: readonly right: number;
+interface DOMRect :: readonly top: number;
+interface DOMRect :: readonly width: number;
+interface DOMRect :: readonly x: number;
+interface DOMRect :: readonly y: number;
+interface EventListenerOptions
+interface EventListenerOptions :: capture?: boolean;
 interface GameObjectOptions
 interface GameObjectOptions :: parent?: GameObject | null;
 interface GameObjectOptions :: position?: Vector3Like;
@@ -3130,6 +3198,15 @@ interface PlatypusDroppedFile :: readonly path: string;
 interface PlatypusElement
 interface PlatypusElement :: blur(): void;
 interface PlatypusElement :: focus(): void;
+interface PlatypusElement :: getBoundingClientRect(): DOMRect;
+interface PlatypusElement :: readonly clientHeight: number;
+interface PlatypusElement :: readonly clientWidth: number;
+interface PlatypusElement :: readonly offsetHeight: number;
+interface PlatypusElement :: readonly offsetWidth: number;
+interface PlatypusElement :: readonly scrollHeight: number;
+interface PlatypusElement :: readonly scrollLeft: number;
+interface PlatypusElement :: readonly scrollTop: number;
+interface PlatypusElement :: readonly scrollWidth: number;
 interface PlatypusElement :: releasePointerCapture(pointerId: number): void;
 interface PlatypusElement :: scrollBy(left: number, top: number): void;
 interface PlatypusElement :: scrollBy(options: ScrollToOptions): void;
@@ -3572,6 +3649,27 @@ interface ScrollToOptions
 interface ScrollToOptions :: behavior?: ScrollBehavior;
 interface ScrollToOptions :: left?: number;
 interface ScrollToOptions :: top?: number;
+interface WindowEventMap
+interface WindowEventMap :: blur: PlatypusFocusEvent;
+interface WindowEventMap :: click: PlatypusPointerEvent;
+interface WindowEventMap :: contextmenu: PlatypusPointerEvent;
+interface WindowEventMap :: dblclick: PlatypusPointerEvent;
+interface WindowEventMap :: focus: PlatypusFocusEvent;
+interface WindowEventMap :: focusin: PlatypusFocusEvent;
+interface WindowEventMap :: focusout: PlatypusFocusEvent;
+interface WindowEventMap :: fullscreenchange: PlatypusEvent;
+interface WindowEventMap :: input: PlatypusInputEvent;
+interface WindowEventMap :: keydown: PlatypusKeyboardEvent;
+interface WindowEventMap :: keyup: PlatypusKeyboardEvent;
+interface WindowEventMap :: mousedown: PlatypusPointerEvent;
+interface WindowEventMap :: mousemove: PlatypusPointerEvent;
+interface WindowEventMap :: mouseup: PlatypusPointerEvent;
+interface WindowEventMap :: pointerdown: PlatypusPointerEvent;
+interface WindowEventMap :: pointermove: PlatypusPointerEvent;
+interface WindowEventMap :: pointerup: PlatypusPointerEvent;
+interface WindowEventMap :: resize: PlatypusEvent;
+interface WindowEventMap :: scroll: PlatypusScrollEvent;
+interface WindowEventMap :: wheel: PlatypusWheelEvent;
 type BlendMode = | "normal" | "multiply" | "screen" | "overlay" | "darken" | "lighten" | "color-dodge" | "color-burn" | "hard-light" | "soft-light" | "difference" | "exclusion" | "hue" | "saturation" | "color" | "luminosity";
 type BorderStyle = | "none" | "hidden" | "solid" | "dashed" | "dotted" | "double" | "groove" | "ridge" | "inset" | "outset";
 type ClassOf<T> = { prototype: T };

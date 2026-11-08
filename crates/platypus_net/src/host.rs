@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::replica::{NetId, ReplicaClient, ReplicaEvent, ReplicaServer};
+use crate::replica::{NetId, ReplicaClient, ReplicaEvent, ReplicaServer, Tick};
 use crate::schema::{RpcTarget, Schema, Value};
 use crate::session::{PlayerId, RejectReason, SERVER, Session, SessionConfig, SessionEvent, Token};
 use crate::transport::{Channel, DisconnectReason, Time, Transport};
@@ -29,6 +29,8 @@ pub struct HostConfig {
     pub tick_rate: u32,
     /// Client-to-server RPCs a player may make a second; the rest are dropped.
     pub rpc_per_second: u32,
+    /// How many ticks behind the newest a client draws interpolated fields.
+    pub interpolation_delay: f64,
 }
 
 impl Default for HostConfig {
@@ -37,6 +39,7 @@ impl Default for HostConfig {
             session: SessionConfig::default(),
             tick_rate: 30,
             rpc_per_second: 120,
+            interpolation_delay: 2.0,
         }
     }
 }
@@ -104,6 +107,10 @@ pub struct NetHost<T: Transport> {
     rpc_window: HashMap<PlayerId, (Time, u32)>,
     /// RPCs refused (unknown, not allowed, too many, malformed): for the log and the panel.
     pub dropped_rpcs: u64,
+    /// The client's newest complete tick and when it was first seen (the interpolation clock).
+    seen: Option<(Tick, Time)>,
+    now: Time,
+    interp_delay: f64,
 }
 
 impl<T: Transport> NetHost<T> {
@@ -119,7 +126,31 @@ impl<T: Transport> NetHost<T> {
             rpc_limit: config.rpc_per_second,
             rpc_window: HashMap::new(),
             dropped_rpcs: 0,
+            seen: None,
+            now: Time::ZERO,
+            interp_delay: config.interpolation_delay,
         }
+    }
+
+    /// A field's current value: on the server what it holds; on a client the newest state, blended
+    /// between ticks (`interpolation_delay` behind) for fields marked `interpolate`.
+    pub fn read(&self, id: NetId, field: &str) -> Option<Value> {
+        match &self.half {
+            Half::Server(rep) => rep.get(id, field).cloned(),
+            Half::Client(Some(rep)) => match self.render_tick() {
+                Some(t) => rep.interpolated(id, field, t),
+                None => rep.value(id, field),
+            },
+            Half::Client(None) => None,
+        }
+    }
+
+    /// The fractional tick a client draws: the newest tick plus the time since it arrived, less the delay.
+    pub fn render_tick(&self) -> Option<f64> {
+        let (tick, at) = self.seen?;
+        let frac =
+            (self.now.saturating_sub(at).as_secs_f64() / self.tick_interval.as_secs_f64()).min(1.0);
+        Some((f64::from(tick) + frac - self.interp_delay).max(0.0))
     }
 
     pub fn client(
@@ -139,6 +170,9 @@ impl<T: Transport> NetHost<T> {
             rpc_limit: config.rpc_per_second,
             rpc_window: HashMap::new(),
             dropped_rpcs: 0,
+            seen: None,
+            now: Time::ZERO,
+            interp_delay: config.interpolation_delay,
         }
     }
 
@@ -245,6 +279,7 @@ impl<T: Transport> NetHost<T> {
 
     /// Moves everything on to `now`: transport, session, replication ticks, acknowledgements.
     pub fn update(&mut self, now: Time) -> Vec<NetEvent> {
+        self.now = now;
         let mut out = Vec::new();
         for event in self.session.update(now) {
             self.on_session_event(event, now, &mut out);
@@ -265,6 +300,10 @@ impl<T: Transport> NetHost<T> {
                 }
             }
             Half::Client(Some(rep)) => {
+                let latest = rep.latest_tick();
+                if latest != self.seen.map(|(t, _)| t) {
+                    self.seen = latest.map(|t| (t, now));
+                }
                 if let Some(ack) = rep.take_ack() {
                     let _ = self.session.send(SERVER, Channel::Unreliable, &ack);
                 }

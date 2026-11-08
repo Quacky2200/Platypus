@@ -8,6 +8,11 @@ edition.workspace = true
 publish.workspace = true
 license.workspace = true
 
+# Debug-only network fault injection (`Network.debugConditions`); `platypus-build package` never ships it.
+[features]
+default = ["net-debug"]
+net-debug = ["platypus_net/net-debug"]
+
 [dependencies]
 glam = "0.34.1"
 jiff = "0.2"
@@ -19,3 +24,4 @@ platypus_math = { path = "../platypus_math" }
 platypus_scene = { path = "../platypus_scene" }
 platypus_kinds = { path = "../platypus_kinds" }
 platypus_core = { path = "../platypus_core" }
+platypus_net = { path = "../platypus_net", default-features = false }

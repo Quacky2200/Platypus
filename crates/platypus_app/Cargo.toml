@@ -26,7 +26,7 @@ web_ui_render_gles = { workspace = true }
 web_ui_render_cpu = { workspace = true }
 web_ui_dom = { workspace = true }
 web_ui_react = { workspace = true }
-platypus_engine_api = { path = "../platypus_engine_api" }
+platypus_engine_api = { path = "../platypus_engine_api", default-features = false }
 platypus_animation = { path = "../platypus_animation" }
 platypus_scenes = { path = "../platypus_scenes" }
 platypus_physics_api = { path = "../platypus_physics_api" }
@@ -48,6 +48,8 @@ sysinfo = { version = "0.39.6", default-features = false, features = ["system"] 
 sys-locale = "0.3.2"
 serde_json = "1.0.154"
 platypus_pack = { path = "../platypus_pack" }
+platypus_net = { path = "../platypus_net", default-features = false }
+platypus_net_quic = { path = "../platypus_net_quic" }
 gltf = { version = "1.4.1", default-features = false, features = ["utils", "names", "KHR_materials_unlit", "KHR_materials_emissive_strength"] }
 # FBX models (`models_fbx.rs`): bindings to the ufbx C loader (MIT OR Unlicense), built with `cc`.
 ufbx = "0.11"
@@ -56,7 +58,9 @@ ufbx = "0.11"
 # ANGLE linked into the program (Windows), not loaded from libEGL.dll: see web_ui_render_gles.
 # On by default (it needs libclang to build: `LIBCLANG_PATH`); `--no-default-features` leaves it
 # out. Off Windows it does nothing.
-default = ["static-angle"]
+default = ["static-angle", "net-debug"]
+# Network fault injection for `Network.debugConditions` (debug and tests; see platypus_net).
+net-debug = ["platypus_net/net-debug", "platypus_engine_api/net-debug"]
 static-angle = ["web_ui_render_gles/static-angle"]
 
 # The build script turns resources/icon/icon.png into the window icon and the exe's icon.

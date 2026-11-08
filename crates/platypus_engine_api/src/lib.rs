@@ -29,6 +29,7 @@ pub mod gizmos;
 pub mod input;
 pub mod layers;
 pub mod log;
+pub mod network;
 pub mod objects;
 pub mod prefs;
 pub mod random;
@@ -83,6 +84,7 @@ pub fn manifests() -> Vec<String> {
         log::debug_api::MANIFEST.to_json(),
         log::log_api::MANIFEST.to_json(),
         log::console_api::MANIFEST.to_json(),
+        network::network_api::MANIFEST.to_json(),
         prefs::prefs_api::MANIFEST.to_json(),
         assets::assets_api::MANIFEST.to_json(),
         app::application_api::MANIFEST.to_json(),

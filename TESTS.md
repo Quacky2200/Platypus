@@ -2806,4 +2806,10 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M8-HOST-04 | Unit | Malformed RPC packets (empty, unknown id, absurd argument count, bad value tag) are dropped and counted, never delivered. |
 | M8-HOST-05 | Unit | A player that drops and returns with its token gets the same player id (`resumed`) and every spawn again, still owning its object. |
 | M8-HOST-06 | Unit | Replication and reliable RPCs work over a link with 80 ms latency, jitter, 15 % burst loss, duplication and reordering; the final value matches the server's. |
+| M8-API-01 | Unit | `Network.defineClass` / `defineRpc` parse their text forms (types, `q=`, `owner`, `lerp`, `anyone`, `unreliable`), refuse bad text with a reason in `lastError`, and redefining replaces. |
+| M8-API-02 | Unit | RPC arguments round-trip through their text form (`f:` `i:` `b:` `s:` `v:` `q:` `r:`); malformed ones decode to nothing. |
+| M8-API-03 | Unit | Through the namespace a script's server spawns an object, sets and reads every field type, sees a client's join and RPC as event lines, and calls an RPC back; setting a field of the wrong type or a server RPC from the server fails with a reason. |
+| M8-API-04 | Unit | `startServer` / `connect` / `disconnect` queue requests for the app (with defaults); every call without a host fails cleanly; `report_error` reaches scripts as an `error` event. |
+| M8-API-05 | Unit | `debugConditions` slows a wrapped transport (a join cannot arrive sooner than the latency) and `debugFault` freezes, blackholes, corrupts and disconnects it; bad fault text is refused. |
+| M8-APP-01 | Unit | The app's address parsing: loopback needs no pin, a remote address needs `#<64 hex digits>`, and bad pins or names are refused. |
 | M8-HLS-03 | Manual | `platypus-app examples/hello --headless --tick-rate 1000 --frames 2000` runs the game's scripts to the end with no window and no GPU device (checked 2026-11-08); `examples/physics --headless --frames 180` takes about 3 s at 60 iterations a second. |
