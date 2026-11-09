@@ -155,6 +155,8 @@ export class Arena extends Component {
   private yaw = 0;
   private pitch = 8;
   private airTime = 0;
+  private prevPos: Vector3 | null = null;
+  private speedNow = 0;
   private pointerLocked = false;
   private pointerFree = false;
   private distance = 2.6;
@@ -885,7 +887,13 @@ export class Arena extends Component {
     const before = view.go.transform.position;
     cc.move(dir.scale(speed * dt).add(new Vector3(0, this.vy * dt, 0)));
     const after = view.go.transform.position;
-    const moved = new Vector3(after.x - before.x, 0, after.z - before.z).magnitude / Math.max(dt, 1e-4);
+    // The controller applies a move after the script turn, so `after` equals `before` here: the speed
+    // is how far the figure went since the last frame, smoothed so the blend does not flicker.
+    const last = this.prevPos ?? before;
+    const raw = new Vector3(before.x - last.x, 0, before.z - last.z).magnitude / Math.max(dt, 1e-4);
+    this.prevPos = before;
+    this.speedNow += (Math.min(raw, SPRINT + 2) - this.speedNow) * Math.min(1, 12 * dt);
+    const moved = this.speedNow < 0.15 ? 0 : this.speedNow;
 
     // Face where it runs, or where it shoots.
     const firing = alive && (this.bot ? Math.sin(bt * 2.3) > 0.3 : input.getMouseButton(0) || input.getKey("KeyF"));

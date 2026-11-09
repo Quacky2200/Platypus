@@ -10,8 +10,10 @@
 /** Half the playable square, metres. The invisible walls stand here. */
 export const HALF = 30;
 /** Fog: clear around the player, solid before the walls. */
-export const FOG_START = 8;
-export const FOG_END = 34;
+// Close, Tomb Raider style: the street fades into white a few strides away, so every
+// house and car looms out of the mist.
+export const FOG_START = 3;
+export const FOG_END = 22;
 
 export const WHITE = new Color(0.93, 0.94, 0.96, 1);
 
@@ -199,7 +201,8 @@ export function applyLook() {
   RenderSettings.fogColor = WHITE;
   RenderSettings.fogStartDistance = FOG_START;
   RenderSettings.fogEndDistance = FOG_END;
-  RenderSettings.heightFog = { density: 0.02, baseHeight: 0, falloff: 2.5 };
+  // A thick ground mist on top of the distance fog: thick at the street, thinning by head height.
+  RenderSettings.heightFog = { density: 0.07, baseHeight: 0, falloff: 1.2 };
   RenderSettings.skybox = {
     zenith: new Color(0.72, 0.74, 0.78, 1),
     horizon: new Color(0.94, 0.95, 0.97, 1),
