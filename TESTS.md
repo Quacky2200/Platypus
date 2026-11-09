@@ -2796,6 +2796,8 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WUI-BATCH-01 | Unit | Plan merging: 30 cards with 30 pictures make 61 draws unmerged and 31 merged (one plain batch, a draw per picture); with one shared picture, 2. The instance count is unchanged and every picture draw holds only picture instances. |
 | WUI-BATCH-02 | Unit | A caption box laid over a picture stays after it in the merged plan, and a second picture whose card background is drawn after the first picture doesn't join the first's draw. |
 | WUI-BATCH-03 | Unit | GLES: 48 cards with three pictures in turn, and with one picture, render to the same pixels with merging on and off (each frame's time printed with `--nocapture`). |
+| WUI-BATCH-04 | Unit | A plan with three picture draws is left unmerged (7 draws); with four it merges (5 draws). |
+| WUI-BATCH-05 | Manual | `examples/picture-grid` with `WEB_UI_TRACE=frames`: static mode skips every frame; color mode with 32 pictures draws about 33 calls a frame merged and about 109 with `WEB_UI_BATCH_MERGE=0`, the merged frames drawing in about half the time. |
 
 ## Bot AI (`crates/platypus_ai`)
 
