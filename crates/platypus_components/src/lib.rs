@@ -8,6 +8,7 @@
 
 pub mod compile;
 mod host;
+mod net_decorators;
 pub use host::*;
 
 include!(concat!(env!("OUT_DIR"), "/symbols.rs"));

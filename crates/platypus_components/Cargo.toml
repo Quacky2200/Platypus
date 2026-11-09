@@ -15,6 +15,10 @@ platypus_physics_api = { path = "../platypus_physics_api" }
 web_ui_rt = { workspace = true }
 web_ui_ts = { workspace = true }
 serde_json = "1"
+# The parser the compiler uses, for `net_decorators.rs` (same versions as web_ui_ts's).
+oxc_allocator = "0.154.0"
+oxc_parser = "0.154.0"
+oxc_span = "0.154.0"
 
 [build-dependencies]
 web_ui_symbols = { workspace = true }

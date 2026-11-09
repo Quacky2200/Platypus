@@ -245,11 +245,17 @@ pub struct Platypus;
 
 impl Extension for Platypus {
     fn rewrite(&self, src: &str, manifest: &Manifest) -> R<Option<String>> {
+        // `@sync` fields and `@rpc` methods first (`net_decorators.rs`), then the helpers below.
+        let decorated = crate::net_decorators::rewrite(src)?;
+        let src = decorated.as_deref().unwrap_or(src);
         if manifest.host_object().is_none() {
-            return Ok(None);
+            return Ok(decorated);
         }
         let extra = children_helpers(src) + &tree_helpers(src);
-        Ok((!extra.is_empty()).then(|| format!("{src}{extra}")))
+        if extra.is_empty() {
+            return Ok(decorated);
+        }
+        Ok(Some(format!("{src}{extra}")))
     }
 
     // The helpers above are lowered only once code calls them, so a program that never walks the
@@ -694,6 +700,21 @@ const DECLARATIONS: &[(At, &str, &str)] = &[
         At::Top("property"),
         "declare function property(value: unknown, context: ClassFieldDecoratorContext | ClassGetterDecoratorContext): void;",
         "Marks a field as saved in scenes and kept across hot reloads.",
+    ),
+    (
+        At::Top("sync"),
+        "declare function sync(options?: { quantize?: number; interpolate?: boolean; owner?: boolean; int?: boolean }): (value: unknown, context: ClassFieldDecoratorContext) => void;",
+        "Replicates a field of a `NetworkBehaviour` class: the server's value reaches every client (`owner`: the owning client writes it; `quantize`: sent in whole steps; `interpolate`: blended between ticks; `int`: a whole number).",
+    ),
+    (
+        At::Top("rpc"),
+        "declare function rpc(target?: \"server\" | \"owner\" | \"all\", options?: { anyone?: boolean; unreliable?: boolean }): (value: (this: any, ...args: any[]) => void, context: ClassMethodDecoratorContext) => void;",
+        "Makes a method of a `NetworkBehaviour` class a remote call: a client's call to a `\"server\"` method runs its body on the server; the server's call to an `\"owner\"` or `\"all\"` method runs it there.",
+    ),
+    (
+        At::Top("NetworkBehaviour"),
+        "declare class NetworkBehaviour {\n  /** The network id of this object (0 before it is spawned). */\n  netId: number;\n  /** Sets the `@sync` fields to their initial values (`spawnNet` runs it). */\n  netInit(): void;\n  /** Runs the `@rpc` method `name` with the arguments of an `rpc` event; false if there is none. */\n  netDispatch(name: string, args: string[]): boolean;\n  /** Defines the class's fields and RPCs on the network: every peer calls it before connecting. */\n  static defineNetwork(): boolean;\n  /** A listen server (a server whose script also plays, as player 0) calls this with true: what the server sends to `owner` and `all` methods then also runs on it. */\n  static setListenServer(on: boolean): void;\n  /** The server: spawns an object of this class for `owner` and sets its initial values. */\n  static spawnNet<T extends NetworkBehaviour>(this: new () => T, owner: number): T;\n}",
+        "The base class of networked classes (`@sync` fields, `@rpc` methods).",
     ),
     (
         At::Top("GameObjectOptions"),
