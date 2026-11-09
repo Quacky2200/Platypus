@@ -199,6 +199,14 @@ function Hud() {
           </box>
         </box>
       )}
+      {hud.killcam !== "" && (
+        <box style={{ position: "absolute", left: "50%", bottom: 40, marginLeft: -190, width: 380, padding: "12px 16px", borderRadius: 12, backgroundColor: "rgba(20, 24, 32, 0.78)", flexDirection: "column", gap: 8, alignItems: "center" }}>
+          <text style={{ color: "#ffffff", fontSize: 17, fontWeight: 700 }}>{`Killcam  ·  shot by ${hud.killcam}`}</text>
+          <box style={{ width: "100%", height: 5, borderRadius: 3, backgroundColor: "rgba(255,255,255,0.2)" }}>
+            <box style={{ width: `${Math.round(hud.killcamAt * 100)}%`, height: 5, borderRadius: 3, backgroundColor: RED }} />
+          </box>
+        </box>
+      )}
       {hud.mode === "client" && !hud.spectator && hud.alive && (
         <box style={{ position: "absolute", left: "50%", top: "50%", width: 6, height: 6, marginLeft: -3, marginTop: -3, borderRadius: 3, backgroundColor: RED }} />
       )}

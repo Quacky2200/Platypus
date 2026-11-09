@@ -17,7 +17,8 @@ export const REGEN_DELAY = 4;
 export const REGEN_RATE = 6;
 export const KILL_LIMIT = 10;
 export const ROUND_SECONDS = 180;
-export const RESPAWN_SECONDS = 3;
+/** A killcam of 3.5 seconds fits in it, and a moment to look at the end of it. */
+export const RESPAWN_SECONDS = 5;
 export const SHIELD_SECONDS = 2;
 /** Server ticks a second of replication. */
 export const TICK_RATE = 30;
@@ -42,6 +43,8 @@ export function defineNetwork(): void {
         "speed:f32:q=0.1:owner",
         "sprint:bool:owner",
         "hp:i32",
+        // The net id of whoever killed it last (for its killcam).
+        "killer:i32",
         "kills:i32",
         "deaths:i32",
         "alive:bool",

@@ -3,7 +3,7 @@
 
 // A swarm of rats in a walled maze, all heading for a piece of cheese. One search from the cheese
 // outward (a flow field over a NavGrid) tells every cell which way to go; each rat just reads the
-// field where it stands, so hundreds of rats cost one search. A `Crowd` moves them with a little
+// field where it stands, so hundreds of rats cost one search. A `Swarm` moves them with a little
 // separation so they spread through the gaps instead of piling up.
 // Click the floor to move the cheese; B cycles the gate (open, half height, shut); G shows the
 // flow field; Space adds rats. The field always routes through the gate, so the rats head for it
@@ -65,7 +65,7 @@ for (const w of WALLS) {
 
 let cheese: Vector3 = v3(cellX(36), 0.25, cellZ(20));
 const field = new FlowField(flowGrid, [cheese]);
-const crowd = new Crowd(grid, field, 0.13);
+const crowd = new Swarm(grid, field, 0.13);
 crowd.setGoalRadius(0.9);
 /** 0 open, 1 half height (low enough to climb), 2 shut (a full wall). */
 let gateMode = 0;

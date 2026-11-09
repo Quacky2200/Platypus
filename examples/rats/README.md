@@ -4,7 +4,7 @@ A swarm of rats in a walled maze, all heading for a piece of cheese: crowd navig
 
 One search from the cheese outward (`new FlowField(grid, [cheese])`) fills every cell of a `NavGrid` with its
 distance to the cheese and the direction that way. Each rat just reads the field where it stands, so hundreds of
-rats cost one search, not one A* each. A `Crowd` moves them along the field with a little separation (so they
+rats cost one search, not one A* each. A `Swarm` moves them along the field with a little separation (so they
 spread through the gaps instead of piling up) and slides them along walls.
 
 ## Controls
@@ -33,11 +33,11 @@ The rats therefore always head for the gate and press against it when it is clos
 - **Half height, pile up off:** they queue at the low wall and stay there.
 - **Shut:** a full wall nobody can climb: they pile up against it, flat.
 
-Closing the gate on a rat mid-crossing is safe: `Crowd.step` moves any agent standing in a blocked cell onto the
+Closing the gate on a rat mid-crossing is safe: `Swarm.step` moves any agent standing in a blocked cell onto the
 nearest free one (`AI-48`), so nothing is left stuck inside the gate. A climbing rat is drawn by the script along an
 arc and put down on the far side with `crowd.setPosition`.
 
-APIs used: `NavGrid`, `FlowField` (`direction`, `distance`, `rebuild`), `Crowd` (`add`, `step`, `position`,
+APIs used: `NavGrid`, `FlowField` (`direction`, `distance`, `rebuild`), `Swarm` (`add`, `step`, `position`,
 `velocity`, `count`), `Gizmos`, `GameObject` / `MeshRenderer` / `Light` / `Camera`, and a React overlay.
 
 ## Build and run

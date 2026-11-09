@@ -15,6 +15,8 @@ import { BOUND, WHITE, applyLook, buildMap, makeProp, setFog, updateLasers } fro
 import type { Laser, MapInfo } from "./map";
 import { STEP, copyState, decodeInputs, encodeInput, grounded, makeInput, step } from "./move";
 import type { MoveInput, MoveState } from "./move";
+import { Tape, blendAngle } from "./killcam";
+import type { PlayerFrame, PropFrame } from "./killcam";
 import { BotBrain } from "./bot";
 import type { Contact, Think } from "./bot";
 import {
@@ -24,6 +26,9 @@ import {
 
 const SEP = "\u001f";
 /** Network classes by their order in `defineNetwork`. */
+/** Seconds of the past a killcam replays (the respawn comes a little after it ends). */
+const KILLCAM_SECONDS = 3.5;
+
 const PLAYER = 0;
 const PROP = 1;
 const MATCH = 2;
@@ -59,6 +64,10 @@ export const hud = {
   rows: [] as Row[],
   feed: [] as FeedLine[],
   hurt: 0,
+  /** While the killcam plays: the killer's name. */
+  killcam: "",
+  /** How far through the replay (0 to 1). */
+  killcamAt: 0,
   fingerprint: "",
   players: 0,
   dropped: 0,
@@ -121,6 +130,12 @@ interface ServerPlayer {
   respawnAt: number;
   shieldUntil: number;
   warnAt: number;
+  /**
+   * A kinematic capsule the server keeps on the player: it is what shoves the crates and the car
+   * (a player is walked by `move.ts`, which knows only the houses, so the props are pushed from
+   * here instead) and is parked below the ground while the player is dead.
+   */
+  body: GameObject;
 }
 
 /** A figure in the world: a player (the mannequin) or a prop. */
@@ -200,6 +215,12 @@ export class Arena extends Component {
   /** How many times the server has disagreed with the prediction (for the HUD and tests). */
   private corrections = 0;
   private desync = false;
+  // Killcam (`killcam.ts`): what was drawn lately, and the replay being played after a death.
+  private tape = new Tape();
+  private replay: { clock: number; from: number; length: number; killer: number; prev: number } | null = null;
+  private wasAlive = true;
+  /** Times of beams drawn at once for my own shots, whose copies from the server are skipped. */
+  private predicted: number[] = [];
   /** The pop of a correction, faded out over a few frames so the figure does not jump. */
   private errOffset = new Vector3(0, 0, 0);
   private localId = 0;
@@ -281,6 +302,7 @@ export class Arena extends Component {
       v.go.destroy();
     }
     this.views.clear();
+    for (const p of this.players.values()) p.body.destroy();
     this.players.clear();
     this.props.length = 0;
     this.serverReady = false;
@@ -329,7 +351,7 @@ export class Arena extends Component {
       this.playingFog = playing;
       setFog(!playing);
     }
-    if (this.mode === "client" || this.host) this.updateFalls(dt);
+    if ((this.mode === "client" || this.host) && !this.replay) this.updateFalls(dt);
     this.alignTorches();
     this.updateBeams();
     // A line a second for logs and tests: who is here and how the network is doing.
@@ -461,10 +483,130 @@ export class Arena extends Component {
 
   /** What a client does each frame, for the listen server's own player. */
   private hostFrame(dt: number) {
+    this.playerFrame(dt);
+  }
+
+  /** One frame of a player's window (a client's, or a listen server's own): live, or the killcam. */
+  private playerFrame(dt: number) {
+    this.watchDeath();
+    if (this.replay) {
+      this.playReplay(dt);
+      this.fillClientHud();
+      return;
+    }
     if (this.localId !== 0) this.moveLocal(dt);
     this.updateOthers(dt);
     this.fillClientHud();
+    this.recordTape();
     this.followCamera(dt);
+  }
+
+  /** Notices the local player's death (start the killcam) and return to life (end it). */
+  private watchDeath() {
+    if (this.localId === 0) return;
+    const alive = Network.getBool(this.localId, "alive");
+    if (this.wasAlive && !alive) this.startKillcam();
+    if (alive && this.replay) this.endKillcam();
+    this.wasAlive = alive;
+  }
+
+  /** What every figure and prop looks like now, onto the tape. */
+  private recordTape() {
+    const players: PlayerFrame[] = [];
+    const props: PropFrame[] = [];
+    for (const [id, v] of this.views) {
+      const p = v.go.transform.position;
+      if (v.kind === 0) {
+        players.push({
+          id, x: p.x, y: p.y, z: p.z,
+          yaw: v.local ? this.facingDeg : Network.getNumber(id, "yaw"),
+          speed: v.local ? this.speedNow : (v.speed ?? 0),
+          alive: Network.getBool(id, "alive"),
+        });
+      } else {
+        const q = v.go.transform.rotation;
+        props.push({ id, x: p.x, y: p.y, z: p.z, qx: q.x, qy: q.y, qz: q.z, qw: q.w });
+      }
+    }
+    this.tape.record(Time.time, players, props);
+  }
+
+  /** Starts replaying the last seconds, forward, from behind whoever killed the local player. */
+  private startKillcam() {
+    const length = Math.min(KILLCAM_SECONDS, this.tape.end - this.tape.start);
+    if (length < 0.5) return;
+    const killer = Network.getNumber(this.localId, "killer");
+    this.replay = { clock: 0, from: this.tape.end - length, length, killer, prev: this.tape.end - length };
+    hud.killcam = this.views.has(killer) ? Network.getString(killer, "name") : "the world";
+    hud.killcamAt = 0;
+    if (this.verbose) console.log(`[net client] killcam of ${length.toFixed(1)} s from ${hud.killcam}, ${this.tape.frames.length} frames, ${this.tape.shots.length} shots`);
+  }
+
+  private endKillcam() {
+    if (this.verbose) console.log("[net client] killcam over");
+    this.replay = null;
+    hud.killcam = "";
+    hud.killcamAt = 0;
+  }
+
+  /**
+   * The replay, one frame: every figure and prop is put where the tape had it at the replay's
+   * time, the beams of that moment are drawn again, and the camera stands behind the killer. After
+   * the footage it holds the last moment until the respawn.
+   */
+  private playReplay(dt: number) {
+    const r = this.replay;
+    if (!r) return;
+    r.clock += dt;
+    const t = r.from + Math.min(r.clock, r.length);
+    hud.killcamAt = Math.min(1, r.clock / r.length);
+    const at = this.tape.around(t);
+    if (!at) return;
+    const { a, b, k } = at;
+    let killerPos: Vector3 | null = null;
+    let killerYaw = 0;
+    for (const pa of a.players) {
+      const pb = b.players.find((x) => x.id === pa.id) ?? pa;
+      const v = this.views.get(pa.id);
+      if (!v) continue;
+      const pos = new Vector3(pa.x + (pb.x - pa.x) * k, pa.y + (pb.y - pa.y) * k, pa.z + (pb.z - pa.z) * k);
+      const yaw = blendAngle(pa.yaw, pb.yaw, k);
+      v.go.transform.position = pos;
+      v.go.enabled = pa.alive;
+      if (v.body) {
+        v.body.transform.localRotation = Quaternion.euler(0, yaw, 0);
+        if (v.animator) v.animator.enabled = true;
+      }
+      v.animator?.setFloat("speed", pa.speed + (pb.speed - pa.speed) * k);
+      if (pa.id === r.killer) {
+        killerPos = pos;
+        killerYaw = yaw;
+      }
+    }
+    for (const pa of a.props) {
+      const pb = b.props.find((x) => x.id === pa.id) ?? pa;
+      const v = this.views.get(pa.id);
+      if (!v) continue;
+      v.go.transform.position = new Vector3(pa.x + (pb.x - pa.x) * k, pa.y + (pb.y - pa.y) * k, pa.z + (pb.z - pa.z) * k);
+      v.go.transform.rotation = new Quaternion(pa.qx, pa.qy, pa.qz, pa.qw).slerp(new Quaternion(pb.qx, pb.qy, pb.qz, pb.qw), k);
+    }
+    // The beams of the time that passed since the last frame.
+    for (const s of this.tape.shots) {
+      if (s.t > r.prev && s.t <= t) this.drawBeam(s.from, s.to, s.hit);
+    }
+    r.prev = t;
+    // Behind the killer, looking where they looked (their heading is 180 minus the body's turn);
+    // with no killer, where the player died.
+    if (killerPos) {
+      this.yaw = 180 - killerYaw;
+      this.placeCamera(killerPos.add(new Vector3(0, 1.55, 0)), 2.8, 6, dt);
+      return;
+    }
+    const own = a.players.find((x) => x.id === this.localId);
+    if (own) {
+      this.yaw += 20 * dt;
+      this.placeCamera(new Vector3(own.x, 1.5, own.z), 5, 15, dt);
+    }
   }
 
   /**
@@ -509,7 +651,7 @@ export class Arena extends Component {
     let p = this.players.get(player);
     if (!p) {
       const net = Network.spawn("Player", "player", player);
-      p = { net, player, name, last: Vector3.zero, lastAt: now, hist: [], lastShot: 0, state: { x: 0, y: 0, z: 0, vy: 0 }, lastSeq: 0, budget: 10, hurtAt: 0, regenAt: now, respawnAt: 0, shieldUntil: 0, warnAt: 0 };
+      p = { net, player, name, last: Vector3.zero, lastAt: now, hist: [], lastShot: 0, state: { x: 0, y: 0, z: 0, vy: 0 }, lastSeq: 0, budget: 10, hurtAt: 0, regenAt: now, respawnAt: 0, shieldUntil: 0, warnAt: 0, body: this.makePusher() };
       this.players.set(player, p);
       Network.setString(net, "name", name);
       Network.setNumber(net, "hp", START_HP);
@@ -525,7 +667,19 @@ export class Arena extends Component {
     if (!p) return;
     Network.despawn(p.net);
     this.players.delete(player);
+    p.body.destroy();
     if (this.host) this.dropView(p.net);
+  }
+
+  /** The kinematic capsule that pushes props from where a player stands (see `ServerPlayer.body`). */
+  private makePusher(): GameObject {
+    const go = new GameObject("Pusher", { position: new Vector3(0, -50, 0) });
+    go.layer = 8;
+    const rb = go.addComponent(Rigidbody);
+    rb.isKinematic = true;
+    const col = go.addComponent(CapsuleCollider, { radius: 0.3, height: 1.8 });
+    col.center = new Vector3(0, 0.95, 0);
+    return go;
   }
 
   /** Takes a figure out of the world (it left, or the server removed it). */
@@ -607,6 +761,8 @@ export class Arena extends Component {
     // A little more than real time, for the jitter of when the client's packets arrive.
     p.budget = Math.min(10, p.budget + (Math.min(0.25, now - p.lastAt) / STEP) * 1.1);
     p.lastAt = now;
+    // The pusher stands where the player is (parked below the floor while dead).
+    p.body.transform.position = alive ? new Vector3(p.state.x, p.state.y, p.state.z) : new Vector3(0, -50, 0);
     if (alive) {
       p.last = new Vector3(p.state.x, p.state.y, p.state.z);
       // Health creeps back once the player has been left alone for a few seconds.
@@ -657,7 +813,8 @@ export class Arena extends Component {
     const origin = shooter.last.add(new Vector3(0, 1.3, 0)).add(dir.scale(0.4));
     const t = now - clamp((Number.isFinite(rewindMs) ? rewindMs : 0) / 1000, 0, MAX_REWIND);
     // Walls and houses stop a beam; players are tested against where they were at time `t`.
-    const wall = Physics.raycast(origin, dir, 60);
+    // A shot is stopped by the scenery, not by the pushers standing on the players (layer 8).
+    const wall = Physics.raycast(origin, dir, 60, 4294967295 - 256);
     let reach = wall ? wall.distance : 60;
     let victim: ServerPlayer | null = null;
     for (const o of this.players.values()) {
@@ -694,6 +851,8 @@ export class Arena extends Component {
   }
 
   private kill(killer: ServerPlayer, victim: ServerPlayer, now: number) {
+    // Who did it, for the victim's killcam (read with `alive`).
+    Network.setNumber(victim.net, "killer", killer.net);
     Network.setBool(victim.net, "alive", false);
     victim.respawnAt = now + RESPAWN_SECONDS;
     Network.setNumber(victim.net, "deaths", Network.getNumber(victim.net, "deaths") + 1);
@@ -760,10 +919,7 @@ export class Arena extends Component {
   private clientFrame(dt: number) {
     for (const e of events()) this.clientEvent(e);
     if (this.mode !== "client") return;
-    if (this.localId !== 0) this.moveLocal(dt);
-    this.updateOthers(dt);
-    this.fillClientHud();
-    this.followCamera(dt);
+    this.playerFrame(dt);
   }
 
   private clientEvent(e: Parsed) {
@@ -960,7 +1116,18 @@ export class Arena extends Component {
           if (args[2] !== "b:1" && argVec(args[1]).sub(from).magnitude < this.botDist - 1.5) this.brain.shotBlocked(Time.time);
         } else this.brain.heard(from, me, Time.time);
       }
-      this.drawBeam(this.muzzleNear(from), argVec(args[1]), args[2] === "b:1");
+      const to = argVec(args[1]);
+      const lens = this.muzzleNear(from);
+      const hit = args[2] === "b:1";
+      this.tape.addShot({ t: Time.time, from: lens, to, hit });
+      // My own shot was drawn when I fired (a predicted spawn): this is its confirmation. Others'
+      // shots are drawn as they come, except while the killcam shows the past.
+      const mine = this.views.get(this.localId)?.go.transform.position;
+      const confirmed = mine !== undefined && Math.hypot(from.x - mine.x, from.z - mine.z) < 1.5 && this.predicted.length > 0;
+      if (confirmed) {
+        this.predicted.shift();
+        if (this.verbose) console.log("[net client] my beam was already drawn: the server confirmed it");
+      } else if (!this.replay) this.drawBeam(lens, to, hit);
     }
     else if (name === "feed") hud.feed.push({ text: `${(args[0] ?? "").slice(2)}  >  ${(args[1] ?? "").slice(2)}`, until: Time.time + 6 });
     else if (name === "hurt") hud.hurt = Time.time + 0.25;
@@ -1133,8 +1300,44 @@ export class Arena extends Component {
       this.fireAt = Time.time;
       const behind = Math.max(0, Network.rtt()) / 2 + (2 / TICK_RATE) * 1000;
       if (this.host) this.onFire(0, aim, 0, Time.time);
-      else Network.rpc(this.localId, "fire", [`f:${aim}`,`f:${behind}`].join(SEP));
+      else {
+        Network.rpc(this.localId, "fire", [`f:${aim}`,`f:${behind}`].join(SEP));
+        this.predictBeam(aim, after);
+      }
     }
+    // A prediction the server never confirmed (it refused the shot) is forgotten after a second.
+    while (this.predicted.length > 0 && Time.time - this.predicted[0]! > 1) this.predicted.shift();
+  }
+
+  /**
+   * A predicted spawn: my shot's beam is drawn the moment I fire, found the way the server will
+   * (the scenery stops it, the others as I see them are tested), not a round trip later. The
+   * server's own copy of it, when it arrives, is recognised and skipped (`onRpc`); if the server
+   * saw it differently (a hit I did not see) it still counts and shows in the score, not in a
+   * second beam.
+   */
+  private predictBeam(aimDeg: number, at: Vector3) {
+    const yaw = (aimDeg * Math.PI) / 180;
+    const dir = new Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
+    const origin = at.add(new Vector3(0, 1.3, 0)).add(dir.scale(0.4));
+    const wall = Physics.raycast(origin, dir, 60);
+    let reach = wall ? wall.distance : 60;
+    let hit = false;
+    for (const [id, v] of this.views) {
+      if (v.local || v.kind !== 0 || !Network.getBool(id, "alive")) continue;
+      const ox = origin.x - v.shown.x;
+      const oz = origin.z - v.shown.z;
+      const b = ox * dir.x + oz * dir.z;
+      const disc = b * b - (ox * ox + oz * oz - 0.45 * 0.45);
+      if (disc < 0) continue;
+      const d = -b - Math.sqrt(disc);
+      if (d > 0 && d < reach) {
+        reach = d;
+        hit = true;
+      }
+    }
+    this.drawBeam(this.muzzleNear(origin), origin.add(dir.scale(reach)), hit);
+    this.predicted.push(Time.time);
   }
 
   private updateOthers(dt: number) {
