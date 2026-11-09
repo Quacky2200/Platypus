@@ -442,8 +442,11 @@ the script side:
   `findPath(from, to, smooth = true)` (world points from `from` to `to`; empty when there is no route) and
   `lineOfSight(a, b)`.
 - `Steering.seek / flee / arrive / pursue / evade / separation / wander`: pure functions of position and
-  velocity that return an acceleration of at most `maxForce`; the game adds them up and integrates. `examples/bot-nav`
-  walks a bot around a wall with them. Tests `AI-01`..`13` (Rust) and `AI-20`..`22` (the script API).
+  velocity that return an acceleration of at most `maxForce`; the game adds them up and integrates. Behaviours
+  that chase a wanted velocity close the gap in about a quarter of a second (`steering::GAIN`, 4 per second);
+  `separation` is a plain repulsion that is zero when nobody is close, so it never brakes the others.
+  `examples/bot-nav` walks a bot around a wall with them; `examples/goap-demo` and `examples/wildlife` (a 3D
+  ecosystem of GOAP rabbits and foxes) use the rest. Tests `AI-01`..`13` (Rust) and `AI-20`..`22` (the script API).
 - `new Goap()` (`goap.rs`): goal-oriented action planning over named boolean facts (at most 64; `"!name"` is
   false, unlisted facts are false). `addAction(name, cost, preconditions, effects)` (false when its literals
   contradict), `plan(facts, goal)` (action names in order; empty when the goal is already met *or* there is

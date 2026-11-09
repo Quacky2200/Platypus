@@ -134,6 +134,11 @@ fn flee_and_separation_move_away() {
     assert!(a.flee(Vec3::X).x < 0.0);
     assert!(a.separation(&[Vec3::new(0.5, 0.0, 0.0)], 2.0).x < 0.0);
     assert_eq!(a.separation(&[Vec3::new(5.0, 0.0, 0.0)], 2.0), Vec3::ZERO);
+    // A moving agent with nobody close gets no braking force from it.
+    let mut moving = Agent::new(Vec3::ZERO, 5.0, 20.0);
+    moving.velocity = Vec3::new(3.0, 0.0, 0.0);
+    assert_eq!(moving.separation(&[], 2.0), Vec3::ZERO);
+    assert!(moving.separation(&[Vec3::new(0.5, 0.0, 0.0)], 2.0).length() <= 20.0);
 }
 
 // AI-12

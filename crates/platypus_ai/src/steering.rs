@@ -6,6 +6,9 @@
 
 use glam::Vec3;
 
+/// How fast an agent's velocity chases the one it wants, per second (1 / reaction time).
+pub const GAIN: f32 = 4.0;
+
 #[derive(Clone, Copy, Debug)]
 pub struct Agent {
     pub position: Vec3,
@@ -24,9 +27,10 @@ impl Agent {
         }
     }
 
-    /// Steers toward a desired velocity.
+    /// Steers toward a desired velocity: closes the gap in about a quarter of a second
+    /// ([`GAIN`] per second), limited to `max_force`.
     fn toward(&self, desired: Vec3) -> Vec3 {
-        (desired - self.velocity).clamp_length_max(self.max_force)
+        ((desired - self.velocity) * GAIN).clamp_length_max(self.max_force)
     }
 
     /// Runs flat out at `target`.
@@ -76,7 +80,9 @@ impl Agent {
                 push += away / d * (1.0 - d / radius);
             }
         }
-        self.toward(push.normalize_or_zero() * self.max_speed * push.length().min(1.0))
+        // A plain repulsion, not a velocity to chase: with nobody close it must add nothing
+        // (chasing a zero velocity would brake the agent against its other behaviours).
+        push.clamp_length_max(1.0) * self.max_force
     }
 
     /// Wanders: a point on a sphere of `radius` ahead by `distance`, picked by the caller's
