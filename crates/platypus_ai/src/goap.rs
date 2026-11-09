@@ -8,9 +8,9 @@
 //! A *literal* is a fact name, or `!name` for "false". Facts a state doesn't list are false.
 
 use crate::astar::{Graph, search};
+use crate::facts::Facts;
 
-/// The world as one bit per fact.
-pub type State = u64;
+pub use crate::facts::State;
 
 #[derive(Clone, Debug)]
 pub struct Action {
@@ -55,7 +55,7 @@ pub struct Plan {
 
 #[derive(Clone, Debug, Default)]
 pub struct Goap {
-    facts: Vec<String>,
+    facts: Facts,
     pub actions: Vec<Action>,
     /// Gives up after this many expanded states.
     pub max_expansions: Option<usize>,
@@ -66,41 +66,6 @@ impl Goap {
         Self::default()
     }
 
-    /// The bit of a fact, registering it on first use; `None` once 64 facts exist.
-    fn fact_bit(&mut self, name: &str) -> Option<u64> {
-        let i = match self.facts.iter().position(|f| f == name) {
-            Some(i) => i,
-            None if self.facts.len() < 64 => {
-                self.facts.push(name.to_string());
-                self.facts.len() - 1
-            }
-            None => return None,
-        };
-        Some(1u64 << i)
-    }
-
-    /// `(mask, value)` bits of a list of literals.
-    fn literals(&mut self, lits: &[&str]) -> Result<(u64, u64), String> {
-        let (mut mask, mut val) = (0, 0);
-        for lit in lits {
-            let (name, want) = match lit.strip_prefix('!') {
-                Some(n) => (n, false),
-                None => (*lit, true),
-            };
-            let bit = self
-                .fact_bit(name)
-                .ok_or_else(|| format!("more than 64 facts (at `{name}`)"))?;
-            if mask & bit != 0 && (val & bit != 0) != want {
-                return Err(format!("`{name}` is both true and false"));
-            }
-            mask |= bit;
-            if want {
-                val |= bit;
-            }
-        }
-        Ok((mask, val))
-    }
-
     /// Adds an action; returns its index. Errors on a contradictory literal list or too many facts.
     pub fn add_action(
         &mut self,
@@ -109,8 +74,8 @@ impl Goap {
         preconditions: &[&str],
         effects: &[&str],
     ) -> Result<usize, String> {
-        let (pre_mask, pre_val) = self.literals(preconditions)?;
-        let (eff_mask, eff_val) = self.literals(effects)?;
+        let (pre_mask, pre_val) = self.facts.literals(preconditions)?;
+        let (eff_mask, eff_val) = self.facts.literals(effects)?;
         self.actions.push(Action {
             name: name.to_string(),
             cost: cost.max(0.0),
@@ -124,22 +89,18 @@ impl Goap {
 
     /// A state with exactly these facts true.
     pub fn state(&mut self, true_facts: &[&str]) -> Result<State, String> {
-        self.literals(true_facts).map(|(_, v)| v)
+        self.facts.literals(true_facts).map(|(_, v)| v)
     }
 
     pub fn goal(&mut self, literals: &[&str]) -> Result<Goal, String> {
-        self.literals(literals)
+        self.facts
+            .literals(literals)
             .map(|(mask, val)| Goal { mask, val })
     }
 
     /// The names of the facts true in `s`.
     pub fn facts_in(&self, s: State) -> Vec<&str> {
-        self.facts
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| s >> i & 1 == 1)
-            .map(|(_, f)| f.as_str())
-            .collect()
+        self.facts.names_in(s)
     }
 
     /// The cheapest plan from `start` to a state meeting `goal`; empty when `start` already does,
