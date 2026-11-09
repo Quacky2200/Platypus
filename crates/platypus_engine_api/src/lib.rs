@@ -36,6 +36,7 @@ pub mod prefs;
 pub mod random;
 pub mod screen;
 pub mod spline;
+pub mod steam;
 pub mod time;
 pub mod ui_inspector;
 pub mod ui_resources;
@@ -98,6 +99,7 @@ pub fn manifests() -> Vec<String> {
         spline::spline_api::MANIFEST.to_json(),
         event_list::event_list_api::MANIFEST.to_json(),
         spline::spline_animate_api::MANIFEST.to_json(),
+        steam::steam_api::MANIFEST.to_json(),
         ai::nav_grid_api::MANIFEST.to_json(),
         ai::steering_api::MANIFEST.to_json(),
         ai::goap_api::MANIFEST.to_json(),

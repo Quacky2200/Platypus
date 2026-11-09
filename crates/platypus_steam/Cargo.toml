@@ -1,0 +1,13 @@
+# Copyright 2026 The Platypus Authors
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "platypus_steam"
+version.workspace = true
+edition.workspace = true
+publish.workspace = true
+license.workspace = true
+
+[dependencies]
+platypus_engine_api = { path = "../platypus_engine_api", default-features = false }
+steamworks = "0.13.1"

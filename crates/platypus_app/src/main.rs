@@ -50,6 +50,7 @@ mod native;
 mod native_pump;
 mod native_render;
 mod net_host;
+mod steam_host;
 mod notice;
 mod panels;
 pub(crate) mod particles;
@@ -628,6 +629,7 @@ fn run() -> Result<()> {
     let mut scene = platypus_scene::ScriptScene::new();
     native_render::configure_engine(&asset_root);
     native_pump::seed_prefs(&prefs);
+    steam_host::start(manifest.steam);
     let (m, i) = (manifest.clone(), info.clone());
     let mut native = native::Native::load_with(
         bundle,
@@ -768,6 +770,7 @@ fn run() -> Result<()> {
         let frames = (args.frames_given).then_some(args.frames);
         let result = headless::run(app, headless, frames, manifest.window_title());
         net_host::shutdown();
+        steam_host::shutdown();
         return result;
     }
     // Screenshot runs make no OS windows for secondary windows: they draw offscreen.
@@ -785,6 +788,7 @@ fn run() -> Result<()> {
         app,
     );
     net_host::shutdown();
+    steam_host::shutdown();
     result?;
     Ok(())
 }
@@ -1223,6 +1227,7 @@ impl App {
         }
         // The network: script requests (`Network.startServer` / `connect`), then packets in and out.
         net_host::pump(now.duration_since(self.started));
+        steam_host::pump();
         let (elapsed, ticks) = self.clock.advance(now, TICK, MAX_TICKS_PER_FRAME);
         for _ in 0..ticks {
             // Script time leaves out applying what scripts asked for (`native_after`): that is

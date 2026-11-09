@@ -1855,6 +1855,12 @@ Design: `docs/research/multiplayer.md` (Fusion / Fish-Net / Lightyear inspired, 
 - [x] M8 shortfall gaps (2026-11-09): a headless server ends cleanly on Ctrl+C / terminate and tells its players (`M8-HLS-04`), a
   packaged game gets no fault injector (`M8-APP-02`; `hasDebug()` is false there)
 - [ ] **M8.f** Steam (`steamworks`): relay transport and lobbies
+  - [x] First part (2026-11-09, branch `steam-integration`): `project.json` `"steam": { "appId": N }` (off without an app id; Portal's 400
+    for now, `platypus_steam::PLACEHOLDER_APP_ID`), the script `Steam` namespace (`platypus_engine_api::steam`: rich presence,
+    achievements and stats, lobbies create / search / join / data) over a `Backend`, the `steamworks` backend (`platypus_steam`),
+    wired in `platypus_app/src/steam_host.rs`. `M8-STM-01..09`
+  - [ ] Check with the Steam client running (`M8-STM-08`), a `Steam` example game, a Steam relay `Transport` for `platypus_net`
+    (`steamworks` networking sockets), lobby chat and invites (`connect` rich presence), Valve SDK licence for shipping (see `tables.rs`)
 - [ ] **M8.g** Tools: editor network panel, server metrics
 - [x] `examples/net-arena` first version (2026-11-08): a bounded white town (houses, cars, red lasers, invisible walls inside the
   fog), a laser gun with lag-compensated hits, Host / Join menu (address field; localhost), F1 debug panel (latency, jitter, loss,

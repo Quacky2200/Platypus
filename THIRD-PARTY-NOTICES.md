@@ -323,13 +323,13 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
 # Rust crates
 
-The host is built from 473 third-party Rust crates from crates.io: the normal and build dependencies of `platypus_app` for `x86_64-pc-windows-msvc`, as Cargo.lock pins them. Each is listed under its licence with the copyright lines of its licence file (or, where the published crate has no licence file, the authors in its Cargo.toml), and the licence text follows once. A crate offered under a choice of licences (`MIT OR Apache-2.0`) is listed under the one Platypus uses: the first of MIT, Apache-2.0, Apache-2.0 WITH LLVM-exception, BSD-3-Clause, BSD-2-Clause, ISC, Zlib, Unicode-3.0, BSL-1.0, 0BSD, Unlicense, CC0-1.0, MPL-2.0 that it ships a licence file for. A crate under several licences at once (`AND`) is listed under each. Crates that word a licence differently from its usual text have their own text after it.
+The host is built from 476 third-party Rust crates from crates.io: the normal and build dependencies of `platypus_app` for `x86_64-pc-windows-msvc`, as Cargo.lock pins them. Each is listed under its licence with the copyright lines of its licence file (or, where the published crate has no licence file, the authors in its Cargo.toml), and the licence text follows once. A crate offered under a choice of licences (`MIT OR Apache-2.0`) is listed under the one Platypus uses: the first of MIT, Apache-2.0, Apache-2.0 WITH LLVM-exception, BSD-3-Clause, BSD-2-Clause, ISC, Zlib, Unicode-3.0, BSL-1.0, 0BSD, Unlicense, CC0-1.0, MPL-2.0 that it ships a licence file for. A crate under several licences at once (`AND`) is listed under each. Crates that word a licence differently from its usual text have their own text after it.
 
-Licences: MIT (350), Apache-2.0 (20), Apache-2.0 WITH LLVM-exception (21), BSD-3-Clause (10), BSD-2-Clause (1), ISC (4), Zlib (3), Unicode-3.0 (48), BSL-1.0 (2), CC0-1.0 (1), MPL-2.0 (17).
+Licences: MIT (353), Apache-2.0 (20), Apache-2.0 WITH LLVM-exception (21), BSD-3-Clause (10), BSD-2-Clause (1), ISC (4), Zlib (3), Unicode-3.0 (48), BSL-1.0 (2), CC0-1.0 (1), MPL-2.0 (17).
 
 ## MIT
 
-350 crates.
+353 crates.
 
 - `adler2` 2.0.1: <https://github.com/oyvindln/adler2>
   - Authors: Jonas Schievink, oyvindln
@@ -722,6 +722,8 @@ Licences: MIT (350), Apache-2.0 (20), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Copyright (c) 2026 Christian Hansen <chansen@cpan.org>
 - `parley_engine` 0.12.0: <https://github.com/linebender/parley>
   - Copyright 2025 the Parley Authors
+- `paste` 1.0.15: <https://github.com/dtolnay/paste>
+  - Authors: David Tolnay
 - `pastey` 0.2.3: <https://github.com/as1100k/pastey>
   - Authors: Aditya Kumar, David Tolnay
 - `pem` 4.0.0: <https://github.com/jcreekmore/pem-rs.git>
@@ -883,6 +885,10 @@ Licences: MIT (350), Apache-2.0 (20), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Copyright (c) 2017 Robert Grosse
 - `static_assertions` 1.1.0: <https://github.com/nvzqz/static-assertions-rs>
   - Copyright (c) 2017 Nikolai Vazquez
+- `steamworks` 0.13.1: <https://github.com/Noxime/steamworks-rs>
+  - Copyright (c) 2018 Matthew Collins
+- `steamworks-sys` 0.13.0: <https://github.com/Noxime/steamworks-rs>
+  - Published without a licence file; authors: Thinkofname
 - `strict-num` 0.1.1: <https://github.com/RazrFalcon/strict-num>
   - Copyright (c) 2022 Yevhenii Reizner
 - `svgtypes` 0.16.1: <https://github.com/linebender/svgtypes>

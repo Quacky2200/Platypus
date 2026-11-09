@@ -362,6 +362,23 @@ impl Theme {
 pub const TYPE_REPLACED: &str =
     "`type` is replaced by `renderer`; \"app\" = \"gles\", \"game\" = \"vulkan\"";
 
+/// The `steam` section of `project.json`: an object, so more settings can join `appId` later.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SteamConfig {
+    /// `appId`, required: nothing in Steam works without one.
+    pub app_id: u32,
+}
+
+/// An object with a non-zero `appId` turns Steam on. Anything else (`false`, `null`, `true`, an
+/// object without a usable `appId`, a missing key) leaves it off.
+fn steam_config(value: Option<&Value>) -> Option<SteamConfig> {
+    let id = value?.get("appId")?.as_u64()?;
+    u32::try_from(id)
+        .ok()
+        .filter(|id| *id != 0)
+        .map(|app_id| SteamConfig { app_id })
+}
+
 /// A project with every template resolved and the platform section merged.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Project {
@@ -404,6 +421,10 @@ pub struct Project {
     /// Globs removed from what `include` and the inferred patterns matched.
     pub exclude: Option<Vec<String>>,
     pub fps: Option<bool>,
+    /// `steam`: `{ "appId": 123 }` connects to the running Steam client (rich presence,
+    /// achievements, lobbies; the `Steam` namespace). Without an `appId` (or `false` / `null`) the
+    /// game doesn't touch Steam.
+    pub steam: Option<SteamConfig>,
     pub run_in_background: bool,
     /// `videoSettingsPrompt`: ask the player for the display mode, resolution, vsync and quality
     /// once, before the game's window opens (`platypus-build package --video-settings-prompt`
@@ -490,6 +511,7 @@ const KNOWN_KEYS: &[&str] = &[
     "include",
     "exclude",
     "fps",
+    "steam",
     "runInBackground",
     "videoSettingsPrompt",
     "layers",
@@ -1057,6 +1079,9 @@ impl Project {
         if let Some(f) = self.fps {
             m.insert("fps".into(), f.into());
         }
+        if let Some(s) = &self.steam {
+            m.insert("steam".into(), serde_json::json!({ "appId": s.app_id }));
+        }
         if self.run_in_background {
             m.insert("runInBackground".into(), true.into());
         }
@@ -1318,6 +1343,7 @@ fn build(
         include,
         exclude,
         fps: doc.get("fps").and_then(Value::as_bool),
+        steam: steam_config(doc.get("steam")),
         run_in_background: doc
             .get("runInBackground")
             .and_then(Value::as_bool)
@@ -1371,6 +1397,25 @@ mod tests {
 
     fn load_ok(tag: &str, text: &str) -> Project {
         load_text(tag, text, &user(), Platform::Windows).unwrap()
+    }
+
+    // M8-STM-09
+    #[test]
+    fn steam_is_on_only_with_an_app_id() {
+        for (tag, text) in [
+            ("steam_off", r#"{"name":"g"}"#),
+            ("steam_false", r#"{"name":"g","steam":false}"#),
+            ("steam_null", r#"{"name":"g","steam":null}"#),
+            ("steam_true", r#"{"name":"g","steam":true}"#),
+            ("steam_empty", r#"{"name":"g","steam":{}}"#),
+            ("steam_zero", r#"{"name":"g","steam":{"appId":0}}"#),
+            ("steam_text", r#"{"name":"g","steam":{"appId":"400"}}"#),
+        ] {
+            assert_eq!(load_ok(tag, text).steam, None, "{tag}");
+        }
+        let id = load_ok("steam_id", r#"{"name":"g","steam":{"appId":400}}"#);
+        assert_eq!(id.steam, Some(SteamConfig { app_id: 400 }));
+        assert_eq!(id.to_json()["steam"]["appId"], 400);
     }
 
     // M9-API-1300

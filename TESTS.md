@@ -2834,6 +2834,15 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M8-NET-07 | Unit | Session robustness: a connection that never says hello is dropped after the handshake timeout, garbage packets are counted and ignored, and a corrupted hello never takes the server down. |
 | M8-NET-08 | Unit | QUIC (`platypus_net_quic`, real localhost sockets): every channel carries data both ways; reliable messages keep their order and a 3 MiB unordered one arrives whole; an oversize datagram is refused and unknown peers error; certificate fingerprints round-trip through text. |
 | M8-NET-09 | Unit | QUIC trust and close: a client pinning the wrong fingerprint never connects (a `Disconnected` error, no `Connected`); a reliable message sent just before `disconnect` arrives before the close. |
+| M8-STM-01 | Unit | `Steam` with no backend installed: every call is a no-op (`isAvailable` false, achievements and lobbies refuse, lists empty). |
+| M8-STM-02 | Unit | `Steam` app id, user id and rich presence reach the backend. |
+| M8-STM-03 | Unit | Unlocking an achievement stores it, clearing locks it; stats set and read back (unknown stat is 0). |
+| M8-STM-04 | Unit | A created lobby is found by its data filters and joined again by the id string a search gave. |
+| M8-STM-05 | Unit | Joining a closed or unknown lobby ends in status `failed`. |
+| M8-STM-06 | Unit | `platypus_steam`: the placeholder app id is Portal's (400). |
+| M8-STM-07 | Unit | `platypus_steam`: lobby kinds map to Steam's visibility types. |
+| M8-STM-08 | Manual | `platypus_steam` against the running Steam client (`cargo test -p platypus_steam -- --ignored`): connects as the placeholder and reports the app and user. |
+| M8-STM-09 | Unit | `project.json` `steam` is on only as an object with a non-zero numeric `appId`; `false`, `null`, `true`, `{}` and a text id leave it off. |
 | M8-NET-10 | Unit | A `Session` handshakes and exchanges messages in both directions over real QUIC with a pinned certificate. |
 | M8-REP-01 | Unit | Replicated values: every type round-trips; quantised floats are whole steps and make small changes equal (and the wire smaller); bad values (a bad bool byte, an `i32` past its range, truncation) read as `None`. |
 | M8-REP-02 | Unit | The schema hash follows everything that changes the wire (names, types, quantisation, owner-write, order); `check` refuses duplicate classes or fields and more than 64 fields. |

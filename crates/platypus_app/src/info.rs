@@ -40,6 +40,8 @@ pub struct Manifest {
     pub run_in_background: bool,
     /// `platypus.fps`: `false` turns the FPS counter off.
     pub fps: Option<bool>,
+    /// `steam` in `project.json`: connect to the Steam client (`Steam` namespace).
+    pub steam: Option<platypus_core::project::SteamConfig>,
     /// `platypus.videoSettingsPrompt`: ask for the video settings once at startup
     /// (`video_prompt.rs`).
     pub video_settings_prompt: Option<bool>,
@@ -129,6 +131,7 @@ impl Manifest {
             display: p.display,
             run_in_background: p.run_in_background,
             fps: p.fps,
+            steam: p.steam,
             video_settings_prompt: p.video_settings_prompt,
             physical_units,
             srgb_colors,
