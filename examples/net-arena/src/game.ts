@@ -131,6 +131,8 @@ interface View {
   /** The flashlight's pivot, the hand bone it follows, and where its lens is in the world. */
   lastShown?: Vector3;
   speed?: number;
+  deadFor?: number;
+  backAt?: number;
   fall?: number;
   torch?: GameObject;
   hand?: GameObject;
@@ -169,6 +171,7 @@ export class Arena extends Component {
   private yaw = 0;
   private pitch = 8;
   private airTime = 0;
+  private corpse = false;
   private botSeenFor = 0;
   private botCanFire = false;
   private botJitter = 0;
@@ -206,6 +209,7 @@ export class Arena extends Component {
     const args = Application.args;
     this.bot = args.includes("--bot");
     this.verbose = args.includes("--verbose");
+    this.corpse = args.includes("--corpse");
     const at = args.indexOf("--connect");
     if (args.includes("--server")) this.begin("server");
     else if (at >= 0) {
@@ -1010,7 +1014,19 @@ export class Arena extends Component {
   private updateFalls(dt: number) {
     for (const [id, v] of this.views) {
       if (v.kind !== 0 || !v.body) continue;
-      const alive = Network.getBool(id, "alive");
+      // (`--corpse` lays the local figure down for screenshots.)
+      const alive = Network.getBool(id, "alive") && !(this.corpse && v.local);
+      // Others' bodies vanish a little before the respawn and come back only once the move to
+      // the new spot has settled, so nobody can watch where a dead player goes next.
+      if (!v.local) {
+        if (!alive) v.deadFor = (v.deadFor ?? 0) + dt;
+        else if ((v.deadFor ?? 0) > 0) {
+          v.deadFor = 0;
+          v.backAt = Time.time + 0.4;
+        }
+        const hide = (v.deadFor ?? 0) > RESPAWN_SECONDS - 0.8 || Time.time < (v.backAt ?? 0);
+        if (v.go.enabled === hide) v.go.enabled = !hide;
+      }
       const was = v.fall ?? 0;
       const k = alive ? 0 : Math.min(1, was + dt * 2.2);
       if (k === 0 && was === 0) continue;
