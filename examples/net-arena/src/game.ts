@@ -130,6 +130,8 @@ interface ServerPlayer {
   respawnAt: number;
   shieldUntil: number;
   warnAt: number;
+  /** Healing not yet added to `hp` (less than a whole point). */
+  regenCarry: number;
   /**
    * A kinematic capsule the server keeps on the player: it is what shoves the crates and the car
    * (a player is walked by `move.ts`, which knows only the houses, so the props are pushed from
@@ -695,7 +697,7 @@ export class Arena extends Component {
     let p = this.players.get(player);
     if (!p) {
       const net = Network.spawn("Player", "player", player);
-      p = { net, player, name, last: Vector3.zero, lastAt: now, hist: [], lastShot: 0, state: { x: 0, y: 0, z: 0, vy: 0 }, lastSeq: 0, budget: 10, hurtAt: 0, regenAt: now, respawnAt: 0, shieldUntil: 0, warnAt: 0, body: this.makePusher() };
+      p = { net, player, name, last: Vector3.zero, lastAt: now, hist: [], lastShot: 0, state: { x: 0, y: 0, z: 0, vy: 0 }, lastSeq: 0, budget: 10, hurtAt: 0, regenAt: now, respawnAt: 0, shieldUntil: 0, warnAt: 0, regenCarry: 0, body: this.makePusher() };
       this.players.set(player, p);
       Network.setString(net, "name", name);
       Network.setNumber(net, "hp", START_HP);
@@ -812,7 +814,16 @@ export class Arena extends Component {
       // Health creeps back once the player has been left alone for a few seconds.
       const hp = Network.getNumber(p.net, "hp");
       if (hp < START_HP && now - p.hurtAt > REGEN_DELAY) {
-        Network.setNumber(p.net, "hp", Math.min(START_HP, hp + REGEN_RATE * Math.min(0.25, now - p.regenAt)));
+        // Health is a whole number on the wire, and one frame's worth of healing is a tenth of a
+        // point: added to it directly it rounds away every frame and nothing ever heals. The
+        // fractions pile up here and go in as whole points.
+        p.regenCarry += REGEN_RATE * Math.min(0.25, now - p.regenAt);
+        const whole = Math.floor(p.regenCarry);
+        if (whole >= 1) {
+          p.regenCarry -= whole;
+          Network.setNumber(p.net, "hp", Math.min(START_HP, hp + whole));
+          if (this.verbose) console.log(`[net server] ${p.name} healed to ${Math.min(START_HP, hp + whole)}`);
+        }
       }
       p.regenAt = now;
       p.hist.push({ t: now, p: p.last });
@@ -891,6 +902,7 @@ export class Arena extends Component {
     this.send(shooter.net, "beam", [fmt(origin), fmt(to), `b:${victim ? 1 : 0}`].join(SEP));
     if (!victim) return;
     victim.hurtAt = now;
+    victim.regenCarry = 0;
     const hp = Network.getNumber(victim.net, "hp") - SHOT_DAMAGE;
     Network.setNumber(victim.net, "hp", Math.max(0, hp));
     this.send(victim.net, "hurt", `f:${SHOT_DAMAGE}`);
