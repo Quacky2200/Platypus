@@ -36,7 +36,7 @@ const MATERIALS = {
   crate: mat(0.86),
   laser: Material.create({ color: Color.black, emission: new Color(4, 0.12, 0.1, 1), unlit: true }),
   post: mat(0.6),
-  lamp: Material.create({ color: Color.black, emission: new Color(6, 4.6, 3.2, 1), unlit: true }),
+  lamp: Material.create({ color: Color.black, emission: new Color(3.2, 4.6, 7, 1), unlit: true }),
 };
 
 function box(name: string, at: Vector3, size: Vector3, material: Material, parent?: GameObject, collider = false) {
@@ -48,7 +48,7 @@ function box(name: string, at: Vector3, size: Vector3, material: Material, paren
 }
 
 /** A white house `w` wide (x), `d` deep (z), `h` tall, its door towards +z (rotated by `yaw` degrees). */
-function house(at: Vector3, w: number, d: number, h: number, yaw: number) {
+function house(at: Vector3, w: number, d: number, h: number, yaw: number, sign?: Color) {
   const root = new GameObject("House", { position: at, rotation: Quaternion.euler(0, yaw, 0) });
   box("Walls", new Vector3(0, h / 2, 0), new Vector3(w, h, d), MATERIALS.wall, root, true);
   box("Roof", new Vector3(0, h + 0.2, 0), new Vector3(w + 0.6, 0.4, d + 0.6), MATERIALS.roof, root);
@@ -58,6 +58,8 @@ function house(at: Vector3, w: number, d: number, h: number, yaw: number) {
     box("Window", new Vector3(x, h * 0.6, d / 2 + 0.02), new Vector3(1.4, 1.2, 0.08), MATERIALS.glass, root);
   }
   box("Side window", new Vector3(w / 2 + 0.02, h * 0.6, 0), new Vector3(0.08, 1.2, 1.6), MATERIALS.glass, root);
+  // A neon sign over the door.
+  if (sign) neon("Neon sign", new Vector3(0, h - 0.75, d / 2 + 0.08), Math.min(w - 2, 2.8), 0.5, sign, root);
   return root;
 }
 
@@ -104,13 +106,44 @@ export interface Laser {
   phase: number;
 }
 
-/** A street lamp: a slim post with a glowing head and a warm point light. */
+/**
+ * A street light: a post with an arm reaching over the road, a flat head, and a spot light under
+ * it that points straight down and throws a cool blue-white pool on the street.
+ */
 function lamp(at: Vector3) {
-  box("Lamp post", new Vector3(at.x, 1.6, at.z), new Vector3(0.1, 3.2, 0.1), MATERIALS.post);
-  const head = new GameObject("Lamp head", { position: new Vector3(at.x, 3.3, at.z), scale: new Vector3(0.3, 0.2, 0.3) });
-  head.addComponent(MeshRenderer, { mesh: "sphere", material: MATERIALS.lamp }).shadowCastingMode = "off";
-  const light = new GameObject("Lamp light", { position: new Vector3(at.x, 3.1, at.z) });
-  light.addComponent(Light, { type: "point", color: new Color(1, 0.86, 0.66, 1), intensity: 1.7, range: 12 });
+  // The arm reaches towards the street the post stands beside.
+  const alongX = Math.abs(at.x) < Math.abs(at.z);
+  const dx = alongX ? -Math.sign(at.x) : 0;
+  const dz = alongX ? 0 : -Math.sign(at.z);
+  const top = 4.2;
+  const reach = 1.5;
+  box("Lamp post", new Vector3(at.x, top / 2, at.z), new Vector3(0.12, top, 0.12), MATERIALS.post);
+  const end = new Vector3(at.x + dx * reach, top, at.z + dz * reach);
+  box("Lamp arm", new Vector3(at.x + (dx * reach) / 2, top, at.z + (dz * reach) / 2), new Vector3(dx !== 0 ? reach : 0.1, 0.1, dz !== 0 ? reach : 0.1), MATERIALS.post);
+  box("Lamp head", new Vector3(end.x, top - 0.02, end.z), new Vector3(0.7, 0.1, 0.35), MATERIALS.post);
+  const lens = new GameObject("Lamp lens", { position: new Vector3(end.x, top - 0.09, end.z), scale: new Vector3(0.55, 0.03, 0.25) });
+  lens.addComponent(MeshRenderer, { mesh: "cube", material: MATERIALS.lamp }).shadowCastingMode = "off";
+  // A light shines along its -z: turned -90 degrees about x it points down.
+  const light = new GameObject("Lamp light", { position: new Vector3(end.x, top - 0.12, end.z), rotation: Quaternion.euler(-90, 0, 0) });
+  light.addComponent(Light, { type: "spot", color: new Color(0.38, 0.6, 1, 1), intensity: 20, range: 12, spotAngle: 100, innerSpotAngle: 40 });
+}
+
+/** A glowing neon sign: a tube frame round a bar, lit in `color`, with a coloured glow on what is near it. */
+function neon(name: string, at: Vector3, w: number, h: number, color: Color, parent?: GameObject, yaw = 0) {
+  const tube = Material.create({ color: Color.black, emission: new Color(color.r * 5, color.g * 5, color.b * 5, 1), unlit: true });
+  const root = new GameObject(name, { position: at, rotation: Quaternion.euler(0, yaw, 0), parent });
+  const t = 0.06;
+  const bar = (x: number, y: number, sx: number, sy: number) => {
+    const go = new GameObject("Tube", { position: new Vector3(x, y, 0), scale: new Vector3(sx, sy, t), parent: root });
+    go.addComponent(MeshRenderer, { mesh: "cube", material: tube }).shadowCastingMode = "off";
+  };
+  bar(0, h / 2, w, t);
+  bar(0, -h / 2, w, t);
+  bar(-w / 2, 0, t, h);
+  bar(w / 2, 0, t, h);
+  bar(0, 0, w * 0.6, t);
+  const glow = new GameObject("Neon glow", { position: new Vector3(0, 0, 0.5), parent: root });
+  glow.addComponent(Light, { type: "point", color, intensity: 1.6, range: 6 });
 }
 
 /** A red laser across the street between two posts, with a glow. */
@@ -146,12 +179,21 @@ export function buildMap(): MapInfo {
   }
 
   // Houses in the four corners and at the street ends, doors to the street.
-  house(new Vector3(-14, 0, -13), 8, 7, 5.5, 0);
-  house(new Vector3(14, 0, -13), 8, 7, 6.5, 0);
-  house(new Vector3(-14, 0, 13), 8, 7, 6, 180);
-  house(new Vector3(14, 0, 13), 8, 7, 5, 180);
-  house(new Vector3(-26, 0, 0), 6, 8, 5.5, 90);
-  house(new Vector3(26, 0, 0), 6, 8, 6, -90);
+  const PINK = new Color(1, 0.15, 0.6, 1);
+  const CYAN = new Color(0.1, 0.85, 1, 1);
+  const VIOLET = new Color(0.62, 0.3, 1, 1);
+  const RED = new Color(1, 0.1, 0.12, 1);
+  house(new Vector3(-14, 0, -13), 8, 7, 5.5, 0, PINK);
+  house(new Vector3(14, 0, -13), 8, 7, 6.5, 0, CYAN);
+  house(new Vector3(-14, 0, 13), 8, 7, 6, 180, VIOLET);
+  house(new Vector3(14, 0, 13), 8, 7, 5, 180, RED);
+  house(new Vector3(-26, 0, 0), 6, 8, 5.5, 90, CYAN);
+  house(new Vector3(26, 0, 0), 6, 8, 6, -90, PINK);
+  // Blade signs on posts at the cross, readable from along the streets.
+  for (const [x, z, c] of [[-5.2, -5.2, PINK], [5.2, 5.2, CYAN]] as [number, number, Color][]) {
+    box("Sign post", new Vector3(x, 1.7, z), new Vector3(0.1, 3.4, 0.1), MATERIALS.post);
+    neon("Blade sign", new Vector3(x, 3.4, z), 0.5, 1.6, c, undefined, 45);
+  }
 
   // Parked cars (solid), a car and crates you can shove are the server's props.
   car(new Vector3(-8, 0, -4.2), 0, false);
@@ -217,6 +259,8 @@ export function applyLook() {
   RenderSettings.ambientMode = "color";
   RenderSettings.ambientLight = new Color(0.5, 0.52, 0.58, 1);
   RenderSettings.tonemapping = "neutral";
+  // Emission above 1 blooms: the neon tubes, lamp lenses and beams glow.
+  RenderSettings.bloom = { threshold: 1.1, intensity: 0.45, scatter: 0.75 };
   RenderSettings.postExposure = -0.25;
   RenderSettings.fog = true;
   RenderSettings.fogMode = "linear";

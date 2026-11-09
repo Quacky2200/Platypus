@@ -172,6 +172,8 @@ export class Arena extends Component {
   private pitch = 8;
   private airTime = 0;
   private corpse = false;
+  private killLimit = KILL_LIMIT;
+  private botBlockedUntil = 0;
   private botSeenFor = 0;
   private botCanFire = false;
   private botJitter = 0;
@@ -211,6 +213,9 @@ export class Arena extends Component {
     this.verbose = args.includes("--verbose");
     this.corpse = args.includes("--corpse");
     const at = args.indexOf("--connect");
+    // `--kill-limit N` shortens rounds, for testing round changes.
+    const kl = args.indexOf("--kill-limit");
+    if (kl >= 0) this.killLimit = parseFloat(args[kl + 1] ?? "") || KILL_LIMIT;
     if (args.includes("--server")) this.begin("server");
     else if (at >= 0) {
       request.address = args[at + 1] ?? request.address;
@@ -601,7 +606,7 @@ export class Arena extends Component {
       for (const p of alive) {
         if (top === null || Network.getNumber(p.net, "kills") > Network.getNumber(top.net, "kills")) top = p;
       }
-      const won = top !== null && Network.getNumber(top.net, "kills") >= KILL_LIMIT;
+      const won = top !== null && Network.getNumber(top.net, "kills") >= this.killLimit;
       if (won || now >= this.roundEnds || alive.length < 2) {
         Network.setString(this.matchNet, "winner", top ? top.name : "");
         Network.setString(this.matchNet, "state", "roundEnd");
@@ -847,6 +852,12 @@ export class Arena extends Component {
   private onRpc(name: string, args: string[]) {
     if (name === "beam") {
       const from = argVec(args[0]);
+      if (this.bot && args[2] !== "b:1") {
+        // Was it my shot, and did it end short of where I was aiming?
+        const me = this.views.get(this.localId)?.go.transform.position;
+        const len = argVec(args[1]).sub(from).magnitude;
+        if (me && Math.hypot(from.x - me.x, from.z - me.z) < 1.5 && len < this.botDist - 1.5) this.botBlockedUntil = Time.time + 1.5;
+      }
       this.drawBeam(this.muzzleNear(from), argVec(args[1]), args[2] === "b:1");
     }
     else if (name === "feed") hud.feed.push({ text: `${(args[0] ?? "").slice(2)}  >  ${(args[1] ?? "").slice(2)}`, until: Time.time + 6 });
@@ -893,6 +904,9 @@ export class Arena extends Component {
       const wall = Physics.raycast(eye.add(dir.scale(0.6)), dir, Math.max(0.1, dist - 0.6));
       sees = !wall;
     }
+    // The server's own ray is the judge too: a shot of mine that stopped well short of the target
+    // (it hit something solid) means no line of sight, whatever my ray said.
+    if (Time.time < this.botBlockedUntil) sees = false;
     this.botSeenFor = sees ? this.botSeenFor + dt : 0;
     this.botCanFire = this.botSeenFor > BOT_REACTION;
     if (Time.time > this.botJitterAt) {
