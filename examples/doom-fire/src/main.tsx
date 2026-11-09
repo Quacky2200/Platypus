@@ -1,3 +1,6 @@
+// Copyright 2026 The Platypus Authors
+// SPDX-License-Identifier: Apache-2.0
+
 // A port of the Doom fire algorithm by Filipe Deschamps (MIT,
 // https://github.com/filipedeschamps/doom-fire-algorithm), in two versions you switch between with G:
 //

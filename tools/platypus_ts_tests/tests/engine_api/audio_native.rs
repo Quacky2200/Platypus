@@ -68,8 +68,8 @@ fn sounds_play_with_options_and_playbacks_change() {
             [
                 "load sfx/hit.wav false",
                 "load music/theme.ogg true",
-                "bus 1 null 0.5",
-                "bus 2 1 0.25",
+                "bus 1 null 0.5 0",
+                "bus 2 1 0.25 0",
                 // volume, rate, pan, loop, fadeIn, start; on bus 2
                 "play 1 1 2 [0.8,1.5,0.0,true,0.0,0.0]",
                 "set 1 \"volume\" 0.4 0.2",
@@ -125,7 +125,7 @@ fn emitters_move_and_the_listener_is_set() {
         assert_eq!(
             ops(),
             [
-                "emitter 1 [1.0,2.0,3.0] [2.0,20.0] null",
+                "emitter 1 [1.0,2.0,3.0] [2.0,20.0] null 1",
                 "emitterPosition 1 [4.0,5.0,6.0] 0.5",
                 "trackVolume 1 0.5 0.0",
                 "listener [0.0,1.0,0.0] [0.0,0.0,0.0,1.0]",
@@ -144,7 +144,7 @@ fn a_3d_audio_source_plays_from_an_emitter_that_follows_its_object() {
         assert_eq!(o[0], "load sfx/hit.wav false");
         // playOnAwake is not run by addComponent (the scene loader wakes components): play()
         // makes the emitter at the object's world position, with min distance 3.
-        assert_eq!(o[1], "emitter 1 [2.0,0.0,0.0] [3.0,50.0] null");
+        assert_eq!(o[1], "emitter 1 [2.0,0.0,0.0] [3.0,50.0] null 1");
         assert_eq!(o[2], "play 1 1 1 [0.5,1.0,0.0,true,0.0,0.0]");
         // pitch = 2, mute = true change the playback; the one shot plays at gain 0 (muted).
         assert_eq!(o[3], "set 1 \"rate\" 2.0 0.0");
@@ -197,7 +197,7 @@ fn play_clip_at_point_makes_an_emitter_and_removes_it_when_the_sound_ends() {
     in_every_gc_mode(|| unsafe {
         assert_eq!(ts_aud_clipAtPoint(), 1.0);
         let o = ops();
-        assert_eq!(o[1], "emitter 1 [1.0,1.0,1.0] [1.0,50.0] null");
+        assert_eq!(o[1], "emitter 1 [1.0,1.0,1.0] [1.0,50.0] null 1");
         assert_eq!(o[2], "play 1 1 1 [0.5,1.0,0.0,false,0.0,0.0]");
         audio::ended(&[PlaybackRef(1)]);
         assert_eq!(ops(), ["removeTrack 1"]);
@@ -238,7 +238,7 @@ fn scene_files_load_and_save_audio_components_and_play_on_awake() {
     assert!(platypus_scenes::take_warnings().is_empty());
     let o = ops();
     assert_eq!(o[0], "load sfx/hit.wav false");
-    assert_eq!(o[1], "emitter 1 [3.0,0.0,0.0] [2.0,50.0] null");
+    assert_eq!(o[1], "emitter 1 [3.0,0.0,0.0] [2.0,50.0] null 1");
     assert_eq!(o[2], "play 1 1 1 [0.4,1.0,0.0,true,0.0,0.0]");
     assert_eq!(o[3], "listener [3.0,0.0,0.0] [0.0,0.0,0.0,1.0]");
     let saved: serde_json::Value =

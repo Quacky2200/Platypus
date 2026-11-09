@@ -17,6 +17,9 @@ fn manifests() -> Vec<String> {
     all.extend(platypus_acoustics::manifests());
     all.extend(platypus_render_api::manifests());
     all.extend(platypus_components::manifests());
+    // The `Ui` namespace and `UiNode` (the same lists as `platypus_build::manifests`): the editor's
+    // layout reads (`getBoundingClientRect`, `offsetWidth`, ...) call `UiNode.metric`.
+    all.push(web_ui_bridge::manifest_json());
     all
 }
 
@@ -39,6 +42,8 @@ fn run_editor_test(file: &str, prefix: &'static str, struct_base: u32) -> String
             prefix,
             struct_base,
             manifests: &ms,
+            // The bridge's host functions (`UiNode.metric` and the rest), as the host passes them.
+            symbols: web_ui_bridge::symbols(),
             ..Default::default()
         },
     )

@@ -1,3 +1,6 @@
+// Copyright 2026 The Platypus Authors
+// SPDX-License-Identifier: Apache-2.0
+
 //! The game's own Windows identity (AppUserModelID, from `project.json` `identifier`): without it
 //! every game groups under `platypus-app.exe` in the taskbar and a pinned game shows Platypus's
 //! icon. A packaged game also registers its name and icon and keeps a Start-menu shortcut carrying
