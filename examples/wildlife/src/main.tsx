@@ -525,7 +525,6 @@ const mat = (color: string, smoothness = 0.05, metallic = 0) =>
 const GRASS = mat("#5f9444");
 const FAR_GRASS = mat("#436b34");
 const TUFT = mat("#86c25a");
-const TUFT_BARE = mat("#8a8a4a");
 const WATER = mat("#2f78b5", 0.95, 0.2);
 const KERB = mat("#a8a69a", 0.1);
 const ROCK = mat("#7b7f88", 0.1);
@@ -559,10 +558,14 @@ interface View {
   root: GameObject;
   yaw: number;
   phase: number;
+  /** 0 standing, 1 at full stride: eases so legs settle instead of snapping. */
+  stride: number;
+  /** Hip pivots (foxes): swung to walk. */
+  legs: GameObject[];
 }
 
 let views: View[] = [];
-let tufts: { go: GameObject; patch: Patch }[] = [];
+let tufts: { go: GameObject; patch: Patch; shown: number }[] = [];
 let ring: GameObject | null = null;
 let viewsStale = false;
 
@@ -571,6 +574,7 @@ let showStats = false;
 let speedUp = 1;
 let selectedId = 0;
 let follow = false;
+let freeRoam = false;
 
 function buildRabbit(a: Animal): View {
   const root = new GameObject("Rabbit " + a.id, { position: v3(toX(a.x), 0, toZ(a.y)) });
@@ -581,7 +585,7 @@ function buildRabbit(a: Animal): View {
   shape("Ear R", "capsule", v3(0.06, 0.5, 0.2), v3(0.05, 0.13, 0.035), fur, root, Quaternion.euler(0, 0, -10));
   shape("Nose", "sphere", v3(0, 0.29, 0.36), v3(0.05, 0.04, 0.04), PINK, root);
   shape("Tail", "sphere", v3(0, 0.22, -0.25), v3(0.12, 0.12, 0.12), WHITE, root);
-  return { id: a.id, species: "rabbit", root, yaw: rng.float(0, 360), phase: rng.float(0, 6.28) };
+  return { id: a.id, species: "rabbit", root, yaw: rng.float(0, 360), phase: rng.float(0, 6.28), stride: 0, legs: [] };
 }
 
 function buildFox(a: Animal): View {
@@ -595,10 +599,17 @@ function buildFox(a: Animal): View {
   shape("Ear R", "cube", v3(0.08, 0.62, 0.4), v3(0.06, 0.12, 0.03), FOX_DARK, root, Quaternion.euler(0, 0, -12));
   shape("Tail", "capsule", v3(0, 0.38, -0.55), v3(0.13, 0.3, 0.13), FOX_FUR, root, Quaternion.euler(-70, 0, 0));
   shape("Tail tip", "sphere", v3(0, 0.46, -0.84), v3(0.13, 0.13, 0.15), WHITE, root);
+  // Each leg hangs from a hip pivot, so rotating the pivot swings the whole leg. Order: rear left,
+  // front left, rear right, front right.
+  const legs: GameObject[] = [];
   for (const sx of [-0.1, 0.1]) {
-    for (const sz of [-0.2, 0.22]) shape("Leg", "cylinder", v3(sx, 0.14, sz), v3(0.07, 0.14, 0.07), FOX_DARK, root);
+    for (const sz of [-0.2, 0.22]) {
+      const hip = new GameObject("Hip", { position: v3(sx, 0.28, sz), parent: root });
+      shape("Leg", "cylinder", v3(0, -0.14, 0), v3(0.07, 0.14, 0.07), FOX_DARK, hip);
+      legs.push(hip);
+    }
   }
-  return { id: a.id, species: "fox", root, yaw: rng.float(0, 360), phase: 0 };
+  return { id: a.id, species: "fox", root, yaw: rng.float(0, 360), phase: 0, stride: 0, legs };
 }
 
 function buildScene() {
@@ -646,9 +657,12 @@ function buildScene() {
 
 function buildPatches() {
   for (const t of tufts) t.go.destroy();
-  tufts = patches.map((p) => ({
-    go: shape("Grass", "cylinder", v3(toX(p.x), 0.03, toZ(p.y)), v3(1.4, 0.05, 1.4), TUFT),
+  // Each tuft sits a hair higher than the last, so two overlapping full-grown tufts never have
+  // their flat tops at the same height (that flickers: z-fighting).
+  tufts = patches.map((p, i) => ({
+    go: shape("Grass", "cylinder", v3(toX(p.x), 0.03 + i * 0.004, toZ(p.y)), v3(1.4, 0.05, 1.4), TUFT),
     patch: p,
+    shown: p.amount,
   }));
 }
 
@@ -682,9 +696,15 @@ function syncViews(dt: number) {
     if (moving) v.yaw += angleDiff((Math.atan2(a.vx, a.vy) * 180) / Math.PI, v.yaw) * Math.min(1, dt * 10);
     // Rabbits hop (a bounce per hop, higher when running); foxes lope with a small bob.
     let lift = 0;
+    v.stride += ((moving ? 1 : 0) - v.stride) * Math.min(1, dt * 8);
     if (moving) {
-      v.phase += dt * (a.species === "rabbit" ? 6 + speed * 0.1 : 5 + speed * 0.06);
+      v.phase += dt * (a.species === "rabbit" ? 6 + speed * 0.1 : 8 + speed * 0.12);
       lift = a.species === "rabbit" ? Math.abs(Math.sin(v.phase)) * (0.12 + speed * 0.004) : Math.abs(Math.sin(v.phase)) * 0.035;
+    }
+    // Fox legs swing in diagonal pairs (front left with rear right), and ease back to standing.
+    for (let i = 0; i < v.legs.length; i++) {
+      const swing = Math.sin(v.phase) * 38 * v.stride * (i === 1 || i === 2 ? 1 : -1);
+      v.legs[i]!.transform.localRotation = Quaternion.euler(swing, 0, 0);
     }
     const act = a.plan[0];
     const dipping = act === "graze" || act === "drink";
@@ -697,10 +717,12 @@ function syncViews(dt: number) {
     v.root.transform.rotation = Quaternion.euler(pitch, v.yaw, 0);
     v.root.transform.localScale = v3(size, size * (sleeping ? 0.8 : 1), size);
   }
+  // Tufts shrink as they are grazed and swell back as they regrow: the height is the amount,
+  // eased so many small bites don't make it twitch.
   for (const t of tufts) {
-    const k = t.patch.amount;
+    t.shown += (t.patch.amount - t.shown) * Math.min(1, dt * 4);
+    const k = t.shown;
     t.go.transform.localScale = v3(0.9 + 0.7 * k, 0.04 + 0.3 * k, 0.9 + 0.7 * k);
-    t.go.getComponent(MeshRenderer)!.material = k > 0.25 ? TUFT : TUFT_BARE;
   }
   // A ring under the selected animal.
   const sel = animals.find((a) => a.id === selectedId);
@@ -723,8 +745,50 @@ function nextAnimal() {
 class Meadow extends Component {
   private acc = 0;
   private yaw = 0;
+  /** Degrees: the world is right-handed with forward = -z, so a negative pitch looks down. */
+  private pitch = -42;
   private distance = 26;
   private center: Vector3 = new Vector3(0, 0, 0);
+  private free = false;
+  private flyPos: Vector3 = new Vector3(0, 12, 14);
+
+  /** Free-roam: the cursor is locked and the mouse looks (no dragging); WASD flies. */
+  private setFree(on: boolean) {
+    this.free = on;
+    freeRoam = on;
+    Cursor.lockState = on ? "locked" : "none";
+    if (on) {
+      follow = false;
+      const cam = Camera.main;
+      if (cam) this.flyPos = cam.transform.position;
+    }
+  }
+
+  /** The animal nearest the pointer (or the screen centre when the cursor is locked), if one is close enough. */
+  private pick(cam: Camera) {
+    const m = input.mousePosition;
+    const px = this.free ? Screen.width / 2 : m.x;
+    const py = this.free ? Screen.height / 2 : m.y;
+    let best = 1;
+    let hit = 0;
+    for (const a of animals) {
+      const p = cam.worldToScreenPoint(v3(toX(a.x), a.species === "fox" ? 0.35 : 0.25, toZ(a.y)));
+      if (p.z <= 0) continue;
+      const dx = p.x - px;
+      const dy = p.y - py;
+      // Bigger on screen when nearer: a generous click radius that grows as the camera closes in.
+      const radius = (a.species === "fox" ? 1.4 : 1) * (14 + 500 / p.z);
+      const score = Math.sqrt(dx * dx + dy * dy) / radius;
+      if (score < best) {
+        best = score;
+        hit = a.id;
+      }
+    }
+    if (hit !== 0) {
+      selectedId = hit;
+      showStats = true;
+    }
+  }
 
   override onStart() {
     buildScene();
@@ -737,7 +801,9 @@ class Meadow extends Component {
     if (input.getKeyDown("Tab") || input.getKeyDown("KeyI")) showStats = !showStats;
     if (input.getKeyDown("KeyT")) speedUp = speedUp >= 4 ? 1 : speedUp * 2;
     if (input.getKeyDown("KeyN")) nextAnimal();
-    if (input.getKeyDown("KeyF")) follow = !follow;
+    if (input.getKeyDown("KeyF") && !this.free) follow = !follow;
+    if (input.getKeyDown("KeyC")) this.setFree(!this.free);
+    if (this.free && input.getKeyDown("Escape")) this.setFree(false);
     if (input.getKeyDown("KeyR")) {
       reset();
       selectedId = (animals.find((a) => a.species === "fox") ?? animals[0]!).id;
@@ -755,19 +821,38 @@ class Meadow extends Component {
     syncViews(dt);
     if (animals.find((a) => a.id === selectedId) === undefined) nextAnimal();
 
-    // Orbit with A / D (or the arrows), zoom with W / S.
+    const cam = Camera.main;
+    if (!cam) return;
+    if (input.getMouseButtonDown(0)) this.pick(cam);
+
+    if (this.free) {
+      // Free-roam. Mouse right turns right (yaw falls), mouse up looks up (pitch rises); W flies along
+      // the view (-z at yaw 0), A / D strafe, E / Space up, Q down, Shift faster.
+      const look = input.mouseDelta;
+      this.yaw -= look.x * 0.12;
+      this.pitch = Math.min(85, Math.max(-85, this.pitch - look.y * 0.12));
+      const view = Quaternion.euler(this.pitch, this.yaw, 0);
+      const right = Quaternion.euler(0, this.yaw, 0).rotate(Vector3.right);
+      let move = view.rotate(Vector3.forward).scale(input.getAxisRaw("Vertical")).add(right.scale(input.getAxisRaw("Horizontal")));
+      if (input.getKey("KeyE") || input.getKey("Space")) move = move.add(Vector3.up);
+      if (input.getKey("KeyQ")) move = move.sub(Vector3.up);
+      const fast = input.getKey("ShiftLeft") ? 3 : 1;
+      const next = this.flyPos.add(move.scale(9 * fast * dt));
+      this.flyPos = v3(next.x, Math.max(0.4, next.y), next.z);
+      cam.transform.position = this.flyPos;
+      cam.transform.rotation = view;
+      return;
+    }
+
+    // Orbit with A / D (or the arrows), zoom with W / S or the wheel.
     this.yaw += input.getAxisRaw("Horizontal") * 70 * dt;
-    this.distance = Math.min(42, Math.max(6, this.distance - input.getAxisRaw("Vertical") * 14 * dt));
+    this.distance = Math.min(42, Math.max(6, this.distance - input.getAxisRaw("Vertical") * 14 * dt - input.mouseScrollDelta.y * 1.5));
     const sel = animals.find((a) => a.id === selectedId);
     const want = follow && sel !== undefined ? v3(toX(sel.x), 0.3, toZ(sel.y)) : v3(0, 0, 0);
     this.center = this.center.add(want.sub(this.center).scale(Math.min(1, dt * 3)));
-    // Forward is -z and a negative pitch looks down.
-    const dir = Quaternion.euler(follow ? -32 : -42, this.yaw, 0).rotate(Vector3.forward);
-    const cam = Camera.main;
-    if (cam) {
-      cam.transform.position = this.center.sub(dir.scale(follow ? this.distance * 0.45 : this.distance));
-      cam.transform.lookAt(this.center);
-    }
+    const dir = Quaternion.euler(follow ? this.pitch + 10 : this.pitch, this.yaw, 0).rotate(Vector3.forward);
+    cam.transform.position = this.center.sub(dir.scale(follow ? this.distance * 0.45 : this.distance));
+    cam.transform.lookAt(this.center);
   }
 }
 
@@ -811,8 +896,18 @@ function Hud() {
         <text style={{ color: "#e8eefc", fontSize: 16, fontWeight: 700 }}>
           {rabbits} rabbits · {foxes} foxes · {Math.floor(clock)}s{speedUp > 1 ? " · x" + speedUp : ""}
         </text>
-        <text style={{ color: "#9fb0cc", fontSize: 12 }}>Tab stats · N next animal · F follow · T speed · R restart · A/D orbit · W/S zoom</text>
+        <text style={{ color: "#9fb0cc", fontSize: 12 }}>
+          {freeRoam
+            ? "Free-roam: mouse look · WASD fly · Q/E down/up · Shift fast · click selects · C or Esc to leave"
+            : "Click an animal · Tab stats · C free-roam · N next · F follow · T speed · R restart · A/D orbit · W/S wheel zoom"}
+        </text>
       </box>
+      {freeRoam && (
+        <box style={{ position: "absolute", left: "50%", top: "50%", width: 14, height: 14, marginLeft: -7, marginTop: -7 }}>
+          <box style={{ position: "absolute", left: 6, top: 0, width: 2, height: 14, backgroundColor: "rgba(255,255,255,0.8)" }} />
+          <box style={{ position: "absolute", left: 0, top: 6, width: 14, height: 2, backgroundColor: "rgba(255,255,255,0.8)" }} />
+        </box>
+      )}
       {showStats && (
         <box style={{ ...chip, alignSelf: "flex-start", width: 320, gap: 6 }}>
           <text style={{ color: "#e8eefc", fontSize: 18, fontWeight: 800 }}>Wildlife</text>

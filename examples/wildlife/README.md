@@ -20,12 +20,16 @@ A small 3D ecosystem of rabbits and foxes on a meadow with a pond and rocks, eac
 
 | Key | |
 |---|---|
+| Click an animal | Select it (a white ring marks it) and open the stats |
 | Tab (or I) | Stats overlay: the selected animal's needs, goal and plan, births and deaths, the event log |
-| N | Select the next animal (a white ring marks it) |
+| N | Select the next animal |
 | F | Camera follows the selected animal |
-| A / D (or arrows) | Orbit; W / S zoom |
+| A / D (or arrows) | Orbit; W / S or the wheel zoom |
+| C | Free-roam: the cursor locks and the mouse looks (no dragging); W/A/S/D fly along the view, E or Space up, Q down, Shift faster; clicking selects the animal under the crosshair; C or Esc leaves |
 | T | Simulation speed x1, x2, x4 |
 | R | Restart |
+
+Foxes walk with their legs swinging in diagonal pairs; rabbits hop. The grass tufts shrink as they are grazed.
 
 The game logs births, kills and deaths, and a status line every 10 simulated seconds, to `Player.log`.
 
