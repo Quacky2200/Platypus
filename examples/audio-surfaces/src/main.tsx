@@ -22,6 +22,8 @@ const TOOLS: { name: ToolName; label: string; key: string; body: number; strike:
   { name: "flowers", label: "Flowers", key: "4", body: 0.07, strike: 0.6, pitch: 1.0 },
 ];
 const VARIANTS = 3;
+/** The hand at rest: the tool tilted a little forward and in. */
+const REST = Quaternion.euler(-20, 0, -8);
 
 const SURFACES: { name: string; label: string; color: string }[] = [
   { name: "metal", label: "Steel", color: "#9aa7b8" },
@@ -39,7 +41,7 @@ let lastAt = -10;
 
 /** What the ray from the eye hits: the point, and the surface name of the thing there. */
 function strikeAt(origin: Vector3, direction: Vector3): { point: Vector3; surface: string } | null {
-  const hit = Physics.raycast(origin, direction, 2.8);
+  const hit = Physics.raycast(origin, direction, 3.2);
   if (!hit) return null;
   const go = hit.collider.gameObject;
   const tag = go ? go.getComponent(AudioSurface) : null;
@@ -119,14 +121,14 @@ class Player extends Component {
       const s = this.swing;
       // Up to -35 degrees, then down through 0 to +30 as it strikes, back to rest.
       const angle = s < 0.35 ? -35 * (s / 0.35) : s < 0.55 ? -35 + 65 * ((s - 0.35) / 0.2) : 30 * (1 - Math.min(1, (s - 0.55) / 0.45));
-      this.hand.transform.localRotation = Quaternion.euler(angle, 0, 0);
+      this.hand.transform.localRotation = Quaternion.euler(angle - 20, 0, -8);
       if (s >= 0.55 && !this.struck) {
         this.struck = true;
         this.strike(eye, look);
       }
       if (s >= 1) {
         this.swing = -1;
-        this.hand.transform.localRotation = Quaternion.euler(0, 0, 0);
+        this.hand.transform.localRotation = REST;
       }
     }
   }
@@ -166,6 +168,7 @@ function block(name: string, position: Vector3, scale: Vector3, color: string, s
 /** A held tool made of primitives, in the hand's space (it holds the near end). */
 function makeTool(hand: GameObject, name: ToolName): GameObject {
   const g = new GameObject(`${name} model`, { parent: hand });
+  g.transform.localScale = Vector3.one.scale(0.55);
   const part = (kind: "cube" | "sphere" | "cylinder", p: Vector3, s: Vector3, color: string, rot?: Quaternion) => {
     const o = GameObject.createPrimitive(kind, { parent: g, position: p, scale: s });
     o.getComponent(MeshRenderer)!.material = new Material(Color.hex(color), Color.black, 0.5);
@@ -215,13 +218,14 @@ class SurfacesWorld extends Component {
     block("Wooden bench", new Vector3(6.5, 0.3, 1), new Vector3(2.0, 0.6, 0.6), "#7a4f2a", "wood");
     block("Stone wall", new Vector3(0, 0.4, 7), new Vector3(5.0, 0.8, 0.5), "#7d7e82", "stone");
 
-    const p = new GameObject("Player", { position: new Vector3(0, 0.95, 4) });
+    const p = new GameObject("Player", { position: new Vector3(0, 0.95, -1.4) });
     p.addComponent(CharacterController, { radius: 0.3, height: 1.8, stepOffset: 0.4 });
     const eyes = new GameObject("Eyes", { parent: p, position: new Vector3(0, 0.7, 0) });
     eyes.addComponent(Camera, { fieldOfView: 70, backgroundColor: Color.hex("#a9d0f0"), nearClipPlane: 0.05 });
     eyes.addComponent(AudioListener);
     // The hand: the tool rises from the lower right, tip up, and swings down at what you look at.
-    const hand = new GameObject("Hand", { parent: eyes, position: new Vector3(0.35, -0.32, -0.55) });
+    const hand = new GameObject("Hand", { parent: eyes, position: new Vector3(0.32, -0.3, -0.6) });
+    hand.transform.localRotation = REST;
     const pl = p.addComponent(Player);
     pl.cam = eyes;
     pl.hand = hand;
