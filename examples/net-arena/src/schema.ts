@@ -12,6 +12,9 @@ export const SPRINT = 8;
 export const MAX_SPEED = SPRINT * 1.6;
 export const START_HP = 100;
 export const SHOT_DAMAGE = 34;
+/** Health comes back slowly: after REGEN_DELAY seconds unhurt, REGEN_RATE points a second. */
+export const REGEN_DELAY = 4;
+export const REGEN_RATE = 6;
 export const KILL_LIMIT = 10;
 export const ROUND_SECONDS = 180;
 export const RESPAWN_SECONDS = 3;

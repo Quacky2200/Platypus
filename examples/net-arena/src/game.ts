@@ -11,10 +11,10 @@
 // rewinding the players it tests to where the shooter saw them (lag compensation). Other
 // players and props are drawn from the interpolated replicated state.
 
-import { HALF, WHITE, applyLook, buildMap, makeProp, setFog, updateLasers } from "./map";
+import { BOUND, WHITE, applyLook, buildMap, makeProp, setFog, updateLasers } from "./map";
 import type { Laser, MapInfo } from "./map";
 import {
-  KILL_LIMIT, MAX_REWIND, MAX_SPEED, RESPAWN_SECONDS, ROUND_SECONDS, SHIELD_SECONDS, SHOT_DAMAGE, SPRINT,
+  KILL_LIMIT, MAX_REWIND, MAX_SPEED, REGEN_DELAY, REGEN_RATE, RESPAWN_SECONDS, ROUND_SECONDS, SHIELD_SECONDS, SHOT_DAMAGE, SPRINT,
   START_HP, TICK_RATE, WALK, defineNetwork,
 } from "./schema";
 
@@ -111,6 +111,9 @@ interface ServerPlayer {
   lastAt: number;
   hist: History[];
   lastShot: number;
+  /** When it was last hit: health regenerates REGEN_DELAY after this. */
+  hurtAt: number;
+  regenAt: number;
   respawnAt: number;
   shieldUntil: number;
   warnAt: number;
@@ -318,7 +321,7 @@ export class Arena extends Component {
       if (Time.time < b.until) {
         // Quick fade: the lights die first, the core lingers a frame or two longer.
         const k = 1 - (Time.time - b.start) / (b.until - b.start);
-        for (const l of b.lights) l.light.intensity = l.peak * k * k;
+        for (const l of b.lights) l.light.intensity = l.peak * k * k * k;
         return true;
       }
       for (const g of b.gos) g.destroy();
@@ -352,7 +355,7 @@ export class Arena extends Component {
     const burst = new GameObject("BeamBurst", { position: to, scale: new Vector3(hit ? 0.5 : 0.24, hit ? 0.5 : 0.24, hit ? 0.5 : 0.24) });
     burst.addComponent(MeshRenderer, { mesh: "sphere", material: beamMaterial() }).shadowCastingMode = "off";
     const start = Time.time;
-    this.beams.push({ gos: [root, burst], lights, start, until: start + 0.2 });
+    this.beams.push({ gos: [root, burst], lights, start, until: start + 0.09 });
   }
 
   // ===================================================================================== server
@@ -425,7 +428,7 @@ export class Arena extends Component {
     let p = this.players.get(player);
     if (!p) {
       const net = Network.spawn("Player", "player", player);
-      p = { net, player, name, last: Vector3.zero, lastAt: now, hist: [], lastShot: 0, respawnAt: 0, shieldUntil: 0, warnAt: 0 };
+      p = { net, player, name, last: Vector3.zero, lastAt: now, hist: [], lastShot: 0, hurtAt: 0, regenAt: now, respawnAt: 0, shieldUntil: 0, warnAt: 0 };
       this.players.set(player, p);
       Network.setString(net, "name", name);
       Network.setNumber(net, "hp", START_HP);
@@ -477,7 +480,7 @@ export class Arena extends Component {
     if (alive) {
       const moved = pos.sub(p.last).magnitude;
       const allowed = MAX_SPEED * Math.max(0.05, now - p.lastAt) + 0.8;
-      const outside = Math.abs(pos.x) > HALF + 1 || Math.abs(pos.z) > HALF + 1;
+      const outside = Math.abs(pos.x) > BOUND + 1 || Math.abs(pos.z) > BOUND + 1;
       if (moved > allowed || outside) {
         // Too fast, or through a wall: put the player back (not more than four times a second).
         if (now >= p.warnAt) {
@@ -488,6 +491,12 @@ export class Arena extends Component {
         p.last = pos;
         p.lastAt = now;
       }
+      // Health creeps back once the player has been left alone for a few seconds.
+      const hp = Network.getNumber(p.net, "hp");
+      if (hp < START_HP && now - p.hurtAt > REGEN_DELAY) {
+        Network.setNumber(p.net, "hp", Math.min(START_HP, hp + REGEN_RATE * Math.min(0.25, now - p.regenAt)));
+      }
+      p.regenAt = now;
       p.hist.push({ t: now, p: p.last });
       while (p.hist.length > 0 && now - p.hist[0]!.t > 1) p.hist.shift();
     } else if (p.respawnAt > 0 && now >= p.respawnAt && this.matchRunning()) {
@@ -559,6 +568,7 @@ export class Arena extends Component {
     }
     Network.rpc(shooter.net, "beam", [fmt(origin), fmt(to), `b:${victim ? 1 : 0}`].join(SEP));
     if (!victim) return;
+    victim.hurtAt = now;
     const hp = Network.getNumber(victim.net, "hp") - SHOT_DAMAGE;
     Network.setNumber(victim.net, "hp", Math.max(0, hp));
     Network.rpc(victim.net, "hurt", `f:${SHOT_DAMAGE}`);

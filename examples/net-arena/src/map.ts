@@ -7,8 +7,10 @@
 // it (colliders matter on both: clients predict their own movement); only the server simulates the
 // dynamic props.
 
-/** Half the playable square, metres. The invisible walls stand here. */
+/** Half the town's square, metres: where the streets and the outermost houses end. */
 export const HALF = 30;
+/** Where the invisible walls stand: well clear of the houses (the outer ones end at HALF). */
+export const BOUND = HALF + 8;
 /** Fog: clear around the player, solid before the walls. */
 // Close, Tomb Raider style: the street fades into white a few strides away, so every
 // house and car looms out of the mist.
@@ -34,6 +36,7 @@ const MATERIALS = {
   crate: mat(0.86),
   laser: Material.create({ color: Color.black, emission: new Color(4, 0.12, 0.1, 1), unlit: true }),
   post: mat(0.6),
+  lamp: Material.create({ color: Color.black, emission: new Color(6, 4.6, 3.2, 1), unlit: true }),
 };
 
 function box(name: string, at: Vector3, size: Vector3, material: Material, parent?: GameObject, collider = false) {
@@ -101,6 +104,15 @@ export interface Laser {
   phase: number;
 }
 
+/** A street lamp: a slim post with a glowing head and a warm point light. */
+function lamp(at: Vector3) {
+  box("Lamp post", new Vector3(at.x, 1.6, at.z), new Vector3(0.1, 3.2, 0.1), MATERIALS.post);
+  const head = new GameObject("Lamp head", { position: new Vector3(at.x, 3.3, at.z), scale: new Vector3(0.3, 0.2, 0.3) });
+  head.addComponent(MeshRenderer, { mesh: "sphere", material: MATERIALS.lamp }).shadowCastingMode = "off";
+  const light = new GameObject("Lamp light", { position: new Vector3(at.x, 3.1, at.z) });
+  light.addComponent(Light, { type: "point", color: new Color(1, 0.86, 0.66, 1), intensity: 1.7, range: 12 });
+}
+
 /** A red laser across the street between two posts, with a glow. */
 function laser(a: Vector3, b: Vector3, lasers: Laser[]) {
   const mid = a.add(b).scale(0.5);
@@ -152,10 +164,20 @@ export function buildMap(): MapInfo {
     const go = new GameObject("Boundary", { position: new Vector3(x, 3, z), scale: new Vector3(sx, 6, sz) });
     go.addComponent(BoxCollider);
   };
-  wall(0, HALF + 1, HALF * 2 + 4, 2);
-  wall(0, -HALF - 1, HALF * 2 + 4, 2);
-  wall(HALF + 1, 0, 2, HALF * 2 + 4);
-  wall(-HALF - 1, 0, 2, HALF * 2 + 4);
+  wall(0, BOUND + 1, BOUND * 2 + 4, 2);
+  wall(0, -BOUND - 1, BOUND * 2 + 4, 2);
+  wall(BOUND + 1, 0, 2, BOUND * 2 + 4);
+  wall(-BOUND - 1, 0, 2, BOUND * 2 + 4);
+
+  // Street lamps: soft warm pools of light on the white pavement, glowing through the mist.
+  lamp(new Vector3(-16, 0, 4.4));
+  lamp(new Vector3(16, 0, -4.4));
+  lamp(new Vector3(4.4, 0, 12));
+  lamp(new Vector3(-4.4, 0, -12));
+  lamp(new Vector3(-4.4, 0, 24));
+  lamp(new Vector3(4.4, 0, -24));
+  lamp(new Vector3(-24, 0, -4.4));
+  lamp(new Vector3(24, 0, 4.4));
 
   // Lasers across the streets and between the houses, low and high.
   laser(new Vector3(-6, 0.9, -3.4), new Vector3(-6, 0.9, 3.4), lasers);
@@ -193,7 +215,7 @@ export function setFog(watching: boolean) {
 export function applyLook() {
   QualitySettings.shadowDistance = 40;
   RenderSettings.ambientMode = "color";
-  RenderSettings.ambientLight = new Color(0.42, 0.44, 0.48, 1);
+  RenderSettings.ambientLight = new Color(0.5, 0.52, 0.58, 1);
   RenderSettings.tonemapping = "neutral";
   RenderSettings.postExposure = -0.25;
   RenderSettings.fog = true;
