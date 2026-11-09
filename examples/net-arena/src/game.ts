@@ -235,7 +235,9 @@ export class Arena extends Component {
     updateLasers(this.lasers, Time.time - this.t0);
     hud.showScores = input.getKey("Tab");
     if (input.getKeyDown("F1")) hud.debug = !hud.debug;
-    if (input.getKeyDown("Escape")) this.pointerFree = !this.pointerFree;
+    // Esc frees the pointer (menus, the debug panel); a click on the game takes it again.
+    if (this.pointerFree && input.getMouseButtonDown(0) && this.mode === "client" && !hud.debug) this.pointerFree = false;
+    else if (input.getKeyDown("Escape")) this.pointerFree = true;
     // Mouse look needs the pointer locked while playing; menus, the debug panel and Esc free it.
     const lock = this.mode === "client" && this.localId !== 0 && !hud.debug && !this.pointerFree;
     if (lock !== this.pointerLocked) {
@@ -264,7 +266,9 @@ export class Arena extends Component {
       this.lastLog = Time.time;
       const kills = hud.rows.map((r) => `${r.name}:${r.kills}/${r.deaths}@${r.ping}`).join(" ");
       const an = this.views.get(this.localId)?.animator;
-      if (an && this.verbose) console.log(`[net anim] state=${an.currentStateName} t=${an.currentNormalizedTime.toFixed(2)} speed=${an.getFloat("speed").toFixed(2)} air=${an.getBool("air")} enabled=${an.enabled}`);
+      if (this.mode === "client") {
+        console.log(`[net view] anim=${an ? `${an.currentStateName} t=${an.currentNormalizedTime.toFixed(2)} speed=${an.getFloat("speed").toFixed(2)} air=${an.getBool("air")}` : "none"} lock=${this.pointerLocked} free=${this.pointerFree} cursor=${Cursor.lockState}`);
+      }
       console.log(`[net ${this.mode}] ${hud.status} players=${hud.rows.length} match=${hud.match} rtt=${Math.round(hud.rtt)} refused=${hud.dropped} ${kills}`);
     }
     if (Time.time >= this.nextHud) {
