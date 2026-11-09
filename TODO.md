@@ -2151,7 +2151,7 @@ Design: `docs/research/multiplayer.md` (Fusion / Fish-Net / Lightyear inspired, 
 ## M10 — Optional extras
 
 - [ ] OpenXR: Quest VR, PC VR
-- [ ] Steam Audio spatial sound
+- [x] ~~Steam Audio spatial sound~~ dropped: the engine's own spatial / advanced audio (zones, occlusion, portals, directivity; see "Spatial audio") covers it
 - [ ] Ray tracing tier
 - [ ] Video: a `VideoClip` asset and `VideoPlayer` component (to a texture, UI or a plane)
 
