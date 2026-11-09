@@ -207,6 +207,8 @@ export class Arena extends Component {
   // Prediction: the local player is walked by `move.ts` at once; the inputs the server has not
   // confirmed yet are kept (with the state each led to) and replayed when the server disagrees.
   private pred: MoveState | null = null;
+  /** The state before the last step: the figure is drawn between it and `pred`, so it moves smoothly. */
+  private prevPred: MoveState | null = null;
   private seq = 0;
   private acc = 0;
   private lastAck = 0;
@@ -1143,6 +1145,7 @@ export class Arena extends Component {
   /** Starts predicting from `at`, forgetting the inputs the server has not answered. */
   private resetPrediction(at: Vector3) {
     this.pred = { x: at.x, y: at.y, z: at.z, vy: 0 };
+    this.prevPred = null;
     this.pending = [];
     this.errOffset = new Vector3(0, 0, 0);
     this.acc = 0;
@@ -1178,6 +1181,8 @@ export class Arena extends Component {
     // A big miss is a teleport, not something to ease.
     this.errOffset = err > 2.5 ? new Vector3(0, 0, 0) : this.errOffset.add(new Vector3(pred.x - s.x, pred.y - s.y, pred.z - s.z));
     this.pred = s;
+    // The pop is eased by `errOffset`; drawing between old and new state would add a second jump.
+    this.prevPred = copyState(s);
     this.corrections++;
     if (this.verbose) console.log(`[net client] corrected ${err.toFixed(3)} m at input ${ack}, replaying ${this.pending.length}`);
   }
@@ -1246,6 +1251,7 @@ export class Arena extends Component {
       this.seq++;
       const inp = makeInput(this.seq, moving ? dir.x : 0, moving ? dir.z : 0, sprint, this.jumpLatch);
       this.jumpLatch = false;
+      this.prevPred = copyState(this.pred);
       this.pred = step(this.pred, inp);
       // `--desync`: now and then the client "mispredicts" by a few steps, to see it corrected.
       if (this.desync && this.seq % 90 === 0) this.pred.x += 0.6;
@@ -1264,7 +1270,16 @@ export class Arena extends Component {
     const p = this.pred;
     if (!p) return;
     this.errOffset = this.errOffset.scale(Math.max(0, 1 - 10 * dt));
-    const after = new Vector3(p.x + this.errOffset.x, p.y + this.errOffset.y, p.z + this.errOffset.z);
+    // The simulation steps 30 times a second and frames come faster: drawn straight, the figure
+    // (and the camera on it) would move in steps and judder. It is drawn between the last two
+    // states, by how far into the current step the clock is (a step's delay, no jerk).
+    const from = this.prevPred ?? p;
+    const k = clamp(this.acc / STEP, 0, 1);
+    const after = new Vector3(
+      from.x + (p.x - from.x) * k + this.errOffset.x,
+      from.y + (p.y - from.y) * k + this.errOffset.y,
+      from.z + (p.z - from.z) * k + this.errOffset.z,
+    );
     view.go.transform.position = after;
     // The speed is how far the figure went since the last frame, smoothed so the blend does not flicker.
     const last = this.prevPos ?? after;
