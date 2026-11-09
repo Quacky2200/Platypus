@@ -103,6 +103,11 @@ const NO_FILE: Rule = Rule::NoLicenceFile;
 /// with the authors from `Cargo.toml`.
 const ALLOW: &[Allow] = &[
     Allow {
+        krate: "asn1-rs-impl",
+        rule: NO_FILE,
+        reason: "rusticata/asn1-rs: MIT/Apache-2.0 in Cargo.toml (a proc macro, reviewed 2026-11-09)",
+    },
+    Allow {
         krate: "clipboard-win",
         rule: NO_FILE,
         reason: "BSL-1.0 (Boost) in Cargo.toml; the standard Boost text applies",
@@ -246,6 +251,23 @@ const NESTED: &[Nested] = &[
         krate: "regex-syntax",
         path: "src/unicode_tables/LICENSE-UNICODE",
         what: NestedUse::Include("The Unicode data tables regex-syntax is generated from"),
+    },
+    Nested {
+        krate: "ring",
+        path: "src/polyfill/once_cell/LICENSE-APACHE",
+        what: NestedUse::Skip(
+            "once_cell's Apache-2.0 text, printed once with the other Apache-2.0 crates",
+        ),
+    },
+    Nested {
+        krate: "ring",
+        path: "src/polyfill/once_cell/LICENSE-MIT",
+        what: NestedUse::Include("once_cell, the lazy-init code ring includes"),
+    },
+    Nested {
+        krate: "ring",
+        path: "third_party/fiat/LICENSE",
+        what: NestedUse::Include("fiat-crypto, the field arithmetic ring compiles in (Apache-2.0)"),
     },
     Nested {
         krate: "tracing-core",

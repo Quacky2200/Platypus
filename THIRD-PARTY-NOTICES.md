@@ -323,13 +323,13 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
 # Rust crates
 
-The host is built from 431 third-party Rust crates from crates.io: the normal and build dependencies of `platypus_app` for `x86_64-pc-windows-msvc`, as Cargo.lock pins them. Each is listed under its licence with the copyright lines of its licence file (or, where the published crate has no licence file, the authors in its Cargo.toml), and the licence text follows once. A crate offered under a choice of licences (`MIT OR Apache-2.0`) is listed under the one Platypus uses: the first of MIT, Apache-2.0, Apache-2.0 WITH LLVM-exception, BSD-3-Clause, BSD-2-Clause, ISC, Zlib, Unicode-3.0, BSL-1.0, 0BSD, Unlicense, CC0-1.0, MPL-2.0 that it ships a licence file for. A crate under several licences at once (`AND`) is listed under each. Crates that word a licence differently from its usual text have their own text after it.
+The host is built from 470 third-party Rust crates from crates.io: the normal and build dependencies of `platypus_app` for `x86_64-pc-windows-msvc`, as Cargo.lock pins them. Each is listed under its licence with the copyright lines of its licence file (or, where the published crate has no licence file, the authors in its Cargo.toml), and the licence text follows once. A crate offered under a choice of licences (`MIT OR Apache-2.0`) is listed under the one Platypus uses: the first of MIT, Apache-2.0, Apache-2.0 WITH LLVM-exception, BSD-3-Clause, BSD-2-Clause, ISC, Zlib, Unicode-3.0, BSL-1.0, 0BSD, Unlicense, CC0-1.0, MPL-2.0 that it ships a licence file for. A crate under several licences at once (`AND`) is listed under each. Crates that word a licence differently from its usual text have their own text after it.
 
-Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3-Clause (9), BSD-2-Clause (1), ISC (1), Zlib (3), Unicode-3.0 (48), BSL-1.0 (2), CC0-1.0 (1), MPL-2.0 (17).
+Licences: MIT (347), Apache-2.0 (20), Apache-2.0 WITH LLVM-exception (21), BSD-3-Clause (10), BSD-2-Clause (1), ISC (4), Zlib (3), Unicode-3.0 (48), BSL-1.0 (2), CC0-1.0 (1), MPL-2.0 (17).
 
 ## MIT
 
-312 crates.
+347 crates.
 
 - `adler2` 2.0.1: <https://github.com/oyvindln/adler2>
   - Authors: Jonas Schievink, oyvindln
@@ -347,6 +347,12 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Copyright (c) Ulrik Sverdrup "bluss" 2015-2023
 - `ash` 0.38.0+1.3.281: <https://github.com/ash-rs/ash>
   - Copyright (c) 2016 ASH
+- `asn1-rs` 0.7.2: <https://github.com/rusticata/asn1-rs.git>
+  - Copyright (c) 2017 Pierre Chifflier
+- `asn1-rs-derive` 0.6.0: <https://github.com/rusticata/asn1-rs.git>
+  - Copyright (c) 2017 Pierre Chifflier
+- `asn1-rs-impl` 0.2.0: <https://github.com/rusticata/asn1-rs.git>
+  - Published without a licence file; authors: Pierre Chifflier
 - `atomic-arena` 0.1.2: <https://github.com/tesselode/atomic-arena>
   - Copyright 2021 Andrew Minnich
 - `autocfg` 1.5.1: <https://github.com/cuviper/autocfg>
@@ -385,6 +391,8 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Copyright (c) 2014 Alex Crichton
 - `cfg_aliases` 0.2.2: <https://github.com/katharostech/cfg_aliases>
   - Copyright (c) 2020 Katharos Technology
+- `chacha20` 0.10.2: <https://github.com/RustCrypto/stream-ciphers>
+  - Copyright (c) 2019-2026 The RustCrypto Project Developers
 - `color` 0.3.3: <https://github.com/linebender/color>
 - `compact_str` 0.10.0: <https://github.com/ParkMyCar/compact_str>
   - Copyright (c) 2021 Parker Timmerman
@@ -394,6 +402,8 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Authors: Amanieu d'Antras
 - `cow-utils` 0.1.3: <https://github.com/RReverser/cow-utils-rs>
   - Copyright (c) 2020 Ingvar Stepanyan
+- `cpufeatures` 0.3.1: <https://github.com/RustCrypto/utils>
+  - Copyright (c) 2020-2026 The RustCrypto Project Developers
 - `crc32fast` 1.5.3: <https://github.com/srijs/rust-crc32fast>
   - Copyright (c) 2018 Sam Rijs, Alex Crichton and contributors
 - `crossbeam-channel` 0.5.17: <https://github.com/crossbeam-rs/crossbeam>
@@ -408,6 +418,9 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Copyright (c) 2023 Kirill Chibisov
 - `dasp_sample` 0.11.0: <https://github.com/rustaudio/sample.git>
   - Published without a licence file; authors: mitchmindtree
+- `data-encoding` 2.11.1: <https://github.com/ia0/data-encoding>
+  - Copyright (c) 2015-2020 Julien Cretin
+  - Copyright (c) 2017-2020 Google Inc.
 - `data-url` 0.3.2: <https://github.com/servo/rust-url>
   - Copyright (c) 2013-2025 The rust-url developers
 - `defmt` 1.2.0: <https://github.com/knurling-rs/defmt>
@@ -416,6 +429,10 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Copyright (c) Ferrous Systems
 - `defmt-parser` 1.1.0: <https://github.com/knurling-rs/defmt>
   - Copyright (c) Ferrous Systems
+- `der-parser` 10.0.0: <https://github.com/rusticata/der-parser.git>
+  - Copyright (c) 2017 Pierre Chifflier
+- `deranged` 0.5.9: <https://github.com/jhpratt/deranged>
+  - Copyright (c) 2024 Jacob Pratt et al.
 - `derive_more` 2.1.1: <https://github.com/JelteF/derive_more>
   - Copyright (c) 2016 Jelte Fennema
 - `derive_more-impl` 2.1.1: <https://github.com/JelteF/derive_more>
@@ -472,6 +489,9 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Copyright (c) 2020 Yevhenii Reizner
 - `fontique` 0.12.0: <https://github.com/linebender/parley>
   - Copyright 2024 the Parley Authors
+- `getrandom` 0.2.17: <https://github.com/rust-random/getrandom>
+  - Copyright (c) 2018-2024 The rust-random Project Developers
+  - Copyright (c) 2014 The Rust Project Developers
 - `getrandom` 0.4.3: <https://github.com/rust-random/getrandom>
   - Copyright (c) 2018-2026 The rust-random Project Developers
   - Copyright (c) 2014 The Rust Project Developers
@@ -578,6 +598,8 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Copyright (c) 2016 The Rust Project Developers
 - `log` 0.4.34: <https://github.com/rust-lang/log>
   - Copyright (c) 2014 The Rust Project Developers
+- `lru-slab` 0.1.3: <https://github.com/Ralith/lru-slab>
+  - Copyright (c) 2024 The lru-slab Developers
 - `lyon_geom` 1.0.19: <https://github.com/nical/lyon>
   - Published without a licence file; authors: Nicolas Silva
 - `lyon_path` 1.0.19: <https://github.com/nical/lyon>
@@ -608,6 +630,8 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Copyright (c) 2017-2024 oyvindln
 - `mint` 0.5.9: <https://github.com/kvark/mint>
   - Copyright (c) 2017 Dzmitry Malyshau
+- `mio` 1.2.4: <https://github.com/tokio-rs/mio>
+  - Copyright (c) 2014 Carl Lerche and other MIO contributors
 - `naga` 30.0.1: <https://github.com/gfx-rs/wgpu>
   - Copyright (c) 2025 The gfx-rs developers
 - `naga-types` 30.0.1: <https://github.com/gfx-rs/wgpu>
@@ -631,6 +655,8 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Copyright (c) 2014 The Rust Project Developers
 - `num-complex` 0.4.6: <https://github.com/rust-num/num-complex>
   - Copyright (c) 2014 The Rust Project Developers
+- `num-conv` 0.2.2: <https://github.com/jhpratt/num-conv>
+  - Copyright (c) Jacob Pratt
 - `num-derive` 0.5.1: <https://github.com/rust-num/num-derive>
   - Copyright (c) 2014 The Rust Project Developers
 - `num-integer` 0.1.47: <https://github.com/rust-num/num-integer>
@@ -641,6 +667,8 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Copyright (c) 2014 The Rust Project Developers
 - `object` 0.40.0: <https://github.com/gimli-rs/object>
   - Copyright (c) 2015 The Gimli Developers
+- `oid-registry` 0.8.1: <https://github.com/rusticata/oid-registry.git>
+  - Copyright (c) 2017 Pierre Chifflier
 - `once_cell` 1.21.4: <https://github.com/matklad/once_cell>
   - Authors: Aleksey Kladov
 - `ordered-channel` 1.2.0: <https://gitlab.com/kornelski/ordered-channel>
@@ -692,6 +720,8 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Copyright 2025 the Parley Authors
 - `pastey` 0.2.3: <https://github.com/as1100k/pastey>
   - Authors: Aditya Kumar, David Tolnay
+- `pem` 4.0.0: <https://github.com/jcreekmore/pem-rs.git>
+  - Copyright (c) 2016 Jonathan Creekmore
 - `peniko` 0.6.1: <https://github.com/linebender/peniko>
   - Copyright (c) 2018 Raph Levien
 - `percent-encoding` 2.3.2: <https://github.com/servo/rust-url/>
@@ -715,6 +745,8 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Copyright (c) 2020-2021 Joshua Barretto
 - `polycool` 0.4.0: <https://github.com/linebender/kurbo>
   - Copyright (c) 2018 Raph Levien
+- `powerfmt` 0.2.1: <https://github.com/jhpratt/powerfmt>
+  - Copyright (c) 2023 Jacob Pratt et al.
 - `precomputed-hash` 0.1.1: <https://github.com/emilio/precomputed-hash>
   - Copyright (c) 2017 Emilio Cobos Álvarez
 - `presser` 0.3.1: <https://github.com/EmbarkStudios/presser>
@@ -725,8 +757,22 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Published without a licence file; authors: Philip Degarmo
 - `profiling-procmacros` 1.0.18: <https://github.com/aclysma/profiling>
   - Published without a licence file; authors: Philip Degarmo
+- `quinn` 0.11.12: <https://github.com/quinn-rs/quinn>
+  - Copyright (c) 2018 The quinn Developers
+- `quinn-proto` 0.11.19: <https://github.com/quinn-rs/quinn>
+  - Copyright (c) 2018 The quinn Developers
+- `quinn-udp` 0.5.16: <https://github.com/quinn-rs/quinn>
+  - Copyright (c) 2018 The quinn Developers
 - `quote` 1.0.47: <https://github.com/dtolnay/quote>
   - Authors: David Tolnay
+- `rand` 0.10.3: <https://github.com/rust-random/rand>
+  - Copyright 2018 Developers of the Rand project
+  - Copyright (c) 2014 The Rust Project Developers
+- `rand_core` 0.10.1: <https://github.com/rust-random/rand_core>
+  - Copyright (c) 2018-2026 The Rand Project Developers
+- `rand_pcg` 0.10.2: <https://github.com/rust-random/rngs>
+  - Copyright (c) 2014-2017 Melissa O'Neill and PCG Project contributors
+  - Copyright 2018 Developers of the Rand project
 - `range-alloc` 0.1.5: <https://github.com/gfx-rs/range-alloc>
   - Copyright (c) 2023 The gfx-rs developers
 - `raw-window-handle` 0.6.2: <https://github.com/rust-windowing/raw-window-handle>
@@ -737,6 +783,8 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Copyright (c) 2010 The Rust Project Developers
 - `rayon-core` 1.13.0: <https://github.com/rayon-rs/rayon>
   - Copyright (c) 2010 The Rust Project Developers
+- `rcgen` 0.14.10: <https://github.com/rustls/rcgen>
+  - Copyright (c) 2019-2026 est31 <MTest31@outlook.com> and contributors
 - `read-fonts` 0.41.0: <https://github.com/googlefonts/fontations>
   - Copyright (c) 2019 Fontations Developers
 - `regex` 1.13.1: <https://github.com/rust-lang/regex>
@@ -772,6 +820,12 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Authors: The Rust Project Developers
 - `rustc_version` 0.4.1: <https://github.com/djc/rustc-version-rs>
   - Copyright (c) 2016 The Rust Project Developers
+- `rusticata-macros` 4.1.0: <https://github.com/rusticata/rusticata-macros.git>
+  - Copyright (c) 2017 Pierre Chifflier
+- `rustls` 0.23.46: <https://github.com/rustls/rustls>
+  - Copyright (c) 2016 Joseph Birr-Pixton <jpixton@gmail.com>
+- `rustls-pki-types` 1.15.1: <https://github.com/rustls/pki-types>
+  - Copyright (c) 2023 Dirkjan Ochtman <dirkjan@ochtman.nl>
 - `rustversion` 1.0.23: <https://github.com/dtolnay/rustversion>
   - Authors: David Tolnay
 - `safe_arch` 1.2.0: <https://github.com/Lokathor/safe_arch>
@@ -815,6 +869,8 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Copyright (c) 2017 Martin Geisler
 - `smol_str` 0.2.2: <https://github.com/rust-analyzer/smol_str>
   - Authors: Aleksey Kladov
+- `socket2` 0.6.5: <https://github.com/rust-lang/socket2>
+  - Copyright (c) 2014 Alex Crichton
 - `softbuffer` 0.4.8: <https://github.com/rust-windowing/softbuffer>
   - Copyright 2022 Kirill Chibisov
 - `spade` 2.15.1: <https://github.com/Stoeoef/spade>
@@ -833,6 +889,8 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Authors: David Tolnay
 - `syn` 3.0.9: <https://github.com/dtolnay/syn>
   - Authors: David Tolnay
+- `synstructure` 0.13.2: <https://github.com/mystor/synstructure>
+  - Copyright 2016 Nika Layzell
 - `synstructure` 0.14.0: <https://github.com/mystor/synstructure>
   - Copyright 2016 Nika Layzell
 - `sys-locale` 0.3.2: <https://github.com/1Password/sys-locale>
@@ -851,8 +909,19 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Authors: David Tolnay
 - `thread_local` 1.1.10: <https://github.com/Amanieu/thread_local-rs>
   - Copyright (c) 2016 The Rust Project Developers
+- `time` 0.3.55: <https://github.com/time-rs/time>
+  - Copyright (c) Jacob Pratt et al.
+- `time-core` 0.1.9: <https://github.com/time-rs/time>
+  - Copyright (c) Jacob Pratt et al.
+- `time-macros` 0.2.32: <https://github.com/time-rs/time>
+  - Copyright (c) Jacob Pratt et al.
 - `tinyvec` 1.13.3: <https://github.com/Lokathor/tinyvec>
   - Authors: Lokathor
+- `tokio` 1.53.3: <https://github.com/tokio-rs/tokio>
+  - Copyright (c) Tokio Contributors
+- `tokio-macros` 2.7.2: <https://github.com/tokio-rs/tokio>
+  - Copyright (c) 2019 Yoshua Wuyts
+  - Copyright (c) Tokio Contributors
 - `tracing` 0.1.44: <https://github.com/tokio-rs/tracing>
   - Copyright (c) 2019 Tokio Contributors
 - `tracing-attributes` 0.1.31: <https://github.com/tokio-rs/tracing>
@@ -962,10 +1031,14 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Copyright Mozilla Foundation
 - `wuff` 0.2.9: <https://github.com/nicoburns/wuff>
   - Published without a licence file; authors: Nico Burns
+- `x509-parser` 0.18.1: <https://github.com/rusticata/x509-parser.git>
+  - Copyright (c) 2017 Pierre Chifflier
 - `xml-rs` 0.8.29: <https://github.com/kornelski/xml-rs>
   - Copyright (c) 2014 Vladimir Matveev
 - `xmlwriter` 0.1.0: <https://github.com/RazrFalcon/xmlwriter>
   - Copyright (c) 2019 Reizner Evgeniy
+- `yasna` 0.6.0: <https://github.com/qnighy/yasna.rs>
+  - Copyright (c) 2016 Masaki Hara
 - `yazi` 0.2.1: <https://github.com/dfrg/yazi>
   - Copyright (c) 2020 Chad Brokaw
 - `zeno` 0.3.3: <https://github.com/dfrg/zeno>
@@ -974,6 +1047,8 @@ Licences: MIT (312), Apache-2.0 (19), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Copyright 2023 The Fuchsia Authors
 - `zerocopy-derive` 0.8.63: <https://github.com/google/zerocopy>
   - Copyright 2023 The Fuchsia Authors
+- `zeroize` 1.9.1: <https://github.com/RustCrypto/utils>
+  - Copyright (c) 2018-2026 The RustCrypto Project Developers
 - `zmij` 1.0.23: <https://github.com/dtolnay/zmij>
   - Authors: David Tolnay
 - `zune-core` 0.5.3: <https://github.com/etemesi254/zune-image>
@@ -1435,9 +1510,222 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
+#### `rcgen` 0.14.10
+
+```text
+Licensed under MIT or Apache License 2.0,
+at your option.
+
+The full list of contributors can be obtained by looking
+at the VCS log (originally, this crate was git versioned,
+there you can do "git shortlog -sn" for this task).
+
+MIT License
+-----------
+
+The MIT License (MIT)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+Apache License, version 2.0
+---------------------------
+                                 Apache License
+                           Version 2.0, January 2004
+                        http://www.apache.org/licenses/
+
+   TERMS AND CONDITIONS FOR USE, REPRODUCTION, AND DISTRIBUTION
+
+   1. Definitions.
+
+      "License" shall mean the terms and conditions for use, reproduction,
+      and distribution as defined by Sections 1 through 9 of this document.
+
+      "Licensor" shall mean the copyright owner or entity authorized by
+      the copyright owner that is granting the License.
+
+      "Legal Entity" shall mean the union of the acting entity and all
+      other entities that control, are controlled by, or are under common
+      control with that entity. For the purposes of this definition,
+      "control" means (i) the power, direct or indirect, to cause the
+      direction or management of such entity, whether by contract or
+      otherwise, or (ii) ownership of fifty percent (50%) or more of the
+      outstanding shares, or (iii) beneficial ownership of such entity.
+
+      "You" (or "Your") shall mean an individual or Legal Entity
+      exercising permissions granted by this License.
+
+      "Source" form shall mean the preferred form for making modifications,
+      including but not limited to software source code, documentation
+      source, and configuration files.
+
+      "Object" form shall mean any form resulting from mechanical
+      transformation or translation of a Source form, including but
+      not limited to compiled object code, generated documentation,
+      and conversions to other media types.
+
+      "Work" shall mean the work of authorship, whether in Source or
+      Object form, made available under the License, as indicated by a
+      copyright notice that is included in or attached to the work
+      (an example is provided in the Appendix below).
+
+      "Derivative Works" shall mean any work, whether in Source or Object
+      form, that is based on (or derived from) the Work and for which the
+      editorial revisions, annotations, elaborations, or other modifications
+      represent, as a whole, an original work of authorship. For the purposes
+      of this License, Derivative Works shall not include works that remain
+      separable from, or merely link (or bind by name) to the interfaces of,
+      the Work and Derivative Works thereof.
+
+      "Contribution" shall mean any work of authorship, including
+      the original version of the Work and any modifications or additions
+      to that Work or Derivative Works thereof, that is intentionally
+      submitted to Licensor for inclusion in the Work by the copyright owner
+      or by an individual or Legal Entity authorized to submit on behalf of
+      the copyright owner. For the purposes of this definition, "submitted"
+      means any form of electronic, verbal, or written communication sent
+      to the Licensor or its representatives, including but not limited to
+      communication on electronic mailing lists, source code control systems,
+      and issue tracking systems that are managed by, or on behalf of, the
+      Licensor for the purpose of discussing and improving the Work, but
+      excluding communication that is conspicuously marked or otherwise
+      designated in writing by the copyright owner as "Not a Contribution."
+
+      "Contributor" shall mean Licensor and any individual or Legal Entity
+      on behalf of whom a Contribution has been received by Licensor and
+      subsequently incorporated within the Work.
+
+   2. Grant of Copyright License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      copyright license to reproduce, prepare Derivative Works of,
+      publicly display, publicly perform, sublicense, and distribute the
+      Work and such Derivative Works in Source or Object form.
+
+   3. Grant of Patent License. Subject to the terms and conditions of
+      this License, each Contributor hereby grants to You a perpetual,
+      worldwide, non-exclusive, no-charge, royalty-free, irrevocable
+      (except as stated in this section) patent license to make, have made,
+      use, offer to sell, sell, import, and otherwise transfer the Work,
+      where such license applies only to those patent claims licensable
+      by such Contributor that are necessarily infringed by their
+      Contribution(s) alone or by combination of their Contribution(s)
+      with the Work to which such Contribution(s) was submitted. If You
+      institute patent litigation against any entity (including a
+      cross-claim or counterclaim in a lawsuit) alleging that the Work
+      or a Contribution incorporated within the Work constitutes direct
+      or contributory patent infringement, then any patent licenses
+      granted to You under this License for that Work shall terminate
+      as of the date such litigation is filed.
+
+   4. Redistribution. You may reproduce and distribute copies of the
+      Work or Derivative Works thereof in any medium, with or without
+      modifications, and in Source or Object form, provided that You
+      meet the following conditions:
+
+      (a) You must give any other recipients of the Work or
+          Derivative Works a copy of this License; and
+
+      (b) You must cause any modified files to carry prominent notices
+          stating that You changed the files; and
+
+      (c) You must retain, in the Source form of any Derivative Works
+          that You distribute, all copyright, patent, trademark, and
+          attribution notices from the Source form of the Work,
+          excluding those notices that do not pertain to any part of
+          the Derivative Works; and
+
+      (d) If the Work includes a "NOTICE" text file as part of its
+          distribution, then any Derivative Works that You distribute must
+          include a readable copy of the attribution notices contained
+          within such NOTICE file, excluding those notices that do not
+          pertain to any part of the Derivative Works, in at least one
+          of the following places: within a NOTICE text file distributed
+          as part of the Derivative Works; within the Source form or
+          documentation, if provided along with the Derivative Works; or,
+          within a display generated by the Derivative Works, if and
+          wherever such third-party notices normally appear. The contents
+          of the NOTICE file are for informational purposes only and
+          do not modify the License. You may add Your own attribution
+          notices within Derivative Works that You distribute, alongside
+          or as an addendum to the NOTICE text from the Work, provided
+          that such additional attribution notices cannot be construed
+          as modifying the License.
+
+      You may add Your own copyright statement to Your modifications and
+      may provide additional or different license terms and conditions
+      for use, reproduction, or distribution of Your modifications, or
+      for any such Derivative Works as a whole, provided Your use,
+      reproduction, and distribution of the Work otherwise complies with
+      the conditions stated in this License.
+
+   5. Submission of Contributions. Unless You explicitly state otherwise,
+      any Contribution intentionally submitted for inclusion in the Work
+      by You to the Licensor shall be under the terms and conditions of
+      this License, without any additional terms or conditions.
+      Notwithstanding the above, nothing herein shall supersede or modify
+      the terms of any separate license agreement you may have executed
+      with Licensor regarding such Contributions.
+
+   6. Trademarks. This License does not grant permission to use the trade
+      names, trademarks, service marks, or product names of the Licensor,
+      except as required for reasonable and customary use in describing the
+      origin of the Work and reproducing the content of the NOTICE file.
+
+   7. Disclaimer of Warranty. Unless required by applicable law or
+      agreed to in writing, Licensor provides the Work (and each
+      Contributor provides its Contributions) on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+      implied, including, without limitation, any warranties or conditions
+      of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+      PARTICULAR PURPOSE. You are solely responsible for determining the
+      appropriateness of using or redistributing the Work and assume any
+      risks associated with Your exercise of permissions under this License.
+
+   8. Limitation of Liability. In no event and under no legal theory,
+      whether in tort (including negligence), contract, or otherwise,
+      unless required by applicable law (such as deliberate and grossly
+      negligent acts) or agreed to in writing, shall any Contributor be
+      liable to You for damages, including any direct, indirect, special,
+      incidental, or consequential damages of any character arising as a
+      result of this License or out of the use or inability to use the
+      Work (including but not limited to damages for loss of goodwill,
+      work stoppage, computer failure or malfunction, or any and all
+      other commercial damages or losses), even if such Contributor
+      has been advised of the possibility of such damages.
+
+   9. Accepting Warranty or Additional Liability. While redistributing
+      the Work or Derivative Works thereof, You may choose to offer,
+      and charge a fee for, acceptance of support, warranty, indemnity,
+      or other liability obligations and/or rights consistent with this
+      License. However, in accepting such obligations, You may act only
+      on Your own behalf and on Your sole responsibility, not on behalf
+      of any other Contributor, and only if You agree to indemnify,
+      defend, and hold each Contributor harmless for any liability
+      incurred by, or claims asserted against, such Contributor by reason
+      of your accepting any such warranty or additional liability.
+
+   END OF TERMS AND CONDITIONS
+```
+
 ## Apache-2.0
 
-19 crates.
+20 crates.
 
 - `approx` 0.5.1: <https://github.com/brendanzab/approx>
   - Authors: Brendan Zabarauskas
@@ -1467,6 +1755,9 @@ DEALINGS IN THE SOFTWARE.
   - Copyright 2024 Radzivon Bartoshyk
 - `rapier3d` 0.36.1: <https://github.com/dimforge/rapier>
   - Published without a licence file; authors: Sébastien Crozet
+- `ring` 0.17.14: <https://github.com/briansmith/ring>
+  - Copyright (c) 2009 The Go Authors. All rights reserved.
+  - Copyright 2015 The Chromium Authors. All rights reserved.
 - `ryu` 1.0.23: <https://github.com/dtolnay/ryu>
   - Authors: David Tolnay
 - `simba` 0.10.2: <https://github.com/dimforge/simba>
@@ -1951,7 +2242,7 @@ Software.
 
 ## BSD-3-Clause
 
-9 crates.
+10 crates.
 
 - `alloc-no-stdlib` 2.0.4: <https://github.com/dropbox/rust-alloc-no-stdlib>
   - Copyright (c) 2016 Dropbox, Inc.
@@ -1961,6 +2252,9 @@ Software.
   - Copyright (c) 2016 Dropbox, Inc.
 - `mozangle` 0.5.5: <https://github.com/servo/mozangle>
   - Copyright (C) 2002-2013 The ANGLE Project Authors.
+- `subtle` 2.6.1: <https://github.com/dalek-cryptography/subtle>
+  - Copyright (c) 2016-2017 Isis Agora Lovecruft, Henry de Valence. All rights reserved.
+  - Copyright (c) 2016-2024 Isis Agora Lovecruft. All rights reserved.
 - `tiny-skia` 0.12.0: <https://github.com/linebender/tiny-skia>
   - Copyright (c) 2011 Google Inc. All rights reserved.
   - Copyright (c) 2020 Yevhenii Reizner All rights reserved.
@@ -2163,10 +2457,16 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## ISC
 
-1 crate.
+4 crates.
 
 - `libloading` 0.8.9: <https://github.com/nagisa/rust_libloading/>
   - Copyright © 2015, Simonas Kazlauskas
+- `ring` 0.17.14: <https://github.com/briansmith/ring>
+  - Copyright 2015-2025 Brian Smith.
+- `rustls-webpki` 0.103.16: <https://github.com/rustls/webpki>
+  - Copyright 2015 Brian Smith.
+- `untrusted` 0.9.0: <https://github.com/briansmith/untrusted>
+  - Copyright 2015-2016 Brian Smith.
 
 ### Licence text
 
@@ -2181,6 +2481,49 @@ AUTHOR BE LIABLE FOR ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR 
 WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT,
 NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
+```
+
+### Other wordings of ISC
+
+These crates word the licence in their own way; their text:
+
+#### `rustls-webpki` 0.103.16
+
+```text
+Except as otherwise noted, this project is licensed under the following
+(ISC-style) terms:
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHORS DISCLAIM ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+
+The files under third-party/chromium are licensed as described in
+third-party/chromium/LICENSE.
+```
+
+#### `untrusted` 0.9.0
+
+```text
+//
+// Permission to use, copy, modify, and/or distribute this software for any
+// purpose with or without fee is hereby granted, provided that the above
+// copyright notice and this permission notice appear in all copies.
+//
+// THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHORS DISCLAIM ALL WARRANTIES
+// WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+// MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR
+// ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+// WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+// ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+// OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ```
 
 ## Zlib
@@ -3588,6 +3931,54 @@ Except as contained in this notice, the name of a copyright holder
 shall not be used in advertising or otherwise to promote the sale,
 use or other dealings in these Data Files or Software without prior
 written authorization of the copyright holder.
+```
+
+### once_cell, the lazy-init code ring includes (`ring` 0.17.14, `src/polyfill/once_cell/LICENSE-MIT`)
+
+```text
+Permission is hereby granted, free of charge, to any
+person obtaining a copy of this software and associated
+documentation files (the "Software"), to deal in the
+Software without restriction, including without
+limitation the rights to use, copy, modify, merge,
+publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following
+conditions:
+
+The above copyright notice and this permission notice
+shall be included in all copies or substantial portions
+of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF
+ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED
+TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT
+SHALL THE AUTHOR OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
+IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+DEALINGS IN THE SOFTWARE.
+```
+
+### fiat-crypto, the field arithmetic ring compiles in (Apache-2.0) (`ring` 0.17.14, `third_party/fiat/LICENSE`)
+
+```text
+The Apache License, Version 2.0 (Apache-2.0)
+
+Copyright 2015-2020 the fiat-crypto authors (see the AUTHORS file)
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 ```
 
 ### spin, the lock code tracing-core includes (`tracing-core` 0.1.36, `src/spin/LICENSE`)
