@@ -117,6 +117,10 @@ interface View {
   body: GameObject | null;
   lastPos: Vector3;
   shown: Vector3;
+  /** The flashlight's pivot, the hand bone it follows, and where its lens is in the world. */
+  torch?: GameObject;
+  hand?: GameObject;
+  lens?: Vector3;
   /** Despawned: an unfinished model load must not dress it. */
   gone: boolean;
 }
@@ -150,6 +154,7 @@ export class Arena extends Component {
   private camera!: Camera;
   private yaw = 0;
   private pitch = 8;
+  private airTime = 0;
   private pointerLocked = false;
   private pointerFree = false;
   private distance = 2.6;
@@ -252,11 +257,14 @@ export class Arena extends Component {
       this.playingFog = playing;
       setFog(!playing);
     }
+    this.alignTorches();
     this.updateBeams();
     // A line a second for logs and tests: who is here and how the network is doing.
     if (this.mode !== "menu" && Time.time - this.lastLog >= 1) {
       this.lastLog = Time.time;
       const kills = hud.rows.map((r) => `${r.name}:${r.kills}/${r.deaths}@${r.ping}`).join(" ");
+      const an = this.views.get(this.localId)?.animator;
+      if (an && this.verbose) console.log(`[net anim] state=${an.currentStateName} t=${an.currentNormalizedTime.toFixed(2)} speed=${an.getFloat("speed").toFixed(2)} air=${an.getBool("air")} enabled=${an.enabled}`);
       console.log(`[net ${this.mode}] ${hud.status} players=${hud.rows.length} match=${hud.match} rtt=${Math.round(hud.rtt)} refused=${hud.dropped} ${kills}`);
     }
     if (Time.time >= this.nextHud) {
@@ -729,11 +737,82 @@ export class Arena extends Component {
       .addTransition({ from: "JumpLand", to: "Locomotion", hasExitTime: true, exitTime: 0.7, duration: 0.12 });
     view.animator = body.addComponent(Animator, { controller });
     view.body = body;
-    holdFlashlight(body);
+    const held = holdFlashlight(body);
+    if (held) {
+      view.torch = held.pivot;
+      view.hand = held.hand;
+    }
+  }
+
+  /**
+   * The torch rides the hand's position but points where the figure faces, whatever the pose of
+   * the wrist, so it always sits level in the fist; its lens is where beams start.
+   */
+  private alignTorches() {
+    for (const [id, v] of this.views) {
+      if (!v.torch || !v.hand || !v.body) continue;
+      const deg = v.local ? this.facingDeg : Network.getNumber(id, "yaw");
+      const r = (deg * Math.PI) / 180;
+      const fwd = new Vector3(Math.sin(r), 0, Math.cos(r));
+      v.torch.transform.rotation = Quaternion.euler(0, deg, 0).mul(Quaternion.euler(0, -90, 0));
+      v.torch.transform.position = v.hand.transform.position.add(fwd.scale(0.04)).add(new Vector3(0, -0.02, 0));
+      v.lens = v.torch.transform.position.add(fwd.scale(0.22));
+    }
+  }
+
+  /** Where a shot should start: the lens of whoever is standing at `from`. */
+  private muzzleNear(from: Vector3): Vector3 {
+    let best = 2;
+    let at = from;
+    for (const v of this.views.values()) {
+      if (v.kind !== 0 || !v.lens) continue;
+      const d = Math.hypot(v.go.transform.position.x - from.x, v.go.transform.position.z - from.z);
+      if (d < best) {
+        best = d;
+        at = v.lens;
+      }
+    }
+    return at;
+  }
+
+  /**
+   * The heading to shoot along so the shot lands where the crosshair is: the camera sits over the
+   * shoulder, so a shot sent along the camera's heading would miss by that offset. It aims at a
+   * player close to the crosshair ray, else at what the ray hits.
+   */
+  private aimYaw(me: Vector3): number {
+    const y = (this.yaw * Math.PI) / 180;
+    const p = (this.pitch * Math.PI) / 180;
+    const f = new Vector3(Math.sin(y) * Math.cos(p), -Math.sin(p), -Math.cos(y) * Math.cos(p));
+    const c = this.camera.transform.position;
+    let target: Vector3 | null = null;
+    let bestAngle = 0.06;
+    for (const [id, v] of this.views) {
+      if (v.local || v.kind !== 0 || !Network.getBool(id, "alive")) continue;
+      const to = v.shown.add(new Vector3(0, 1, 0)).sub(c);
+      const along = to.x * f.x + to.y * f.y + to.z * f.z;
+      if (along < 2) continue;
+      const angle = to.sub(f.scale(along)).magnitude / along;
+      if (angle < bestAngle) {
+        bestAngle = angle;
+        target = v.shown;
+      }
+    }
+    if (!target) {
+      const hit = Physics.raycast(c.add(f.scale(1)), f, 80);
+      target = c.add(f.scale(hit ? hit.distance + 1 : 60));
+    }
+    const dx = target.x - me.x;
+    const dz = target.z - me.z;
+    if (Math.hypot(dx, dz) < 1.2) return this.yaw;
+    return (Math.atan2(dx, -dz) * 180) / Math.PI;
   }
 
   private onRpc(name: string, args: string[]) {
-    if (name === "beam") this.drawBeam(argVec(args[0]), argVec(args[1]), args[2] === "b:1");
+    if (name === "beam") {
+      const from = argVec(args[0]);
+      this.drawBeam(this.muzzleNear(from), argVec(args[1]), args[2] === "b:1");
+    }
     else if (name === "feed") hud.feed.push({ text: `${(args[0] ?? "").slice(2)}  >  ${(args[1] ?? "").slice(2)}`, until: Time.time + 6 });
     else if (name === "hurt") hud.hurt = Time.time + 0.25;
     else if (name === "teleport" && this.localId !== 0) {
@@ -807,14 +886,17 @@ export class Arena extends Component {
     // Face where it runs, or where it shoots.
     const firing = alive && (this.bot ? Math.sin(bt * 2.3) > 0.3 : input.getMouseButton(0) || input.getKey("KeyF"));
     // The mannequin model faces +z, so its body turn is 180 - heading when it aims.
-    if (firing) this.facing = Math.PI - yawR;
+    const aim = firing && !this.bot ? this.aimYaw(after) : this.yaw;
+    if (firing) this.facing = Math.PI - (aim * Math.PI) / 180;
     else if (moving) this.facing = Math.atan2(dir.x, dir.z);
     let d = this.facing - ((this.facingDeg * Math.PI) / 180);
     d = Math.atan2(Math.sin(d), Math.cos(d));
     this.facingDeg += (d * 180) / Math.PI * Math.min(1, 14 * dt);
     if (view.body) view.body.transform.localRotation = Quaternion.euler(0, this.facingDeg, 0);
     view.animator?.setFloat("speed", moved);
-    view.animator?.setBool("air", !cc.isGrounded && this.vy > -2);
+    // In the air only after a moment off the ground: the controller flickers while walking.
+    this.airTime = cc.isGrounded ? 0 : this.airTime + dt;
+    view.animator?.setBool("air", this.airTime > 0.18);
 
     // What the others need: where I am, which way, how fast. The server checks the position.
     const wrote = Network.setVec3(this.localId, "pos", after.x, after.y, after.z);
@@ -828,7 +910,7 @@ export class Arena extends Component {
     if (firing && Time.time - this.fireAt > 0.22) {
       this.fireAt = Time.time;
       const behind = Math.max(0, Network.rtt()) / 2 + (2 / TICK_RATE) * 1000;
-      Network.rpc(this.localId, "fire", [`f:${this.yaw}`, `f:${behind}`].join(SEP));
+      Network.rpc(this.localId, "fire", [`f:${aim}`,`f:${behind}`].join(SEP));
     }
   }
 
@@ -912,9 +994,9 @@ function findDeep(go: GameObject, name: string): GameObject | null {
 }
 
 let flashMaterials:{ body: Material; head: Material; lens: Material } | null = null;
-function holdFlashlight(body: GameObject) {
+function holdFlashlight(body: GameObject): { pivot: GameObject; hand: GameObject } | null {
   const hand = findDeep(body, "hand_r");
-  if (!hand) return;
+  if (!hand) return null;
   flashMaterials ??= {
     body: Material.create({ color: new Color(0.12, 0.12, 0.14, 1), metallic: 0.6, smoothness: 0.6 }),
     head: Material.create({ color: new Color(0.7, 0.7, 0.74, 1), metallic: 0.9, smoothness: 0.8 }),
@@ -932,9 +1014,10 @@ function holdFlashlight(body: GameObject) {
     });
     go.addComponent(MeshRenderer, { mesh, material: mat }).shadowCastingMode = "off";
   };
-  part("cylinder", m.body, 0.02, 0.2, 0.045);
-  part("cylinder", m.head, 0.15, 0.07, 0.07);
-  part("cylinder", m.lens, 0.19, 0.01, 0.062);
+  part("cylinder", m.body, 0.0, 0.2, 0.045);
+  part("cylinder", m.head, 0.13, 0.07, 0.07);
+  part("cylinder", m.lens, 0.17, 0.01, 0.062);
+  return { pivot, hand };
 }
 
 let beamCore: Material | null = null;
