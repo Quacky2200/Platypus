@@ -97,6 +97,8 @@ pub struct LobbyState {
     pub max_members: u32,
     pub members: Vec<Member>,
     pub data: BTreeMap<String, String>,
+    /// Why the status is `Failed` (Steam's reason), else empty.
+    pub error: String,
 }
 
 /// One search result.
@@ -188,6 +190,7 @@ pub fn lobby_json(lobby: &LobbyState) -> String {
         "maxMembers": lobby.max_members,
         "members": lobby.members.iter().map(|m| json!({"id": id_text(m.id), "name": m.name})).collect::<Vec<_>>(),
         "data": data_json(&lobby.data),
+        "error": lobby.error,
     })
     .to_string()
 }
@@ -309,7 +312,8 @@ pub mod steam_api {
         with(|b| b.lobby().status.as_str().to_string()).unwrap_or_else(|| "none".to_string())
     }
 
-    /// The current lobby as JSON: `{status, id, owner, maxMembers, members: [{id, name}], data}`.
+    /// The current lobby as JSON: `{status, id, owner, maxMembers, members: [{id, name}], data, error}`
+    /// (`error` is Steam's reason when the status is `"failed"`).
     pub fn lobby() -> String {
         with(|b| lobby_json(&b.lobby())).unwrap_or_else(|| lobby_json(&Default::default()))
     }
@@ -381,7 +385,7 @@ impl Backend for MemoryBackend {
         true
     }
     fn app_id(&self) -> u32 {
-        400
+        1
     }
     fn user_name(&self) -> String {
         "Player".to_string()
@@ -431,6 +435,7 @@ impl Backend for MemoryBackend {
             max_members,
             members: vec![Self::member()],
             data: BTreeMap::new(),
+            error: String::new(),
         };
         self.lobby_joinable = true;
         if matches!(kind, LobbyKind::Public | LobbyKind::FriendsOnly) {
@@ -465,11 +470,13 @@ impl Backend for MemoryBackend {
                     max_members: info.max_members,
                     members: vec![Self::member()],
                     data: info.data.clone(),
+                    error: String::new(),
                 };
             }
             _ => {
                 self.lobby = LobbyState {
                     status: LobbyStatus::Failed,
+                    error: "the lobby is closed, full or gone".to_string(),
                     ..Default::default()
                 }
             }
@@ -529,7 +536,7 @@ mod tests {
     fn app_id_user_and_rich_presence_reach_the_backend() {
         with_memory();
         assert!(steam::is_available());
-        assert_eq!(steam::app_id(), 400.0);
+        assert_eq!(steam::app_id(), 1.0);
         assert_eq!(steam::user_id(), MEMORY_USER.to_string());
         assert!(steam::set_rich_presence("status", "In the menu"));
         steam::clear_rich_presence();

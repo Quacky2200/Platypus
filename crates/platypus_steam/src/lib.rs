@@ -10,8 +10,8 @@
 //! each frame. Steam must be running on the same user; without it [`install`] fails and the script
 //! API stays the harmless no-op.
 //!
-//! A game opts in with `"steam": { "appId": N }` in `project.json`; until Platypus or a game has an
-//! app id of its own, use [`PLACEHOLDER_APP_ID`] (Portal's).
+//! A game opts in with `"steam": { "appId": N }` in `project.json`. There is no default id: using
+//! another game's would put lobbies and searches among that game's real players.
 
 use platypus_engine_api::steam::{
     Backend, LobbyInfo, LobbyKind, LobbyState, LobbyStatus, Member, SearchState, SearchStatus,
@@ -21,14 +21,11 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 use steamworks::{Client, LobbyId, LobbyKey, LobbyType, StringFilter, StringFilterKind};
 
-/// Portal's app id, for a game's `project.json` until Platypus or the game has its own.
-pub const PLACEHOLDER_APP_ID: u32 = 400;
-
 /// Finished requests, set by Steam's callbacks (which may run on any thread that pumps) and read
 /// by [`SteamBackend::pump`] on the script thread.
 #[derive(Default)]
 struct Shared {
-    lobby: Option<Result<u64, ()>>,
+    lobby: Option<Result<u64, String>>,
     search: Option<Result<Vec<u64>, ()>>,
 }
 
@@ -184,7 +181,7 @@ impl Backend for SteamBackend {
             .matchmaking()
             .create_lobby(lobby_type(kind), max_members, move |r| {
                 let mut s = shared.lock().unwrap_or_else(|e| e.into_inner());
-                s.lobby = Some(r.map(|id| id.raw()).map_err(|_| ()));
+                s.lobby = Some(r.map(|id| id.raw()).map_err(|e| e.to_string()));
             });
     }
 
@@ -225,7 +222,10 @@ impl Backend for SteamBackend {
             .matchmaking()
             .join_lobby(LobbyId::from_raw(id), move |r| {
                 let mut s = shared.lock().unwrap_or_else(|e| e.into_inner());
-                s.lobby = Some(r.map(|id| id.raw()));
+                s.lobby = Some(
+                    r.map(|id| id.raw())
+                        .map_err(|()| "Steam refused the join (full, closed or gone)".to_string()),
+                );
             });
     }
 
@@ -276,9 +276,10 @@ impl Backend for SteamBackend {
         };
         match lobby {
             Some(Ok(id)) => self.entered(id),
-            Some(Err(())) => {
+            Some(Err(error)) => {
                 self.lobby = LobbyState {
                     status: LobbyStatus::Failed,
+                    error,
                     ..Default::default()
                 }
             }
@@ -320,12 +321,6 @@ impl Backend for SteamBackend {
 mod tests {
     use super::*;
 
-    // M8-STM-06
-    #[test]
-    fn the_placeholder_app_id_is_portals() {
-        assert_eq!(PLACEHOLDER_APP_ID, 400);
-    }
-
     // M8-STM-07
     #[test]
     fn lobby_kinds_map_to_steams_visibility() {
@@ -335,12 +330,19 @@ mod tests {
         assert_eq!(lobby_type(LobbyKind::Invisible), LobbyType::Invisible);
     }
 
-    // M8-STM-08: runs only with the Steam client up (`cargo test -p platypus_steam -- --ignored`).
+    // M8-STM-08: runs only with the Steam client up and your own app id in `PLATYPUS_STEAM_APP_ID`
+    // (`cargo test -p platypus_steam -- --ignored`); without the variable it does nothing.
     #[test]
-    #[ignore = "needs the Steam client running"]
-    fn connecting_as_the_placeholder_reports_the_app_and_user() {
-        let b = connect(PLACEHOLDER_APP_ID).expect("Steam is running");
-        assert_eq!(b.app_id(), 400);
+    #[ignore = "needs the Steam client running and PLATYPUS_STEAM_APP_ID"]
+    fn connecting_reports_the_app_and_user() {
+        let Some(id) = std::env::var("PLATYPUS_STEAM_APP_ID")
+            .ok()
+            .and_then(|v| v.parse::<u32>().ok())
+        else {
+            return;
+        };
+        let b = connect(id).expect("Steam is running");
+        assert_eq!(b.app_id(), id);
         assert_ne!(b.user_id(), 0);
     }
 }
