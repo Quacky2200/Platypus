@@ -11,6 +11,7 @@
 //! Loopback addresses (`127.0.0.1`, `localhost`, `::1`) skip the pin: development only.
 
 use std::net::{SocketAddr, ToSocketAddrs};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use platypus_engine_api::network::{self, Host, Request};
@@ -32,7 +33,7 @@ pub(crate) fn pump(now: Duration) {
 /// Closes the network before the program ends. Left to the thread-local's destructor at exit, the
 /// QUIC transport would shut its runtime down after tokio's own thread-locals are gone (a panic).
 pub(crate) fn shutdown() {
-    network::uninstall();
+    network::close();
 }
 
 fn serve(request: Request) -> Result<(), String> {
@@ -60,38 +61,50 @@ fn serve(request: Request) -> Result<(), String> {
             network::emit(&["listening", &port.to_string(), &fingerprint]);
             Ok(())
         }
-        Request::Connect { address, name } => {
+        Request::Connect {
+            address,
+            name,
+            spectator,
+        } => {
             let schema = network::schema()?;
             let (addr, trust) = parse_address(&address)?;
             let mut quic = QuicTransport::client().map_err(|e| e.to_string())?;
             quic.connect(addr, "localhost", &trust)
                 .map_err(|e| e.to_string())?;
             let (transport, debug) = wrap(quic);
-            let host: Host = NetHost::client(transport, schema, HostConfig::default(), &name, None);
+            let mut config = HostConfig::default();
+            config.session.spectator = spectator;
+            let host: Host = NetHost::client(transport, schema, config, &name, None);
             network::install(host, debug);
             tracing::info!("network: connecting to {addr}");
             Ok(())
         }
         Request::Disconnect => {
-            network::uninstall();
+            network::close();
             Ok(())
         }
     }
 }
 
+/// Whether the fault injector may be used: yes, except in a packaged game.
+static DEBUG_ALLOWED: AtomicBool = AtomicBool::new(true);
+
+/// Turns the fault injector off for the rest of the run (a packaged game does).
+pub(crate) fn set_debug_allowed(on: bool) {
+    DEBUG_ALLOWED.store(on, Ordering::Relaxed);
+}
+
 /// The transport as the host takes it, wrapped in the fault injector when the build has one
-/// (`net-debug`, on by default) so `Network.debugConditions` has something to drive. With no
-/// conditions set the wrapper only passes messages through.
+/// (`net-debug`, on by default) and the run allows it (not a packaged game), so
+/// `Network.debugConditions` has something to drive. With no conditions set the wrapper only passes
+/// messages through; without it `Network.hasDebug()` is false and the debug calls do nothing.
 fn wrap(quic: QuicTransport) -> (Box<dyn Transport>, Option<network::DebugHandle>) {
     #[cfg(feature = "net-debug")]
-    {
+    if DEBUG_ALLOWED.load(Ordering::Relaxed) {
         let (wrapped, handle) = platypus_net::conditioned::Conditioned::new(quic, 0x504c_4159);
-        (Box::new(wrapped), Some(handle))
+        return (Box::new(wrapped), Some(handle));
     }
-    #[cfg(not(feature = "net-debug"))]
-    {
-        (Box::new(quic), None)
-    }
+    (Box::new(quic), None)
 }
 
 /// `host:port` or `host:port#fingerprint`, resolved; loopback needs no fingerprint.
@@ -123,6 +136,19 @@ fn parse_address(text: &str) -> Result<(SocketAddr, Trust), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // M8-APP-02
+    #[cfg(feature = "net-debug")]
+    #[test]
+    fn a_packaged_game_gets_no_fault_injector() {
+        let handle = |on| {
+            set_debug_allowed(on);
+            wrap(QuicTransport::client().unwrap()).1
+        };
+        assert!(handle(true).is_some());
+        assert!(handle(false).is_none());
+        set_debug_allowed(true);
+    }
 
     // M8-APP-01
     #[test]

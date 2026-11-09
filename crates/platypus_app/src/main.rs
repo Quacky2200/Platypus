@@ -60,6 +60,7 @@ mod prefs;
 mod profile;
 pub(crate) mod reload;
 mod render_sync;
+mod stop_signal;
 pub(crate) mod sync_profile;
 mod ui_frame;
 mod ui_inspector;
@@ -184,6 +185,8 @@ fn parse_args() -> Result<Args> {
         );
         args.game = dir;
         args.packaged = true;
+        // A shipped game cannot be made to drop or delay its own packets.
+        net_host::set_debug_allowed(false);
     }
     Ok(args)
 }

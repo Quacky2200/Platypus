@@ -52,6 +52,8 @@ pub enum NetEvent {
         player: PlayerId,
         name: String,
         resumed: bool,
+        /// Here to watch: the game should not give it a body, and its RPCs are refused.
+        spectator: bool,
     },
     /// Connection lost; the slot is held for the grace period.
     PlayerDropped {
@@ -356,15 +358,18 @@ impl<T: Transport> NetHost<T> {
                 player,
                 name,
                 resumed,
+                spectator,
             } => {
                 if let Half::Server(rep) = &mut self.half {
-                    // A returning player starts from nothing: every spawn again.
+                    // A returning player starts from nothing: every spawn again. (A spectator is
+                    // replicated to like anyone: it sees everything the interest rules allow.)
                     rep.add_player(player);
                 }
                 out.push(NetEvent::PlayerJoined {
                     player,
                     name,
                     resumed,
+                    spectator,
                 });
             }
             SessionEvent::PlayerDropped { player, .. } => {
@@ -468,7 +473,9 @@ impl<T: Transport> NetHost<T> {
             .server_ref()
             .and_then(|r| r.object(id))
             .map(|o| o.owner);
+        // Spectators watch: they may not call anything.
         let allowed = def.target == RpcTarget::Server
+            && !self.session.is_spectator(from)
             && owner.is_some_and(|o| !def.require_owner || o == from);
         if !allowed {
             self.dropped_rpcs += 1;
@@ -839,6 +846,55 @@ mod tests {
             client.client_ref().unwrap().value(id, "pos"),
             server.server_ref().unwrap().get(id, "pos").cloned()
         );
+    }
+
+    // M8-HOST-08
+    #[test]
+    fn a_spectator_sees_the_world_but_cannot_call_the_server() {
+        let mut rig = Rig::new(1);
+        let mut t = rig.hub.endpoint();
+        t.connect("srv").unwrap();
+        let mut config = HostConfig::default();
+        config.session.spectator = true;
+        rig.clients
+            .push(NetHost::client(t, schema(), config, "watcher", None));
+        let (se, _) = rig.run(300);
+        assert!(se.iter().any(|e| matches!(
+            e,
+            NetEvent::PlayerJoined {
+                player: 2,
+                spectator: true,
+                ..
+            }
+        )));
+        let id = rig
+            .server
+            .server_mut()
+            .unwrap()
+            .spawn("Player", "p", 1)
+            .unwrap();
+        rig.run(300);
+        // It sees the object...
+        assert!(
+            rig.clients[1]
+                .client_ref()
+                .unwrap()
+                .value(id, "hp")
+                .is_some()
+        );
+        // ...and a call anyone else may make is refused when it makes it.
+        rig.clients[0].rpc(id, "shout", &[]).unwrap();
+        rig.clients[1].rpc(id, "shout", &[]).unwrap();
+        let (se, _) = rig.run(300);
+        let shouts: Vec<_> = se
+            .iter()
+            .filter_map(|e| match e {
+                NetEvent::Rpc { name, from, .. } if name == "shout" => Some(*from),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(shouts, vec![1]);
+        assert_eq!(rig.server.dropped_rpcs, 1);
     }
 
     // M8-HOST-07

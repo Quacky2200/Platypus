@@ -18,8 +18,8 @@ use crate::transport::{
 };
 use crate::wire::{Reader, Writer};
 
-/// Bumped when the session's own wire format changes.
-pub const PROTOCOL_VERSION: u32 = 1;
+/// Bumped when the session's own wire format changes (2: the hello carries a role flag).
+pub const PROTOCOL_VERSION: u32 = 2;
 
 /// A player's id for the whole session, kept across reconnects. The server is 0.
 pub type PlayerId = u32;
@@ -48,6 +48,10 @@ pub struct SessionConfig {
     /// The game's own version string; a mismatch is refused.
     pub game_version: String,
     pub max_players: u32,
+    /// Spectators the server takes besides its players (they have their own limit).
+    pub max_spectators: u32,
+    /// Client side: join as a spectator, who sees the game and never takes part.
+    pub spectator: bool,
     /// How often each side pings.
     pub heartbeat: Duration,
     /// Silence longer than this ends a connection.
@@ -66,6 +70,8 @@ impl Default for SessionConfig {
             schema_hash: 0,
             game_version: String::new(),
             max_players: 16,
+            max_spectators: 16,
+            spectator: false,
             heartbeat: Duration::from_millis(250),
             timeout: Duration::from_secs(5),
             grace: Duration::from_secs(30),
@@ -132,6 +138,8 @@ pub enum SessionEvent {
         player: PlayerId,
         name: String,
         resumed: bool,
+        /// Joined to watch: it counts against the spectator limit, not the player limit.
+        spectator: bool,
     },
     /// The connection is gone but the slot is held until `grace` runs out (or the player returns).
     PlayerDropped {
@@ -168,6 +176,7 @@ struct Player {
     peer: Option<PeerId>,
     token: Token,
     name: String,
+    spectator: bool,
     link: Link,
     /// When the connection was lost, while the slot is held.
     dropped_at: Option<Time>,
@@ -438,6 +447,7 @@ impl<T: Transport> Session<T> {
                     Some(t) => w.u8(1).u128(t),
                     None => w.u8(0),
                 };
+                w.u8(u8::from(self.config.spectator));
                 let _ = self.transport.send(peer, Channel::Reliable, &w.finish());
             }
         }
@@ -564,7 +574,8 @@ impl<T: Transport> Session<T> {
             let version = r.str(MAX_TEXT)?;
             let name = r.str(MAX_TEXT)?;
             let token = if r.u8()? == 1 { Some(r.u128()?) } else { None };
-            Some((protocol, schema, version, name, token))
+            let spectator = r.u8()? & 1 == 1;
+            Some((protocol, schema, version, name, token, spectator))
         })();
         let reject = |t: &mut T, reason: RejectReason| {
             let mut w = Writer::new();
@@ -572,7 +583,7 @@ impl<T: Transport> Session<T> {
             let _ = t.send(peer, Channel::Reliable, &w.finish());
             t.disconnect(peer);
         };
-        let Some((protocol, schema, version, name, token)) = parsed else {
+        let Some((protocol, schema, version, name, token, spectator)) = parsed else {
             self.bad_packets += 1;
             s.pending.remove(&peer);
             reject(&mut self.transport, RejectReason::Malformed);
@@ -601,14 +612,26 @@ impl<T: Transport> Session<T> {
                 .find(|(_, p)| p.token == t && p.peer.is_none())
                 .map(|(id, _)| *id)
         });
-        let live = s.players.values().filter(|p| p.peer.is_some()).count() as u32;
+        // A returning slot is what it was; a newcomer is a player or a spectator as it asked, and
+        // each kind has its own limit. Held slots count against it so a reconnecting player always
+        // has a place, but one that will not return in time never blocks a newcomer for long (the grace).
+        let spectator = match held {
+            Some(id) => s.players[&id].spectator,
+            None => spectator,
+        };
+        let taken = s
+            .players
+            .values()
+            .filter(|p| p.spectator == spectator)
+            .count() as u32;
+        let limit = if spectator {
+            self.config.max_spectators
+        } else {
+            self.config.max_players
+        };
         let (player, resumed) = match held {
             Some(id) => (id, true),
-            None if live + s.players.values().filter(|p| p.peer.is_none()).count() as u32
-                >= self.config.max_players =>
-            {
-                // Held slots count against the limit so a reconnecting player always has a place,
-                // but one that will not return in time never blocks a newcomer for long (the grace).
+            None if taken >= limit => {
                 s.pending.remove(&peer);
                 reject(&mut self.transport, RejectReason::ServerFull);
                 return;
@@ -630,6 +653,7 @@ impl<T: Transport> Session<T> {
                 peer: Some(peer),
                 token,
                 name: name.clone(),
+                spectator,
                 link: Link::new(now),
                 dropped_at: None,
             },
@@ -646,7 +670,16 @@ impl<T: Transport> Session<T> {
             player,
             name,
             resumed,
+            spectator,
         });
+    }
+
+    /// Whether `player` joined to watch (server only; false for anyone unknown).
+    pub fn is_spectator(&self, player: PlayerId) -> bool {
+        match &self.role {
+            Role::Server(s) => s.players.get(&player).is_some_and(|p| p.spectator),
+            Role::Client(_) => false,
+        }
     }
 
     fn on_welcome(&mut self, mut r: Reader<'_>, events: &mut Vec<SessionEvent>) {
@@ -871,7 +904,7 @@ mod tests {
         let (server_events, client_events) = rig.run(100, &mut [&mut client]);
         assert!(matches!(
             server_events.as_slice(),
-            [SessionEvent::PlayerJoined { player: 1, resumed: false, name }] if name == "ann"
+            [SessionEvent::PlayerJoined { player: 1, resumed: false, name, spectator: false }] if name == "ann"
         ));
         assert!(matches!(
             client_events[0].as_slice(),
@@ -1088,6 +1121,49 @@ mod tests {
             })
             .collect();
         assert_eq!(joins, vec![(2, false), (3, false)]);
+    }
+
+    // M8-NET-11
+    #[test]
+    fn spectators_have_their_own_limit_and_are_known_to_the_server() {
+        let server_cfg = SessionConfig {
+            max_players: 1,
+            max_spectators: 1,
+            ..config()
+        };
+        let watch = SessionConfig {
+            spectator: true,
+            ..config()
+        };
+        let mut rig = Rig::new(server_cfg);
+        let (mut player, _) = rig.client(config(), "p", None);
+        let (mut watcher, _) = rig.client(watch.clone(), "w", None);
+        let (se, ce) = rig.run(300, &mut [&mut player, &mut watcher]);
+        let joined: Vec<_> = se
+            .iter()
+            .filter_map(|e| match e {
+                SessionEvent::PlayerJoined {
+                    player, spectator, ..
+                } => Some((*player, *spectator)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(joined, vec![(1, false), (2, true)]);
+        assert!(ce.iter().all(|c| {
+            c.iter()
+                .any(|e| matches!(e, SessionEvent::Connected { .. }))
+        }));
+        assert!(!rig.server.is_spectator(1) && rig.server.is_spectator(2));
+        // A second player and a second spectator are each turned away: the limits are separate.
+        let (mut p2, _) = rig.client(config(), "p2", None);
+        let (mut w2, _) = rig.client(watch, "w2", None);
+        let (_, ce) = rig.run(300, &mut [&mut p2, &mut w2]);
+        for c in &ce {
+            assert!(
+                c.iter()
+                    .any(|e| matches!(e, SessionEvent::Rejected(RejectReason::ServerFull)))
+            );
+        }
     }
 
     // M8-NET-06

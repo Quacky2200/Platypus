@@ -15,6 +15,7 @@ use anyhow::{Context, Result, bail};
 use platypus_platform::{FakePlatform, WindowSpec};
 
 use super::App;
+use super::stop_signal;
 
 /// The command line of a headless run.
 #[derive(Debug, Clone, PartialEq)]
@@ -71,13 +72,18 @@ pub(crate) fn run(app: App, args: &HeadlessArgs, frames: Option<u32>, title: &st
         args.rate,
         frames.map_or(String::new(), |n| format!(", {n} of them"))
     );
+    // Ctrl+C or a terminate request ends the loop; `main` then closes the network (players are told).
+    stop_signal::install();
     let mut next = Instant::now();
     let mut done = 0u32;
-    while !p.exited() && frames.is_none_or(|n| done < n) {
+    while !p.exited() && frames.is_none_or(|n| done < n) && !stop_signal::requested() {
         p.step();
         done += 1;
         next += interval;
         pace(&mut next, interval);
+    }
+    if stop_signal::requested() {
+        tracing::info!("headless: stop requested");
     }
     tracing::info!("headless: stopped after {done} iterations");
     Ok(())

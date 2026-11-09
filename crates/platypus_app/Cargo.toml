@@ -68,6 +68,9 @@ static-angle = ["web_ui_render_gles/static-angle"]
 platypus_core = { path = "../platypus_core" }
 image = { version = "0.25.10", default-features = false, features = ["png"] }
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61.2", features = ["Win32_System_Console", "Win32_Foundation", "Win32_System_ProcessStatus", "Win32_System_Threading", "Win32_System_Diagnostics_Debug", "Win32_System_Kernel", "Win32_System_LibraryLoader", "Win32_System_Memory", "Win32_UI_WindowsAndMessaging"] }
 

@@ -42,6 +42,8 @@ pub enum Request {
     Connect {
         address: String,
         name: String,
+        /// Join to watch (`Network.watch`).
+        spectator: bool,
     },
     Disconnect,
 }
@@ -103,6 +105,24 @@ pub fn install(host: Host, debug: Option<DebugHandle>) {
     });
 }
 
+/// Says goodbye, then drops the host: a server tells every player (who see the server leave at once
+/// rather than time out), a client frees its slot. The goodbyes go out as the transport closes.
+pub fn close() {
+    with(|s| {
+        if let Some(host) = s.host.as_mut() {
+            if host.is_server() {
+                for player in host.session().players() {
+                    host.session_mut().kick(player);
+                }
+            } else {
+                host.session_mut().leave();
+            }
+        }
+        s.host = None;
+        s.debug = None;
+    });
+}
+
 /// Drops the host (the transport closes).
 pub fn uninstall() {
     with(|s| {
@@ -151,11 +171,13 @@ fn event_line(e: &NetEvent) -> String {
             player,
             name,
             resumed,
+            spectator,
         } => line(&[
             "joined",
             &n(u64::from(*player)),
             name,
             &n(u64::from(*resumed)),
+            &n(u64::from(*spectator)),
         ]),
         NetEvent::PlayerDropped { player } => line(&["dropped", &n(u64::from(*player))]),
         NetEvent::PlayerLeft { player } => line(&["left", &n(u64::from(*player))]),
@@ -407,8 +429,40 @@ pub mod network_api {
             s.requests.push(Request::Connect {
                 address: address.to_owned(),
                 name: name.to_owned(),
+                spectator: false,
             })
         });
+    }
+
+    /// Connects as a spectator: the same events as `connect`, a view of the world, no body and no
+    /// calls (the server refuses them). Spectators have their own limit on the server.
+    pub fn watch(address: &str, name: &str) {
+        with(|s| {
+            s.requests.push(Request::Connect {
+                address: address.to_owned(),
+                name: name.to_owned(),
+                spectator: true,
+            })
+        });
+    }
+
+    /// Whether `player` joined to watch (known to the server; false elsewhere).
+    pub fn is_spectator(player: f64) -> bool {
+        with(|s| {
+            s.host
+                .as_ref()
+                .is_some_and(|h| h.session().is_spectator(player as u32))
+        })
+    }
+
+    /// What this program is on the network: `"server"`, `"client"` or `"none"`. A *listen server*
+    /// is a server whose script also plays (player 0, which `isMine` and `localPlayer` honour).
+    pub fn role() -> String {
+        with(|s| match s.host.as_ref() {
+            None => "none".to_owned(),
+            Some(h) if h.is_server() => "server".to_owned(),
+            Some(_) => "client".to_owned(),
+        })
     }
 
     /// Leaves the session (a client says goodbye; a server closes).
@@ -989,6 +1043,7 @@ mod tests {
         reset();
         net::start_server(7777.0, f64::NAN, f64::NAN);
         net::connect("127.0.0.1:7777", "ann");
+        net::watch("127.0.0.1:7777", "eve");
         net::disconnect();
         assert_eq!(
             take_requests(),
@@ -1000,11 +1055,19 @@ mod tests {
                 },
                 Request::Connect {
                     address: "127.0.0.1:7777".into(),
-                    name: "ann".into()
+                    name: "ann".into(),
+                    spectator: false
+                },
+                Request::Connect {
+                    address: "127.0.0.1:7777".into(),
+                    name: "eve".into(),
+                    spectator: true
                 },
                 Request::Disconnect,
             ]
         );
+        assert_eq!(net::role(), "none");
+        assert!(!net::is_spectator(1.0));
         assert!(take_requests().is_empty());
         assert_eq!(net::spawn("Player", "p", f64::NAN), 0.0);
         assert!(!net::set_number(1.0, "hp", 1.0));
