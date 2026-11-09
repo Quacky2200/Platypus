@@ -13,6 +13,8 @@
 
 import { BOUND, WHITE, applyLook, buildMap, makeProp, setFog, updateLasers } from "./map";
 import type { Laser, MapInfo } from "./map";
+import { BotBrain } from "./bot";
+import type { Contact, Think } from "./bot";
 import {
   KILL_LIMIT, MAX_REWIND, MAX_SPEED, REGEN_DELAY, REGEN_RATE, RESPAWN_SECONDS, ROUND_SECONDS, SHIELD_SECONDS, SHOT_DAMAGE, SPRINT,
   START_HP, TICK_RATE, WALK, defineNetwork,
@@ -20,14 +22,6 @@ import {
 
 const SEP = "\u001f";
 /** Network classes by their order in `defineNetwork`. */
-// Bots: they shoot only within BOT_SIGHT metres (the fog hides things past 22 m, so a player
-// sees a bot well before it can hit them), react after BOT_REACTION seconds in view, miss by up to
-// BOT_AIM_ERROR degrees, and keep BOT_KEEP_OFF metres from the player they are fighting.
-const BOT_SIGHT = 13;
-const BOT_REACTION = 0.6;
-const BOT_AIM_ERROR = 5;
-const BOT_KEEP_OFF = 6;
-
 const PLAYER = 0;
 const PROP = 1;
 const MATCH = 2;
@@ -172,11 +166,7 @@ export class Arena extends Component {
   private pitch = 8;
   private airTime = 0;
   private killLimit = KILL_LIMIT;
-  private botBlockedUntil = 0;
-  private botSeenFor = 0;
-  private botCanFire = false;
-  private botJitter = 0;
-  private botJitterAt = 0;
+  private brain: BotBrain | null = null;
   private prevPos: Vector3 | null = null;
   private speedNow = 0;
   private pointerLocked = false;
@@ -850,11 +840,12 @@ export class Arena extends Component {
   private onRpc(name: string, args: string[]) {
     if (name === "beam") {
       const from = argVec(args[0]);
-      if (this.bot && args[2] !== "b:1") {
-        // Was it my shot, and did it end short of where I was aiming?
-        const me = this.views.get(this.localId)?.go.transform.position;
-        const len = argVec(args[1]).sub(from).magnitude;
-        if (me && Math.hypot(from.x - me.x, from.z - me.z) < 1.5 && len < this.botDist - 1.5) this.botBlockedUntil = Time.time + 1.5;
+      const me = this.bot ? this.views.get(this.localId)?.go.transform.position : undefined;
+      if (me && this.brain) {
+        if (Math.hypot(from.x - me.x, from.z - me.z) < 1.5) {
+          // My shot: did it end short of where I was aiming?
+          if (args[2] !== "b:1" && argVec(args[1]).sub(from).magnitude < this.botDist - 1.5) this.brain.shotBlocked(Time.time);
+        } else this.brain.heard(from, me, Time.time);
       }
       this.drawBeam(this.muzzleNear(from), argVec(args[1]), args[2] === "b:1");
     }
@@ -874,44 +865,21 @@ export class Arena extends Component {
   }
 
   /**
-   * A bot's senses. It picks the nearest living player and aims at them with some error, but only
-   * shoots when they are inside its sight (well inside the fog, so a player always sees a bot
-   * before it can hit them), nothing solid is between them, and it has had them in view for a
-   * moment (reaction time).
+   * One frame of a bot's brain (`bot.ts`): what it sees and hears, where to walk (A* round the
+   * houses), and whether it shoots. The other living characters are all it is told about; the brain
+   * decides what it can actually see.
    */
-  private botThink(view: View, dt: number) {
-    const me = view.go.transform.position;
-    let best = Infinity;
-    let target: Vector3 | null = null;
+  private botThink(view: View, dt: number): Think {
+    if (!this.brain) this.brain = new BotBrain();
+    const others: Contact[] = [];
     for (const [id, o] of this.views) {
       if (o.local || o.kind !== 0 || !Network.getBool(id, "alive")) continue;
-      const d = Math.hypot(o.shown.x - me.x, o.shown.z - me.z);
-      if (d < best) {
-        best = d;
-        target = o.shown;
-      }
+      others.push({ pos: o.shown });
     }
-    this.botDist = best;
-    let sees = false;
-    if (target && best < BOT_SIGHT) {
-      const eye = me.add(new Vector3(0, 1.3, 0));
-      const to = target.add(new Vector3(0, 1.1, 0)).sub(eye);
-      const dist = to.magnitude;
-      const dir = to.normalized;
-      // Start past the bot's own collider.
-      const wall = Physics.raycast(eye.add(dir.scale(0.6)), dir, Math.max(0.1, dist - 0.6));
-      sees = !wall;
-    }
-    // The server's own ray is the judge too: a shot of mine that stopped well short of the target
-    // (it hit something solid) means no line of sight, whatever my ray said.
-    if (Time.time < this.botBlockedUntil) sees = false;
-    this.botSeenFor = sees ? this.botSeenFor + dt : 0;
-    this.botCanFire = this.botSeenFor > BOT_REACTION;
-    if (Time.time > this.botJitterAt) {
-      this.botJitterAt = Time.time + 0.5;
-      this.botJitter = Random.range(-BOT_AIM_ERROR, BOT_AIM_ERROR);
-    }
-    if (target) this.yaw = (Math.atan2(target.x - me.x, -(target.z - me.z)) * 180) / Math.PI + this.botJitter;
+    const t = this.brain.think(view.go.transform.position, Network.getNumber(this.localId, "hp"), others, dt, Time.time);
+    this.botDist = t.dist;
+    this.yaw = t.yaw;
+    return t;
   }
 
   private moveLocal(dt: number) {
@@ -930,22 +898,23 @@ export class Arena extends Component {
     const wheel = input.mouseScrollDelta.y;
     if (wheel) this.distance = clamp(this.distance - wheel * 0.3, 1.6, 8);
 
-    const yawR = (this.yaw * Math.PI) / 180;
-    // Platypus is right-handed and looks down -z: yaw 0 faces -z, turning right (yaw up) faces +x.
-    const fwd = new Vector3(Math.sin(yawR), 0, -Math.cos(yawR));
-    const right = new Vector3(Math.cos(yawR), 0, Math.sin(yawR));
-    // A bot (`--bot`) walks and shoots by itself, for tests with no one at the keyboard.
-    const bt = Time.time;
-    // (Camera yaw faces the target, so "forward" walks at it; it strafes while it goes.)
-    const x = this.bot ? Math.sin(bt * 1.3 + this.me) * 0.6 : (input.getKey("KeyD") || input.getKey("ArrowRight") ? 1 : 0) - (input.getKey("KeyA") || input.getKey("ArrowLeft") ? 1 : 0);
-    // Bots close in until a wide ring round the target (BOT_KEEP_OFF, their stand-in for steering
-    // until the AI crate is ready), back off inside it, and strafe in between.
-    const z = this.bot ? (this.botDist > BOT_KEEP_OFF + 4 ? 1 : this.botDist < BOT_KEEP_OFF ? -0.6 : 0) : (input.getKey("KeyW") || input.getKey("ArrowUp") ? 1 : 0) - (input.getKey("KeyS") || input.getKey("ArrowDown") ? 1 : 0);
-    if (this.bot) this.botThink(view, dt);
-    let dir = fwd.scale(z).add(right.scale(x));
+    // A bot (`--bot`) walks and shoots by itself, for tests with no one at the keyboard: its brain
+    // (`bot.ts`) gives the walking direction in the world and where it aims.
+    const think = this.bot ? this.botThink(view, dt) : null;
+    let dir: Vector3;
+    if (think) dir = think.dir;
+    else {
+      const yawR = (this.yaw * Math.PI) / 180;
+      // Platypus is right-handed and looks down -z: yaw 0 faces -z, turning right (yaw up) faces +x.
+      const fwd = new Vector3(Math.sin(yawR), 0, -Math.cos(yawR));
+      const right = new Vector3(Math.cos(yawR), 0, Math.sin(yawR));
+      const x = (input.getKey("KeyD") || input.getKey("ArrowRight") ? 1 : 0) - (input.getKey("KeyA") || input.getKey("ArrowLeft") ? 1 : 0);
+      const z = (input.getKey("KeyW") || input.getKey("ArrowUp") ? 1 : 0) - (input.getKey("KeyS") || input.getKey("ArrowDown") ? 1 : 0);
+      dir = fwd.scale(z).add(right.scale(x));
+    }
     const moving = alive && dir.magnitude > 0.01;
     if (moving) dir = dir.normalized;
-    const sprint = input.getKey("ShiftLeft") || input.getKey("ShiftRight");
+    const sprint = think ? think.run : input.getKey("ShiftLeft") || input.getKey("ShiftRight");
     const speed = moving ? (sprint ? SPRINT : WALK) : 0;
     if (cc.isGrounded && this.vy <= 0) {
       this.vy = -1;
@@ -963,7 +932,7 @@ export class Arena extends Component {
     const moved = this.speedNow < 0.15 ? 0 : this.speedNow;
 
     // Face where it runs, or where it shoots.
-    const firing = alive && (this.bot ? this.botCanFire && Math.sin(bt * 2.3) > 0.3 : input.getMouseButton(0) || input.getKey("KeyF"));
+    const firing = alive && (think ? think.fire : input.getMouseButton(0) || input.getKey("KeyF"));
     // The mannequin model faces +z, so its body turn is 180 - heading when it aims.
     const aim = firing && !this.bot ? this.aimYaw(after) : this.yaw;
     if (firing) this.facing = Math.PI - (aim * Math.PI) / 180;

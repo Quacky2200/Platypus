@@ -47,8 +47,25 @@ function box(name: string, at: Vector3, size: Vector3, material: Material, paren
   return go;
 }
 
+/** The footprint of a solid piece of scenery (half sizes along x and z), for the bots' navigation grid. */
+export interface Solid {
+  x: number;
+  z: number;
+  hx: number;
+  hz: number;
+}
+/** Every house and parked car `buildMap` made. */
+export const SOLIDS: Solid[] = [];
+
+/** Records a `w` by `d` footprint turned by `yaw` (a multiple of 90 degrees). */
+function addSolid(at: Vector3, w: number, d: number, yaw: number) {
+  const turned = Math.abs(Math.round(yaw / 90)) % 2 === 1;
+  SOLIDS.push({ x: at.x, z: at.z, hx: (turned ? d : w) / 2, hz: (turned ? w : d) / 2 });
+}
+
 /** A white house `w` wide (x), `d` deep (z), `h` tall, its door towards +z (rotated by `yaw` degrees). */
 function house(at: Vector3, w: number, d: number, h: number, yaw: number, sign?: Color) {
+  addSolid(at, w, d, yaw);
   const root = new GameObject("House", { position: at, rotation: Quaternion.euler(0, yaw, 0) });
   box("Walls", new Vector3(0, h / 2, 0), new Vector3(w, h, d), MATERIALS.wall, root, true);
   box("Roof", new Vector3(0, h + 0.2, 0), new Vector3(w + 0.6, 0.4, d + 0.6), MATERIALS.roof, root);
@@ -88,6 +105,7 @@ export function car(at: Vector3, yaw: number, physics: boolean): GameObject {
     rb.mass = 350;
     rb.constraints = RigidbodyConstraints.FreezeRotationX | RigidbodyConstraints.FreezeRotationZ;
   } else {
+    addSolid(at, 4.2, 1.8, yaw);
     const col = new GameObject("Collider", { position: new Vector3(0, 0.8, 0), scale: new Vector3(4.2, 1.4, 1.8), parent: root });
     col.addComponent(BoxCollider);
   }

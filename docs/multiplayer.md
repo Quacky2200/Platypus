@@ -290,6 +290,13 @@ cargo run --release -p platypus_app -- examples/net-arena -- --connect 127.0.0.1
 cargo run --release -p platypus_app -- examples/net-arena -- --connect 127.0.0.1:7777 --bot
 ```
 
+A bot (`--bot`) is an ordinary client whose input comes from `src/bot.ts`, built on `platypus_ai`
+([platypus-api.md](platypus-api.md), "Bot AI"): a `NavGrid` of the town (houses and cars from
+`map.ts`'s `SOLIDS`) gives A* routes and cover checks, and a `Goap` planner chooses patrol, chase,
+fight, take cover or recover each 0.3 s. A bot knows only what it has seen (13 m, clear ray) or heard
+(a shot within 26 m), remembers it for 6 s, strafes in a ring while fighting, aims worse the further
+away the target is, and retreats out of sight to heal when its health drops below 40.
+
 Arguments after `--` reach the game as `Application.args`. With no `--server` or `--connect` the menu
 chooses. `--headless` is described in [platform.md](platform.md) ("Headless runs").
 
