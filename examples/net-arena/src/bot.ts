@@ -18,7 +18,7 @@ import { BOUND, SOLIDS } from "./map";
 import { solidReach } from "./move";
 
 /** Shoots and notices only this close: the fog hides a bot's target past 22 m, so a player sees a bot first. */
-const SIGHT = 13;
+const SIGHT = 15;
 /** A shot this close is heard. */
 const HEARING = 26;
 /** The cone a bot sees in, in degrees across (what is outside it is not seen, until the bot turns). */
@@ -26,11 +26,11 @@ const FOV = 120;
 /** Anyone this close is noticed whichever way the bot faces (it hears the footsteps). */
 const NOTICE = 2.5;
 /** How fast a bot turns, degrees a second: it has to turn to what it heard or what is behind it. */
-const TURN = 260;
+const TURN = 320;
 /** A bot fires once its aim is this close to the target (degrees). */
 const FIRE_CONE = 10;
-const REACTION = 0.6;
-const AIM_ERROR = 5;
+const REACTION = 0.4;
+const AIM_ERROR = 3.5;
 /** Seconds a bot remembers where it last saw someone. */
 const MEMORY = 6;
 /** Fighting distance band: closer than NEAR it backs off, further than FAR it closes in. */
@@ -91,6 +91,9 @@ export class BotBrain {
   private modeAt = -9;
   private patrolTo: Vector3 | null = null;
   private patrolAt = 0;
+  /** Where someone was lost, and how many places near it are still to be looked at. */
+  private searchCenter: Vector3 | null = null;
+  private searchLeft = 0;
   private cover: Vector3 | null = null;
   private coverAt = -9;
   private strafe = 1;
@@ -168,18 +171,39 @@ export class BotBrain {
     return d.magnitude < 0.05 ? new Vector3(0, 0, 0) : d.normalized;
   }
 
-  /** The nearest spot a bot at `me` can reach that `from` cannot see, and is not close to it. */
-  private pickCover(me: Vector3, from: Vector3): Vector3 | null {
-    let best: Vector3 | null = null;
-    let bestD = 1e9;
+  /**
+   * A spot a bot at `me` can reach that `from` cannot see, and is not close to it: the nearest, or
+   * (`vary`) one of the few nearest, so a bot waiting in hiding moves between hiding places.
+   */
+  private pickCover(me: Vector3, from: Vector3, vary: boolean): Vector3 | null {
+    const found: { s: Vector3; d: number }[] = [];
     for (const s of this.spots) {
       const d = flat(s.sub(me)).magnitude;
-      if (d >= bestD || flat(s.sub(from)).magnitude < 7) continue;
+      if (flat(s.sub(from)).magnitude < 7 || (vary && d < 3)) continue;
       if (this.grid.lineOfSight(onGrid(s), onGrid(from))) continue;
-      best = s;
-      bestD = d;
+      found.push({ s, d });
     }
-    return best;
+    if (found.length === 0) return null;
+    found.sort((a, b) => a.d - b.d);
+    const n = vary ? Math.min(4, found.length) : 1;
+    return found[Math.floor(Random.range(0, n))]!.s;
+  }
+
+  /** Walks the next leg of the patrol (spot to spot, or round where someone was lost); returns the way. */
+  private patrol(me: Vector3, now: number): Vector3 {
+    const here = this.patrolTo ? flat(this.patrolTo.sub(me)).magnitude : 0;
+    if (!this.patrolTo || here < 1.5 || now - this.patrolAt > 14) {
+      let pick = this.spots[Math.floor(Random.range(0, this.spots.length))]!;
+      // Just lost someone: look in a few places near where they were before going on.
+      if (this.searchLeft > 0 && this.searchCenter) {
+        const near = this.spots.filter((s) => flat(s.sub(this.searchCenter!)).magnitude < 12);
+        if (near.length > 0) pick = near[Math.floor(Random.range(0, near.length))]!;
+        this.searchLeft--;
+      }
+      this.patrolTo = pick;
+      this.patrolAt = now;
+    }
+    return this.walkTo(me, this.patrolTo, now);
   }
 
   /** One frame of thinking for a bot standing at `me` with `hp` health. */
@@ -204,8 +228,14 @@ export class BotBrain {
       this.knownAt = now;
       this.seenFor += dt;
     } else this.seenFor = 0;
-    // Arrived where it last saw them and they are gone: that trail is cold.
-    if (!target && this.known && flat(this.known.sub(me)).magnitude < 1.5) this.known = null;
+    // Arrived where it last saw them (or lost them for too long) and they are gone: the trail is
+    // cold, so it searches the neighbourhood a little rather than going back to its rounds.
+    if (!target && this.known && (flat(this.known.sub(me)).magnitude < 1.5 || now - this.knownAt >= MEMORY)) {
+      this.searchCenter = this.known;
+      this.searchLeft = 3;
+      this.patrolTo = null;
+      this.known = null;
+    }
     const hasTarget = target !== null || (this.known !== null && now - this.knownAt < MEMORY);
 
     if (hp < LOW) this.low = true;
@@ -255,14 +285,15 @@ export class BotBrain {
       want = headingOf(toT);
       // It shoots once the turn has brought its aim to the target, and not before it has reacted.
       const off = Math.abs(angleDiff(want, this.heading));
-      fire = this.seenFor > REACTION && off < FIRE_CONE && Math.sin(now * 2.3) > 0.3;
-    } else if (this.mode === "chase" && known) {
+      fire = this.seenFor > REACTION && off < FIRE_CONE && Math.sin(now * 2.3) > -0.1;
+    } else if ((this.mode === "chase" || this.mode === "fight") && known) {
+      // (A fight whose target is out of sight is a chase to where it was.)
       dir = this.walkTo(me, known, now);
       run = true;
     } else if (this.mode === "takeCover" && known) {
       if (!this.cover || now - this.coverAt > 1) {
         this.coverAt = now;
-        this.cover = this.pickCover(me, known);
+        this.cover = this.pickCover(me, known, false);
       }
       if (this.cover) {
         dir = this.walkTo(me, this.cover, now);
@@ -270,17 +301,19 @@ export class BotBrain {
       }
       // Running for cover, it looks where it runs (not at the one it flees).
       if (dir.magnitude > 0.01) want = headingOf(dir);
-    } else if (this.mode === "recover" || this.mode === "takeCover") {
-      // Wait it out, turned towards where they will come from (as `want` already is).
-    } else {
-      // Patrol: spot to spot.
-      const here = this.patrolTo ? flat(this.patrolTo.sub(me)).magnitude : 0;
-      if (!this.patrolTo || here < 1.5 || now - this.patrolAt > 14) {
-        this.patrolTo = this.spots[Math.floor(Random.range(0, this.spots.length))];
-        this.patrolAt = now;
+    } else if (this.mode === "recover" && known) {
+      // Healing out of sight: not standing still, but moving between hiding places now and then,
+      // looking back where they will come from (as `want` already is).
+      if (!this.cover || now - this.coverAt > 3.5) {
+        this.coverAt = now;
+        this.cover = this.pickCover(me, known, true);
       }
-      dir = this.walkTo(me, this.patrolTo, now);
-      if (dir.magnitude > 0.01) want = headingOf(dir);
+      if (this.cover && flat(this.cover.sub(me)).magnitude > 1) dir = this.walkTo(me, this.cover, now).scale(0.6);
+    } else {
+      // Patrol (also when hurt and nobody is known to be near: it keeps walking while it heals):
+      // spot to spot, looking from side to side as it goes.
+      dir = this.patrol(me, now);
+      if (dir.magnitude > 0.01) want = headingOf(dir) + 40 * Math.sin(now * 1.6);
     }
     // Crowding: step away from anyone within two metres, so bots spread out rather than stack up.
     for (const o of others) {
