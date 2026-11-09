@@ -42,6 +42,9 @@ export function defineNetwork(): void {
         "yaw:f32:q=0.5:owner:lerp",
         "speed:f32:q=0.1:owner",
         "sprint:bool:owner",
+        // The torch is pointed (trigger held, or just fired) and how high (degrees): the arm rises.
+        "firing:bool:owner",
+        "pitch:f32:q=1:owner",
         "hp:i32",
         // The net id of whoever killed it last (for its killcam).
         "killer:i32",

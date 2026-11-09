@@ -369,6 +369,8 @@ if it is 3 cm or more off, it takes the server's state and replays the unconfirm
 fading the visual pop. `--desync` makes a client mispredict on purpose, for testing. Bots (`src/bot.ts`)
 feed the same input path.
 
+**Aiming.** A shot goes where the crosshair is, in three dimensions: the client sends the heading and the pitch (`fire` takes `aim`, `behind`, `pitch`, degrees, up positive), the server traces the ray from the chest with that slope against the scenery (`Physics.raycast`) and against each player as a vertical cylinder 1.85 m tall (`shotHitsPlayer` in `move.ts`, also used by the shooter's predicted beam), and the beam is drawn from the torch's lens to where it ended. The torch is pointed with the arm: while the trigger is held (and for 0.4 s after a shot) the right arm swings out along the aim, and the other players see it from the owner's `firing` and `pitch` fields. The animator poses every bone it has curves for after the scripts have run, so the arm's rotation curves are taken out of the model's clips (`prepareArm`) and the script poses those two bones itself: the run cycle's arm sampled from the curves at the animator's time and speed (`sampleArm`), or the arm held out (`poseArms`, in `onPreRender`). `--aim [degrees]` holds the arm up, for looking at the pose.
+
 **Predicted beams.** A client draws its own beam at once when it fires (`predictBeam`: scenery by
 `Physics.raycast`, other players as it sees them, the server's cylinder test) and skips the server's copy
 when it arrives (the `predicted` list, expiring after 1 s; the `onRpc` beam branch). It is a predicted

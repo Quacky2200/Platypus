@@ -13,7 +13,7 @@
 
 import { BOUND, WHITE, applyLook, buildMap, makeProp, setFog, updateLasers } from "./map";
 import type { Laser, MapInfo } from "./map";
-import { STEP, copyState, decodeInputs, encodeInput, grounded, makeInput, step } from "./move";
+import { STEP, copyState, decodeInputs, encodeInput, grounded, makeInput, shotHitsPlayer, step } from "./move";
 import type { MoveInput, MoveState } from "./move";
 import { Tape, blendAngle } from "./killcam";
 import type { PlayerFrame, PropFrame } from "./killcam";
@@ -138,6 +138,12 @@ interface ServerPlayer {
   body: GameObject;
 }
 
+/** Where a shot goes: its heading (degrees, 0 faces -z) and how far it climbs (degrees, up is positive). */
+interface Aim {
+  yaw: number;
+  pitch: number;
+}
+
 /** A figure in the world: a player (the mannequin) or a prop. */
 interface View {
   go: GameObject;
@@ -155,6 +161,10 @@ interface View {
   fall?: number;
   torch?: GameObject;
   hand?: GameObject;
+  /** The right arm's bones, posed by the script (see `poseArms`), and how far the torch is raised (0 to 1). */
+  shoulder?: GameObject;
+  elbow?: GameObject;
+  aimW?: number;
   lens?: Vector3;
   /** Despawned: an unfinished model load must not dress it. */
   gone: boolean;
@@ -217,6 +227,14 @@ export class Arena extends Component {
   /** How many times the server has disagreed with the prediction (for the HUD and tests). */
   private corrections = 0;
   private desync = false;
+  /** `--aim`: the arm stays raised (to look at the pose). */
+  private holdAim = false;
+  private holdPitch = 0;
+  /** The length of the last frame (`onPreRender` is not told it). */
+  private frameDt = 0.016;
+  /** The local player's torch is pointed (trigger held, or just fired) and how high it points. */
+  private pointing = false;
+  private aimPitch = 0;
   // Killcam (`killcam.ts`): what was drawn lately, and the replay being played after a death.
   private tape = new Tape();
   private replay: { clock: number; from: number; length: number; killer: number; prev: number } | null = null;
@@ -249,6 +267,10 @@ export class Arena extends Component {
     this.bot = args.includes("--bot");
     this.verbose = args.includes("--verbose");
     this.desync = args.includes("--desync");
+    // `--aim [degrees]`: keep the torch raised, as high as given (to look at the pose).
+    const ai = args.indexOf("--aim");
+    this.holdAim = ai >= 0;
+    if (ai >= 0) this.holdPitch = parseFloat(args[ai + 1] ?? "") || 0;
     const at = args.indexOf("--connect");
     // `--kill-limit N` shortens rounds, for testing round changes.
     const kl = args.indexOf("--kill-limit");
@@ -324,6 +346,7 @@ export class Arena extends Component {
   }
 
   override onUpdate(dt: number) {
+    this.frameDt = dt;
     updateLasers(this.lasers, Time.time - this.t0);
     hud.showScores = input.getKey("Tab");
     if (input.getKeyDown("F1")) hud.debug = !hud.debug;
@@ -354,7 +377,6 @@ export class Arena extends Component {
       setFog(!playing);
     }
     if ((this.mode === "client" || this.host) && !this.replay) this.updateFalls(dt);
-    this.alignTorches();
     this.updateBeams();
     // A line a second for logs and tests: who is here and how the network is doing.
     if (this.mode !== "menu" && Time.time - this.lastLog >= 1) {
@@ -464,7 +486,7 @@ export class Arena extends Component {
           this.leave(parseFloat(e.f[0]));
           break;
         case "rpc":
-          if (e.f[1] === "fire") this.onFire(parseFloat(e.f[2]), argNum(e.f[3]), argNum(e.f[4]), now);
+          if (e.f[1] === "fire") this.onFire(parseFloat(e.f[2]), argNum(e.f[3]), argNum(e.f[4]), now, argNum(e.f[5]));
           else if (e.f[1] === "input") this.onInput(parseFloat(e.f[2]), (e.f[3] ?? "").slice(2));
           break;
       }
@@ -803,16 +825,20 @@ export class Arena extends Component {
     return h[h.length - 1]!.p;
   }
 
-  private onFire(player: number, yawDeg: number, rewindMs: number, now: number) {
-    if (this.verbose) console.log(`[net server] fire from ${player} yaw=${yawDeg} rewind=${rewindMs}`);
+  private onFire(player: number, yawDeg: number, rewindMs: number, now: number, pitchDeg = 0) {
+    if (this.verbose) console.log(`[net server] fire from ${player} yaw=${yawDeg} pitch=${pitchDeg} rewind=${rewindMs}`);
     const shooter = this.players.get(player);
     if (!shooter || !Network.getBool(shooter.net, "alive") || now - shooter.lastShot < 0.22) return;
     if (!this.matchRunning() || !Number.isFinite(yawDeg)) return;
     shooter.lastShot = now;
     const yaw = (yawDeg * Math.PI) / 180;
+    // How far the shot climbs (up is positive): at the crosshair, not always level.
+    const pitch = ((Number.isFinite(pitchDeg) ? clamp(pitchDeg, -80, 80) : 0) * Math.PI) / 180;
+    const level = Math.cos(pitch);
     // Heading convention (see docs/world-rendering.md "Coordinates"): forward is -z at yaw 0.
-    const dir = new Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
-    const origin = shooter.last.add(new Vector3(0, 1.3, 0)).add(dir.scale(0.4));
+    const flat = new Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
+    const dir = new Vector3(flat.x * level, Math.sin(pitch), flat.z * level);
+    const origin = shooter.last.add(new Vector3(0, 1.3, 0)).add(flat.scale(0.4));
     const t = now - clamp((Number.isFinite(rewindMs) ? rewindMs : 0) / 1000, 0, MAX_REWIND);
     // Walls and houses stop a beam; players are tested against where they were at time `t`.
     // A shot is stopped by the scenery, not by the pushers standing on the players (layer 8).
@@ -822,17 +848,8 @@ export class Arena extends Component {
     for (const o of this.players.values()) {
       if (o === shooter || !Network.getBool(o.net, "alive") || Network.getBool(o.net, "shield")) continue;
       const c = this.positionAt(o, t);
-      // A ray against a vertical cylinder of radius 0.45: a circle in the ground plane.
-      const ox = origin.x - c.x;
-      const oz = origin.z - c.z;
-      const b = ox * dir.x + oz * dir.z;
-      const k = ox * ox + oz * oz - 0.45 * 0.45;
-      const disc = b * b - k;
-      if (this.verbose) {
-        console.log(`[net server] target ${o.name} at (${c.x},${c.z}) across=${ox * dir.z - oz * dir.x} along=${-b} hist=${o.hist.length}`);
-      }
-      if (disc < 0) continue;
-      const d = -b - Math.sqrt(disc);
+      const d = shotHitsPlayer(origin, flat, dir.y, c);
+      if (this.verbose) console.log(`[net server] target ${o.name} at (${c.x},${c.y},${c.z}) hit=${d} hist=${o.hist.length}`);
       if (d > 0 && d < reach) {
         reach = d;
         victim = o;
@@ -1002,6 +1019,8 @@ export class Arena extends Component {
       for (const c of go.children) paint(c);
     };
     paint(body);
+    // The right arm is posed by the script (see `poseArms`): before the animator exists.
+    prepareArm(model, body);
     const clip = (name: string) => {
       const c = model.animations.find((a) => a.name === name);
       if (!c) throw new Error(`mannequin.glb has no ${name}`);
@@ -1041,20 +1060,68 @@ export class Arena extends Component {
     if (held) {
       view.torch = held.pivot;
       view.hand = held.hand;
+      view.shoulder = findDeep(body, "upperarm_r") ?? undefined;
+      view.elbow = findDeep(body, "lowerarm_r") ?? undefined;
     }
   }
 
   /**
-   * The torch rides the hand's position but points where the figure faces, whatever the pose of
-   * the wrist, so it always sits level in the fist; its lens is where beams start.
+   * The right arm, posed by the script: the run cycle's own arm (read off the clips' curves, at the
+   * time and speed the animator is at) while the torch hangs, and the arm held out along the aim
+   * (heading and pitch) while it is pointed, eased in and out by `aimW`. The animator cannot do it
+   * (it poses every bone it has a curve for, after the scripts run, and has no layers); so the
+   * arm's curves were taken out of the clips (`prepareArm`) and this writes those two bones.
+   * Others' arms are raised from what their owners send (`firing`, `pitch`).
+   */
+  private poseArms(dt: number) {
+    if (armClips.length === 0 || !armAim) return;
+    for (const [id, v] of this.views) {
+      if (!v.shoulder || !v.elbow) continue;
+      const want = v.local ? this.pointing : Network.getBool(id, "firing");
+      const before = v.aimW ?? 0;
+      const w = before + ((want ? 1 : 0) - before) * Math.min(1, 12 * dt);
+      v.aimW = w;
+      // The arm of the run cycle at the animator's time, blended by speed like the legs.
+      const n = v.animator ? v.animator.currentNormalizedTime : 0;
+      const speed = v.local ? this.speedNow : (v.speed ?? 0);
+      let up = sampleArm(speed, n, true);
+      let low = sampleArm(speed, n, false);
+      if (w > 0.01) {
+        up = up.slerp(armAim.up, w);
+        low = low.slerp(armAim.low, w);
+      }
+      v.shoulder.transform.localRotation = up;
+      v.elbow.transform.localRotation = low;
+      if (w > 0.01) {
+        // Up or down to the aim: about the axis across the body's heading.
+        const r = (((v.local ? this.facingDeg : Network.getNumber(id, "yaw")) * Math.PI) / 180);
+        const pitch = v.local ? this.aimPitch : Network.getNumber(id, "pitch");
+        const across = new Vector3(-Math.cos(r), 0, Math.sin(r));
+        v.shoulder.transform.rotation = Quaternion.angleAxis(pitch * w, across).mul(v.shoulder.transform.rotation);
+      }
+    }
+  }
+
+  /** After the animation (so the arm is the script's): the arm, then the torch in the hand. */
+  override onPreRender() {
+    this.poseArms(this.frameDt);
+    this.alignTorches();
+  }
+
+  /**
+   * The torch rides the hand's position but points where the figure faces (and, with the arm
+   * raised, where it aims), whatever the pose of the wrist, so it always sits level in the fist;
+   * its lens is where beams start.
    */
   private alignTorches() {
     for (const [id, v] of this.views) {
       if (!v.torch || !v.hand || !v.body) continue;
       const deg = v.local ? this.facingDeg : Network.getNumber(id, "yaw");
       const r = (deg * Math.PI) / 180;
-      const fwd = new Vector3(Math.sin(r), 0, Math.cos(r));
-      v.torch.transform.rotation = Quaternion.euler(0, deg, 0).mul(Quaternion.euler(0, -90, 0));
+      const p = (((v.local ? this.aimPitch : Network.getNumber(id, "pitch")) * (v.aimW ?? 0)) * Math.PI) / 180;
+      const fwd = new Vector3(Math.sin(r) * Math.cos(p), Math.sin(p), Math.cos(r) * Math.cos(p));
+      const across = new Vector3(-Math.cos(r), 0, Math.sin(r));
+      v.torch.transform.rotation = Quaternion.angleAxis((p * 180) / Math.PI, across).mul(Quaternion.euler(0, deg, 0)).mul(Quaternion.euler(0, -90, 0));
       v.torch.transform.position = v.hand.transform.position.add(fwd.scale(0.04)).add(new Vector3(0, -0.02, 0));
       v.lens = v.torch.transform.position.add(fwd.scale(0.22));
     }
@@ -1080,7 +1147,7 @@ export class Arena extends Component {
    * shoulder, so a shot sent along the camera's heading would miss by that offset. It aims at a
    * player close to the crosshair ray, else at what the ray hits.
    */
-  private aimYaw(me: Vector3): number {
+  private aimAt(me: Vector3): Aim {
     const y = (this.yaw * Math.PI) / 180;
     const p = (this.pitch * Math.PI) / 180;
     const f = new Vector3(Math.sin(y) * Math.cos(p), -Math.sin(p), -Math.cos(y) * Math.cos(p));
@@ -1102,10 +1169,13 @@ export class Arena extends Component {
       const hit = Physics.raycast(c.add(f.scale(1)), f, 80);
       target = c.add(f.scale(hit ? hit.distance + 1 : 60));
     }
+    // From the chest the shot leaves at, to the target: its heading, and how far up or down it goes.
     const dx = target.x - me.x;
     const dz = target.z - me.z;
-    if (Math.hypot(dx, dz) < 1.2) return this.yaw;
-    return (Math.atan2(dx, -dz) * 180) / Math.PI;
+    const dy = target.y - (me.y + 1.3);
+    const flat = Math.hypot(dx, dz);
+    if (flat < 1.2) return { yaw: this.yaw, pitch: -this.pitch };
+    return { yaw: (Math.atan2(dx, -dz) * 180) / Math.PI, pitch: (Math.atan2(dy, flat) * 180) / Math.PI };
   }
 
   private onRpc(name: string, args: string[]) {
@@ -1291,7 +1361,11 @@ export class Arena extends Component {
     // Face where it runs, or where it shoots.
     const firing = alive && (think ? think.fire : input.getMouseButton(0) || input.getKey("KeyF"));
     // The mannequin model faces +z, so its body turn is 180 - heading when it aims.
-    const aim = firing && !this.bot ? this.aimYaw(after) : this.yaw;
+    const shot: Aim = firing && !this.bot ? this.aimAt(after) : { yaw: this.yaw, pitch: 0 };
+    const aim = shot.yaw;
+    // The arm is raised while the trigger is held and a moment after each shot (`--aim` holds it up).
+    this.aimPitch = this.holdAim ? this.holdPitch : shot.pitch;
+    this.pointing = firing || Time.time - this.fireAt < 0.4 || this.holdAim;
     if (firing) this.facing = Math.PI - (aim * Math.PI) / 180;
     else if (moving) this.facing = Math.atan2(dir.x, dir.z);
     let d = this.facing - ((this.facingDeg * Math.PI) / 180);
@@ -1308,16 +1382,19 @@ export class Arena extends Component {
     Network.setNumber(this.localId, "yaw", this.facingDeg);
     Network.setNumber(this.localId, "speed", moved);
     Network.setBool(this.localId, "sprint", sprint);
+    // And whether the torch is pointed, and how high, so their screens raise the arm too.
+    Network.setBool(this.localId, "firing", this.pointing);
+    Network.setNumber(this.localId, "pitch", this.aimPitch);
 
     // Fire: yaw of the camera, and how long ago I saw the world the others are in (half the round
     // trip plus the interpolation delay).
     if (firing && Time.time - this.fireAt > 0.22) {
       this.fireAt = Time.time;
       const behind = Math.max(0, Network.rtt()) / 2 + (2 / TICK_RATE) * 1000;
-      if (this.host) this.onFire(0, aim, 0, Time.time);
+      if (this.host) this.onFire(0, aim, 0, Time.time, shot.pitch);
       else {
-        Network.rpc(this.localId, "fire", [`f:${aim}`,`f:${behind}`].join(SEP));
-        this.predictBeam(aim, after);
+        Network.rpc(this.localId, "fire", [`f:${aim}`, `f:${behind}`, `f:${shot.pitch}`].join(SEP));
+        this.predictBeam(aim, after, shot.pitch);
       }
     }
     // A prediction the server never confirmed (it refused the shot) is forgotten after a second.
@@ -1331,21 +1408,18 @@ export class Arena extends Component {
    * saw it differently (a hit I did not see) it still counts and shows in the score, not in a
    * second beam.
    */
-  private predictBeam(aimDeg: number, at: Vector3) {
+  private predictBeam(aimDeg: number, at: Vector3, pitchDeg: number) {
     const yaw = (aimDeg * Math.PI) / 180;
-    const dir = new Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
-    const origin = at.add(new Vector3(0, 1.3, 0)).add(dir.scale(0.4));
+    const pitch = (clamp(pitchDeg, -80, 80) * Math.PI) / 180;
+    const flat = new Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
+    const dir = new Vector3(flat.x * Math.cos(pitch), Math.sin(pitch), flat.z * Math.cos(pitch));
+    const origin = at.add(new Vector3(0, 1.3, 0)).add(flat.scale(0.4));
     const wall = Physics.raycast(origin, dir, 60);
     let reach = wall ? wall.distance : 60;
     let hit = false;
     for (const [id, v] of this.views) {
       if (v.local || v.kind !== 0 || !Network.getBool(id, "alive")) continue;
-      const ox = origin.x - v.shown.x;
-      const oz = origin.z - v.shown.z;
-      const b = ox * dir.x + oz * dir.z;
-      const disc = b * b - (ox * ox + oz * oz - 0.45 * 0.45);
-      if (disc < 0) continue;
-      const d = -b - Math.sqrt(disc);
+      const d = shotHitsPlayer(origin, flat, dir.y, v.shown);
       if (d > 0 && d < reach) {
         reach = d;
         hit = true;
@@ -1468,6 +1542,82 @@ function findDeep(go: GameObject, name: string): GameObject | null {
     if (hit) return hit;
   }
   return null;
+}
+
+// --- the right arm, which the script poses (`Arena.poseArms`) ---
+
+const ARM_UP = "Armature/root/pelvis/spine_01/spine_02/spine_03/clavicle_r/upperarm_r";
+const ARM_LOW = `${ARM_UP}/lowerarm_r`;
+const ARM_PROPS = ["localRotation.x", "localRotation.y", "localRotation.z", "localRotation.w"];
+/** The locomotion clips whose arm curves were taken out, in speed order, and the speeds they play at. */
+const ARM_CLIPS = ["Idle_Loop", "Walk_Loop", "Jog_Fwd_Loop", "Sprint_Loop"];
+const ARM_SPEEDS = [0, 1.5, WALK, SPRINT];
+
+/** One locomotion clip's arm: its length and the curves of the two bones' rotations (x, y, z, w). */
+interface ArmClip {
+  length: number;
+  up: AnimationCurve[];
+  low: AnimationCurve[];
+}
+let armClips: ArmClip[] = [];
+/** The arm held straight out along the figure's forward (the bones' local rotations). */
+let armAim: { up: Quaternion; low: Quaternion } | null = null;
+
+/**
+ * Takes the right arm's rotation curves out of every clip of the model (the animator then leaves
+ * those two bones alone) and keeps what the script needs to pose them itself: the curves of the
+ * locomotion clips, and the pose of the arm held out forward, found on this figure's bones while
+ * they are still in the model's bind pose. Done once.
+ */
+function prepareArm(model: Model, body: GameObject) {
+  if (armAim) return;
+  const shoulder = findDeep(body, "upperarm_r");
+  const elbow = findDeep(body, "lowerarm_r");
+  const hand = findDeep(body, "hand_r");
+  if (!shoulder || !elbow || !hand) return;
+  const clips: ArmClip[] = [];
+  for (const name of ARM_CLIPS) {
+    const c = model.animations.find((a) => a.name === name);
+    if (!c) return;
+    const up = ARM_PROPS.map((p) => c.curve(ARM_UP, "Transform", p));
+    const low = ARM_PROPS.map((p) => c.curve(ARM_LOW, "Transform", p));
+    // A clip without them (or a changed model) leaves the animation as it is.
+    if (up.some((k) => k.length === 0) || low.some((k) => k.length === 0)) return;
+    clips.push({ length: c.length, up, low });
+  }
+  // Held out forward: swing the arm from where the bind pose has it (the hand from the shoulder)
+  // to the figure's forward, and keep the bones' local rotations.
+  const forward = body.transform.rotation.rotate(new Vector3(0, 0, 1));
+  const arm = hand.transform.position.sub(shoulder.transform.position).normalized;
+  shoulder.transform.rotation = Quaternion.fromToRotation(arm, forward).mul(shoulder.transform.rotation);
+  armAim = { up: shoulder.transform.localRotation, low: elbow.transform.localRotation };
+  for (const c of model.animations) {
+    for (const p of ARM_PROPS) {
+      c.removeCurve(ARM_UP, "Transform", p);
+      c.removeCurve(ARM_LOW, "Transform", p);
+    }
+  }
+  armClips = clips;
+}
+
+/** A unit rotation from the four values of a rotation curve. */
+function unitQuat(x: number, y: number, z: number, w: number): Quaternion {
+  const len = Math.sqrt(x * x + y * y + z * z + w * w);
+  return len > 1e-9 ? new Quaternion(x / len, y / len, z / len, w / len) : new Quaternion(0, 0, 0, 1);
+}
+
+/** The arm's rotation at `normalized` time (the animator's, wrapped) for a figure running at `speed`. */
+function sampleArm(speed: number, normalized: number, upper: boolean): Quaternion {
+  const frac = normalized - Math.floor(normalized);
+  let i = 0;
+  while (i < ARM_SPEEDS.length - 2 && speed > ARM_SPEEDS[i + 1]!) i++;
+  const f = clamp((speed - ARM_SPEEDS[i]!) / (ARM_SPEEDS[i + 1]! - ARM_SPEEDS[i]!), 0, 1);
+  const at = (c: ArmClip) => {
+    const t = frac * c.length;
+    const k = upper ? c.up : c.low;
+    return unitQuat(k[0]!.evaluate(t), k[1]!.evaluate(t), k[2]!.evaluate(t), k[3]!.evaluate(t));
+  };
+  return at(armClips[i]!).slerp(at(armClips[i + 1]!), f);
 }
 
 let flashMaterials:{ body: Material; head: Material; lens: Material } | null = null;

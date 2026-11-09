@@ -109,6 +109,28 @@ export function step(s: MoveState, inp: MoveInput): MoveState {
   return { x, y, z, vy };
 }
 
+/**
+ * How far along a shot a player is hit, or -1: the shot leaves `origin` along the unit heading
+ * `flat` (x and z) and climbs `rise` for every unit it travels; the player is a vertical cylinder
+ * of radius 0.45 and height 1.85 standing at `feet`. The same test on the server (to hurt) and on
+ * the shooter's screen (to draw the beam at once).
+ */
+export function shotHitsPlayer(origin: Vector3, flat: Vector3, rise: number, feet: Vector3): number {
+  // The shot's length is one unit along its path; its flat part is shorter when it climbs.
+  const level = Math.sqrt(Math.max(0, 1 - rise * rise));
+  if (level < 0.02) return -1;
+  const ox = origin.x - feet.x;
+  const oz = origin.z - feet.z;
+  const b = ox * flat.x + oz * flat.z;
+  const disc = b * b - (ox * ox + oz * oz - 0.45 * 0.45);
+  if (disc < 0) return -1;
+  const along = -b - Math.sqrt(disc);
+  if (along <= 0) return -1;
+  const d = along / level;
+  const y = origin.y + rise * d;
+  return y < feet.y - 0.05 || y > feet.y + 1.85 ? -1 : d;
+}
+
 /** Whether the state is standing on the ground. */
 export function grounded(s: MoveState): boolean {
   return s.y <= 0.001 && s.vy <= 0;
