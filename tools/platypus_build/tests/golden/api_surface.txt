@@ -214,14 +214,48 @@ declare class AudioListener :: static attach(object: GameObject): AudioListener;
 declare class AudioListener :: static findOn(object: GameObject): AudioListener;
 declare class AudioListener :: static getVolume(): number;
 declare class AudioListener :: static setVolume(volume: number): void;
+declare class AudioOccluder
+declare class AudioOccluder :: absorption: number;
+declare class AudioOccluder :: getComponent<T>(cls: { prototype: T }): T | undefined;
+declare class AudioOccluder :: lowPass: number;
+declare class AudioOccluder :: openness: number;
+declare class AudioOccluder :: readonly gameObject: GameObject;
+declare class AudioOccluder :: readonly transform: Transform;
+declare class AudioOccluder :: remove(): void;
+declare class AudioOccluder :: static attach(object: GameObject): AudioOccluder;
+declare class AudioOccluder :: static findOn(object: GameObject): AudioOccluder;
+declare class AudioPortal
+declare class AudioPortal :: enabled: boolean;
+declare class AudioPortal :: gain: number;
+declare class AudioPortal :: getComponent<T>(cls: { prototype: T }): T | undefined;
+declare class AudioPortal :: lowPass: number;
+declare class AudioPortal :: radius: number;
+declare class AudioPortal :: readonly gameObject: GameObject;
+declare class AudioPortal :: readonly transform: Transform;
+declare class AudioPortal :: remove(): void;
+declare class AudioPortal :: static attach(object: GameObject): AudioPortal;
+declare class AudioPortal :: static findOn(object: GameObject): AudioPortal;
 declare class AudioSource
+declare class AudioSource :: airAbsorption: number;
 declare class AudioSource :: clip: Sound;
 declare class AudioSource :: clipPath: string;
+declare class AudioSource :: coneInnerAngle: number;
+declare class AudioSource :: coneOuterAngle: number;
+declare class AudioSource :: coneOuterGain: number;
+declare class AudioSource :: coneOuterLowPass: number;
+declare class AudioSource :: directivity: Directivity;
+declare class AudioSource :: directivityRear: number;
+declare class AudioSource :: directivityStrength: number;
+declare class AudioSource :: directivityWidth: number;
+declare class AudioSource :: dopplerLevel: number;
+declare class AudioSource :: effects: boolean;
 declare class AudioSource :: getComponent<T>(cls: { prototype: T }): T | undefined;
 declare class AudioSource :: loop: boolean;
+declare class AudioSource :: loudness: number;
 declare class AudioSource :: maxDistance: number;
 declare class AudioSource :: minDistance: number;
 declare class AudioSource :: mute: boolean;
+declare class AudioSource :: occlusion: number;
 declare class AudioSource :: outputBus: Bus;
 declare class AudioSource :: panStereo: number;
 declare class AudioSource :: pause(): void;
@@ -231,9 +265,12 @@ declare class AudioSource :: playOnAwake: boolean;
 declare class AudioSource :: playOneShot(clip: Sound | string, volumeScale?: number): void;
 declare class AudioSource :: playOneShotPath(clip: string, options?: { volumeScale?: number }): void;
 declare class AudioSource :: playOneShotPath(clip: string, volumeScale?: number): void;
+declare class AudioSource :: readonly emitter: Emitter;
 declare class AudioSource :: readonly gameObject: GameObject;
 declare class AudioSource :: readonly isPlaying: boolean;
 declare class AudioSource :: readonly transform: Transform;
+declare class AudioSource :: rolloff: Rolloff;
+declare class AudioSource :: rolloffFactor: number;
 declare class AudioSource :: spatialBlend: number;
 declare class AudioSource :: static attach(object: GameObject): AudioSource;
 declare class AudioSource :: static findOn(object: GameObject): AudioSource;
@@ -242,6 +279,44 @@ declare class AudioSource :: static playClipAtPoint(clip: Sound, position: Vecto
 declare class AudioSource :: stop(): void;
 declare class AudioSource :: unPause(): void;
 declare class AudioSource :: volume: number;
+declare class AudioSurface
+declare class AudioSurface :: getComponent<T>(cls: { prototype: T }): T | undefined;
+declare class AudioSurface :: readonly gameObject: GameObject;
+declare class AudioSurface :: readonly transform: Transform;
+declare class AudioSurface :: remove(): void;
+declare class AudioSurface :: static attach(object: GameObject): AudioSurface;
+declare class AudioSurface :: static findOn(object: GameObject): AudioSurface;
+declare class AudioSurface :: surface: string;
+declare class AudioZone
+declare class AudioZone :: addBus(bus: Bus): void;
+declare class AudioZone :: affectsSources: boolean;
+declare class AudioZone :: ambience: Sound;
+declare class AudioZone :: ambienceBus: Bus;
+declare class AudioZone :: ambienceVolume: number;
+declare class AudioZone :: clearBuses(): void;
+declare class AudioZone :: curve: ZoneCurve;
+declare class AudioZone :: echo: number;
+declare class AudioZone :: enabled: boolean;
+declare class AudioZone :: getComponent<T>(cls: { prototype: T }): T | undefined;
+declare class AudioZone :: highPass: number;
+declare class AudioZone :: innerFraction: number;
+declare class AudioZone :: invert: boolean;
+declare class AudioZone :: lowPass: number;
+declare class AudioZone :: priority: number;
+declare class AudioZone :: radius: number;
+declare class AudioZone :: readonly gameObject: GameObject;
+declare class AudioZone :: readonly transform: Transform;
+declare class AudioZone :: readonly weight: number;
+declare class AudioZone :: remove(): void;
+declare class AudioZone :: reverb: number;
+declare class AudioZone :: reverbDamping: number;
+declare class AudioZone :: reverbSize: number;
+declare class AudioZone :: shape: ZoneShape;
+declare class AudioZone :: size: Vector3;
+declare class AudioZone :: static attach(object: GameObject): AudioZone;
+declare class AudioZone :: static findOn(object: GameObject): AudioZone;
+declare class AudioZone :: volume: number;
+declare class AudioZone :: weightAt(point: Vector3): number;
 declare class Bounds
 declare class Bounds :: constructor(cx: number, cy: number, cz: number, sx: number, sy: number, sz: number);
 declare class Bounds :: contains(p: Vector3): boolean;
@@ -292,6 +367,18 @@ declare class Bus :: pause(options?: { fade?: number }): void;
 declare class Bus :: remove(): void;
 declare class Bus :: resume(fade?: number): void;
 declare class Bus :: resume(options?: { fade?: number }): void;
+declare class Bus :: setEcho(wet: number, fade?: number): void;
+declare class Bus :: setEcho(wet: number, options?: { fade?: number }): void;
+declare class Bus :: setHighPass(hz: number, fade?: number): void;
+declare class Bus :: setHighPass(hz: number, options?: { fade?: number }): void;
+declare class Bus :: setLowPass(hz: number, fade?: number): void;
+declare class Bus :: setLowPass(hz: number, options?: { fade?: number }): void;
+declare class Bus :: setReverb(wet: number, fade?: number): void;
+declare class Bus :: setReverb(wet: number, options?: { fade?: number }): void;
+declare class Bus :: setReverbDamping(damping: number, fade?: number): void;
+declare class Bus :: setReverbDamping(damping: number, options?: { fade?: number }): void;
+declare class Bus :: setReverbSize(size: number, fade?: number): void;
+declare class Bus :: setReverbSize(size: number, options?: { fade?: number }): void;
 declare class Bus :: setVolume(volume: number, fade?: number): void;
 declare class Bus :: setVolume(volume: number, options?: { fade?: number }): void;
 declare class Camera
@@ -594,8 +681,16 @@ declare class EdgeCollider2D :: static attach(object: GameObject): EdgeCollider2
 declare class EdgeCollider2D :: static findOn(object: GameObject): EdgeCollider2D;
 declare class Emitter
 declare class Emitter :: remove(): void;
+declare class Emitter :: setEcho(wet: number, fade?: number): void;
+declare class Emitter :: setEcho(wet: number, options?: { fade?: number }): void;
+declare class Emitter :: setHighPass(hz: number, fade?: number): void;
+declare class Emitter :: setHighPass(hz: number, options?: { fade?: number }): void;
+declare class Emitter :: setLowPass(hz: number, fade?: number): void;
+declare class Emitter :: setLowPass(hz: number, options?: { fade?: number }): void;
 declare class Emitter :: setPosition(position: Vector3, glide?: number): void;
 declare class Emitter :: setPosition(position: Vector3, options?: { glide?: number }): void;
+declare class Emitter :: setReverb(wet: number, fade?: number): void;
+declare class Emitter :: setReverb(wet: number, options?: { fade?: number }): void;
 declare class Emitter :: setVolume(volume: number, fade?: number): void;
 declare class Emitter :: setVolume(volume: number, options?: { fade?: number }): void;
 declare class EventList
@@ -617,6 +712,13 @@ declare class FixedJoint :: readonly gameObject: GameObject;
 declare class FixedJoint :: readonly transform: Transform;
 declare class FixedJoint :: static attach(object: GameObject): FixedJoint;
 declare class FixedJoint :: static findOn(object: GameObject): FixedJoint;
+declare class FlowField
+declare class FlowField :: constructor(grid: NavGrid, goals: readonly Vector3Like[]);
+declare class FlowField :: destroy(): void;
+declare class FlowField :: direction(p: Vector3Like): Vector3;
+declare class FlowField :: distance(p: Vector3Like): number;
+declare class FlowField :: rebuild(goals: readonly Vector3Like[]): void;
+declare class FlowField :: static create(grid: NavGrid, goals: readonly Vector3Like[]): FlowField;
 declare class FogVolume
 declare class FogVolume :: blendDistance: number;
 declare class FogVolume :: color: Color;
@@ -674,6 +776,14 @@ declare class GameObject :: static readonly roots: readonly GameObject[];
 declare class GameObject :: static rootAt(index: number): GameObject;
 declare class GameObject :: static rootCount(): number;
 declare class GameObject :: tag: string;
+declare class Goap
+declare class Goap :: addAction(name: string, cost: number, preconditions: readonly string[], effects: readonly string[]): boolean;
+declare class Goap :: canPlan(facts: readonly string[], goal: readonly string[]): boolean;
+declare class Goap :: constructor();
+declare class Goap :: destroy(): void;
+declare class Goap :: plan(facts: readonly string[], goal: readonly string[]): string[];
+declare class Goap :: setMaxExpansions(count: number): void;
+declare class Goap :: static create(): Goap;
 declare class HingeJoint
 declare class HingeJoint :: anchor: Vector3;
 declare class HingeJoint :: autoConfigureConnectedAnchor: boolean;
@@ -709,6 +819,18 @@ declare class HingeJoint2D :: static attach(object: GameObject): HingeJoint2D;
 declare class HingeJoint2D :: static findOn(object: GameObject): HingeJoint2D;
 declare class HingeJoint2D :: useLimits: boolean;
 declare class HingeJoint2D :: useMotor: boolean;
+declare class Htn
+declare class Htn :: addCompound(name: string): boolean;
+declare class Htn :: addMethod(compound: string, name: string, preconditions: readonly string[], subtasks: readonly string[]): boolean;
+declare class Htn :: addPrimitive(name: string, cost: number, preconditions: readonly string[], effects: readonly string[]): boolean;
+declare class Htn :: canPlan(facts: readonly string[], root: string): boolean;
+declare class Htn :: constructor();
+declare class Htn :: destroy(): void;
+declare class Htn :: methods(): string[];
+declare class Htn :: plan(facts: readonly string[], root: string): string[];
+declare class Htn :: setMaxSteps(count: number): void;
+declare class Htn :: static create(): Htn;
+declare class Htn :: unknownSubtasks(): string[];
 declare class Keyframe
 declare class Keyframe :: constructor(time: number, value: number, inTangent: number, outTangent: number);
 declare class Keyframe :: inTangent: number;
@@ -919,6 +1041,33 @@ declare class Model :: readonly meshCount: number;
 declare class Model :: readonly src: string;
 declare class Model :: static load(source: string): Model;
 declare class Model :: whenLoaded(): Promise<Model>;
+declare class NavGrid
+declare class NavGrid :: cellToWorld(cellAt: Vector3Like): Vector3;
+declare class NavGrid :: constructor(size: Vector3Like, origin: Vector3Like, cellSize?: number);
+declare class NavGrid :: destroy(): void;
+declare class NavGrid :: findPath(from: Vector3Like, to: Vector3Like, options?: { smooth?: boolean }): Vector3[];
+declare class NavGrid :: findPath(from: Vector3Like, to: Vector3Like, smooth?: boolean): Vector3[];
+declare class NavGrid :: isBlocked(cellAt: Vector3Like): boolean;
+declare class NavGrid :: lineOfSight(a: Vector3Like, b: Vector3Like): boolean;
+declare class NavGrid :: setBlocked(cellAt: Vector3Like, blocked: boolean): void;
+declare class NavGrid :: setBlocked(cellAt: Vector3Like, options?: { blocked?: boolean }): void;
+declare class NavGrid :: setBoxBlocked(min: Vector3Like, max: Vector3Like, blocked: boolean): void;
+declare class NavGrid :: setBoxBlocked(min: Vector3Like, max: Vector3Like, options?: { blocked?: boolean }): void;
+declare class NavGrid :: setConnectivity(neighbours: number): void;
+declare class NavGrid :: setCornerCutting(allowed: boolean): void;
+declare class NavGrid :: setCornerCutting(options?: { allowed?: boolean }): void;
+declare class NavGrid :: setMaxExpansions(count: number): void;
+declare class NavGrid :: setWeight(cellAt: Vector3Like, weight: number): void;
+declare class NavGrid :: static create(size: Vector3Like, origin: Vector3Like, cellSize?: number): NavGrid;
+declare class NavGrid :: static create(size: Vector3Like, origin: Vector3Like, options?: { cellSize?: number }): NavGrid;
+declare class NavGrid :: worldToCell(p: Vector3Like): Vector3;
+declare class NetworkBehaviour
+declare class NetworkBehaviour :: netDispatch(name: string, args: string[]): boolean;
+declare class NetworkBehaviour :: netId: number;
+declare class NetworkBehaviour :: netInit(): void;
+declare class NetworkBehaviour :: static defineNetwork(): boolean;
+declare class NetworkBehaviour :: static setListenServer(on: boolean): void;
+declare class NetworkBehaviour :: static spawnNet<T extends NetworkBehaviour>(this: new () => T, owner: number): T;
 declare class ParticleSystem
 declare class ParticleSystem :: addBurst(time: number, count: number, cycles?: number, interval?: number): void;
 declare class ParticleSystem :: addBurst(time: number, count: number, options?: { cycles?: number; interval?: number }): void;
@@ -1361,6 +1510,28 @@ declare class Sound :: readonly path: string;
 declare class Sound :: readonly src: string;
 declare class Sound :: static fromString(path: string): Sound;
 declare class Sound :: unload(): void;
+declare class SoundEvent
+declare class SoundEvent :: readonly age: number;
+declare class SoundEvent :: readonly alive: boolean;
+declare class SoundEvent :: readonly kind: string;
+declare class SoundEvent :: readonly loudness: number;
+declare class SoundEvent :: readonly position: Vector3;
+declare class SoundEvent :: readonly pulse: boolean;
+declare class SoundEvent :: readonly source: GameObject;
+declare class SoundSensor
+declare class SoundSensor :: clearOnHear(): void;
+declare class SoundSensor :: enabled: boolean;
+declare class SoundSensor :: getComponent<T>(cls: { prototype: T }): T | undefined;
+declare class SoundSensor :: occlusion: boolean;
+declare class SoundSensor :: onHear(f: (a0: SoundEvent, a1: number) => void): void;
+declare class SoundSensor :: readonly gameObject: GameObject;
+declare class SoundSensor :: readonly level: number;
+declare class SoundSensor :: readonly transform: Transform;
+declare class SoundSensor :: remove(): void;
+declare class SoundSensor :: sensitivity: number;
+declare class SoundSensor :: static attach(object: GameObject): SoundSensor;
+declare class SoundSensor :: static findOn(object: GameObject): SoundSensor;
+declare class SoundSensor :: threshold: number;
 declare class SphereCollider
 declare class SphereCollider :: bounciness: number;
 declare class SphereCollider :: center: Vector3;
@@ -1470,6 +1641,22 @@ declare class SpriteRenderer :: sortingOrder: number;
 declare class SpriteRenderer :: sprite: Sprite | null;
 declare class SpriteRenderer :: static attach(object: GameObject): SpriteRenderer;
 declare class SpriteRenderer :: static findOn(object: GameObject): SpriteRenderer;
+declare class Swarm
+declare class Swarm :: add(p: Vector3Like, speed: number): number;
+declare class Swarm :: constructor(grid: NavGrid, field: FlowField, radius?: number);
+declare class Swarm :: destroy(): void;
+declare class Swarm :: position(index: number): Vector3;
+declare class Swarm :: positions(): number[];
+declare class Swarm :: readonly count: number;
+declare class Swarm :: remove(index: number): void;
+declare class Swarm :: setField(field: FlowField): void;
+declare class Swarm :: setGoalRadius(radius: number): void;
+declare class Swarm :: setPosition(index: number, p: Vector3Like): void;
+declare class Swarm :: setSeparation(strength: number): void;
+declare class Swarm :: static create(grid: NavGrid, field: FlowField, options?: { radius?: number }): Swarm;
+declare class Swarm :: static create(grid: NavGrid, field: FlowField, radius?: number): Swarm;
+declare class Swarm :: step(dt: number): void;
+declare class Swarm :: velocity(index: number): Vector3;
 declare class TextMesh
 declare class TextMesh :: color: Color;
 declare class TextMesh :: font: string;
@@ -1800,8 +1987,10 @@ declare function property(value: unknown, context: ClassFieldDecoratorContext | 
 declare function queueMicrotask(callback: () => void): void;
 declare function register(components: Record<string, ComponentClass>, options?: { spawn?: boolean }): void;
 declare function removeStyleSheet(id: number): void;
+declare function rpc(target?: "server" | "owner" | "all", options?: { anyone?: boolean; unreliable?: boolean }): (value: (this: any, ...args: any[]) => void, context: ClassMethodDecoratorContext) => void;
 declare function setInterval(callback: (arg?: number) => void, ms?: number): number;
 declare function setTimeout(callback: (arg?: number) => void, ms?: number): number;
+declare function sync(options?: { quantize?: number; interpolate?: boolean; owner?: boolean; int?: boolean }): (value: unknown, context: ClassFieldDecoratorContext) => void;
 declare function useCallback<F extends (...args: any[]) => any>(f: F, deps: readonly unknown[]): F;
 declare function useContext<T>(c: { Provider: unknown } & { __t?: T }): T;
 declare function useEffect(f: () => void | (() => void), deps?: readonly unknown[]): void;
@@ -2038,6 +2227,7 @@ declare interface WindowSize
 declare interface WindowSize :: height: number;
 declare interface WindowSize :: width: number;
 declare module "@platypus/engine"
+declare module "@platypus/engine" :: export import Acoustics = globalThis.Acoustics;
 declare module "@platypus/engine" :: export import AddEventListenerOptions = globalThis.AddEventListenerOptions;
 declare module "@platypus/engine" :: export import Animation = globalThis.Animation;
 declare module "@platypus/engine" :: export import AnimationBlendTree = globalThis.AnimationBlendTree;
@@ -2059,7 +2249,11 @@ declare module "@platypus/engine" :: export import AnimatorStateInfo = globalThi
 declare module "@platypus/engine" :: export import Application = globalThis.Application;
 declare module "@platypus/engine" :: export import Assets = globalThis.Assets;
 declare module "@platypus/engine" :: export import AudioListener = globalThis.AudioListener;
+declare module "@platypus/engine" :: export import AudioOccluder = globalThis.AudioOccluder;
+declare module "@platypus/engine" :: export import AudioPortal = globalThis.AudioPortal;
 declare module "@platypus/engine" :: export import AudioSource = globalThis.AudioSource;
+declare module "@platypus/engine" :: export import AudioSurface = globalThis.AudioSurface;
+declare module "@platypus/engine" :: export import AudioZone = globalThis.AudioZone;
 declare module "@platypus/engine" :: export import AutoExposureSettings = globalThis.AutoExposureSettings;
 declare module "@platypus/engine" :: export import BlendChild = globalThis.BlendChild;
 declare module "@platypus/engine" :: export import BlendSpec = globalThis.BlendSpec;
@@ -2101,6 +2295,7 @@ declare module "@platypus/engine" :: export import CursorLockMode = globalThis.C
 declare module "@platypus/engine" :: export import DOMRect = globalThis.DOMRect;
 declare module "@platypus/engine" :: export import DateTime = globalThis.DateTime;
 declare module "@platypus/engine" :: export import Debug = globalThis.Debug;
+declare module "@platypus/engine" :: export import Directivity = globalThis.Directivity;
 declare module "@platypus/engine" :: export import EdgeCollider2D = globalThis.EdgeCollider2D;
 declare module "@platypus/engine" :: export import Editor = globalThis.Editor;
 declare module "@platypus/engine" :: export import EditorScene = globalThis.EditorScene;
@@ -2113,6 +2308,7 @@ declare module "@platypus/engine" :: export import FileStat = globalThis.FileSta
 declare module "@platypus/engine" :: export import FilterMode = globalThis.FilterMode;
 declare module "@platypus/engine" :: export import FixedJoint = globalThis.FixedJoint;
 declare module "@platypus/engine" :: export import FlatMeshData = globalThis.FlatMeshData;
+declare module "@platypus/engine" :: export import FlowField = globalThis.FlowField;
 declare module "@platypus/engine" :: export import FogMode = globalThis.FogMode;
 declare module "@platypus/engine" :: export import FogVolume = globalThis.FogVolume;
 declare module "@platypus/engine" :: export import FontFace = globalThis.FontFace;
@@ -2123,11 +2319,13 @@ declare module "@platypus/engine" :: export import GameObject = globalThis.GameO
 declare module "@platypus/engine" :: export import GameObjectOptions = globalThis.GameObjectOptions;
 declare module "@platypus/engine" :: export import Gamepad = globalThis.Gamepad;
 declare module "@platypus/engine" :: export import Gizmos = globalThis.Gizmos;
+declare module "@platypus/engine" :: export import Goap = globalThis.Goap;
 declare module "@platypus/engine" :: export import GraphicsSettings = globalThis.GraphicsSettings;
 declare module "@platypus/engine" :: export import HeightFogSettings = globalThis.HeightFogSettings;
 declare module "@platypus/engine" :: export import HideFlags = globalThis.HideFlags;
 declare module "@platypus/engine" :: export import HingeJoint = globalThis.HingeJoint;
 declare module "@platypus/engine" :: export import HingeJoint2D = globalThis.HingeJoint2D;
+declare module "@platypus/engine" :: export import Htn = globalThis.Htn;
 declare module "@platypus/engine" :: export import InputEvent = globalThis.InputEvent;
 declare module "@platypus/engine" :: export import InputEventType = globalThis.InputEventType;
 declare module "@platypus/engine" :: export import InstantiateObjectOptions = globalThis.InstantiateObjectOptions;
@@ -2148,9 +2346,12 @@ declare module "@platypus/engine" :: export import Mesh = globalThis.Mesh;
 declare module "@platypus/engine" :: export import MeshCollider = globalThis.MeshCollider;
 declare module "@platypus/engine" :: export import MeshData = globalThis.MeshData;
 declare module "@platypus/engine" :: export import MeshRenderer = globalThis.MeshRenderer;
+declare module "@platypus/engine" :: export import Microphone = globalThis.Microphone;
 declare module "@platypus/engine" :: export import Mirror = globalThis.Mirror;
 declare module "@platypus/engine" :: export import Model = globalThis.Model;
+declare module "@platypus/engine" :: export import NavGrid = globalThis.NavGrid;
 declare module "@platypus/engine" :: export import Network = globalThis.Network;
+declare module "@platypus/engine" :: export import NetworkBehaviour = globalThis.NetworkBehaviour;
 declare module "@platypus/engine" :: export import NumberList = globalThis.NumberList;
 declare module "@platypus/engine" :: export import ParticleBurst = globalThis.ParticleBurst;
 declare module "@platypus/engine" :: export import ParticleShapeSpec = globalThis.ParticleShapeSpec;
@@ -2194,6 +2395,7 @@ declare module "@platypus/engine" :: export import Rigidbody = globalThis.Rigidb
 declare module "@platypus/engine" :: export import Rigidbody2D = globalThis.Rigidbody2D;
 declare module "@platypus/engine" :: export import RigidbodyConstraints = globalThis.RigidbodyConstraints;
 declare module "@platypus/engine" :: export import Rng = globalThis.Rng;
+declare module "@platypus/engine" :: export import Rolloff = globalThis.Rolloff;
 declare module "@platypus/engine" :: export import Rope = globalThis.Rope;
 declare module "@platypus/engine" :: export import RopeJoint = globalThis.RopeJoint;
 declare module "@platypus/engine" :: export import Scene = globalThis.Scene;
@@ -2206,6 +2408,8 @@ declare module "@platypus/engine" :: export import Shapes = globalThis.Shapes;
 declare module "@platypus/engine" :: export import SizeKey = globalThis.SizeKey;
 declare module "@platypus/engine" :: export import SkinnedMeshRenderer = globalThis.SkinnedMeshRenderer;
 declare module "@platypus/engine" :: export import Sound = globalThis.Sound;
+declare module "@platypus/engine" :: export import SoundEvent = globalThis.SoundEvent;
+declare module "@platypus/engine" :: export import SoundSensor = globalThis.SoundSensor;
 declare module "@platypus/engine" :: export import SphereCollider = globalThis.SphereCollider;
 declare module "@platypus/engine" :: export import Spline = globalThis.Spline;
 declare module "@platypus/engine" :: export import SplineAlignment = globalThis.SplineAlignment;
@@ -2219,6 +2423,9 @@ declare module "@platypus/engine" :: export import SpringJoint = globalThis.Spri
 declare module "@platypus/engine" :: export import Sprite = globalThis.Sprite;
 declare module "@platypus/engine" :: export import SpriteRenderer = globalThis.SpriteRenderer;
 declare module "@platypus/engine" :: export import StateOpts = globalThis.StateOpts;
+declare module "@platypus/engine" :: export import Steam = globalThis.Steam;
+declare module "@platypus/engine" :: export import Steering = globalThis.Steering;
+declare module "@platypus/engine" :: export import Swarm = globalThis.Swarm;
 declare module "@platypus/engine" :: export import SystemInfo = globalThis.SystemInfo;
 declare module "@platypus/engine" :: export import TangentMode = globalThis.TangentMode;
 declare module "@platypus/engine" :: export import TextMesh = globalThis.TextMesh;
@@ -2251,6 +2458,8 @@ declare module "@platypus/engine" :: export import WindowOptions = globalThis.Wi
 declare module "@platypus/engine" :: export import WindowSize = globalThis.WindowSize;
 declare module "@platypus/engine" :: export import WindowStyle = globalThis.WindowStyle;
 declare module "@platypus/engine" :: export import WorldPanel = globalThis.WorldPanel;
+declare module "@platypus/engine" :: export import ZoneCurve = globalThis.ZoneCurve;
+declare module "@platypus/engine" :: export import ZoneShape = globalThis.ZoneShape;
 declare module "@platypus/engine" :: export import addStyleSheet = globalThis.addStyleSheet;
 declare module "@platypus/engine" :: export import audio = globalThis.audio;
 declare module "@platypus/engine" :: export import clearInterval = globalThis.clearInterval;
@@ -2261,8 +2470,10 @@ declare module "@platypus/engine" :: export import property = globalThis.propert
 declare module "@platypus/engine" :: export import queueMicrotask = globalThis.queueMicrotask;
 declare module "@platypus/engine" :: export import register = globalThis.register;
 declare module "@platypus/engine" :: export import removeStyleSheet = globalThis.removeStyleSheet;
+declare module "@platypus/engine" :: export import rpc = globalThis.rpc;
 declare module "@platypus/engine" :: export import setInterval = globalThis.setInterval;
 declare module "@platypus/engine" :: export import setTimeout = globalThis.setTimeout;
+declare module "@platypus/engine" :: export import sync = globalThis.sync;
 declare module "@platypus/engine" :: export import window = globalThis.window;
 declare module "@platypus/react"
 declare module "@platypus/react" :: export import AudioElement = globalThis.AudioElement;
@@ -2308,6 +2519,26 @@ declare module "react" :: export import useReducer = globalThis.useReducer;
 declare module "react" :: export import useRef = globalThis.useRef;
 declare module "react" :: export import useState = globalThis.useState;
 declare module "react" :: export import useSyncExternalStore = globalThis.useSyncExternalStore;
+declare namespace Acoustics
+declare namespace Acoustics :: const eventCount: number;
+declare namespace Acoustics :: const listenerSpeed: number;
+declare namespace Acoustics :: function airCutoff(distance: number): number;
+declare namespace Acoustics :: function directivityGain(pattern: Directivity, angle: number, options?: { width?: number; rear?: number }): number;
+declare namespace Acoustics :: function directivityGain(pattern: Directivity, angle: number, width?: number, rear?: number): number;
+declare namespace Acoustics :: function emit(position: Vector3, loudness: number, kind: string, options?: { source?: GameObject }): SoundEvent;
+declare namespace Acoustics :: function emit(position: Vector3, loudness: number, kind: string, source?: GameObject): SoundEvent;
+declare namespace Acoustics :: function eventAt(index: number): SoundEvent | null;
+declare namespace Acoustics :: function levelAt(position: Vector3): number;
+declare namespace Acoustics :: function rolloffGain(rolloff: Rolloff, distance: number, minDistance: number, maxDistance: number, factor: number): number;
+declare namespace Acoustics :: function transmission(from: Vector3, to: Vector3): number;
+declare namespace Acoustics :: let airAbsorption: number;
+declare namespace Acoustics :: let enabled: boolean;
+declare namespace Acoustics :: let eventLifetime: number;
+declare namespace Acoustics :: let headShadow: number;
+declare namespace Acoustics :: let occlusionLayers: number;
+declare namespace Acoustics :: let pulseInterval: number;
+declare namespace Acoustics :: let raySpread: number;
+declare namespace Acoustics :: let speedOfSound: number;
 declare namespace AnimationCullingType
 declare namespace AnimationCullingType :: function name(index: number): AnimationCullingType;
 declare namespace AnimationCullingType :: function parse(name: string): number;
@@ -2407,6 +2638,9 @@ declare namespace Debug :: function log(message: string): void;
 declare namespace Debug :: function logError(message: string): void;
 declare namespace Debug :: function logException(message: string): void;
 declare namespace Debug :: function logWarning(message: string): void;
+declare namespace Directivity
+declare namespace Directivity :: function name(index: number): Directivity;
+declare namespace Directivity :: function parse(name: string): number;
 declare namespace Editor
 declare namespace Editor :: const isAvailable: boolean;
 declare namespace Editor :: const lastError: string;
@@ -2555,6 +2789,13 @@ declare namespace Matrix4x4 :: function orthographic(left: number, right: number
 declare namespace Matrix4x4 :: function perspective(fovDegrees: number, aspect: number, near: number, far: number): Matrix4x4;
 declare namespace Matrix4x4 :: function trs(position: Vector3, rotation: Quaternion): Matrix4x4;
 declare namespace Matrix4x4 :: function trs(position: Vector3, rotation: Quaternion, scale: Vector3): Matrix4x4;
+declare namespace Microphone
+declare namespace Microphone :: const error: string;
+declare namespace Microphone :: const level: number;
+declare namespace Microphone :: const running: boolean;
+declare namespace Microphone :: function start(bus?: Bus, emitter?: Emitter, volume?: number): Playback;
+declare namespace Microphone :: function start(options?: { bus?: Bus; emitter?: Emitter; volume?: number }): Playback;
+declare namespace Microphone :: function stop(): void;
 declare namespace Network
 declare namespace Network :: function badPackets(): number;
 declare namespace Network :: function className(class_: number): string;
@@ -2578,11 +2819,13 @@ declare namespace Network :: function isClient(): boolean;
 declare namespace Network :: function isConnected(): boolean;
 declare namespace Network :: function isMine(id: number): boolean;
 declare namespace Network :: function isServer(): boolean;
+declare namespace Network :: function isSpectator(player: number): boolean;
 declare namespace Network :: function lastError(): string;
 declare namespace Network :: function localPlayer(): number;
 declare namespace Network :: function owner(id: number): number;
 declare namespace Network :: function playerName(player: number): string;
 declare namespace Network :: function players(): number[];
+declare namespace Network :: function role(): string;
 declare namespace Network :: function rpc(id: number, name: string, args?: string): boolean;
 declare namespace Network :: function rpc(id: number, name: string, options?: { args?: string }): boolean;
 declare namespace Network :: function rtt(options?: { player?: number }): number;
@@ -2599,19 +2842,27 @@ declare namespace Network :: function spawn(class_: string, prefab: string, owne
 declare namespace Network :: function startServer(port: number, maxPlayers?: number, tickRate?: number): void;
 declare namespace Network :: function startServer(port: number, options?: { maxPlayers?: number; tickRate?: number }): void;
 declare namespace Network :: function takeEvents(): string;
+declare namespace Network :: function tick(): number;
+declare namespace Network :: function tickRate(): number;
+declare namespace Network :: function time(): number;
+declare namespace Network :: function watch(address: string, name: string): void;
 declare namespace Physics
+declare namespace Physics :: const snapshotCount: number;
 declare namespace Physics :: function addBall(radius: number): PhysicsCollider;
 declare namespace Physics :: function addBox(half: Vector3): PhysicsCollider;
 declare namespace Physics :: function addMesh(points: readonly Vector3[], indices: readonly number[]): PhysicsCollider;
 declare namespace Physics :: function afterNextStep(f: () => void): void;
 declare namespace Physics :: function createBody(kind: string): PhysicsBody;
 declare namespace Physics :: function createJoint(kind: string, a: PhysicsBody, b: PhysicsBody, anchorA: Vector3, anchorB: Vector3, params: readonly number[]): PhysicsJoint;
+declare namespace Physics :: function dropSnapshot(snapshot: number): void;
 declare namespace Physics :: function overlapSphere(center: Vector3, radius: number, layerMask?: number): PhysicsCollider[];
 declare namespace Physics :: function overlapSphere(center: Vector3, radius: number, options?: { layerMask?: number }): PhysicsCollider[];
 declare namespace Physics :: function raycast(origin: Vector3, direction: Vector3, maxDistance?: number, layerMask?: number): RaycastHit | null;
 declare namespace Physics :: function raycast(origin: Vector3, direction: Vector3, options?: { maxDistance?: number; layerMask?: number }): RaycastHit | null;
 declare namespace Physics :: function raycastAll(origin: Vector3, direction: Vector3, maxDistance?: number, layerMask?: number): RaycastHit[];
 declare namespace Physics :: function raycastAll(origin: Vector3, direction: Vector3, options?: { maxDistance?: number; layerMask?: number }): RaycastHit[];
+declare namespace Physics :: function restore(snapshot: number): boolean;
+declare namespace Physics :: function snapshot(): number;
 declare namespace Physics :: function step(): void;
 declare namespace Physics :: let gravity: Vector3;
 declare namespace Physics2D
@@ -2810,6 +3061,9 @@ declare namespace RigidbodyConstraints :: const FreezeRotationX: number;
 declare namespace RigidbodyConstraints :: const FreezeRotationY: number;
 declare namespace RigidbodyConstraints :: const FreezeRotationZ: number;
 declare namespace RigidbodyConstraints :: const None: number;
+declare namespace Rolloff
+declare namespace Rolloff :: function name(index: number): Rolloff;
+declare namespace Rolloff :: function parse(name: string): number;
 declare namespace Scene
 declare namespace Scene :: function active(object: GameObject): boolean;
 declare namespace Scene :: function count(): number;
@@ -2907,6 +3161,39 @@ declare namespace SplineAlignment :: function parse(name: string): number;
 declare namespace SplineLoopMode
 declare namespace SplineLoopMode :: function name(index: number): SplineLoopMode;
 declare namespace SplineLoopMode :: function parse(name: string): number;
+declare namespace Steam
+declare namespace Steam :: function addLobbyFilter(key: string, value: string): void;
+declare namespace Steam :: function appId(): number;
+declare namespace Steam :: function clearAchievement(name: string): boolean;
+declare namespace Steam :: function clearRichPresence(): void;
+declare namespace Steam :: function createLobby(visibility: string, maxMembers: number): void;
+declare namespace Steam :: function findLobbies(): void;
+declare namespace Steam :: function getStat(name: string): number;
+declare namespace Steam :: function isAchievementUnlocked(name: string): boolean;
+declare namespace Steam :: function isAvailable(): boolean;
+declare namespace Steam :: function joinLobby(id: string): void;
+declare namespace Steam :: function leaveLobby(): void;
+declare namespace Steam :: function lobbies(): string;
+declare namespace Steam :: function lobby(): string;
+declare namespace Steam :: function lobbyStatus(): string;
+declare namespace Steam :: function searchStatus(): string;
+declare namespace Steam :: function setLobbyData(key: string, value: string): boolean;
+declare namespace Steam :: function setLobbyJoinable(joinable: boolean): boolean;
+declare namespace Steam :: function setLobbyJoinable(options?: { joinable?: boolean }): boolean;
+declare namespace Steam :: function setRichPresence(key: string, value: string): boolean;
+declare namespace Steam :: function setStat(name: string, value: number): boolean;
+declare namespace Steam :: function storeStats(): boolean;
+declare namespace Steam :: function unlockAchievement(name: string): boolean;
+declare namespace Steam :: function userId(): string;
+declare namespace Steam :: function userName(): string;
+declare namespace Steering
+declare namespace Steering :: function arrive(position: Vector3Like, velocity: Vector3Like, target: Vector3Like, slowRadius: number, maxSpeed: number, maxForce: number): Vector3;
+declare namespace Steering :: function evade(position: Vector3Like, velocity: Vector3Like, threat: Vector3Like, threatVelocity: Vector3Like, maxSpeed: number, maxForce: number): Vector3;
+declare namespace Steering :: function flee(position: Vector3Like, velocity: Vector3Like, threat: Vector3Like, maxSpeed: number, maxForce: number): Vector3;
+declare namespace Steering :: function pursue(position: Vector3Like, velocity: Vector3Like, target: Vector3Like, targetVelocity: Vector3Like, maxSpeed: number, maxForce: number): Vector3;
+declare namespace Steering :: function seek(position: Vector3Like, velocity: Vector3Like, target: Vector3Like, maxSpeed: number, maxForce: number): Vector3;
+declare namespace Steering :: function separation(position: Vector3Like, velocity: Vector3Like, neighbours: readonly Vector3Like[], radius: number, maxSpeed: number, maxForce: number): Vector3;
+declare namespace Steering :: function wander(position: Vector3Like, velocity: Vector3Like, distance: number, radius: number, jitter: Vector3Like, maxSpeed: number, maxForce: number): Vector3;
 declare namespace SystemInfo
 declare namespace SystemInfo :: const architecture: string;
 declare namespace SystemInfo :: const deviceName: string;
@@ -3082,13 +3369,19 @@ declare namespace VolumeDetail :: function parse(name: string): number;
 declare namespace WindowStyle
 declare namespace WindowStyle :: function name(index: number): WindowStyle;
 declare namespace WindowStyle :: function parse(name: string): number;
+declare namespace ZoneCurve
+declare namespace ZoneCurve :: function name(index: number): ZoneCurve;
+declare namespace ZoneCurve :: function parse(name: string): number;
+declare namespace ZoneShape
+declare namespace ZoneShape :: function name(index: number): ZoneShape;
+declare namespace ZoneShape :: function parse(name: string): number;
 declare namespace audio
 declare namespace audio :: const masterVolume: number;
 declare namespace audio :: const soundCount: number;
-declare namespace audio :: function createBus(options?: { volume?: number; parent?: Bus }): Bus;
-declare namespace audio :: function createBus(volume?: number, parent?: Bus): Bus;
-declare namespace audio :: function createEmitter(position: Vector3, minDistance?: number, maxDistance?: number, bus?: Bus): Emitter;
-declare namespace audio :: function createEmitter(position: Vector3, options?: { minDistance?: number; maxDistance?: number; bus?: Bus }): Emitter;
+declare namespace audio :: function createBus(options?: { volume?: number; parent?: Bus; effects?: boolean }): Bus;
+declare namespace audio :: function createBus(volume?: number, parent?: Bus, effects?: boolean): Bus;
+declare namespace audio :: function createEmitter(position: Vector3, minDistance?: number, maxDistance?: number, bus?: Bus, effects?: boolean): Emitter;
+declare namespace audio :: function createEmitter(position: Vector3, options?: { minDistance?: number; maxDistance?: number; bus?: Bus; effects?: boolean }): Emitter;
 declare namespace audio :: function load(path: string, options?: { stream?: boolean }): Sound;
 declare namespace audio :: function load(path: string, stream: boolean): Sound;
 declare namespace audio :: function play(src: string, options?: { volume?: number; rate?: number; pan?: number; loop?: boolean; fadeIn?: number; start?: number; bus?: Bus; emitter?: Emitter }): Playback;
@@ -3134,6 +3427,7 @@ declare namespace window :: function removeEventListener<K extends keyof WindowE
 declare type AnimationCullingType = "alwaysAnimate" | "basedOnRenderers";
 declare type AnimatorController = AnimationController;
 declare type AnimatorCullingMode = "alwaysAnimate" | "cullUpdateTransforms" | "cullCompletely";
+declare type Directivity = "omni" | "semiDirectional" | "directional" | "custom";
 declare type ExposureMetering = "average" | "centerWeighted" | "spot";
 declare type FilterMode = "point" | "bilinear" | "trilinear";
 declare type FogMode = "linear" | "exponential" | "exponentialSquared";
@@ -3143,6 +3437,7 @@ declare type LoadSceneMode = "single" | "additive";
 declare type PostEffect = "chromaticAberration" | "blur" | "depthOfField" | "tiltShift" | "outline" | "vignette" | "pixelate" | "filmGrain" | "colorGrading" | "crt" | "posterize";
 declare type PrimitiveMesh = PrimitiveType;
 declare type PrimitiveType = "cube" | "sphere" | "capsule" | "cylinder" | "plane" | "quad";
+declare type Rolloff = "default" | "inverse" | "linear" | "exponential";
 declare type ShadowQualityMode = "disable" | "hardOnly" | "all";
 declare type SplineAlignment = "none" | "path";
 declare type SplineLoopMode = "loop" | "pingPong" | "once";
@@ -3152,6 +3447,8 @@ declare type UiNode = number & { readonly __handle: "UiNode" };
 declare type VolumeDenoising = "none" | "reprojection" | "gaussian" | "both";
 declare type VolumeDetail = "low" | "medium" | "high" | "ultra";
 declare type WindowStyle = "normal" | "tool" | "dialog" | "popup" | "borderless" | "child";
+declare type ZoneCurve = "linear" | "smooth" | "easeIn" | "easeOut";
+declare type ZoneShape = "sphere" | "box";
 interface AddEventListenerOptions
 interface AddEventListenerOptions :: capture?: boolean;
 interface AddEventListenerOptions :: once?: boolean;
@@ -3479,6 +3776,7 @@ interface PlatypusStyle :: gridTemplateAreas?: string;
 interface PlatypusStyle :: gridTemplateColumns?: string;
 interface PlatypusStyle :: gridTemplateRows?: string;
 interface PlatypusStyle :: height?: Length;
+interface PlatypusStyle :: imageAnimation?: "normal" | "running" | "paused" | "stopped";
 interface PlatypusStyle :: imageRendering?: "auto" | "smooth" | "high-quality" | "pixelated" | "crisp-edges";
 interface PlatypusStyle :: inlineSize?: Length;
 interface PlatypusStyle :: inset?: Length;

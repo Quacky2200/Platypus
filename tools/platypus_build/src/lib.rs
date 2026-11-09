@@ -1338,8 +1338,8 @@ export function lerp(a: number, b: number, t: number): number { return a + (b - 
             assert_eq!(proj.license, "private");
             assert!(!proj.title.is_empty());
         }
-        // The newest is `alpha-probe` (2026-10-30).
-        assert_eq!(games, 56);
+        // Update when an example is added or removed (2026-11-09: `steam` added, `zombie-horders` left).
+        assert_eq!(games, 73);
     }
 
     // M9-TS-2307
