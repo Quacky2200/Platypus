@@ -59,7 +59,11 @@ function house(at: Vector3, w: number, d: number, h: number, yaw: number, sign?:
   }
   box("Side window", new Vector3(w / 2 + 0.02, h * 0.6, 0), new Vector3(0.08, 1.2, 1.6), MATERIALS.glass, root);
   // A neon sign over the door.
-  if (sign) neon("Neon sign", new Vector3(0, h - 0.75, d / 2 + 0.08), Math.min(w - 2, 2.8), 0.5, sign, root);
+  if (sign) {
+    neon("Neon sign", new Vector3(0, h - 0.75, d / 2 + 0.08), Math.min(w - 2, 2.8), 0.5, sign, root);
+    // And a tall one up the corner of the side wall, fixed flat to the wall.
+    neon("Neon side sign", new Vector3(w / 2 + 0.08, h * 0.5, d / 2 - 1.1), 0.45, 2, sign, root, 90);
+  }
   return root;
 }
 
@@ -189,11 +193,6 @@ export function buildMap(): MapInfo {
   house(new Vector3(14, 0, 13), 8, 7, 5, 180, RED);
   house(new Vector3(-26, 0, 0), 6, 8, 5.5, 90, CYAN);
   house(new Vector3(26, 0, 0), 6, 8, 6, -90, PINK);
-  // Blade signs on posts at the cross, readable from along the streets.
-  for (const [x, z, c] of [[-5.2, -5.2, PINK], [5.2, 5.2, CYAN]] as [number, number, Color][]) {
-    box("Sign post", new Vector3(x, 1.7, z), new Vector3(0.1, 3.4, 0.1), MATERIALS.post);
-    neon("Blade sign", new Vector3(x, 3.4, z), 0.5, 1.6, c, undefined, 45);
-  }
 
   // Parked cars (solid), a car and crates you can shove are the server's props.
   car(new Vector3(-8, 0, -4.2), 0, false);
