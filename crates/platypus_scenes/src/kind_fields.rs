@@ -194,9 +194,21 @@ pub fn register() {
             ),
             f(
                 "directivity",
-                "enum:omni|cardioid|supercardioid|hypercardioid|figureEight|ultraDirectional",
+                "enum:omni|semiDirectional|directional|custom",
                 json!("omni"),
-                "Its polar pattern: how it sounds from different directions round it (front is the object's -z).",
+                "How it sounds round it (front is the object's -z): omni is non-directional, semiDirectional a broad oval, directional a speaker's narrower oval, custom takes directivityWidth and directivityRear.",
+            ),
+            f(
+                "directivityWidth",
+                "f64",
+                json!(120.0),
+                "For custom: how wide the oval is, in degrees across (where the beam has fallen to half; 360 is a circle).",
+            ),
+            f(
+                "directivityRear",
+                "f64",
+                json!(0.25),
+                "For custom: how loud it is straight behind (0 silent, 1 as in front).",
             ),
             f(
                 "rolloff",

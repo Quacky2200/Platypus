@@ -238,26 +238,39 @@ pub fn cone_effect(amount: f64, outer_gain: f64, outer_low_pass: f64) -> (f64, f
     )
 }
 
-/// How loud a source of this polar pattern is at `angle` degrees off its forward direction, 0 to 1
-/// (1 on axis). The first-order patterns are `a + (1 - a) cos(angle)`, absolute: cardioid
-/// `a` 0.5, supercardioid 0.37, hypercardioid 0.25, figure-eight 0. The ultra-directional one is a
-/// narrow beam, `(0.5 + 0.5 cos)^6`, with side and rear lobes of 18% (a shotgun's interference).
-pub fn pattern_gain(pattern: Directivity, angle: f64) -> f64 {
-    let t = angle.to_radians();
-    let first_order = |a: f64| (a + (1.0 - a) * t.cos()).abs();
+/// The width (degrees across) and the level straight behind (0 to 1) of a preset shape; `None` for
+/// the circle (non-directional) and for `Custom`, which brings its own.
+pub fn shape_of(pattern: Directivity) -> Option<(f64, f64)> {
     match pattern {
-        Directivity::Omni => 1.0,
-        Directivity::Cardioid => first_order(0.5),
-        Directivity::Supercardioid => first_order(0.37),
-        Directivity::Hypercardioid => first_order(0.25),
-        Directivity::FigureEight => first_order(0.0),
-        Directivity::UltraDirectional => {
-            let beam = (0.5 + 0.5 * t.cos()).powi(6);
-            // Lobes grow in from 30 to 70 degrees: none on the axis.
-            let ramp = ((angle.abs() - 30.0) / 40.0).clamp(0.0, 1.0);
-            beam.max(0.18 * (4.0 * t).cos().abs() * ramp)
-        }
+        Directivity::Omni | Directivity::Custom => None,
+        // A broad oval, a good deal behind: a television, a person talking.
+        Directivity::SemiDirectional => Some((150.0, 0.4)),
+        // A speaker: a narrower oval, little behind.
+        Directivity::Directional => Some((90.0, 0.12)),
     }
+}
+
+/// How loud a source of this shape is at `angle` degrees off its forward direction, 0 to 1 (1 on
+/// axis). Every shape is a smooth oval with no lobes: `rear + (1 - rear) * ((1 + cos angle) / 2) ^ p`,
+/// with `p` chosen so the beam has fallen to half at `width / 2` degrees. A wider `width` is a
+/// rounder, broader oval (360 is the circle); `rear` is the level straight behind. The presets are
+/// [`shape_of`]; `Custom` takes `width` and `rear` from the source.
+pub fn pattern_gain(pattern: Directivity, angle: f64, width: f64, rear: f64) -> f64 {
+    let (width, rear) = match pattern {
+        Directivity::Omni => return 1.0,
+        Directivity::Custom => (width, rear),
+        other => shape_of(other).unwrap_or((width, rear)),
+    };
+    let half = (width * 0.5).clamp(5.0, 180.0);
+    if width >= 360.0 {
+        return 1.0;
+    }
+    let rear = rear.clamp(0.0, 1.0);
+    let base = (1.0 + half.to_radians().cos()) * 0.5;
+    // base is in (0, 1) here: half is under 180 degrees.
+    let p = 0.5f64.ln() / base.max(1e-9).ln();
+    let g = ((1.0 + angle.to_radians().cos()) * 0.5).powf(p);
+    rear + (1.0 - rear) * g
 }
 
 /// The gain and low-pass cutoff (Hz) a pattern gives where it is `g` as loud as on axis (see
@@ -615,56 +628,52 @@ mod tests {
 
     // ACO-MOD-11
     #[test]
-    fn each_polar_pattern_has_its_own_shape() {
-        let g = pattern_gain;
-        for p in [
-            Directivity::Omni,
-            Directivity::Cardioid,
-            Directivity::Supercardioid,
-            Directivity::Hypercardioid,
-            Directivity::FigureEight,
-            Directivity::UltraDirectional,
-        ] {
+    fn the_three_tiers_are_ovals_of_narrowing_width_with_no_lobes() {
+        let g = |p, a| pattern_gain(p, a, 120.0, 0.25);
+        let semi = Directivity::SemiDirectional;
+        let speaker = Directivity::Directional;
+        // Non-directional: a circle.
+        assert_eq!(g(Directivity::Omni, 0.0), 1.0);
+        assert_eq!(g(Directivity::Omni, 137.0), 1.0, "the same everywhere");
+        for p in [semi, speaker, Directivity::Custom] {
             assert!((g(p, 0.0) - 1.0).abs() < 1e-9, "{p:?} is full on axis");
             assert_eq!(g(p, 40.0), g(p, -40.0), "{p:?} is symmetric");
         }
+        // The beam is half at half its width: 75 degrees out for semi (150 across), 45 for the speaker.
+        let (_, semi_rear) = shape_of(semi).unwrap();
+        let (_, speaker_rear) = shape_of(speaker).unwrap();
+        let half = |rear: f64| rear + (1.0 - rear) * 0.5;
+        assert!((g(semi, 75.0) - half(semi_rear)).abs() < 1e-9);
+        assert!((g(speaker, 45.0) - half(speaker_rear)).abs() < 1e-9);
+        // Straight behind is the rear level: a good deal for semi, little for a speaker.
+        assert!((g(semi, 180.0) - semi_rear).abs() < 1e-9);
+        assert!((g(speaker, 180.0) - speaker_rear).abs() < 1e-9);
+        assert!(g(semi, 180.0) > 2.0 * g(speaker, 180.0));
+        // Narrowing: at 60 degrees semi is louder than the speaker; both fall steadily to the back.
+        assert!(g(semi, 60.0) > g(speaker, 60.0));
+        for p in [semi, speaker] {
+            let mut last = 1.0;
+            for a in (0..=180).step_by(10) {
+                let now = g(p, f64::from(a));
+                assert!(
+                    now <= last + 1e-12,
+                    "{p:?} falls monotonically (no lobes): {a}"
+                );
+                last = now;
+            }
+        }
+        // Custom: its own width and rear. 360 across is the circle; 0 behind is silence behind.
+        assert_eq!(pattern_gain(Directivity::Custom, 170.0, 360.0, 0.0), 1.0);
+        assert!(pattern_gain(Directivity::Custom, 180.0, 90.0, 0.0) < 1e-9);
+        assert!((pattern_gain(Directivity::Custom, 180.0, 90.0, 0.3) - 0.3).abs() < 1e-9);
+        // Wider custom ovals are louder to the side than narrower ones.
+        let side = |w| pattern_gain(Directivity::Custom, 90.0, w, 0.0);
+        assert!(side(60.0) < side(120.0) && side(120.0) < side(240.0));
+        // The presets ignore the width and rear passed for Custom.
         assert_eq!(
-            g(Directivity::Omni, 137.0),
-            1.0,
-            "omni is the same everywhere"
+            pattern_gain(speaker, 70.0, 10.0, 1.0),
+            pattern_gain(speaker, 70.0, 300.0, 0.0)
         );
-        // Cardioid: half to the sides, nothing behind.
-        assert!((g(Directivity::Cardioid, 90.0) - 0.5).abs() < 1e-9);
-        assert!(g(Directivity::Cardioid, 180.0) < 1e-9);
-        // Supercardioid and hypercardioid are narrower at the sides and have a rear lobe.
-        assert!((g(Directivity::Supercardioid, 90.0) - 0.37).abs() < 1e-9);
-        assert!((g(Directivity::Supercardioid, 180.0) - 0.26).abs() < 1e-9);
-        assert!((g(Directivity::Hypercardioid, 90.0) - 0.25).abs() < 1e-9);
-        assert!((g(Directivity::Hypercardioid, 180.0) - 0.5).abs() < 1e-9);
-        // Figure-eight: none to the sides, as loud behind as in front.
-        assert!(g(Directivity::FigureEight, 90.0) < 1e-9);
-        assert!((g(Directivity::FigureEight, 180.0) - 1.0).abs() < 1e-9);
-        // A shotgun: a narrow beam, small lobes at the sides and behind, none right ahead of them.
-        let u = Directivity::UltraDirectional;
-        assert!(
-            g(u, 20.0) < g(Directivity::Cardioid, 20.0),
-            "narrower than a cardioid"
-        );
-        assert!(
-            g(u, 90.0) > 0.1 && g(u, 90.0) < 0.2,
-            "a side lobe: {}",
-            g(u, 90.0)
-        );
-        assert!(
-            g(u, 180.0) > 0.1 && g(u, 180.0) < 0.2,
-            "a rear lobe: {}",
-            g(u, 180.0)
-        );
-        // Narrowness: cardioid > supercardioid > hypercardioid > ultra at 60 degrees.
-        let at60 = |p| g(p, 60.0);
-        assert!(at60(Directivity::Cardioid) > at60(Directivity::Supercardioid));
-        assert!(at60(Directivity::Supercardioid) > at60(Directivity::Hypercardioid));
-        assert!(at60(Directivity::Hypercardioid) > at60(u));
     }
 
     // ACO-MOD-12

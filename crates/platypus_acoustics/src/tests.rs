@@ -447,7 +447,7 @@ fn track_gain(commands: &[AudioCommand], track: u32) -> Option<f64> {
 
 // ACO-SYS-09
 //
-// A cardioid speaker is loud for a listener it faces and quiet and dull for one behind it; the
+// A directional speaker is loud for a listener it faces and quiet and dull for one behind it; the
 // same goes for a cone; an omni source does not change.
 #[test]
 fn a_directional_source_is_loud_in_front_and_quiet_and_dull_behind() {
@@ -475,7 +475,7 @@ fn a_directional_source_is_loud_in_front_and_quiet_and_dull_behind() {
             .find(|v| v.object == object)
             .unwrap()
             .source;
-        with_source(id, |d| d.directivity = Directivity::Cardioid);
+        with_source(id, |d| d.directivity = Directivity::Directional);
     }
     audio::set_listener([0.0; 3], [0.0, 0.0, 0.0, 1.0]);
     update(0.016);

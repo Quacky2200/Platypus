@@ -81,10 +81,13 @@ pub struct SourceData {
     pub cone_outer_low_pass: f64,
     /// How much of the global air absorption applies to it.
     pub air_absorption: f64,
-    /// A polar pattern (see [`Directivity`]) round its object's forward direction (-z), blended
+    /// A shape (see [`Directivity`]) round its object's forward direction (-z), blended
     /// with all-round by `directivity_strength` (1: all of it). With `Omni` the cone angles apply.
     pub directivity: Directivity,
     pub directivity_strength: f64,
+    /// A `Custom` shape's width (degrees across, where the beam is half) and its level behind.
+    pub directivity_width: f64,
+    pub directivity_rear: f64,
     /// How its volume falls with distance (see [`Rolloff`]) and the factor that scales the fall.
     pub rolloff: Rolloff,
     pub rolloff_factor: f64,
@@ -190,6 +193,8 @@ impl SourceData {
             air_absorption: 1.0,
             directivity: Directivity::Omni,
             directivity_strength: 1.0,
+            directivity_width: 120.0,
+            directivity_rear: 0.25,
             rolloff: Rolloff::Default,
             rolloff_factor: 1.0,
             doppler_factor: 1.0,
@@ -381,42 +386,38 @@ fn rolloff_from_name(name: &str) -> Rolloff {
     }
 }
 
-/// A source's polar pattern: how it sounds from different directions round it.
+/// A source's shape: how it sounds from different directions round it. Three tiers, each a smooth
+/// oval with no lobes behind: non-directional (a circle), semi-directional and directional (a
+/// speaker); `Custom` takes its own width and rear level.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Directivity {
-    /// The same everywhere (a bare speaker driver in the air, a bell).
+    /// Non-directional: a circle, the same everywhere.
     #[default]
     Omni,
-    /// Loudest in front, silent straight behind: a heart-shaped pattern.
-    Cardioid,
-    /// Narrower than a cardioid, with a small lobe behind.
-    Supercardioid,
-    /// Narrower again, with a bigger lobe behind.
-    Hypercardioid,
-    /// Front and back equally, nothing to the sides.
-    FigureEight,
-    /// A narrow beam in front with small side lobes (a shotgun microphone, a parametric speaker).
-    UltraDirectional,
+    /// Semi-directional: a broad oval about 150 degrees across, a good deal behind (a television,
+    /// a person talking, a radio on a shelf).
+    SemiDirectional,
+    /// Directional: a speaker. An oval about 90 degrees across, little behind (a PA speaker, a
+    /// megaphone, a loudhailer).
+    Directional,
+    /// An oval of the source's own `directivityWidth` and `directivityRear`.
+    Custom,
 }
 
 fn directivity_name(d: Directivity) -> &'static str {
     match d {
         Directivity::Omni => "omni",
-        Directivity::Cardioid => "cardioid",
-        Directivity::Supercardioid => "supercardioid",
-        Directivity::Hypercardioid => "hypercardioid",
-        Directivity::FigureEight => "figureEight",
-        Directivity::UltraDirectional => "ultraDirectional",
+        Directivity::SemiDirectional => "semiDirectional",
+        Directivity::Directional => "directional",
+        Directivity::Custom => "custom",
     }
 }
 
 fn directivity_from_name(name: &str) -> Directivity {
     match name {
-        "cardioid" => Directivity::Cardioid,
-        "supercardioid" => Directivity::Supercardioid,
-        "hypercardioid" => Directivity::Hypercardioid,
-        "figureEight" => Directivity::FigureEight,
-        "ultraDirectional" => Directivity::UltraDirectional,
+        "semiDirectional" => Directivity::SemiDirectional,
+        "directional" => Directivity::Directional,
+        "custom" => Directivity::Custom,
         _ => Directivity::Omni,
     }
 }
@@ -445,6 +446,8 @@ pub struct SourceView {
     pub air_absorption: f64,
     pub directivity: Directivity,
     pub directivity_strength: f64,
+    pub directivity_width: f64,
+    pub directivity_rear: f64,
     pub rolloff: Rolloff,
     pub rolloff_factor: f64,
     pub min_distance: f64,
@@ -476,6 +479,8 @@ pub fn source_views() -> Vec<SourceView> {
                     air_absorption: d.air_absorption,
                     directivity: d.directivity,
                     directivity_strength: d.directivity_strength,
+                    directivity_width: d.directivity_width,
+                    directivity_rear: d.directivity_rear,
                     rolloff: d.rolloff,
                     rolloff_factor: d.rolloff_factor,
                     min_distance: d.min_distance,
@@ -647,11 +652,11 @@ fn none_object() -> ObjectId {
     ),
     values(Vector3 = V3 [x: f64, y: f64, z: f64]),
     enums(
-        /// How a source sounds from different directions round it, like a microphone's polar
-        /// pattern turned round: `omni` (the same everywhere), `cardioid`, `supercardioid`,
-        /// `hypercardioid` (louder in front, with a small lobe behind), `figureEight` (front and
-        /// back, none to the sides) and `ultraDirectional` (a narrow beam with side lobes).
-        Directivity = Directivity [Omni, Cardioid, Supercardioid, Hypercardioid, FigureEight, UltraDirectional],
+        /// The shape of how a source sounds round it: `omni` (non-directional: a circle, the same
+        /// everywhere), `semiDirectional` (a broad oval), `directional` (a speaker: a narrower
+        /// oval), none with lobes behind; or `custom`, with `directivityWidth` and
+        /// `directivityRear`.
+        Directivity = Directivity [Omni, SemiDirectional, Directional, Custom],
         /// How a source gets quieter with distance beyond `minDistance`: `default` (the mixer's own
         /// curve out to `maxDistance`), `inverse` (as in air: 6 dB for each doubling), `linear` (to
         /// silence at `maxDistance`) or `exponential` (steeper with `rolloffFactor` above 1).
@@ -851,6 +856,27 @@ pub mod audio_source_api {
 
         pub fn set_directivity_strength(self, v: f64) {
             super::source(self, |d| d.directivity_strength = v.clamp(0.0, 1.0));
+        }
+
+        /// For `custom`: how wide the oval is, in degrees across (the angle where the beam has
+        /// fallen to half; 120 by default, 360 is a circle).
+        #[property]
+        pub fn directivity_width(self) -> f64 {
+            super::source(self, |d| d.directivity_width).unwrap_or(120.0)
+        }
+
+        pub fn set_directivity_width(self, v: f64) {
+            super::source(self, |d| d.directivity_width = v.clamp(10.0, 360.0));
+        }
+
+        /// For `custom`: how loud it is straight behind, 0 (silent) to 1 (as in front): 0.25 by default.
+        #[property]
+        pub fn directivity_rear(self) -> f64 {
+            super::source(self, |d| d.directivity_rear).unwrap_or(0.25)
+        }
+
+        pub fn set_directivity_rear(self, v: f64) {
+            super::source(self, |d| d.directivity_rear = v.clamp(0.0, 1.0));
         }
 
         /// How its volume falls with distance: `default` is the mixer's gentle curve between
@@ -1199,6 +1225,8 @@ fn source_kind() -> Kind {
                 m.insert("airAbsorption".into(), json!(d.air_absorption));
                 m.insert("directivity".into(), json!(directivity_name(d.directivity)));
                 m.insert("directivityStrength".into(), json!(d.directivity_strength));
+                m.insert("directivityWidth".into(), json!(d.directivity_width));
+                m.insert("directivityRear".into(), json!(d.directivity_rear));
                 m.insert("rolloff".into(), json!(rolloff_name(d.rolloff)));
                 m.insert("rolloffFactor".into(), json!(d.rolloff_factor));
             });
@@ -1232,6 +1260,8 @@ fn source_kind() -> Kind {
                             v.as_str().map(|x| d.directivity = directivity_from_name(x))
                         }
                         "directivityStrength" => number(v).map(|x| d.directivity_strength = x),
+                        "directivityWidth" => number(v).map(|x| d.directivity_width = x),
+                        "directivityRear" => number(v).map(|x| d.directivity_rear = x),
                         "rolloff" => v.as_str().map(|x| d.rolloff = rolloff_from_name(x)),
                         "rolloffFactor" => number(v).map(|x| d.rolloff_factor = x),
                         other => {

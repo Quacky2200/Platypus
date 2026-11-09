@@ -814,7 +814,7 @@ pub mod sound_event_api {
     handles(SoundEvent = SoundEventRef, GameObject = ObjectId),
     values(Vector3 = V3 [x: f64, y: f64, z: f64]),
     enums(
-        extern Directivity = Directivity [Omni, Cardioid, Supercardioid, Hypercardioid, FigureEight, UltraDirectional],
+        extern Directivity = Directivity [Omni, SemiDirectional, Directional, Custom],
         extern Rolloff = Rolloff [Default, Inverse, Linear, Exponential]
     )
 )]
@@ -931,10 +931,12 @@ pub mod acoustics_api {
         crate::model::air_cutoff(distance, st(|s| s.settings.air_absorption))
     }
 
-    /// How loud a source with polar pattern `pattern` is `angle` degrees off its front, 0 to 1:
-    /// the curve the mixer uses, for drawing a polar plot.
-    pub fn directivity_gain(pattern: Directivity, angle: f64) -> f64 {
-        crate::model::pattern_gain(pattern, angle)
+    /// How loud a source of this shape is `angle` degrees off its front, 0 to 1: the curve the
+    /// mixer uses, for drawing a polar plot. `width` (degrees across) and `rear` (0 to 1) are used
+    /// by `custom`; the other shapes have their own.
+    #[optional(width = 120, rear = 0.25)]
+    pub fn directivity_gain(pattern: Directivity, angle: f64, width: f64, rear: f64) -> f64 {
+        crate::model::pattern_gain(pattern, angle, width, rear)
     }
 
     /// The gain a source's `rolloff` gives at `distance` metres (1 full, towards 0): for plotting how

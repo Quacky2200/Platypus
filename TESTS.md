@@ -629,9 +629,9 @@ layout pass):
 | ACO-MOD-07 | Unit | The head cue: ahead and to the side open, behind 4.5 kHz, above or below 9 kHz at full strength, off at 0, in between for diagonals. |
 | ACO-MOD-09 | Unit | A cone is full inside its inner angle, fades to the outer angle, is beyond it quiet and dull; 360 is all round. |
 | ACO-MOD-10 | Unit | Air's cutoff falls with distance (about 11 kHz at 100 m and 3 kHz at 300 m at strength 1), is held at 2.5 kHz, and is off at strength 0. |
-| ACO-MOD-11 | Unit | The polar patterns: omni, cardioid, supercardioid, hypercardioid, figure-eight and ultra-directional have their side and rear values and narrow in that order. |
+| ACO-MOD-11 | Unit | The three tiers are smooth ovals with no lobes: omni is a circle, semi-directional is half at 75 degrees and a good deal behind, directional half at 45 and little behind; both fall steadily to the back; custom takes its own width and rear; presets ignore them. |
 | ACO-MOD-12 | Unit | A pattern's quiet directions are duller (nulls held at -30 dB), and strength blends the pattern away. |
-| ACO-SYS-09 | Integration | A cardioid (or cone) source is loud for a listener it faces and quiet and dull for one behind it; strength 0 makes it all round. |
+| ACO-SYS-09 | Integration | A directional (or cone) source is loud for a listener it faces and quiet and dull for one behind it; strength 0 makes it all round. |
 | ACO-SYS-12 | Integration | A source with an inverse rolloff falls 6 dB per doubling (and 40 dB at 300 m with a 3 m minimum), its emitter is made with the mixer's own falloff moved out of the way, a bigger factor falls faster, and a default-rolloff source is left to the mixer. |
 | ACO-MOD-13 | Unit | The rolloff laws: full within the minimum, inverse is min / d, linear reaches 0 at the maximum, exponential is a power of d / min, factor scales them, and all fall with distance. |
 | ACO-SYS-11 | Integration | An `AudioSurface` names what an object is made of, round-trips through its scene-file kind and goes away with the object. |

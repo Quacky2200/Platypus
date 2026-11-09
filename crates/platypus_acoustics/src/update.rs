@@ -522,7 +522,12 @@ fn update_sources(
                 };
                 if v.directivity != Directivity::Omni {
                     pattern_effect(
-                        pattern_gain(v.directivity, angle),
+                        pattern_gain(
+                            v.directivity,
+                            angle,
+                            v.directivity_width,
+                            v.directivity_rear,
+                        ),
                         v.cone_outer_low_pass,
                         v.directivity_strength,
                     )

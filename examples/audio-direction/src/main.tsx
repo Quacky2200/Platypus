@@ -1,26 +1,24 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-// Which way a sound faces, and how far it has come. A loudspeaker on a turntable plays a tune with
-// the polar pattern of a microphone, turned round: omni (the same everywhere), cardioid,
-// supercardioid, hypercardioid, figure-eight (front and back, nothing at the sides) and
-// ultra-directional (a narrow beam with side lobes). Walk round it, or let it sweep past you, and hear
-// the sound swell in front, thin out at the sides and go dull and quiet behind. The plot shows the
-// pattern and where you stand on it. Walk (or run) away across the field: air takes the highs off with
-// distance, the farther the duller (`Acoustics.airAbsorption`).
+// Which way a sound faces, and how far it has come. A loudspeaker on a turntable plays a tune in one of
+// three shapes: non-directional (a circle: the same everywhere), semi-directional (a broad oval: a
+// television, a person talking) and directional (a speaker: a narrower oval with little behind it), or a
+// custom oval whose width and rear level you set. Walk round it, or let it sweep past you, and hear the
+// sound swell in front, thin out at the sides and go dull and quiet behind. The plot shows the shape and where you stand on it.
+// Walk (or run) away across the field: the volume falls with distance by the decay you pick, and air
+// takes the highs off, the farther the duller (`Acoustics.airAbsorption`).
 //
 // WASD move (Shift runs) · mouse look (Esc frees the cursor, click locks it) · Y invert look
-// 1-6 pattern · M speaker: spins / aims at you / stays fixed (Z X turn it) · A air: none, light, normal, heavy
+// 1-4 shape (4 is custom: , . width · - = rear) · M speaker: spins / aims at you / stays fixed (Z X turn it) · A air: none, light, normal, heavy
 // K distance decay (mixer default, inverse like air, linear, inverse square) · H head cue (dulls what is behind you)
 
 const SOUND = (name: string) => `assets/sounds/${name}.wav`;
 const PATTERNS: { name: Directivity; label: string; key: string }[] = [
-  { name: "omni", label: "Omni-directional", key: "1" },
-  { name: "cardioid", label: "Cardioid", key: "2" },
-  { name: "supercardioid", label: "Supercardioid", key: "3" },
-  { name: "hypercardioid", label: "Hypercardioid", key: "4" },
-  { name: "figureEight", label: "Figure-eight", key: "5" },
-  { name: "ultraDirectional", label: "Ultra-directional", key: "6" },
+  { name: "omni", label: "Non-directional (a circle)", key: "1" },
+  { name: "semiDirectional", label: "Semi-directional (a broad oval)", key: "2" },
+  { name: "directional", label: "Directional (a speaker)", key: "3" },
+  { name: "custom", label: "Custom oval", key: "4" },
 ];
 const MODES = ["spins", "aims at you", "stays fixed"];
 const AIR = [0, 0.5, 1, 2];
@@ -35,7 +33,10 @@ const ROLLOFF: { name: Rolloff; label: string; factor: number }[] = [
 const MIN_DISTANCE = 3;
 const MAX_DISTANCE = 420;
 
-let patternIndex = 1;
+let patternIndex = 2;
+/** The custom oval: how wide (degrees across) and how loud straight behind. */
+let customWidth = 100;
+let customRear = 0.2;
 let mode = 0;
 let airIndex = 1;
 let rolloffIndex = 1;
@@ -67,7 +68,13 @@ class Speaker extends Component {
       // The mixer's own falloff is set when the source starts playing: start it again.
       this.source.play();
     }
+    if (input.getKeyDown("Comma")) customWidth = Math.max(20, customWidth - 10);
+    if (input.getKeyDown("Period")) customWidth = Math.min(360, customWidth + 10);
+    if (input.getKeyDown("Minus")) customRear = Math.max(0, Math.round((customRear - 0.05) * 100) / 100);
+    if (input.getKeyDown("Equal")) customRear = Math.min(1, Math.round((customRear + 0.05) * 100) / 100);
     this.source.directivity = PATTERNS[patternIndex]!.name;
+    this.source.directivityWidth = customWidth;
+    this.source.directivityRear = customRear;
     if (mode === 0) this.yaw += 40 * dt;
     if (mode === 2) {
       if (input.getKey("KeyZ")) this.yaw += 80 * dt;
@@ -209,11 +216,11 @@ const PLOT = 150;
 const R = 60;
 
 /** The pattern as a closed path, front (0 degrees) up, drawn from the mixer's own curve. */
-function polarPath(pattern: Directivity): string {
+function polarPath(pattern: Directivity, width: number, rear: number): string {
   const pts: string[] = [];
   for (let a = 0; a <= 360; a += 4) {
     const rad = (a * Math.PI) / 180;
-    const r = R * Acoustics.directivityGain(pattern, a > 180 ? a - 360 : a);
+    const r = R * Acoustics.directivityGain(pattern, a > 180 ? a - 360 : a, width, rear);
     pts.push(`${(r * Math.sin(rad)).toFixed(1)} ${(-r * Math.cos(rad)).toFixed(1)}`);
   }
   return `M ${pts.join(" L ")} Z`;
@@ -241,7 +248,7 @@ function Hud() {
   const cos = Math.max(-1, Math.min(1, facing.dot(unit)));
   const side = facing.x * unit.z - facing.z * unit.x;
   const angle = ((Math.acos(cos) * 180) / Math.PI) * (side < 0 ? -1 : 1);
-  const gain = Acoustics.directivityGain(pattern.name, angle);
+  const gain = Acoustics.directivityGain(pattern.name, angle, customWidth, customRear);
   const rad = (angle * Math.PI) / 180;
   const dotX = R * gain * Math.sin(rad);
   const dotY = -R * gain * Math.cos(rad);
@@ -258,7 +265,7 @@ function Hud() {
             <circle cx={0} cy={0} r={R} fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth={1} />
             <circle cx={0} cy={0} r={R / 2} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
             <path d={`M 0 ${-R - 8} L 0 ${R + 8} M ${-R - 8} 0 L ${R + 8} 0`} fill="none" stroke="rgba(255,255,255,0.12)" strokeWidth={1} />
-            <path d={polarPath(pattern.name)} fill="rgba(255,140,66,0.28)" stroke="#ff8c42" strokeWidth={2} />
+            <path d={polarPath(pattern.name, customWidth, customRear)} fill="rgba(255,140,66,0.28)" stroke="#ff8c42" strokeWidth={2} />
             <circle cx={dotX} cy={dotY} r={5} fill="#7bd88f" />
           </svg>
           <box style={{ flexDirection: "column", gap: 4, width: 230 }}>
@@ -270,10 +277,13 @@ function Hud() {
             <text style={{ color: "#c8d0e0", fontSize: 12 }}>Volume at this distance: {decayDb.toFixed(0)} dB</text>
             <text style={{ color: "#c8d0e0", fontSize: 12 }}>Air leaves {Math.round(air / 100) / 10} kHz ({AIR_LABEL[airIndex]})</text>
             <text style={{ color: "#8f9bb3", fontSize: 12 }}>Speaker {MODES[mode]}</text>
+            {pattern.name === "custom" ? (
+              <text style={{ color: "#ffd93d", fontSize: 12 }}>Custom: {customWidth}° across, {Math.round(customRear * 100)}% behind (, . width · - = rear)</text>
+            ) : null}
           </box>
         </box>
         <text style={{ color: "#8f9bb3", fontSize: 12 }}>WASD move · Shift runs · mouse look (Esc frees) · Y invert</text>
-        <text style={{ color: "#8f9bb3", fontSize: 12 }}>1-6 pattern · M speaker mode · Z X turn it · A air · K decay · H head cue {headCue ? "on" : "off"}</text>
+        <text style={{ color: "#8f9bb3", fontSize: 12 }}>1-4 shape · M speaker mode · Z X turn it · A air · K decay · H head cue {headCue ? "on" : "off"}</text>
       </box>
     </box>
   );

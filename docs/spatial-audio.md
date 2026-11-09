@@ -81,14 +81,22 @@ combined with occlusion and the head cue (the lowest cutoff wins, gains multiply
 
 ## Directional sources and air absorption
 
-`AudioSource.directivity` gives a source the polar pattern of a microphone turned round, facing along its object's -z:
-`omni` (default), `cardioid`, `supercardioid`, `hypercardioid`, `figureEight` (front and back, none to the sides) and
-`ultraDirectional` (a narrow beam with side and rear lobes). The first-order ones are `a + (1 - a) cos(angle)` (a = 0.5,
-0.37, 0.25, 0); the ultra-directional is `(0.5 + 0.5 cos)^6` with 18% lobes. `Acoustics.directivityGain(pattern, angle)`
-returns the same curve (the example draws its polar plot from it). Where the pattern is quiet the source is both quieter
-(held at -30 dB, never silent) and duller (towards `coneOuterLowPass`, 5 kHz); `directivityStrength` (0 to 1) blends it
-back to all-round. With `omni`, a cone does the same job: `coneInnerAngle` / `coneOuterAngle` (full angles, 360 is all
-round, as in Web Audio) with `coneOuterGain` outside and a fade between.
+`AudioSource.directivity` says how a source sounds from different directions round it, facing along its object's -z.
+There are three tiers, each a smooth oval with no lobes behind it:
+
+| `directivity` | Shape |
+|---|---|
+| `omni` (default) | non-directional: a circle, the same everywhere |
+| `semiDirectional` | a broad oval, about 150 degrees across, 40% behind: a television, a person talking |
+| `directional` | a speaker: an oval about 90 degrees across, 12% behind: a PA speaker, a megaphone |
+| `custom` | the source's own `directivityWidth` (degrees across) and `directivityRear` (0 to 1) |
+
+The shape is `rear + (1 - rear) * ((1 + cos angle) / 2) ^ p`, with `p` chosen so the beam has fallen to half at half the
+width: a wider width is a rounder, broader oval (360 is the circle), a narrower one a tighter beam. `Acoustics.directivityGain(pattern,
+angle, width?, rear?)` returns the same curve (the example draws its polar plot from it). Where the shape is quiet the source is both
+quieter (held at -30 dB, never silent) and duller (towards `coneOuterLowPass`, 5 kHz); `directivityStrength` (0 to 1) blends it back
+to all-round. With `omni`, a cone does the same job: `coneInnerAngle` / `coneOuterAngle` (full angles, 360 is all round, as in
+Web Audio) with `coneOuterGain` outside and a fade between.
 
 Air takes the highs off with distance: `Acoustics.airAbsorption` (0 to 2, default 0.5) and each source's own
 `airAbsorption` (a multiplier) give a cutoff `22000 * exp(-distance * strength / 150)`, held at 2.5 kHz (at strength 1:
