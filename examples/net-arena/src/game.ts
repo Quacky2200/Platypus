@@ -13,10 +13,12 @@
 
 import { BOUND, WHITE, applyLook, buildMap, makeProp, setFog, updateLasers } from "./map";
 import type { Laser, MapInfo } from "./map";
+import { STEP, copyState, decodeInputs, encodeInput, grounded, makeInput, step } from "./move";
+import type { MoveInput, MoveState } from "./move";
 import { BotBrain } from "./bot";
 import type { Contact, Think } from "./bot";
 import {
-  KILL_LIMIT, MAX_REWIND, MAX_SPEED, REGEN_DELAY, REGEN_RATE, RESPAWN_SECONDS, ROUND_SECONDS, SHIELD_SECONDS, SHOT_DAMAGE, SPRINT,
+  KILL_LIMIT, MAX_REWIND, REGEN_DELAY, REGEN_RATE, RESPAWN_SECONDS, ROUND_SECONDS, SHIELD_SECONDS, SHOT_DAMAGE, SPRINT,
   START_HP, TICK_RATE, WALK, defineNetwork,
 } from "./schema";
 
@@ -42,6 +44,8 @@ export interface FeedLine {
 /** What the HUD draws; the arena fills it in, the HUD reads it. */
 export const hud = {
   mode: "menu" as "menu" | "server" | "client",
+  /** Watching only: no health bar or crosshair. */
+  spectator: false,
   status: "",
   error: "",
   hp: START_HP,
@@ -66,8 +70,9 @@ export function onHud(f: () => void) {
   refreshHud = f;
 }
 
-/** What the menu asks for. */
-export const request = { mode: "menu" as "menu" | "server" | "client", address: `127.0.0.1:${PORT}`, name: "Player" };
+/** What the menu (or the command line) asks for: a server that only watches, a listen server that also plays, a player, or a spectator. */
+export type Mode = "menu" | "server" | "host" | "client" | "watch";
+export const request = { mode: "menu" as Mode, address: `127.0.0.1:${PORT}`, name: "Player" };
 
 const v3 = (a: number[]) => new Vector3(a[0] ?? 0, a[1] ?? 0, a[2] ?? 0);
 const fmt = (v: Vector3) => `v:${v.x},${v.y},${v.z}`;
@@ -105,6 +110,11 @@ interface ServerPlayer {
   lastAt: number;
   hist: History[];
   lastShot: number;
+  /** Where the server has walked the player (`move.ts`) and the last input it used. */
+  state: MoveState;
+  lastSeq: number;
+  /** Steps still allowed: it refills at the step rate, so a client cannot run its clock fast. */
+  budget: number;
   /** When it was last hit: health regenerates REGEN_DELAY after this. */
   hurtAt: number;
   regenAt: number;
@@ -145,6 +155,10 @@ export class Arena extends Component {
   private map!: MapInfo;
   private lasers: Laser[] = [];
   private mode: "menu" | "server" | "client" = "menu";
+  /** A listen server: this window is the server and also a player (player 0). */
+  private host = false;
+  /** Joined to watch: no body, no calls. */
+  private spectator = false;
   private t0 = 0;
   private nextHud = 0;
   private nextInfo = 0;
@@ -175,8 +189,19 @@ export class Arena extends Component {
   // The model faces +z, the game's forward is -z, so a fresh player looks away from the camera.
   private facing = Math.PI;
   private facingDeg = 180;
-  private vy = 0;
-  private controller: CharacterController | null = null;
+  // Prediction: the local player is walked by `move.ts` at once; the inputs the server has not
+  // confirmed yet are kept (with the state each led to) and replayed when the server disagrees.
+  private pred: MoveState | null = null;
+  private seq = 0;
+  private acc = 0;
+  private lastAck = 0;
+  private pending: { inp: MoveInput; after: MoveState }[] = [];
+  private jumpLatch = false;
+  /** How many times the server has disagreed with the prediction (for the HUD and tests). */
+  private corrections = 0;
+  private desync = false;
+  /** The pop of a correction, faded out over a few frames so the figure does not jump. */
+  private errOffset = new Vector3(0, 0, 0);
   private localId = 0;
   private bot = false;
   private verbose = false;
@@ -200,31 +225,53 @@ export class Arena extends Component {
     const args = Application.args;
     this.bot = args.includes("--bot");
     this.verbose = args.includes("--verbose");
+    this.desync = args.includes("--desync");
     const at = args.indexOf("--connect");
     // `--kill-limit N` shortens rounds, for testing round changes.
     const kl = args.indexOf("--kill-limit");
     if (kl >= 0) this.killLimit = parseFloat(args[kl + 1] ?? "") || KILL_LIMIT;
+    const nm = args.indexOf("--name");
+    if (nm >= 0) request.name = args[nm + 1] ?? request.name;
+    // `--server`: only watches; `--host`: a listen server that plays; `--connect a:p`: a player;
+    // `--watch a:p`: a spectator.
     if (args.includes("--server")) this.begin("server");
+    else if (args.includes("--host")) this.begin("host");
     else if (at >= 0) {
       request.address = args[at + 1] ?? request.address;
-      const nm = args.indexOf("--name");
-      if (nm >= 0) request.name = args[nm + 1] ?? request.name;
       this.begin("client");
+    } else {
+      const w = args.indexOf("--watch");
+      if (w >= 0) {
+        request.address = args[w + 1] ?? request.address;
+        this.begin("watch");
+      }
     }
   }
 
-  private begin(mode: "server" | "client") {
-    this.mode = hud.mode = mode;
+  private begin(mode: Mode) {
+    if (mode === "menu") return;
+    this.host = mode === "host";
+    this.spectator = mode === "watch";
+    // A host shows the player's HUD, a spectator the client's without the player's parts.
+    this.mode = mode === "server" || mode === "host" ? "server" : "client";
+    hud.mode = mode === "server" ? "server" : "client";
+    hud.spectator = this.spectator;
     hud.error = "";
     defineNetwork();
-    if (mode === "server") {
-      hud.status = "starting the server";
+    if (this.mode === "server") {
+      hud.status = this.host ? "starting your game" : "starting the server";
       Network.startServer(PORT, 16, TICK_RATE);
     } else {
       hud.status = `connecting to ${request.address}`;
-      Network.connect(request.address, request.name);
+      if (this.spectator) Network.watch(request.address, request.name);
+      else Network.connect(request.address, request.name);
     }
     refreshHud();
+  }
+
+  /** This window plays (a client or a listen server): it has a body, a camera behind it and a HUD. */
+  private plays(): boolean {
+    return (this.mode === "client" && !this.spectator) || this.host;
   }
 
   private end(message: string) {
@@ -239,7 +286,11 @@ export class Arena extends Component {
     this.serverReady = false;
     this.me = -1;
     this.localId = 0;
-    this.controller = null;
+    this.pred = null;
+    this.pending = [];
+    this.host = false;
+    this.spectator = false;
+    hud.spectator = false;
     this.mode = hud.mode = "menu";
     request.mode = "menu";
     hud.error = message;
@@ -253,10 +304,10 @@ export class Arena extends Component {
     hud.showScores = input.getKey("Tab");
     if (input.getKeyDown("F1")) hud.debug = !hud.debug;
     // Esc frees the pointer (menus, the debug panel); a click on the game takes it again.
-    if (this.pointerFree && input.getMouseButtonDown(0) && this.mode === "client" && !hud.debug) this.pointerFree = false;
+    if (this.pointerFree && input.getMouseButtonDown(0) && this.plays() && !hud.debug) this.pointerFree = false;
     else if (input.getKeyDown("Escape")) this.pointerFree = true;
     // Mouse look needs the pointer locked while playing; menus, the debug panel and Esc free it.
-    const lock = this.mode === "client" && this.localId !== 0 && !hud.debug && !this.pointerFree;
+    const lock = this.plays() && this.localId !== 0 && !hud.debug && !this.pointerFree;
     if (lock !== this.pointerLocked) {
       this.pointerLocked = lock;
       Cursor.lockState = lock ? CursorLockMode.Locked : CursorLockMode.None;
@@ -267,16 +318,18 @@ export class Arena extends Component {
       request.mode = "menu";
       this.begin(m);
     }
-    if (this.mode === "server") this.serverFrame(dt);
-    else if (this.mode === "client") this.clientFrame(dt);
+    if (this.mode === "server") {
+      this.serverFrame(dt);
+      if (this.host && this.serverReady) this.hostFrame(dt);
+    } else if (this.mode === "client") this.clientFrame(dt);
     else this.orbit(dt);
-    // Players see a small foggy world; the menu and the server watch it from afar.
-    const playing = this.mode === "client" && this.localId !== 0;
+    // Players see a small foggy world; the menu, the server and spectators watch it from afar.
+    const playing = this.plays() && this.localId !== 0;
     if (playing !== this.playingFog) {
       this.playingFog = playing;
       setFog(!playing);
     }
-    if (this.mode === "client") this.updateFalls(dt);
+    if (this.mode === "client" || this.host) this.updateFalls(dt);
     this.alignTorches();
     this.updateBeams();
     // A line a second for logs and tests: who is here and how the network is doing.
@@ -284,10 +337,10 @@ export class Arena extends Component {
       this.lastLog = Time.time;
       const kills = hud.rows.map((r) => `${r.name}:${r.kills}/${r.deaths}@${r.ping}`).join(" ");
       const an = this.views.get(this.localId)?.animator;
-      if (this.mode === "client") {
+      if (this.plays()) {
         console.log(`[net view] anim=${an ? `${an.currentStateName} t=${an.currentNormalizedTime.toFixed(2)} speed=${an.getFloat("speed").toFixed(2)} air=${an.getBool("air")}` : "none"} lock=${this.pointerLocked} free=${this.pointerFree} cursor=${Cursor.lockState}`);
       }
-      console.log(`[net ${this.mode}] ${hud.status} players=${hud.rows.length} match=${hud.match} rtt=${Math.round(hud.rtt)} refused=${hud.dropped} ${kills}`);
+      console.log(`[net ${this.mode}] ${hud.status} players=${hud.rows.length} match=${hud.match} rtt=${Math.round(hud.rtt)} refused=${hud.dropped} corrections=${this.corrections} pending=${this.pending.length} ${kills}`);
     }
     if (Time.time >= this.nextHud) {
       this.nextHud = Time.time + 0.1;
@@ -366,12 +419,20 @@ export class Arena extends Component {
           hud.fingerprint = e.f[1] ?? "";
           this.serverReady = true;
           this.startMatchObjects();
+          // A listen server plays too: its player is player 0, and it reads the match directly.
+          if (this.host) {
+            this.me = 0;
+            this.matchId = this.matchNet;
+            this.join(0, request.name, false, now);
+          }
           break;
         case "error":
           this.end(e.f[0] ?? "network error");
           return;
         case "joined":
-          this.join(parseFloat(e.f[0]), e.f[1] ?? "player", e.f[2] === "1", now);
+          // A spectator gets the world and nothing in it: no player, no calls.
+          if (e.f[3] === "1") hud.status = `${this.players.size} playing, a spectator joined`;
+          else this.join(parseFloat(e.f[0]), e.f[1] ?? "player", e.f[2] === "1", now);
           break;
         case "dropped":
           break;
@@ -380,6 +441,7 @@ export class Arena extends Component {
           break;
         case "rpc":
           if (e.f[1] === "fire") this.onFire(parseFloat(e.f[2]), argNum(e.f[3]), argNum(e.f[4]), now);
+          else if (e.f[1] === "input") this.onInput(parseFloat(e.f[2]), (e.f[3] ?? "").slice(2));
           break;
       }
     }
@@ -390,8 +452,30 @@ export class Arena extends Component {
     // The server's own view of the world.
     hud.players = this.players.size;
     this.fillRows();
-    this.yaw += 6 * dt;
-    this.placeCamera(new Vector3(0, 2, 0), 38, 24, dt);
+    // A dedicated server watches from afar; a host plays (`hostFrame` places the camera).
+    if (!this.host) {
+      this.yaw += 6 * dt;
+      this.placeCamera(new Vector3(0, 2, 0), 38, 24, dt);
+    }
+  }
+
+  /** What a client does each frame, for the listen server's own player. */
+  private hostFrame(dt: number) {
+    if (this.localId !== 0) this.moveLocal(dt);
+    this.updateOthers(dt);
+    this.fillClientHud();
+    this.followCamera(dt);
+  }
+
+  /**
+   * An RPC from the server. A listen server's own player is not reached over the network, so what
+   * would arrive there (a beam everyone sees, a hit on the host's player) is run here too.
+   */
+  private send(id: number, name: string, args: string) {
+    Network.rpc(id, name, args);
+    if (!this.host) return;
+    const toAll = name === "beam" || name === "feed";
+    if (toAll || Network.owner(id) === 0) this.onRpc(name, args === "" ? [] : args.split(SEP));
   }
 
   private startMatchObjects() {
@@ -425,11 +509,13 @@ export class Arena extends Component {
     let p = this.players.get(player);
     if (!p) {
       const net = Network.spawn("Player", "player", player);
-      p = { net, player, name, last: Vector3.zero, lastAt: now, hist: [], lastShot: 0, hurtAt: 0, regenAt: now, respawnAt: 0, shieldUntil: 0, warnAt: 0 };
+      p = { net, player, name, last: Vector3.zero, lastAt: now, hist: [], lastShot: 0, state: { x: 0, y: 0, z: 0, vy: 0 }, lastSeq: 0, budget: 10, hurtAt: 0, regenAt: now, respawnAt: 0, shieldUntil: 0, warnAt: 0 };
       this.players.set(player, p);
       Network.setString(net, "name", name);
       Network.setNumber(net, "hp", START_HP);
       this.respawn(p, now);
+      // A listen server draws every player from its own state: a view for each, its own included.
+      if (this.host) this.onSpawned(net, PLAYER, player);
     }
     hud.status = `${this.players.size} player${this.players.size === 1 ? "" : "s"}${resumed ? " (one returned)" : ""}`;
   }
@@ -439,6 +525,19 @@ export class Arena extends Component {
     if (!p) return;
     Network.despawn(p.net);
     this.players.delete(player);
+    if (this.host) this.dropView(p.net);
+  }
+
+  /** Takes a figure out of the world (it left, or the server removed it). */
+  private dropView(id: number) {
+    const gone = this.views.get(id);
+    if (gone) gone.gone = true;
+    gone?.go.destroy();
+    this.views.delete(id);
+    if (id === this.localId) {
+      this.localId = 0;
+      this.pred = null;
+    }
   }
 
   private spawnPoint(except: ServerPlayer): Vector3 {
@@ -463,31 +562,53 @@ export class Arena extends Component {
     p.last = at;
     p.lastAt = now;
     p.hist = [];
+    p.state = { x: at.x, y: at.y, z: at.z, vy: 0 };
+    this.publish(p);
     p.shieldUntil = now + SHIELD_SECONDS;
     Network.setNumber(p.net, "hp", START_HP);
     Network.setBool(p.net, "alive", true);
     Network.setBool(p.net, "shield", true);
-    Network.rpc(p.net, "teleport", fmt(at));
+    this.send(p.net, "teleport", fmt(at));
   }
 
-  /** Per frame: validate the owner's move, keep the history lag compensation reads, timers. */
+  /** Writes where the server has walked a player, and which input that was, for everyone to read. */
+  private publish(p: ServerPlayer) {
+    const s = p.state;
+    Network.setVec3(p.net, "pos", s.x, s.y, s.z);
+    // The exact state (not blended between ticks), so its owner can compare it with its prediction.
+    Network.setVec3(p.net, "rpos", s.x, s.y, s.z);
+    Network.setNumber(p.net, "rvy", s.vy);
+    Network.setNumber(p.net, "seq", p.lastSeq);
+  }
+
+  /**
+   * A player's inputs (`move.ts`): the server walks each new one, in order, from where it has the
+   * player. The client sends its last few every time, so a lost packet costs nothing; a step the
+   * budget does not allow (a client running its clock fast) is dropped, and the client is corrected.
+   */
+  private onInput(player: number, text: string) {
+    const p = this.players.get(player);
+    if (!p || !Network.getBool(p.net, "alive")) return;
+    let used = false;
+    for (const inp of decodeInputs(text)) {
+      if (inp.seq <= p.lastSeq) continue;
+      if (p.budget < 1) break;
+      p.budget -= 1;
+      p.state = step(p.state, inp);
+      p.lastSeq = inp.seq;
+      used = true;
+    }
+    if (used) this.publish(p);
+  }
+
+  /** Per frame: keep the history lag compensation reads, the step budget, timers. */
   private checkPlayer(p: ServerPlayer, now: number) {
-    const pos = v3(Network.getVec3(p.net, "pos"));
     const alive = Network.getBool(p.net, "alive");
+    // A little more than real time, for the jitter of when the client's packets arrive.
+    p.budget = Math.min(10, p.budget + (Math.min(0.25, now - p.lastAt) / STEP) * 1.1);
+    p.lastAt = now;
     if (alive) {
-      const moved = pos.sub(p.last).magnitude;
-      const allowed = MAX_SPEED * Math.max(0.05, now - p.lastAt) + 0.8;
-      const outside = Math.abs(pos.x) > BOUND + 1 || Math.abs(pos.z) > BOUND + 1;
-      if (moved > allowed || outside) {
-        // Too fast, or through a wall: put the player back (not more than four times a second).
-        if (now >= p.warnAt) {
-          p.warnAt = now + 0.25;
-          Network.rpc(p.net, "teleport", fmt(p.last));
-        }
-      } else {
-        p.last = pos;
-        p.lastAt = now;
-      }
+      p.last = new Vector3(p.state.x, p.state.y, p.state.z);
       // Health creeps back once the player has been left alone for a few seconds.
       const hp = Network.getNumber(p.net, "hp");
       if (hp < START_HP && now - p.hurtAt > REGEN_DELAY) {
@@ -563,12 +684,12 @@ export class Arena extends Component {
       const o = origin;
       console.log(`[net server] shot from (${o.x},${o.z}) dir=(${dir.x},${dir.z}) wall=${wall ? wall.distance : -1} reach=${reach} victim=${victim ? victim.name : "none"}`);
     }
-    Network.rpc(shooter.net, "beam", [fmt(origin), fmt(to), `b:${victim ? 1 : 0}`].join(SEP));
+    this.send(shooter.net, "beam", [fmt(origin), fmt(to), `b:${victim ? 1 : 0}`].join(SEP));
     if (!victim) return;
     victim.hurtAt = now;
     const hp = Network.getNumber(victim.net, "hp") - SHOT_DAMAGE;
     Network.setNumber(victim.net, "hp", Math.max(0, hp));
-    Network.rpc(victim.net, "hurt", `f:${SHOT_DAMAGE}`);
+    this.send(victim.net, "hurt", `f:${SHOT_DAMAGE}`);
     if (hp <= 0) this.kill(shooter, victim, now);
   }
 
@@ -577,7 +698,7 @@ export class Arena extends Component {
     victim.respawnAt = now + RESPAWN_SECONDS;
     Network.setNumber(victim.net, "deaths", Network.getNumber(victim.net, "deaths") + 1);
     Network.setNumber(killer.net, "kills", Network.getNumber(killer.net, "kills") + 1);
-    Network.rpc(this.matchNet, "feed", [`s:${killer.name}`, `s:${victim.name}`].join(SEP));
+    this.send(this.matchNet, "feed", [`s:${killer.name}`, `s:${victim.name}`].join(SEP));
   }
 
   private matchFrame(now: number) {
@@ -674,18 +795,9 @@ export class Arena extends Component {
       case "spawned":
         this.onSpawned(parseFloat(e.f[0]), parseFloat(e.f[1]), parseFloat(e.f[3]));
         break;
-      case "despawned": {
-        const id = parseFloat(e.f[0]);
-        const gone = this.views.get(id);
-        if (gone) gone.gone = true;
-        gone?.go.destroy();
-        this.views.delete(id);
-        if (id === this.localId) {
-          this.localId = 0;
-          this.controller = null;
-        }
+      case "despawned":
+        this.dropView(parseFloat(e.f[0]));
         break;
-      }
       case "rpc":
         this.onRpc(e.f[1] ?? "", e.f.slice(3));
         break;
@@ -706,8 +818,9 @@ export class Arena extends Component {
       this.views.set(id, view);
       if (local) {
         this.localId = id;
-        this.controller = go.addComponent(CharacterController, { radius: 0.3, height: 1.8 });
-        this.controller.center = new Vector3(0, 0.95, 0);
+        this.seq = 0;
+        this.lastAck = 0;
+        this.resetPrediction(v3(Network.getVec3(id, "rpos")));
       }
       void this.dress(view, local);
     }
@@ -854,14 +967,52 @@ export class Arena extends Component {
     else if (name === "teleport" && this.localId !== 0) {
       const p = argVec(args[0]);
       if (this.verbose) console.log(`[net client] teleport to (${p.x},${p.z})`);
-      // A controller keeps its own position: make a fresh one where the player is put.
-      const go = this.views.get(this.localId)!.go;
-      this.controller?.destroy();
-      go.transform.position = p;
-      this.controller = go.addComponent(CharacterController, { radius: 0.3, height: 1.8 });
-      this.controller.center = new Vector3(0, 0.95, 0);
-      this.vy = 0;
+      // The server put the player somewhere (a respawn): predict from there.
+      this.views.get(this.localId)!.go.transform.position = p;
+      this.resetPrediction(p);
     }
+  }
+
+  /** Starts predicting from `at`, forgetting the inputs the server has not answered. */
+  private resetPrediction(at: Vector3) {
+    this.pred = { x: at.x, y: at.y, z: at.z, vy: 0 };
+    this.pending = [];
+    this.errOffset = new Vector3(0, 0, 0);
+    this.acc = 0;
+  }
+
+  /**
+   * What the server has made of my inputs. `seq` is the last it used and `rpos` / `rvy` the state
+   * after it: where I predicted to be after that input is what it should match. If it does not
+   * (something I could not know: the server refused a step, a lost input), I take the server's state
+   * and walk the inputs it has not seen yet from there. The jump this would show is faded out.
+   */
+  private reconcile() {
+    const pred = this.pred;
+    if (!pred) return;
+    const ack = Network.getNumber(this.localId, "seq");
+    if (ack <= this.lastAck) return;
+    this.lastAck = ack;
+    let mine: MoveState | null = null;
+    while (this.pending.length > 0 && this.pending[0]!.inp.seq <= ack) {
+      if (this.pending[0]!.inp.seq === ack) mine = this.pending[0]!.after;
+      this.pending.shift();
+    }
+    if (!mine) return;
+    const at = v3(Network.getVec3(this.localId, "rpos"));
+    const vy = Network.getNumber(this.localId, "rvy");
+    const err = Math.hypot(mine.x - at.x, mine.y - at.y, mine.z - at.z);
+    if (err < 0.03) return;
+    let s: MoveState = { x: at.x, y: at.y, z: at.z, vy };
+    for (const entry of this.pending) {
+      s = step(s, entry.inp);
+      entry.after = copyState(s);
+    }
+    // A big miss is a teleport, not something to ease.
+    this.errOffset = err > 2.5 ? new Vector3(0, 0, 0) : this.errOffset.add(new Vector3(pred.x - s.x, pred.y - s.y, pred.z - s.z));
+    this.pred = s;
+    this.corrections++;
+    if (this.verbose) console.log(`[net client] corrected ${err.toFixed(3)} m at input ${ack}, replaying ${this.pending.length}`);
   }
 
   /**
@@ -884,8 +1035,7 @@ export class Arena extends Component {
 
   private moveLocal(dt: number) {
     const view = this.views.get(this.localId);
-    const cc = this.controller;
-    if (!view || !cc) return;
+    if (!view || !this.pred) return;
     const alive = Network.getBool(this.localId, "alive");
     // Camera: the locked mouse turns it (Esc or F1 frees the pointer), Q / E too, the wheel zooms.
     if (this.pointerLocked && !this.bot) {
@@ -915,19 +1065,44 @@ export class Arena extends Component {
     const moving = alive && dir.magnitude > 0.01;
     if (moving) dir = dir.normalized;
     const sprint = think ? think.run : input.getKey("ShiftLeft") || input.getKey("ShiftRight");
-    const speed = moving ? (sprint ? SPRINT : WALK) : 0;
-    if (cc.isGrounded && this.vy <= 0) {
-      this.vy = -1;
-      if (alive && input.getKeyDown("Space")) this.vy = 5.5;
-    } else this.vy -= 16 * dt;
-    const before = view.go.transform.position;
-    cc.move(dir.scale(speed * dt).add(new Vector3(0, this.vy * dt, 0)));
-    const after = view.go.transform.position;
-    // The controller applies a move after the script turn, so `after` equals `before` here: the speed
-    // is how far the figure went since the last frame, smoothed so the blend does not flicker.
-    const last = this.prevPos ?? before;
-    const raw = new Vector3(before.x - last.x, 0, before.z - last.z).magnitude / Math.max(dt, 1e-4);
-    this.prevPos = before;
+    if (!think && input.getKeyDown("Space")) this.jumpLatch = true;
+
+    // Prediction: walk the figure at the fixed step the server uses, keep the inputs until the
+    // server confirms them, and send the last few every time (so a lost packet costs nothing).
+    this.reconcile();
+    this.acc += dt;
+    let stepped = 0;
+    while (this.acc >= STEP && stepped < 5) {
+      this.acc -= STEP;
+      stepped++;
+      if (!alive || !this.pred) continue;
+      this.seq++;
+      const inp = makeInput(this.seq, moving ? dir.x : 0, moving ? dir.z : 0, sprint, this.jumpLatch);
+      this.jumpLatch = false;
+      this.pred = step(this.pred, inp);
+      // `--desync`: now and then the client "mispredicts" by a few steps, to see it corrected.
+      if (this.desync && this.seq % 90 === 0) this.pred.x += 0.6;
+      this.pending.push({ inp, after: copyState(this.pred) });
+    }
+    if (this.acc > STEP * 5) this.acc = 0;
+    // (The server never holds more than a few: anything older was answered or is not coming.)
+    while (this.pending.length > 30) this.pending.shift();
+    if (stepped > 0 && alive && this.pending.length > 0) {
+      const text = this.pending.slice(-10).map((e) => encodeInput(e.inp)).join("|");
+      // A listen server's player is walked in place: no packet, and the answer is immediate.
+      if (this.host) this.onInput(0, text);
+      else Network.rpc(this.localId, "input", `s:${text}`);
+    }
+    // The figure stands where it is predicted to, less what is left of a correction's pop.
+    const p = this.pred;
+    if (!p) return;
+    this.errOffset = this.errOffset.scale(Math.max(0, 1 - 10 * dt));
+    const after = new Vector3(p.x + this.errOffset.x, p.y + this.errOffset.y, p.z + this.errOffset.z);
+    view.go.transform.position = after;
+    // The speed is how far the figure went since the last frame, smoothed so the blend does not flicker.
+    const last = this.prevPos ?? after;
+    const raw = new Vector3(after.x - last.x, 0, after.z - last.z).magnitude / Math.max(dt, 1e-4);
+    this.prevPos = after;
     this.speedNow += (Math.min(raw, SPRINT + 2) - this.speedNow) * Math.min(1, 12 * dt);
     const moved = this.speedNow < 0.15 ? 0 : this.speedNow;
 
@@ -942,13 +1117,12 @@ export class Arena extends Component {
     this.facingDeg += (d * 180) / Math.PI * Math.min(1, 14 * dt);
     if (view.body) view.body.transform.localRotation = Quaternion.euler(0, this.facingDeg, 0);
     view.animator?.setFloat("speed", moved);
-    // In the air only after a moment off the ground: the controller flickers while walking.
-    this.airTime = cc.isGrounded ? 0 : this.airTime + dt;
+    // In the air only after a moment off the ground (a hop of a step or two stays a walk).
+    this.airTime = grounded(p) ? 0 : this.airTime + dt;
     view.animator?.setBool("air", this.airTime > 0.18);
 
-    // What the others need: where I am, which way, how fast. The server checks the position.
-    const wrote = Network.setVec3(this.localId, "pos", after.x, after.y, after.z);
-    if (this.verbose && Time.time - this.lastLog < 0.02) console.log(`[net client] wrote pos (${after.x},${after.z}) ok=${wrote} ${wrote ? "" : Network.lastError()}`);
+    // What the others need to draw me: which way I face and how fast I go. (Where I am is the
+    // server's to say: it walks my inputs.)
     Network.setNumber(this.localId, "yaw", this.facingDeg);
     Network.setNumber(this.localId, "speed", moved);
     Network.setBool(this.localId, "sprint", sprint);
@@ -958,7 +1132,8 @@ export class Arena extends Component {
     if (firing && Time.time - this.fireAt > 0.22) {
       this.fireAt = Time.time;
       const behind = Math.max(0, Network.rtt()) / 2 + (2 / TICK_RATE) * 1000;
-      Network.rpc(this.localId, "fire", [`f:${aim}`,`f:${behind}`].join(SEP));
+      if (this.host) this.onFire(0, aim, 0, Time.time);
+      else Network.rpc(this.localId, "fire", [`f:${aim}`,`f:${behind}`].join(SEP));
     }
   }
 

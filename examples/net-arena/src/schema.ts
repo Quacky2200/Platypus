@@ -26,11 +26,18 @@ export const MAX_REWIND = 0.25;
 
 export function defineNetwork(): void {
   const ok = [
-    // The player: its owner writes where it is and what it does; the server owns the score.
+    // The player. The server walks it from the inputs its owner sends (`move.ts`) and writes where it
+    // is: `pos` (blended between ticks for everyone to draw) and, for the owner to compare with its
+    // prediction, `rpos` / `rvy` (the exact state) and `seq` (the last input they are the result of).
+    // The owner writes only how it faces and how fast it goes (for the others' animation); the
+    // server owns the score.
     Network.defineClass(
       "Player",
       [
-        "pos:vec3:q=0.01:owner:lerp",
+        "pos:vec3:q=0.01:lerp",
+        "rpos:vec3:q=0.001",
+        "rvy:f32:q=0.01",
+        "seq:i32",
         "yaw:f32:q=0.5:owner:lerp",
         "speed:f32:q=0.1:owner",
         "sprint:bool:owner",
@@ -49,6 +56,9 @@ export function defineNetwork(): void {
     Network.defineClass("Match", "state:str;timeLeft:f32:q=0.1;winner:str;round:i32"),
     // A client asks to shoot: yaw (degrees), and how far back in time it saw the world (ms).
     Network.defineRpc("fire", "server"),
+    // A client's last few movement inputs (`move.ts`), unreliable: each packet repeats the ones
+    // the server has not confirmed, so a lost one is made up by the next.
+    Network.defineRpc("input", "server", "unreliable"),
     // The server shows everyone a beam: from, to, shooter id, whether it hit a player.
     Network.defineRpc("beam", "all", "unreliable"),
     // The kill feed.

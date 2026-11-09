@@ -11,6 +11,7 @@
 
 import "./game";
 import { hud, onHud, request } from "./game";
+import type { Mode } from "./game";
 import { KILL_LIMIT } from "./schema";
 
 const TEXT = "#20242c";
@@ -65,7 +66,7 @@ function Button(props: { label: string; onClick: () => void; primary?: boolean; 
 function Menu() {
   const [name, setName] = useState(request.name);
   const [address, setAddress] = useState(request.address);
-  const go = (mode: "server" | "client") => {
+  const go = (mode: Mode) => {
     request.name = name.trim() || "Player";
     request.address = address.trim() || "127.0.0.1:7777";
     request.mode = mode;
@@ -81,11 +82,15 @@ function Menu() {
         <Field value={address} onChange={setAddress} />
         <box style={{ flexDirection: "row", gap: 10, marginTop: 8 }}>
           <Button primary label="Join" onClick={() => go("client")} />
-          <Button label="Host a server here" onClick={() => go("server")} />
+          <Button label="Watch" onClick={() => go("watch")} />
+        </box>
+        <box style={{ flexDirection: "row", gap: 10 }}>
+          <Button label="Host a game here" onClick={() => go("host")} />
+          <Button label="Server only" onClick={() => go("server")} />
         </box>
         {hud.error !== "" && <text style={{ color: RED, fontSize: 13, maxWidth: 300 }}>{hud.error}</text>}
         <text style={{ color: SOFT, fontSize: 12, marginTop: 6 }}>
-          Hosting runs the match in this window (it watches); join from other windows on this machine.
+          Hosting runs the match in this window, and you play in it (a listen server); Server only just watches it. Others join from their own windows; Watch only spectates.
         </text>
       </box>
     </box>
@@ -172,7 +177,7 @@ function Hud() {
     <box style={{ width: "100%", height: "100%", pointerEvents: "none" }}>
       {hurt && <box style={{ position: "absolute", left: 0, top: 0, width: "100%", height: "100%", backgroundColor: "rgba(216, 38, 42, 0.22)" }} />}
       <box style={{ position: "absolute", left: 16, top: 16, padding: "8px 12px", borderRadius: 8, backgroundColor: PANEL, flexDirection: "column", gap: 2 }}>
-        <text style={{ color: TEXT, fontSize: 14, fontWeight: 600 }}>{hud.mode === "server" ? "Server" : "Client"}</text>
+        <text style={{ color: TEXT, fontSize: 14, fontWeight: 600 }}>{hud.mode === "server" ? "Server" : hud.spectator ? "Spectating" : "Playing"}</text>
         {hud.status !== "" && <text style={{ color: SOFT, fontSize: 12 }}>{hud.status}</text>}
         <text style={{ color: SOFT, fontSize: 12 }}>{`ping ${hud.rtt < 0 ? "-" : Math.round(hud.rtt)} ms`}</text>
       </box>
@@ -186,7 +191,7 @@ function Hud() {
           </box>
         ))}
       </box>
-      {hud.mode === "client" && (
+      {hud.mode === "client" && !hud.spectator && (
         <box style={{ position: "absolute", left: 16, bottom: 16, width: 220, padding: 10, borderRadius: 10, backgroundColor: PANEL, flexDirection: "column", gap: 6 }}>
           <text style={{ color: TEXT, fontSize: 13 }}>{hud.alive ? (hud.shield ? "Shielded" : "Health") : "Respawning..."}</text>
           <box style={{ width: "100%", height: 10, borderRadius: 5, backgroundColor: "rgba(32, 36, 44, 0.15)" }}>
@@ -194,7 +199,7 @@ function Hud() {
           </box>
         </box>
       )}
-      {hud.mode === "client" && hud.alive && (
+      {hud.mode === "client" && !hud.spectator && hud.alive && (
         <box style={{ position: "absolute", left: "50%", top: "50%", width: 6, height: 6, marginLeft: -3, marginTop: -3, borderRadius: 3, backgroundColor: RED }} />
       )}
       {(hud.showScores || hud.match === "roundEnd") && <Scoreboard />}
