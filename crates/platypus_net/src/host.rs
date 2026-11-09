@@ -153,6 +153,38 @@ impl<T: Transport> NetHost<T> {
         Some((f64::from(tick) + frac - self.interp_delay).max(0.0))
     }
 
+    /// Replication steps a second.
+    pub fn tick_rate(&self) -> f64 {
+        // The interval is whole nanoseconds, so 30 Hz comes back as 30.0000003 without the rounding.
+        (1000.0 / self.tick_interval.as_secs_f64()).round() / 1000.0
+    }
+
+    /// The server's tick as this peer knows it: the server's own, or the newest complete one a
+    /// client has been sent (`None` before the first).
+    pub fn tick(&self) -> Option<Tick> {
+        match &self.half {
+            Half::Server(rep) => Some(rep.tick()),
+            Half::Client(_) => self.seen.map(|(t, _)| t),
+        }
+    }
+
+    /// Network time in seconds: the server's tick clock. A client estimates the server's present
+    /// (its newest tick plus the time since it arrived), so every peer's value agrees to within
+    /// the one-way delay, which is what timers shared between peers (a round clock, a door that
+    /// opens at second N) need. `None` before the first tick.
+    pub fn time(&self) -> Option<f64> {
+        let tick = self.tick()?;
+        let since = match (&self.half, self.seen) {
+            (Half::Client(_), Some((_, at))) => self.now.saturating_sub(at).as_secs_f64(),
+            (Half::Server(_), _) => self.next_tick.map_or(0.0, |next| {
+                (self.tick_interval.as_secs_f64() - next.saturating_sub(self.now).as_secs_f64())
+                    .max(0.0)
+            }),
+            _ => 0.0,
+        };
+        Some((f64::from(tick) * self.tick_interval.as_secs_f64()) + since)
+    }
+
     pub fn client(
         transport: T,
         schema: Arc<Schema>,
@@ -807,5 +839,28 @@ mod tests {
             client.client_ref().unwrap().value(id, "pos"),
             server.server_ref().unwrap().get(id, "pos").cloned()
         );
+    }
+
+    // M8-HOST-07
+    #[test]
+    fn network_time_is_the_server_clock_on_every_peer() {
+        let mut rig = Rig::new(1);
+        assert!(rig.clients[0].time().is_none(), "no time before a tick");
+        assert_eq!(rig.server.tick_rate(), 30.0);
+        rig.run(300);
+        rig.server
+            .server_mut()
+            .unwrap()
+            .spawn("Player", "p", 1)
+            .unwrap();
+        rig.run(1000);
+        let (s0, c0) = (rig.server.time().unwrap(), rig.clients[0].time().unwrap());
+        // Loopback has no delay: the estimates agree to within a tick.
+        assert!((s0 - c0).abs() < 0.07, "server {s0} client {c0}");
+        rig.run(2000);
+        let (s1, c1) = (rig.server.time().unwrap(), rig.clients[0].time().unwrap());
+        assert!((s1 - s0 - 2.0).abs() < 0.07, "server clock ran {}", s1 - s0);
+        assert!((c1 - c0 - 2.0).abs() < 0.07, "client clock ran {}", c1 - c0);
+        assert!(rig.clients[0].tick().unwrap() > 60);
     }
 }

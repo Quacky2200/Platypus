@@ -457,6 +457,28 @@ pub mod network_api {
         })
     }
 
+    /// Replication steps a second (30 unless `startServer` said otherwise); 0 when not running.
+    pub fn tick_rate() -> f64 {
+        with(|s| s.host.as_ref().map_or(0.0, |h| h.tick_rate()))
+    }
+
+    /// The server's tick: its own on the server, the newest a client has received; -1 before the first.
+    pub fn tick() -> f64 {
+        with(|s| {
+            s.host
+                .as_ref()
+                .and_then(|h| h.tick())
+                .map_or(-1.0, f64::from)
+        })
+    }
+
+    /// Network time in seconds, the server's tick clock: a client estimates the server's present,
+    /// so peers agree to within the one-way delay and a timer on it (a round clock) ticks together.
+    /// -1 before the first tick.
+    pub fn time() -> f64 {
+        with(|s| s.host.as_ref().and_then(|h| h.time()).unwrap_or(-1.0))
+    }
+
     /// The connected players (server), in id order.
     pub fn players() -> Vec<f64> {
         with(|s| {
@@ -989,6 +1011,11 @@ mod tests {
         assert!(!net::rpc(1.0, "x", ""));
         assert_eq!(net::local_player(), -1.0);
         assert_eq!(net::rtt(f64::NAN), -1.0);
+        // No host: no clock.
+        assert_eq!(
+            (net::tick(), net::time(), net::tick_rate()),
+            (-1.0, -1.0, 0.0)
+        );
         assert!(!net::debug_conditions(10.0, 0.0, 0.0, f64::NAN, f64::NAN));
         assert!(!net::debug_fault("disconnect"));
         report_error("port in use");

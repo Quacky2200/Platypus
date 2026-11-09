@@ -128,6 +128,7 @@ impl FieldDef {
         match v {
             Value::F32(x) => Value::F32(q(x)),
             Value::Vec3([x, y, z]) => Value::Vec3([q(x), q(y), q(z)]),
+            Value::Quat(r) if self.quantize.is_some() => Value::Quat(unpack_quat(pack_quat(&r))),
             other => other,
         }
     }
@@ -377,8 +378,10 @@ impl Value {
             }
             Value::F32(x) => float(w, *x),
             Value::Vec3(v) => v.iter().for_each(|x| float(w, *x)),
-            // Rotations are exact: quantising a unit quaternion's parts is lossy in a way that
-            // needs the smallest-three form (later).
+            // A quantised rotation is one u32 in smallest-three form; otherwise it is exact.
+            Value::Quat(q) if field.quantize.is_some() => {
+                w.u32(pack_quat(q));
+            }
             Value::Quat(q) => q.iter().for_each(|x| {
                 w.u32(x.to_bits());
             }),
@@ -408,6 +411,7 @@ impl Value {
             FieldType::I32 => Value::I32(i32::try_from(unzigzag(r.varint()?)).ok()?),
             FieldType::F32 => Value::F32(float(r)?),
             FieldType::Vec3 => Value::Vec3([float(r)?, float(r)?, float(r)?]),
+            FieldType::Quat if field.quantize.is_some() => Value::Quat(unpack_quat(r.u32()?)),
             FieldType::Quat => Value::Quat([
                 f32::from_bits(r.u32()?),
                 f32::from_bits(r.u32()?),
@@ -473,6 +477,60 @@ fn unzigzag(n: u64) -> i64 {
     ((n >> 1) as i64) ^ -((n & 1) as i64)
 }
 
+/// The two parts of a unit quaternion other than its largest are at most 1/sqrt(2) in size.
+const QUAT_RANGE: f32 = std::f32::consts::FRAC_1_SQRT_2;
+const QUAT_BITS: u32 = 10;
+const QUAT_MAX: f32 = ((1 << QUAT_BITS) - 1) as f32;
+
+/// Smallest-three form: 2 bits say which part is the largest, then the other three at 10 bits
+/// each. The largest is rebuilt from them (its sign is made positive first, since `q` and `-q` are
+/// the same rotation). Four bytes instead of sixteen, within about a sixth of a degree.
+fn pack_quat(q: &[f32; 4]) -> u32 {
+    let len = q.iter().map(|x| x * x).sum::<f32>().sqrt();
+    let unit = if len > 1e-6 {
+        q.map(|x| x / len)
+    } else {
+        [0.0, 0.0, 0.0, 1.0]
+    };
+    // The first part within a hair of the biggest: a near tie must pick the same part again after
+    // the value has been through here once, so that packing what was unpacked changes nothing.
+    let biggest = unit.iter().fold(0.0f32, |m, x| m.max(x.abs()));
+    let largest = unit
+        .iter()
+        .position(|x| x.abs() >= biggest - 0.004)
+        .unwrap_or(0);
+    let sign = if unit[largest] < 0.0 { -1.0 } else { 1.0 };
+    let mut bits = (largest as u32) << (3 * QUAT_BITS);
+    let mut shift = 3 * QUAT_BITS;
+    for (i, x) in unit.iter().enumerate() {
+        if i == largest {
+            continue;
+        }
+        shift -= QUAT_BITS;
+        let n = (((x * sign / QUAT_RANGE).clamp(-1.0, 1.0) * 0.5 + 0.5) * QUAT_MAX).round() as u32;
+        bits |= n << shift;
+    }
+    bits
+}
+
+fn unpack_quat(bits: u32) -> [f32; 4] {
+    let largest = (bits >> (3 * QUAT_BITS)) as usize & 3;
+    let mut q = [0.0f32; 4];
+    let mut shift = 3 * QUAT_BITS;
+    let mut sum = 0.0;
+    for (i, part) in q.iter_mut().enumerate() {
+        if i == largest {
+            continue;
+        }
+        shift -= QUAT_BITS;
+        let n = (bits >> shift) & ((1 << QUAT_BITS) - 1);
+        *part = ((n as f32 / QUAT_MAX) * 2.0 - 1.0) * QUAT_RANGE;
+        sum += *part * *part;
+    }
+    q[largest] = (1.0 - sum).max(0.0).sqrt();
+    q
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -507,6 +565,34 @@ mod tests {
         assert_eq!(round_trip(&q, v.clone()), v);
         let Value::Vec3(n) = v else { panic!() };
         assert!((n[0] - 1.23).abs() < 1e-5 && n[1].abs() < 1e-5 && (n[2] - 100.0).abs() < 1e-3);
+    }
+
+    // M8-REP-13
+    #[test]
+    fn a_quantised_rotation_is_four_bytes_within_a_fifth_of_a_degree() {
+        let field = FieldDef::new("r", FieldType::Quat).quantized(0.001);
+        for raw in [
+            [0.0, 0.0, 0.0, 1.0],
+            [0.0, 0.6, 0.0, 0.8],
+            [0.5, -0.5, 0.5, -0.5],
+            [0.1, 0.2, -0.3, -0.9],
+            [-0.7, 0.1, 0.1, 0.7],
+        ] {
+            let len = raw.iter().map(|x: &f32| x * x).sum::<f32>().sqrt();
+            let q = raw.map(|x| x / len);
+            let v = field.normalize(Value::Quat(q));
+            let mut w = Writer::new();
+            v.write(&mut w, &field);
+            let bytes = w.finish();
+            assert_eq!(bytes.len(), 4);
+            // What was written is what the server holds, so both sides agree exactly.
+            assert_eq!(round_trip(&field, v.clone()), v);
+            let Value::Quat(n) = v else { panic!() };
+            let dot: f32 = n.iter().zip(&q).map(|(a, b)| a * b).sum();
+            // q and -q are one rotation: the angle is 2 * acos(|dot|).
+            let degrees = 2.0 * dot.abs().min(1.0).acos().to_degrees();
+            assert!(degrees < 0.2, "{raw:?} off by {degrees} degrees");
+        }
     }
 
     // M8-REP-01

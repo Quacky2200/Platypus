@@ -44,7 +44,7 @@ export function defineNetwork(): void {
       ].join(";"),
     ),
     // A prop the server simulates (crates, a shovable car): clients only draw it.
-    Network.defineClass("Prop", "pos:vec3:q=0.01:lerp;rot:quat:lerp;kind:i32"),
+    Network.defineClass("Prop", "pos:vec3:q=0.01:lerp;rot:quat:q=0.001:lerp;kind:i32"),
     // The match: one object everybody can read.
     Network.defineClass("Match", "state:str;timeLeft:f32:q=0.1;winner:str;round:i32"),
     // A client asks to shoot: yaw (degrees), and how far back in time it saw the world (ms).
