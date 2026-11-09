@@ -30,8 +30,9 @@ pub const LIBRARY_NAME: &str = if cfg!(windows) {
     "libsteam_api.so"
 };
 
-/// Where to look: beside the running program first, then wherever the system's loader looks.
-pub fn library_candidates() -> Vec<PathBuf> {
+/// Where to look: beside the running program first, then each of `extra` (the game's own folders,
+/// so a dev run finds the file packaging copies), then wherever the system's loader looks.
+pub fn library_candidates(extra: &[PathBuf]) -> Vec<PathBuf> {
     let mut found = Vec::new();
     if let Some(dir) = std::env::current_exe()
         .ok()
@@ -39,6 +40,7 @@ pub fn library_candidates() -> Vec<PathBuf> {
     {
         found.push(dir.join(LIBRARY_NAME));
     }
+    found.extend(extra.iter().map(|dir| dir.join(LIBRARY_NAME)));
     found.push(PathBuf::from(LIBRARY_NAME));
     found
 }
@@ -219,9 +221,9 @@ impl Api {
     }
 
     /// Loads the library from the first place [`library_candidates`] finds it.
-    pub fn load() -> Result<Api, String> {
+    pub fn load(extra: &[PathBuf]) -> Result<Api, String> {
         let mut last = String::new();
-        for path in library_candidates() {
+        for path in library_candidates(extra) {
             match Api::load_from(&path) {
                 Ok(api) => return Ok(api),
                 // A library that loaded but failed to initialise says why: don't hide it behind
@@ -231,7 +233,7 @@ impl Api {
             }
         }
         Err(format!(
-            "{LIBRARY_NAME} not found beside the program ({last})"
+            "{LIBRARY_NAME} not found beside the program or in the game's folders ({last})"
         ))
     }
 
@@ -506,15 +508,22 @@ mod tests {
 
     // M8-STM-10
     #[test]
-    fn the_library_is_looked_for_beside_the_program_first() {
-        let c = library_candidates();
+    fn the_library_is_looked_for_beside_the_program_then_the_games_folders_then_the_system() {
+        let game = PathBuf::from("game");
+        let extra = [game.join("steam"), game.clone()];
+        let c = library_candidates(&extra);
         assert_eq!(
             c.last().map(PathBuf::as_path),
             Some(Path::new(LIBRARY_NAME))
         );
-        if c.len() == 2 {
+        // The game's folders sit between the program's folder and the system path, in order.
+        let n = c.len();
+        assert_eq!(c[n - 3], game.join("steam").join(LIBRARY_NAME));
+        assert_eq!(c[n - 2], game.join(LIBRARY_NAME));
+        if n == 4 {
             assert!(c[0].ends_with(LIBRARY_NAME) && c[0].is_absolute());
         }
+        assert_eq!(library_candidates(&[]).len(), n - 2);
     }
 
     // M8-STM-11

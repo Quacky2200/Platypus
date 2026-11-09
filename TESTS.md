@@ -2841,7 +2841,7 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M8-STM-05 | Unit | Joining a closed or unknown lobby ends in status `failed`. |
 | M8-STM-06 | - | Removed: there is no default app id any more (another game's would meet its real players). |
 | M8-STM-07 | Unit | `platypus_steam`: lobby kinds map to Steam's lobby type numbers. |
-| M8-STM-10 | Unit | The Steam library loader: a missing library is an error, not a crash; it is looked for beside the program first, then on the system's path. |
+| M8-STM-10 | Unit | The Steam library loader: a missing library is an error, not a crash; it is looked for beside the program first, then in the game's `steam/` folder and the game folder, then on the system's path. |
 | M8-STM-11 | Unit | Lobby create / join / search results decode with the platform's struct layout (Windows aligned, elsewhere packed to 4); failures carry Steam's reason. |
 | M8-STM-12 | Unit | Each pending Steam call only accepts the result type it was started for. |
 | M8-STM-13 | Unit | `platypus-build` Steam library lookup: a name per desktop platform; found in `steam/`, then the game folder, then beside the host; an explicit `--steam-library` wins and a missing one is an error. |

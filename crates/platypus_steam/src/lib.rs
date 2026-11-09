@@ -22,6 +22,7 @@ use platypus_engine_api::steam::{
     Backend, LobbyInfo, LobbyKind, LobbyState, LobbyStatus, Member, SearchState, SearchStatus,
     install as install_backend,
 };
+use std::path::PathBuf;
 
 /// What an asynchronous Steam call was for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -50,14 +51,17 @@ pub struct SteamBackend {
 }
 
 /// Loads the Steam library and connects to the running Steam client as `app_id`.
-pub fn connect(app_id: u32) -> Result<SteamBackend, String> {
+///
+/// `search` are folders to look for the library in after the program's own (the game's `steam/`
+/// folder and the game folder).
+pub fn connect(app_id: u32, search: &[PathBuf]) -> Result<SteamBackend, String> {
     // Steam reads the app id from the environment. Nothing else reads or writes the environment
     // concurrently here: this runs once at start-up, before the game's threads.
     unsafe {
         std::env::set_var("SteamAppId", app_id.to_string());
         std::env::set_var("SteamGameId", app_id.to_string());
     }
-    let api = Api::load()?;
+    let api = Api::load(search)?;
     Ok(SteamBackend {
         api,
         app_id,
@@ -70,8 +74,8 @@ pub fn connect(app_id: u32) -> Result<SteamBackend, String> {
 /// Connects as `app_id` and installs it as the script API's backend.
 /// On failure (no Steam library, Steam not running, no licence for the id) nothing is installed
 /// and the reason returns.
-pub fn install(app_id: u32) -> Result<u32, String> {
-    let backend = connect(app_id)?;
+pub fn install(app_id: u32, search: &[PathBuf]) -> Result<u32, String> {
+    let backend = connect(app_id, search)?;
     install_backend(Some(Box::new(backend)));
     Ok(app_id)
 }
@@ -322,7 +326,7 @@ mod tests {
         else {
             return;
         };
-        let b = connect(id).expect("Steam is running and its library is found");
+        let b = connect(id, &[]).expect("Steam is running and its library is found");
         assert_eq!(b.app_id(), id);
         assert_ne!(b.user_id(), 0);
     }

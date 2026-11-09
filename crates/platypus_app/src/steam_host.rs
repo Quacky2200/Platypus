@@ -9,19 +9,23 @@
 //! error).
 
 use platypus_core::project::SteamConfig;
+use std::path::Path;
 
-/// Connects as the game's app id; a project without `steam.appId` doesn't touch Steam.
+/// Connects as the game's app id; a project without `steam.appId` doesn't touch Steam. The
+/// library is looked for beside the program, then in the game's `steam/` folder and the game
+/// folder (where `platypus-build package` finds it too), then on the system path.
 #[cfg(feature = "steam")]
-pub fn start(config: Option<SteamConfig>) {
+pub fn start(config: Option<SteamConfig>, game_dir: &Path) {
     let Some(config) = config else { return };
-    match platypus_steam::install(config.app_id) {
+    let search = [game_dir.join("steam"), game_dir.to_path_buf()];
+    match platypus_steam::install(config.app_id, &search) {
         Ok(id) => tracing::info!("Steam: connected as app {id}"),
         Err(e) => tracing::warn!("Steam: not connected ({e}); the Steam API stays off"),
     }
 }
 
 #[cfg(not(feature = "steam"))]
-pub fn start(config: Option<SteamConfig>) {
+pub fn start(config: Option<SteamConfig>, _game_dir: &Path) {
     if config.is_some() {
         tracing::warn!(
             "Steam: this build has no Steam support (the `steam` feature); the Steam API stays off"

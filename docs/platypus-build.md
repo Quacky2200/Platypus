@@ -424,6 +424,9 @@ folder, or the host's folder, in that order. It never fetches the file: it comes
 under Valve's terms, which are yours to check before shipping. A game with `steam.appId` and no library found is still packaged,
 with a warning; a game without `steam` gets no library.
 
+A dev run (`platypus-build dev`, `platypus-app <game>`) copies nothing but finds the same file: the host looks beside the program, then
+in the game's `steam/` folder and the game folder, then on the system's path. One file in `<game>/steam/` serves both.
+
 **Debug info.** `build` writes `build/game.pdebug` beside `game.pbundle`: a hash of the bundled source and where each source file
 starts in it. It is not in the bundle or the exe's payload. `package --debug-info` copies it beside the exe as `<exe>.pdebug`; the
 host looks for it there, then in the game folder's `build/`, when a crash happens in compiled code, and the crash report then

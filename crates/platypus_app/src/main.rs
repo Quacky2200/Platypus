@@ -629,7 +629,7 @@ fn run() -> Result<()> {
     let mut scene = platypus_scene::ScriptScene::new();
     native_render::configure_engine(&asset_root);
     native_pump::seed_prefs(&prefs);
-    steam_host::start(manifest.steam);
+    steam_host::start(manifest.steam, &code_root);
     let (m, i) = (manifest.clone(), info.clone());
     let mut native = native::Native::load_with(
         bundle,
