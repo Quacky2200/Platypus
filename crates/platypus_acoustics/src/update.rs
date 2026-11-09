@@ -6,8 +6,9 @@
 //! [`update`] once a frame, after transforms are final and before the audio commands are taken.
 
 use crate::model::{
-    FxTarget, OccluderSpec, Probe, average, blend_zones, detour_wins, doppler, head_cue,
-    heard_level, scaled, through, through_portal, zone_weight,
+    FxTarget, OccluderSpec, Probe, air_cutoff, average, blend_zones, cone_amount, cone_effect,
+    detour_wins, doppler, head_cue, heard_level, pattern_effect, pattern_gain, scaled, through,
+    through_portal, zone_weight,
 };
 use crate::state::{Event, SoundEventRef, Zone, push_event, st};
 use glam::{Quat, Vec3};
@@ -15,7 +16,7 @@ use platypus_engine_api::audio::{
     self, BusRef, PlayOptions, PlaybackRef, play_sound, set_fx, set_track_volume,
 };
 use platypus_engine_api::audio_components::{
-    SourceView, set_doppler_factor, set_virtual_position, source_views,
+    Directivity, SourceView, set_doppler_factor, set_virtual_position, source_views,
 };
 use platypus_math::V3;
 use platypus_scene::ObjectId;
@@ -501,10 +502,49 @@ fn update_sources(
             } else {
                 22000.0
             };
+            // Air: the highs fade with the distance the sound travelled (the way round, if by a portal).
+            let air = air_cutoff(dist, settings.air_absorption * v.air_absorption);
+            // The cone: how far the listener is from the way the source faces.
+            let (cone_gain, cone_low) = if v.directivity != Directivity::Omni
+                || v.cone_inner < 360.0
+            {
+                let facing = pose(v.object).map_or([0.0, 0.0, -1.0], |(_, r, _)| {
+                    let f = r * Vec3::NEG_Z;
+                    [f64::from(f.x), f64::from(f.y), f64::from(f.z)]
+                });
+                let away = sub(listener, pos);
+                let d = len(away);
+                let angle = if d > 1e-3 {
+                    let c = (facing[0] * away[0] + facing[1] * away[1] + facing[2] * away[2]) / d;
+                    c.clamp(-1.0, 1.0).acos().to_degrees()
+                } else {
+                    0.0
+                };
+                if v.directivity != Directivity::Omni {
+                    pattern_effect(
+                        pattern_gain(v.directivity, angle),
+                        v.cone_outer_low_pass,
+                        v.directivity_strength,
+                    )
+                } else {
+                    cone_effect(
+                        cone_amount(angle, v.cone_inner, v.cone_outer),
+                        v.cone_outer_gain,
+                        v.cone_outer_low_pass,
+                    )
+                }
+            } else {
+                (1.0, 22000.0)
+            };
             let zone = source_zone_fx(&source_zones, pos);
             let mut target = if v.effects { zone } else { FxTarget::OPEN };
-            target.low_pass = next.occ_low_pass.min(head).min(zone.low_pass);
-            target.volume = next.occ_gain * zone.volume;
+            target.low_pass = next
+                .occ_low_pass
+                .min(head)
+                .min(zone.low_pass)
+                .min(air)
+                .min(cone_low);
+            target.volume = next.occ_gain * zone.volume * cone_gain;
             st(|s| send_target(&mut s.sent, emitter.0, &target, true));
         }
         // Doppler: the pitch follows how fast the source closes on the listener.

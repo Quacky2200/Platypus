@@ -192,6 +192,48 @@ pub fn register() {
                 json!(1.0),
                 "How much walls between it and the listener muffle it (0 to 1).",
             ),
+            f(
+                "directivity",
+                "enum:omni|cardioid|supercardioid|hypercardioid|figureEight|ultraDirectional",
+                json!("omni"),
+                "Its polar pattern: how it sounds from different directions round it (front is the object's -z).",
+            ),
+            f(
+                "directivityStrength",
+                "f64",
+                json!(1.0),
+                "How much of the pattern applies (0 all round, 1 all of it).",
+            ),
+            f(
+                "coneInnerAngle",
+                "f64",
+                json!(360.0),
+                "With directivity omni: the full angle (degrees) it is at full strength in front; 360 is all round.",
+            ),
+            f(
+                "coneOuterAngle",
+                "f64",
+                json!(360.0),
+                "Beyond this full angle it is coneOuterGain as loud and low-passed.",
+            ),
+            f(
+                "coneOuterGain",
+                "f64",
+                json!(0.3),
+                "Linear gain outside the outer cone.",
+            ),
+            f(
+                "coneOuterLowPass",
+                "f64",
+                json!(5000.0),
+                "Low-pass cutoff (Hz) outside the outer cone and in a pattern's quiet directions.",
+            ),
+            f(
+                "airAbsorption",
+                "f64",
+                json!(1.0),
+                "How much of Acoustics.airAbsorption applies to it (distance takes the highs off).",
+            ),
         ],
     );
     register_fields("AudioListener", Vec::new());

@@ -627,6 +627,12 @@ layout pass):
 | ACO-SYS-07 | Integration | A zone with `affectsSources` gives an emitter inside it the zone's reverb and low-pass, and leaves one outside alone; without the flag sources are untouched. |
 | ACO-SYS-08 | Integration | A source behind the listener is dulled by the head cue; one ahead stays open. |
 | ACO-MOD-07 | Unit | The head cue: ahead and to the side open, behind 4.5 kHz, above or below 9 kHz at full strength, off at 0, in between for diagonals. |
+| ACO-MOD-09 | Unit | A cone is full inside its inner angle, fades to the outer angle, is beyond it quiet and dull; 360 is all round. |
+| ACO-MOD-10 | Unit | Air's cutoff falls with distance (about 11 kHz at 100 m and 3 kHz at 300 m at strength 1), is held at 2.5 kHz, and is off at strength 0. |
+| ACO-MOD-11 | Unit | The polar patterns: omni, cardioid, supercardioid, hypercardioid, figure-eight and ultra-directional have their side and rear values and narrow in that order. |
+| ACO-MOD-12 | Unit | A pattern's quiet directions are duller (nulls held at -30 dB), and strength blends the pattern away. |
+| ACO-SYS-09 | Integration | A cardioid (or cone) source is loud for a listener it faces and quiet and dull for one behind it; strength 0 makes it all round. |
+| ACO-SYS-10 | Integration | A source 300 m away is duller than one 10 m away, more air is duller still, and a source with `airAbsorption` 0 keeps its highs. |
 | ACO-MOD-08 | Unit | A portal's two legs combine (gains and cutoffs multiply, path adds); the way round wins only when it beats the wall by a tenth; a shut door in a leg or a closed portal loses it. |
 
 ---

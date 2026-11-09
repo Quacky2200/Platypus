@@ -11,6 +11,7 @@ use crate::state::{
 };
 use crate::update::{events, probe, stop_ambience};
 use platypus_engine_api::audio::{BusRef, SoundRef};
+use platypus_engine_api::audio_components::Directivity;
 use platypus_math::V3;
 use platypus_scene::ObjectId;
 use platypus_scene::api::with_scene;
@@ -731,10 +732,12 @@ pub mod sound_event_api {
 #[ts_api(
     namespace = "Acoustics",
     handles(SoundEvent = SoundEventRef, GameObject = ObjectId),
-    values(Vector3 = V3 [x: f64, y: f64, z: f64])
+    values(Vector3 = V3 [x: f64, y: f64, z: f64]),
+    enums(extern Directivity = Directivity [Omni, Cardioid, Supercardioid, Hypercardioid, FigureEight, UltraDirectional])
 )]
 pub mod acoustics_api {
     use super::*;
+    use platypus_engine_api::audio_components::audio_source_api::directivity_from_index;
 
     /// Makes a noise at `position` that sensors within `loudness` metres can hear (`kind`
     /// says what it was; `source` is the object that made it, if any). It stays in
@@ -823,6 +826,30 @@ pub mod acoustics_api {
 
     pub fn set_head_shadow(v: f64) {
         st(|s| s.settings.head_shadow = v.clamp(0.0, 1.0));
+    }
+
+    /// How much distance takes the highs off sounds (0 to 2, default 0.5): at 1, 11 kHz is left at
+    /// 100 m and 3 kHz at 300 m. Each `AudioSource` scales it with its own `airAbsorption`. Applies
+    /// while acoustics is in use.
+    #[property]
+    pub fn air_absorption() -> f64 {
+        st(|s| s.settings.air_absorption)
+    }
+
+    pub fn set_air_absorption(v: f64) {
+        st(|s| s.settings.air_absorption = v.clamp(0.0, 2.0));
+    }
+
+    /// The cutoff in Hz that air leaves of a sound that travelled `distance` metres, at the current
+    /// `airAbsorption`.
+    pub fn air_cutoff(distance: f64) -> f64 {
+        crate::model::air_cutoff(distance, st(|s| s.settings.air_absorption))
+    }
+
+    /// How loud a source with polar pattern `pattern` is `angle` degrees off its front, 0 to 1:
+    /// the curve the mixer uses, for drawing a polar plot.
+    pub fn directivity_gain(pattern: Directivity, angle: f64) -> f64 {
+        crate::model::pattern_gain(pattern, angle)
     }
 
     /// Seconds a noise stays in the list (3).

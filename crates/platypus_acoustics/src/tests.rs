@@ -168,7 +168,10 @@ fn a_wall_dulls_a_source_and_opening_it_lets_the_sound_through() {
         update(0.016);
     }
     let open = audio::take_commands();
-    assert_eq!(fx(&open, emitter.0, "lowpass"), Some(22000.0));
+    assert!(
+        fx(&open, emitter.0, "lowpass").is_some_and(|hz| hz > 20000.0),
+        "open again (the air over 10 m takes a sliver)"
+    );
 }
 
 // ACO-SYS-04
@@ -423,5 +426,128 @@ fn sounds_behind_the_listener_are_dulled_and_those_ahead_are_not() {
     let cmds = audio::take_commands();
     let dull = fx(&cmds, e_behind.0, "lowpass").expect("dulled");
     assert!(dull > 8000.0 && dull < 12000.0, "{dull}");
-    assert_eq!(fx(&cmds, e_ahead.0, "lowpass"), None, "ahead stays open");
+    // Ahead stays essentially open: the air over 10 m takes only a sliver of the top off.
+    assert!(
+        fx(&cmds, e_ahead.0, "lowpass").is_none_or(|hz| hz > 20000.0),
+        "ahead stays open"
+    );
+}
+
+/// The gain last sent to an emitter's track.
+fn track_gain(commands: &[AudioCommand], track: u32) -> Option<f64> {
+    commands.iter().rev().find_map(|c| match c {
+        AudioCommand::TrackVolume {
+            track: Some(t),
+            volume,
+            ..
+        } if *t == track => Some(*volume),
+        _ => None,
+    })
+}
+
+// ACO-SYS-09
+//
+// A cardioid speaker is loud for a listener it faces and quiet and dull for one behind it; the
+// same goes for a cone; an omni source does not change.
+#[test]
+fn a_directional_source_is_loud_in_front_and_quiet_and_dull_behind() {
+    use platypus_engine_api::audio_components::{Directivity, with_source};
+    let mut scene = setup();
+    let _scope = platypus_scene::api::enter(&mut scene);
+    // A busy world, so acoustics is on.
+    attach_occluder(make("anything", 100.0, 0.0, 100.0));
+    // Both sources at 10 m ahead of a listener at the origin (looking down -z). The first faces
+    // the listener (its -z turned to +z), the second faces away.
+    let facing = make("facing", 0.0, 0.0, -10.0);
+    let away = make("away", 5.0, 0.0, -10.0);
+    platypus_scene::api::with_scene(|s| {
+        s.set_world(
+            facing,
+            Vec3::new(0.0, 0.0, -10.0),
+            Quat::from_rotation_y(std::f32::consts::PI),
+        );
+    });
+    let e_facing = playing_source(facing, false);
+    let e_away = playing_source(away, false);
+    for object in [facing, away] {
+        let id = source_views()
+            .iter()
+            .find(|v| v.object == object)
+            .unwrap()
+            .source;
+        with_source(id, |d| d.directivity = Directivity::Cardioid);
+    }
+    audio::set_listener([0.0; 3], [0.0, 0.0, 0.0, 1.0]);
+    update(0.016);
+    let cmds = audio::take_commands();
+    assert!(
+        track_gain(&cmds, e_facing.0).is_none_or(|g| g > 0.95),
+        "facing the listener: full"
+    );
+    let behind = track_gain(&cmds, e_away.0).expect("quieter");
+    assert!(behind < 0.2, "facing away is almost silent: {behind}");
+    let dull = fx(&cmds, e_away.0, "lowpass").expect("and dull");
+    assert!(dull < 7000.0, "{dull}");
+    // Strength 0 is all round again.
+    let id = source_views()
+        .iter()
+        .find(|v| v.object == away)
+        .unwrap()
+        .source;
+    with_source(id, |d| d.directivity_strength = 0.0);
+    update(0.016);
+    let cmds = audio::take_commands();
+    assert!(track_gain(&cmds, e_away.0).is_some_and(|g| g > 0.95));
+    // A cone instead of a pattern: 60 degrees in front, 120 outer, a quarter as loud outside it.
+    with_source(id, |d| {
+        d.directivity = Directivity::Omni;
+        d.cone_inner = 60.0;
+        d.cone_outer = 120.0;
+        d.cone_outer_gain = 0.25;
+    });
+    update(0.016);
+    let cmds = audio::take_commands();
+    assert!(track_gain(&cmds, e_away.0).is_some_and(|g| (g - 0.25).abs() < 0.02));
+}
+
+// ACO-SYS-10
+//
+// Air takes the highs off with distance: a source 300 m away is duller than one 10 m away, and a
+// source that asks for no air keeps its highs.
+#[test]
+fn air_dulls_far_sources_and_a_source_can_opt_out() {
+    use platypus_engine_api::audio_components::with_source;
+    let mut scene = setup();
+    let _scope = platypus_scene::api::enter(&mut scene);
+    attach_occluder(make("anything", 1000.0, 0.0, 1000.0));
+    let near = make("near", 10.0, 0.0, 0.0);
+    let far = make("far", 300.0, 0.0, 0.0);
+    let far_dry = make("far dry", 0.0, 300.0, 0.0);
+    let e_near = playing_source(near, false);
+    let e_far = playing_source(far, false);
+    let e_dry = playing_source(far_dry, false);
+    let id = source_views()
+        .iter()
+        .find(|v| v.object == far_dry)
+        .unwrap()
+        .source;
+    with_source(id, |d| d.air_absorption = 0.0);
+    // Facing the listener's side, so the head cue does not confuse it.
+    crate::state::st(|s| s.settings.head_shadow = 0.0);
+    audio::set_listener([0.0; 3], [0.0, 0.0, 0.0, 1.0]);
+    update(0.016);
+    let cmds = audio::take_commands();
+    let near_hz = fx(&cmds, e_near.0, "lowpass").unwrap_or(22000.0);
+    let far_hz = fx(&cmds, e_far.0, "lowpass").expect("dulled by air");
+    assert!(near_hz > 20000.0, "{near_hz}");
+    assert!(
+        far_hz < 9000.0 && far_hz > 2500.0,
+        "300 m of air at the default strength: {far_hz}"
+    );
+    assert_eq!(fx(&cmds, e_dry.0, "lowpass"), None, "no air, no dullness");
+    // More air: duller.
+    crate::state::st(|s| s.settings.air_absorption = 2.0);
+    update(0.016);
+    let cmds = audio::take_commands();
+    assert!(fx(&cmds, e_far.0, "lowpass").is_some_and(|hz| hz < far_hz));
 }

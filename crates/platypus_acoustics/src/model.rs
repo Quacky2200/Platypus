@@ -5,6 +5,8 @@
 //! loud a sensor hears something, the Doppler pitch. Everything here is a function of numbers,
 //! so the tests need no scene, physics or mixer.
 
+use platypus_engine_api::audio_components::Directivity;
+
 /// A zone's volume.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Shape {
@@ -205,6 +207,79 @@ pub fn head_cue(forward: [f64; 3], to_source: [f64; 3], strength: f64) -> f64 {
     let back = log_lerp(22000.0, 4500.0, behind.powf(1.5) * s);
     let up = log_lerp(22000.0, 9000.0, elevation * s);
     back.min(up)
+}
+
+/// How far out of a source's cone the listener is, 0 (inside the inner cone: full) to 1 (outside the
+/// outer cone), linear between. `angle` is how far the listener is from the source's forward
+/// direction (degrees); the cone angles are full widths (360 is all round: no cone), as in Web Audio.
+pub fn cone_amount(angle: f64, inner: f64, outer: f64) -> f64 {
+    let (inner, outer) = (inner.clamp(0.0, 360.0), outer.clamp(0.0, 360.0));
+    let outer = outer.max(inner);
+    if inner >= 360.0 {
+        return 0.0;
+    }
+    let (a, i, o) = (angle.abs(), inner * 0.5, outer * 0.5);
+    if a <= i {
+        0.0
+    } else if a >= o {
+        1.0
+    } else {
+        (a - i) / (o - i)
+    }
+}
+
+/// The gain and low-pass cutoff (Hz) a source's cone gives a listener `amount` (0 to 1, see
+/// [`cone_amount`]) out of it: quieter by `outer_gain` and duller towards `outer_low_pass`.
+pub fn cone_effect(amount: f64, outer_gain: f64, outer_low_pass: f64) -> (f64, f64) {
+    let t = amount.clamp(0.0, 1.0);
+    (
+        1.0 + (outer_gain.clamp(0.0, 1.0) - 1.0) * t,
+        log_lerp(22000.0, outer_low_pass.clamp(MIN_CUTOFF, 22000.0), t),
+    )
+}
+
+/// How loud a source of this polar pattern is at `angle` degrees off its forward direction, 0 to 1
+/// (1 on axis). The first-order patterns are `a + (1 - a) cos(angle)`, absolute: cardioid
+/// `a` 0.5, supercardioid 0.37, hypercardioid 0.25, figure-eight 0. The ultra-directional one is a
+/// narrow beam, `(0.5 + 0.5 cos)^6`, with side and rear lobes of 18% (a shotgun's interference).
+pub fn pattern_gain(pattern: Directivity, angle: f64) -> f64 {
+    let t = angle.to_radians();
+    let first_order = |a: f64| (a + (1.0 - a) * t.cos()).abs();
+    match pattern {
+        Directivity::Omni => 1.0,
+        Directivity::Cardioid => first_order(0.5),
+        Directivity::Supercardioid => first_order(0.37),
+        Directivity::Hypercardioid => first_order(0.25),
+        Directivity::FigureEight => first_order(0.0),
+        Directivity::UltraDirectional => {
+            let beam = (0.5 + 0.5 * t.cos()).powi(6);
+            // Lobes grow in from 30 to 70 degrees: none on the axis.
+            let ramp = ((angle.abs() - 30.0) / 40.0).clamp(0.0, 1.0);
+            beam.max(0.18 * (4.0 * t).cos().abs() * ramp)
+        }
+    }
+}
+
+/// The gain and low-pass cutoff (Hz) a pattern gives where it is `g` as loud as on axis (see
+/// [`pattern_gain`]), blended with all-round by `strength` (0 to 1). Nulls are held at 3% (-30 dB)
+/// rather than silent; the quieter the direction, the duller (towards `low_pass`).
+pub fn pattern_effect(g: f64, low_pass: f64, strength: f64) -> (f64, f64) {
+    let raw = g.clamp(0.0, 1.0);
+    let s = strength.clamp(0.0, 1.0);
+    // The dullness follows the pattern itself; only the gain is kept off silence.
+    let cutoff = log_lerp(22000.0, low_pass.clamp(MIN_CUTOFF, 22000.0), 1.0 - raw);
+    (
+        1.0 + (raw.max(0.03) - 1.0) * s,
+        log_lerp(22000.0, cutoff, s),
+    )
+}
+
+/// The cutoff (Hz) air leaves of a sound that travelled `distance` metres: the highs fade the
+/// further it goes, so far sounds are soft and dull (`strength` 1 is a lot of air: 11 kHz at 100 m,
+/// 3 kHz at 300 m; 0 is none). Held above 2.5 kHz, where speech still carries.
+pub fn air_cutoff(distance: f64, strength: f64) -> f64 {
+    let s = strength.max(0.0);
+    (22000.0 * (-distance.max(0.0) * s / 150.0).exp()).clamp(2500.0, 22000.0)
 }
 
 /// One way round a wall: through a portal. The two legs (listener to portal, portal to source)
@@ -459,6 +534,130 @@ mod tests {
         let h = std::f64::consts::FRAC_1_SQRT_2;
         let diag = cue([h, 0.0, h], 1.0);
         assert!(diag > 4500.0 && diag < 22000.0, "{diag}");
+    }
+
+    // ACO-MOD-09
+    #[test]
+    fn a_cone_is_full_inside_its_inner_angle_and_dull_and_quiet_outside_its_outer() {
+        // A 90 degree inner cone (45 each side) inside a 180 degree outer (90 each side).
+        let amount = |a| cone_amount(a, 90.0, 180.0);
+        assert_eq!(amount(0.0), 0.0);
+        assert_eq!(amount(45.0), 0.0, "the inner edge");
+        assert!(
+            (amount(67.5) - 0.5).abs() < 1e-9,
+            "half way across the fade"
+        );
+        assert_eq!(amount(90.0), 1.0);
+        assert_eq!(amount(180.0), 1.0, "directly behind");
+        assert_eq!(amount(-67.5), amount(67.5), "left and right alike");
+        // No cone: all round.
+        assert_eq!(cone_amount(180.0, 360.0, 360.0), 0.0);
+        assert_eq!(
+            cone_amount(180.0, 360.0, 180.0),
+            0.0,
+            "an inner cone of 360 wins"
+        );
+        // An outer angle narrower than the inner one cannot make a hole: it is the inner.
+        assert_eq!(cone_amount(30.0, 90.0, 40.0), 0.0);
+        let (gain, cutoff) = cone_effect(0.0, 0.25, 3000.0);
+        assert_eq!((gain, cutoff), (1.0, 22000.0));
+        let (gain, cutoff) = cone_effect(1.0, 0.25, 3000.0);
+        assert!((gain - 0.25).abs() < 1e-9 && (cutoff - 3000.0).abs() < 1e-6);
+        let (gain, cutoff) = cone_effect(0.5, 0.25, 3000.0);
+        assert!((gain - 0.625).abs() < 1e-9);
+        assert!(cutoff > 3000.0 && cutoff < 22000.0);
+    }
+
+    // ACO-MOD-10
+    #[test]
+    fn air_takes_the_highs_off_with_distance() {
+        assert_eq!(air_cutoff(0.0, 1.0), 22000.0);
+        assert_eq!(air_cutoff(500.0, 0.0), 22000.0, "no air, no loss");
+        let near = air_cutoff(10.0, 1.0);
+        let mid = air_cutoff(100.0, 1.0);
+        let far = air_cutoff(300.0, 1.0);
+        assert!(near > mid && mid > far, "{near} {mid} {far}");
+        assert!(
+            (mid - 11_300.0).abs() < 200.0,
+            "about 11 kHz at 100 m: {mid}"
+        );
+        assert!((far - 2975.0).abs() < 100.0, "about 3 kHz at 300 m: {far}");
+        assert_eq!(
+            air_cutoff(5000.0, 1.0),
+            2500.0,
+            "held where speech still carries"
+        );
+        assert!(air_cutoff(100.0, 2.0) < mid, "more air, more loss");
+    }
+
+    // ACO-MOD-11
+    #[test]
+    fn each_polar_pattern_has_its_own_shape() {
+        let g = pattern_gain;
+        for p in [
+            Directivity::Omni,
+            Directivity::Cardioid,
+            Directivity::Supercardioid,
+            Directivity::Hypercardioid,
+            Directivity::FigureEight,
+            Directivity::UltraDirectional,
+        ] {
+            assert!((g(p, 0.0) - 1.0).abs() < 1e-9, "{p:?} is full on axis");
+            assert_eq!(g(p, 40.0), g(p, -40.0), "{p:?} is symmetric");
+        }
+        assert_eq!(
+            g(Directivity::Omni, 137.0),
+            1.0,
+            "omni is the same everywhere"
+        );
+        // Cardioid: half to the sides, nothing behind.
+        assert!((g(Directivity::Cardioid, 90.0) - 0.5).abs() < 1e-9);
+        assert!(g(Directivity::Cardioid, 180.0) < 1e-9);
+        // Supercardioid and hypercardioid are narrower at the sides and have a rear lobe.
+        assert!((g(Directivity::Supercardioid, 90.0) - 0.37).abs() < 1e-9);
+        assert!((g(Directivity::Supercardioid, 180.0) - 0.26).abs() < 1e-9);
+        assert!((g(Directivity::Hypercardioid, 90.0) - 0.25).abs() < 1e-9);
+        assert!((g(Directivity::Hypercardioid, 180.0) - 0.5).abs() < 1e-9);
+        // Figure-eight: none to the sides, as loud behind as in front.
+        assert!(g(Directivity::FigureEight, 90.0) < 1e-9);
+        assert!((g(Directivity::FigureEight, 180.0) - 1.0).abs() < 1e-9);
+        // A shotgun: a narrow beam, small lobes at the sides and behind, none right ahead of them.
+        let u = Directivity::UltraDirectional;
+        assert!(
+            g(u, 20.0) < g(Directivity::Cardioid, 20.0),
+            "narrower than a cardioid"
+        );
+        assert!(
+            g(u, 90.0) > 0.1 && g(u, 90.0) < 0.2,
+            "a side lobe: {}",
+            g(u, 90.0)
+        );
+        assert!(
+            g(u, 180.0) > 0.1 && g(u, 180.0) < 0.2,
+            "a rear lobe: {}",
+            g(u, 180.0)
+        );
+        // Narrowness: cardioid > supercardioid > hypercardioid > ultra at 60 degrees.
+        let at60 = |p| g(p, 60.0);
+        assert!(at60(Directivity::Cardioid) > at60(Directivity::Supercardioid));
+        assert!(at60(Directivity::Supercardioid) > at60(Directivity::Hypercardioid));
+        assert!(at60(Directivity::Hypercardioid) > at60(u));
+    }
+
+    // ACO-MOD-12
+    #[test]
+    fn a_pattern_makes_quiet_directions_duller_and_strength_blends_it_away() {
+        assert_eq!(pattern_effect(1.0, 5000.0, 1.0), (1.0, 22000.0));
+        let (gain, cutoff) = pattern_effect(0.5, 5000.0, 1.0);
+        assert!((gain - 0.5).abs() < 1e-9);
+        assert!(cutoff > 5000.0 && cutoff < 22000.0);
+        let (gain, cutoff) = pattern_effect(0.0, 5000.0, 1.0);
+        assert!((gain - 0.03).abs() < 1e-9, "a null is held at -30 dB");
+        assert!((cutoff - 5000.0).abs() < 1e-6);
+        // Strength 0 is all round; 0.5 is half way.
+        assert_eq!(pattern_effect(0.1, 5000.0, 0.0), (1.0, 22000.0));
+        let (half, _) = pattern_effect(0.1, 5000.0, 0.5);
+        assert!((half - 0.55).abs() < 1e-9);
     }
 
     // ACO-MOD-08

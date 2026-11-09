@@ -72,6 +72,19 @@ pub struct SourceData {
     pub loudness: f64,
     /// How much occluders in the way dull this source (0 none, 1 fully). Acoustics applies it.
     pub occlusion: f64,
+    /// A cone it sounds loudest in, round its object's forward direction (-z): full angles in
+    /// degrees (360: all round). Outside the outer cone it is `cone_outer_gain` as loud and
+    /// low-passed to `cone_outer_low_pass`. Acoustics applies it.
+    pub cone_inner: f64,
+    pub cone_outer: f64,
+    pub cone_outer_gain: f64,
+    pub cone_outer_low_pass: f64,
+    /// How much of the global air absorption applies to it.
+    pub air_absorption: f64,
+    /// A polar pattern (see [`Directivity`]) round its object's forward direction (-z), blended
+    /// with all-round by `directivity_strength` (1: all of it). With `Omni` the cone angles apply.
+    pub directivity: Directivity,
+    pub directivity_strength: f64,
     /// The pitch factor acoustics found for the source's speed (1: none): playbacks run at
     /// `pitch * doppler_factor`.
     doppler_factor: f64,
@@ -167,6 +180,13 @@ impl SourceData {
             doppler_level: 0.0,
             loudness: 0.0,
             occlusion: 1.0,
+            cone_inner: 360.0,
+            cone_outer: 360.0,
+            cone_outer_gain: 0.3,
+            cone_outer_low_pass: 5000.0,
+            air_absorption: 1.0,
+            directivity: Directivity::Omni,
+            directivity_strength: 1.0,
             doppler_factor: 1.0,
             main: None,
             paused: false,
@@ -323,6 +343,46 @@ pub fn pre_render() {
     }
 }
 
+/// A source's polar pattern: how it sounds from different directions round it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Directivity {
+    /// The same everywhere (a bare speaker driver in the air, a bell).
+    #[default]
+    Omni,
+    /// Loudest in front, silent straight behind: a heart-shaped pattern.
+    Cardioid,
+    /// Narrower than a cardioid, with a small lobe behind.
+    Supercardioid,
+    /// Narrower again, with a bigger lobe behind.
+    Hypercardioid,
+    /// Front and back equally, nothing to the sides.
+    FigureEight,
+    /// A narrow beam in front with small side lobes (a shotgun microphone, a parametric speaker).
+    UltraDirectional,
+}
+
+fn directivity_name(d: Directivity) -> &'static str {
+    match d {
+        Directivity::Omni => "omni",
+        Directivity::Cardioid => "cardioid",
+        Directivity::Supercardioid => "supercardioid",
+        Directivity::Hypercardioid => "hypercardioid",
+        Directivity::FigureEight => "figureEight",
+        Directivity::UltraDirectional => "ultraDirectional",
+    }
+}
+
+fn directivity_from_name(name: &str) -> Directivity {
+    match name {
+        "cardioid" => Directivity::Cardioid,
+        "supercardioid" => Directivity::Supercardioid,
+        "hypercardioid" => Directivity::Hypercardioid,
+        "figureEight" => Directivity::FigureEight,
+        "ultraDirectional" => Directivity::UltraDirectional,
+        _ => Directivity::Omni,
+    }
+}
+
 /// What the acoustics system reads of an `AudioSource`.
 #[derive(Clone, Copy, Debug)]
 pub struct SourceView {
@@ -338,6 +398,15 @@ pub struct SourceView {
     pub loudness: f64,
     pub occlusion: f64,
     pub effects: bool,
+    /// The cone (full angles in degrees, 360 is all round), the gain and cutoff outside it.
+    pub cone_inner: f64,
+    pub cone_outer: f64,
+    pub cone_outer_gain: f64,
+    pub cone_outer_low_pass: f64,
+    /// How much of `Acoustics.airAbsorption` applies to it (0 none, 1 as set).
+    pub air_absorption: f64,
+    pub directivity: Directivity,
+    pub directivity_strength: f64,
 }
 
 /// Every `AudioSource` (those on destroyed objects are gone already).
@@ -359,6 +428,13 @@ pub fn source_views() -> Vec<SourceView> {
                     loudness: d.loudness,
                     occlusion: d.occlusion,
                     effects: d.effects,
+                    cone_inner: d.cone_inner,
+                    cone_outer: d.cone_outer,
+                    cone_outer_gain: d.cone_outer_gain,
+                    cone_outer_low_pass: d.cone_outer_low_pass,
+                    air_absorption: d.air_absorption,
+                    directivity: d.directivity,
+                    directivity_strength: d.directivity_strength,
                 })
             })
             .collect()
@@ -525,7 +601,14 @@ fn none_object() -> ObjectId {
         Bus = BusRef,
         Emitter = EmitterRef
     ),
-    values(Vector3 = V3 [x: f64, y: f64, z: f64])
+    values(Vector3 = V3 [x: f64, y: f64, z: f64]),
+    enums(
+        /// How a source sounds from different directions round it, like a microphone's polar
+        /// pattern turned round: `omni` (the same everywhere), `cardioid`, `supercardioid`,
+        /// `hypercardioid` (louder in front, with a small lobe behind), `figureEight` (front and
+        /// back, none to the sides) and `ultraDirectional` (a narrow beam with side lobes).
+        Directivity = Directivity [Omni, Cardioid, Supercardioid, Hypercardioid, FigureEight, UltraDirectional]
+    )
 )]
 pub mod audio_source_api {
     use super::*;
@@ -698,6 +781,82 @@ pub mod audio_source_api {
 
         pub fn set_occlusion(self, v: f64) {
             super::source(self, |d| d.occlusion = v.clamp(0.0, 1.0));
+        }
+
+        /// The polar pattern: how the source sounds from different directions round it, facing
+        /// along its object's -z (`omni`, the default, is the same everywhere; with `omni` the
+        /// cone angles below apply instead). Needs `Acoustics` in use.
+        #[property]
+        pub fn directivity(self) -> Directivity {
+            super::source(self, |d| d.directivity).unwrap_or(Directivity::Omni)
+        }
+
+        pub fn set_directivity(self, v: Directivity) {
+            super::source(self, |d| d.directivity = v);
+        }
+
+        /// How much of the pattern applies, 0 (none: all round) to 1 (all of it, the default).
+        #[property]
+        pub fn directivity_strength(self) -> f64 {
+            super::source(self, |d| d.directivity_strength).unwrap_or(1.0)
+        }
+
+        pub fn set_directivity_strength(self, v: f64) {
+            super::source(self, |d| d.directivity_strength = v.clamp(0.0, 1.0));
+        }
+
+        /// The inner cone (full angle in degrees, 360 all round, default): within it, in front of
+        /// the object (its -z), the source is at full strength. Needs `Acoustics` in use.
+        #[property]
+        pub fn cone_inner_angle(self) -> f64 {
+            super::source(self, |d| d.cone_inner).unwrap_or(360.0)
+        }
+
+        pub fn set_cone_inner_angle(self, v: f64) {
+            super::source(self, |d| d.cone_inner = v.clamp(0.0, 360.0));
+        }
+
+        /// The outer cone (full angle, 360 default): between the two cones it fades; beyond it
+        /// the source is `coneOuterGain` as loud and low-passed to `coneOuterLowPass`: a speaker
+        /// heard from behind, a person talking away from you.
+        #[property]
+        pub fn cone_outer_angle(self) -> f64 {
+            super::source(self, |d| d.cone_outer).unwrap_or(360.0)
+        }
+
+        pub fn set_cone_outer_angle(self, v: f64) {
+            super::source(self, |d| d.cone_outer = v.clamp(0.0, 360.0));
+        }
+
+        /// Linear gain outside the outer cone (0.3).
+        #[property]
+        pub fn cone_outer_gain(self) -> f64 {
+            super::source(self, |d| d.cone_outer_gain).unwrap_or(0.3)
+        }
+
+        pub fn set_cone_outer_gain(self, v: f64) {
+            super::source(self, |d| d.cone_outer_gain = v.clamp(0.0, 1.0));
+        }
+
+        /// Low-pass cutoff in Hz outside the outer cone (5000).
+        #[property]
+        pub fn cone_outer_low_pass(self) -> f64 {
+            super::source(self, |d| d.cone_outer_low_pass).unwrap_or(5000.0)
+        }
+
+        pub fn set_cone_outer_low_pass(self, hz: f64) {
+            super::source(self, |d| d.cone_outer_low_pass = hz.clamp(100.0, 22000.0));
+        }
+
+        /// How much of `Acoustics.airAbsorption` applies to this source (1; 0 makes it
+        /// carry its highs however far it is).
+        #[property]
+        pub fn air_absorption(self) -> f64 {
+            super::source(self, |d| d.air_absorption).unwrap_or(1.0)
+        }
+
+        pub fn set_air_absorption(self, v: f64) {
+            super::source(self, |d| d.air_absorption = v.max(0.0));
         }
 
         /// The emitter this source plays from (0 for a flat 2D source or before it plays):
@@ -961,6 +1120,13 @@ fn source_kind() -> Kind {
                 m.insert("dopplerLevel".into(), json!(d.doppler_level));
                 m.insert("loudness".into(), json!(d.loudness));
                 m.insert("occlusion".into(), json!(d.occlusion));
+                m.insert("coneInnerAngle".into(), json!(d.cone_inner));
+                m.insert("coneOuterAngle".into(), json!(d.cone_outer));
+                m.insert("coneOuterGain".into(), json!(d.cone_outer_gain));
+                m.insert("coneOuterLowPass".into(), json!(d.cone_outer_low_pass));
+                m.insert("airAbsorption".into(), json!(d.air_absorption));
+                m.insert("directivity".into(), json!(directivity_name(d.directivity)));
+                m.insert("directivityStrength".into(), json!(d.directivity_strength));
             });
             m
         }),
@@ -983,6 +1149,15 @@ fn source_kind() -> Kind {
                         "dopplerLevel" => number(v).map(|x| d.doppler_level = x),
                         "loudness" => number(v).map(|x| d.loudness = x),
                         "occlusion" => number(v).map(|x| d.occlusion = x),
+                        "coneInnerAngle" => number(v).map(|x| d.cone_inner = x),
+                        "coneOuterAngle" => number(v).map(|x| d.cone_outer = x),
+                        "coneOuterGain" => number(v).map(|x| d.cone_outer_gain = x),
+                        "coneOuterLowPass" => number(v).map(|x| d.cone_outer_low_pass = x),
+                        "airAbsorption" => number(v).map(|x| d.air_absorption = x),
+                        "directivity" => {
+                            v.as_str().map(|x| d.directivity = directivity_from_name(x))
+                        }
+                        "directivityStrength" => number(v).map(|x| d.directivity_strength = x),
                         other => {
                             warnings.push(format!("no property `{other}` yet; dropped"));
                             continue;

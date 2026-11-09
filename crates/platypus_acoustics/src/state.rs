@@ -257,6 +257,8 @@ pub struct Settings {
     pub ray_spread: f64,
     /// How much sounds behind or above the listener lose their highs, 0 to 1.
     pub head_shadow: f64,
+    /// How much distance takes the highs off sounds, 0 to 2: see `model::air_cutoff`.
+    pub air_absorption: f64,
     pub event_lifetime: f64,
     pub pulse_interval: f64,
 }
@@ -269,6 +271,7 @@ impl Default for Settings {
             occlusion_layers: 0,
             ray_spread: 0.4,
             head_shadow: 0.5,
+            air_absorption: 0.5,
             event_lifetime: 3.0,
             pulse_interval: 0.8,
         }
