@@ -2840,7 +2840,10 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | M8-STM-04 | Unit | A created lobby is found by its data filters and joined again by the id string a search gave. |
 | M8-STM-05 | Unit | Joining a closed or unknown lobby ends in status `failed`. |
 | M8-STM-06 | - | Removed: there is no default app id any more (another game's would meet its real players). |
-| M8-STM-07 | Unit | `platypus_steam`: lobby kinds map to Steam's visibility types. |
+| M8-STM-07 | Unit | `platypus_steam`: lobby kinds map to Steam's lobby type numbers. |
+| M8-STM-10 | Unit | The Steam library loader: a missing library is an error, not a crash; it is looked for beside the program first, then on the system's path. |
+| M8-STM-11 | Unit | Lobby create / join / search results decode with the platform's struct layout (Windows aligned, elsewhere packed to 4); failures carry Steam's reason. |
+| M8-STM-12 | Unit | Each pending Steam call only accepts the result type it was started for. |
 | M8-STM-08 | Manual | `platypus_steam` against the running Steam client (`PLATYPUS_STEAM_APP_ID=<your id> cargo test -p platypus_steam -- --ignored`): connects as that app and reports the app and user. |
 | M8-STM-09 | Unit | `project.json` `steam` is on only as an object with a non-zero numeric `appId`; `false`, `null`, `true`, `{}` and a text id leave it off. |
 | M8-NET-10 | Unit | A `Session` handshakes and exchanges messages in both directions over real QUIC with a pinned certificate. |

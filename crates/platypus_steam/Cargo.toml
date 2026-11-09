@@ -10,4 +10,5 @@ license.workspace = true
 
 [dependencies]
 platypus_engine_api = { path = "../platypus_engine_api", default-features = false }
-steamworks = "0.13.1"
+# Loads the Steam library at run time (steam_api64.dll / libsteam_api.so / libsteam_api.dylib).
+libloading = "0.8"

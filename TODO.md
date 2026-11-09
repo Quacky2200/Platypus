@@ -1862,12 +1862,16 @@ Design: `docs/research/multiplayer.md` (Fusion / Fish-Net / Lightyear inspired, 
   - [x] `examples/steam` (buttons; inert until `project.json` has your own app id). Checked 2026-11-09 against the real client as
     app 400: connect, user, rich presence work; lobby creation was refused ("access denied", not our app)
   - [ ] Needs the owner's own Steam app id: achievements, lobbies (create / search / join) checked for real (`M8-STM-08`)
-  - [x] The `steam` cargo feature of `platypus_app` (default on; `--no-default-features` leaves it out). Windows delay-loads
-    `steam_api64.dll` (`build.rs`: `/DELAYLOAD`) and `steam_host.rs` probes for it, so a missing dll or a game without
-    `steam.appId` leaves Steam off and the game runs (checked 2026-11-09: exe without the dll starts, a steam-configured game warns
-    once). Linux / macOS can't delay-load: `libsteam_api.so` / `.dylib` is a start-up dependency there (rpath `$ORIGIN` /
-    `@executable_path` set), **untested**; to make them inert when missing, load the library at run time or build without the feature
+  - [x] The `steam` cargo feature of `platypus_app` (default on; `--no-default-features` leaves it out) and the Steam library
+    **loaded at run time on every platform** (`platypus_steam/src/api.rs`: `libloading` plus our own table over the flat C API and
+    manual callback dispatch; the `steamworks` crates are gone, so nothing links to Steam and no Valve file is bundled by us). A
+    missing library, a refused init, or a game without `steam.appId` leaves Steam off and the game runs. Checked 2026-11-09 on
+    Windows: exe without the dll starts; with Valve's dll the loader called `SteamAPI_InitFlat` and showed Steam's refusal for a fake
+    id. **Not yet run past a successful init** (symbols after init, lobbies, achievements): needs a real app id, Valve's test app 480
+    (shared with all developers) or our own. Linux / macOS (`libsteam_api.so` / `.dylib`, packed(4) result structs) are
+    **untested**
   - [ ] `platypus-build package` copies the Steam library beside the exe for games with `steam.appId` (none yet), per platform
+    (the library comes from Valve's Steamworks SDK: check its terms first)
   - [ ] A Steam relay `Transport` for `platypus_net` (`steamworks` networking sockets), lobby chat and invites (`connect` rich
     presence), Valve SDK licence for shipping (see `tables.rs`)
 - [ ] **M8.g** Tools: editor network panel, server metrics

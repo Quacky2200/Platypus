@@ -61,9 +61,9 @@ ufbx = "0.11"
 # On by default (it needs libclang to build: `LIBCLANG_PATH`); `--no-default-features` leaves it
 # out. Off Windows it does nothing.
 default = ["static-angle", "net-debug", "steam"]
-# Steam (`project.json` `steam`, the script `Steam` namespace). On Windows its DLL is delay-loaded
-# (build.rs) and probed before use, so a missing `steam_api64.dll` or a game without `steam` leaves
-# Steam off and the game runs; `--no-default-features` leaves Steam out of the exe entirely.
+# Steam (`project.json` `steam`, the script `Steam` namespace). Its library is loaded at run time
+# (Windows, Linux, macOS), so a missing one or a game without `steam` leaves Steam off and the game
+# runs; `--no-default-features` leaves Steam out of the exe entirely.
 steam = ["dep:platypus_steam"]
 # Network fault injection for `Network.debugConditions` (debug and tests; see platypus_net).
 net-debug = ["platypus_net/net-debug", "platypus_engine_api/net-debug"]

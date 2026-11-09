@@ -128,11 +128,6 @@ const ALLOW: &[Allow] = &[
         reason: "ufbx/ufbx-rust: MIT OR Unlicense in Cargo.toml; the crate and the ufbx C sources it compiles in (ufbx/ufbx.c, ufbx.h by the same author, MIT or public domain) ship no licence file, so the standard MIT text with the crate's authors applies (reviewed 2026-10-29)",
     },
     Allow {
-        krate: "steamworks-sys",
-        rule: NO_FILE,
-        reason: "steamworks-rs: MIT / Apache-2.0 in Cargo.toml for the Rust binding only. It also bundles Valve's Steamworks SDK headers and steam_api redistributable, which are under Valve's Steamworks SDK terms, not covered here: the owner must confirm those terms before shipping a game that uses `steam` (added 2026-11-09, not a legal review)",
-    },
-    Allow {
         krate: "dasp_sample",
         rule: NO_FILE,
         reason: "RustAudio/dasp: MIT OR Apache-2.0 in Cargo.toml",

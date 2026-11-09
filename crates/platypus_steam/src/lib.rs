@@ -2,105 +2,109 @@
 // SPDX-License-Identifier: Apache-2.0
 
 //! The real Steam backend of the script `Steam` namespace
-//! (`platypus_engine_api::steam`), over the `steamworks` crate: initialising with an app id (so Steam
-//! shows the game as running and overlay, achievements and lobbies work), rich presence,
-//! achievements and stats, and matchmaking lobbies.
+//! (`platypus_engine_api::steam`): initialising with an app id (so Steam shows the game as running
+//! and achievements and lobbies work), rich presence, achievements and stats, and matchmaking
+//! lobbies. The Steam library is loaded at run time (`api.rs`), on Windows, Linux and macOS alike:
+//! a program without it starts, and [`install`] just returns why Steam is off.
 //!
-//! The host calls [`install`] at start with the game's app id and `platypus_engine_api::steam::pump`
-//! each frame. Steam must be running on the same user; without it [`install`] fails and the script
-//! API stays the harmless no-op.
+//! The host calls [`install`] at start with the game's app id and
+//! `platypus_engine_api::steam::pump` each frame. Steam must be running on the same user.
 //!
 //! A game opts in with `"steam": { "appId": N }` in `project.json`. There is no default id: using
 //! another game's would put lobbies and searches among that game's real players.
 
+mod api;
+
+pub use api::{LIBRARY_NAME, library_candidates};
+
+use api::{Api, LOBBY_CREATED, LOBBY_ENTER, LOBBY_MATCH_LIST};
 use platypus_engine_api::steam::{
     Backend, LobbyInfo, LobbyKind, LobbyState, LobbyStatus, Member, SearchState, SearchStatus,
     install as install_backend,
 };
-use std::collections::BTreeMap;
-use std::sync::{Arc, Mutex};
-use steamworks::{Client, LobbyId, LobbyKey, LobbyType, StringFilter, StringFilterKind};
 
-/// Finished requests, set by Steam's callbacks (which may run on any thread that pumps) and read
-/// by [`SteamBackend::pump`] on the script thread.
-#[derive(Default)]
-struct Shared {
-    lobby: Option<Result<u64, String>>,
-    search: Option<Result<Vec<u64>, ()>>,
+/// What an asynchronous Steam call was for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Pending {
+    Create,
+    Join,
+    Search,
+}
+
+impl Pending {
+    fn callback(self) -> i32 {
+        match self {
+            Pending::Create => LOBBY_CREATED,
+            Pending::Join => LOBBY_ENTER,
+            Pending::Search => LOBBY_MATCH_LIST,
+        }
+    }
 }
 
 pub struct SteamBackend {
-    client: Client,
+    api: Api,
     app_id: u32,
-    shared: Arc<Mutex<Shared>>,
+    pending: Vec<(u64, Pending)>,
     lobby: LobbyState,
     search: SearchState,
 }
 
-/// Connects to the running Steam client as `app_id`.
+/// Loads the Steam library and connects to the running Steam client as `app_id`.
 pub fn connect(app_id: u32) -> Result<SteamBackend, String> {
-    let client = Client::init_app(app_id).map_err(|e| e.to_string())?;
-    // The stats and achievements of the player load before they are read or set.
-    client
-        .user_stats()
-        .request_user_stats(client.user().steam_id().raw());
+    // Steam reads the app id from the environment. Nothing else reads or writes the environment
+    // concurrently here: this runs once at start-up, before the game's threads.
+    unsafe {
+        std::env::set_var("SteamAppId", app_id.to_string());
+        std::env::set_var("SteamGameId", app_id.to_string());
+    }
+    let api = Api::load()?;
     Ok(SteamBackend {
-        client,
+        api,
         app_id,
-        shared: Arc::default(),
+        pending: Vec::new(),
         lobby: LobbyState::default(),
         search: SearchState::default(),
     })
 }
 
 /// Connects as `app_id` and installs it as the script API's backend.
-/// On failure (Steam not running, no licence for the id) nothing is installed and the reason returns.
+/// On failure (no Steam library, Steam not running, no licence for the id) nothing is installed
+/// and the reason returns.
 pub fn install(app_id: u32) -> Result<u32, String> {
     let backend = connect(app_id)?;
     install_backend(Some(Box::new(backend)));
     Ok(app_id)
 }
 
-fn lobby_type(kind: LobbyKind) -> LobbyType {
+/// Steam's lobby type number.
+fn lobby_type(kind: LobbyKind) -> i32 {
     match kind {
-        LobbyKind::Public => LobbyType::Public,
-        LobbyKind::FriendsOnly => LobbyType::FriendsOnly,
-        LobbyKind::Private => LobbyType::Private,
-        LobbyKind::Invisible => LobbyType::Invisible,
+        LobbyKind::Private => 0,
+        LobbyKind::FriendsOnly => 1,
+        LobbyKind::Public => 2,
+        LobbyKind::Invisible => 3,
     }
 }
 
 impl SteamBackend {
-    fn lock(&self) -> std::sync::MutexGuard<'_, Shared> {
-        self.shared.lock().unwrap_or_else(|e| e.into_inner())
-    }
-
-    fn lobby_data(&self, id: LobbyId) -> BTreeMap<String, String> {
-        let mm = self.client.matchmaking();
-        (0..mm.lobby_data_count(id))
-            .filter_map(|i| mm.lobby_data_by_index(id, i))
-            .collect()
-    }
-
     /// Reads the lobby the player is in from Steam (members, owner, data).
     fn refresh_lobby(&mut self) {
         if self.lobby.status != LobbyStatus::In {
             return;
         }
-        let id = LobbyId::from_raw(self.lobby.id);
-        let mm = self.client.matchmaking();
-        let friends = self.client.friends();
-        self.lobby.owner = mm.lobby_owner(id).raw();
-        self.lobby.max_members = mm.lobby_member_limit(id).unwrap_or(0) as u32;
-        self.lobby.members = mm
-            .lobby_members(id)
+        let id = self.lobby.id;
+        self.lobby.owner = self.api.lobby_owner(id);
+        self.lobby.max_members = self.api.member_limit(id);
+        self.lobby.members = self
+            .api
+            .members(id)
             .into_iter()
             .map(|m| Member {
-                id: m.raw(),
-                name: friends.get_friend(m).name(),
+                id: m,
+                name: self.api.friend_name(m),
             })
             .collect();
-        self.lobby.data = self.lobby_data(id);
+        self.lobby.data = self.api.lobby_data(id);
     }
 
     fn entered(&mut self, id: u64) {
@@ -110,6 +114,54 @@ impl SteamBackend {
             ..Default::default()
         };
         self.refresh_lobby();
+    }
+
+    fn failed(&mut self, error: String) {
+        self.lobby = LobbyState {
+            status: LobbyStatus::Failed,
+            error,
+            ..Default::default()
+        };
+    }
+
+    fn finish(&mut self, what: Pending, result: Option<Vec<u8>>) {
+        match what {
+            Pending::Create | Pending::Join => {
+                let decoded = match (what, result) {
+                    (_, None) => Err("the request to Steam failed".to_string()),
+                    (Pending::Create, Some(b)) => api::lobby_created(&b),
+                    (_, Some(b)) => api::lobby_enter(&b),
+                };
+                match decoded {
+                    Ok(id) => self.entered(id),
+                    Err(e) => self.failed(e),
+                }
+            }
+            Pending::Search => {
+                let count = result.as_deref().and_then(api::lobby_match_count);
+                self.search = match count {
+                    Some(count) => SearchState {
+                        status: SearchStatus::Done,
+                        results: self
+                            .api
+                            .found_lobbies(count)
+                            .into_iter()
+                            .map(|id| LobbyInfo {
+                                id,
+                                owner: self.api.lobby_owner(id),
+                                members: self.api.member_count(id),
+                                max_members: self.api.member_limit(id),
+                                data: self.api.lobby_data(id),
+                            })
+                            .collect(),
+                    },
+                    None => SearchState {
+                        status: SearchStatus::Failed,
+                        results: Vec::new(),
+                    },
+                };
+            }
+        }
     }
 }
 
@@ -123,52 +175,39 @@ impl Backend for SteamBackend {
     }
 
     fn user_name(&self) -> String {
-        self.client.friends().name()
+        self.api.user_name()
     }
 
     fn user_id(&self) -> u64 {
-        self.client.user().steam_id().raw()
+        self.api.user_id()
     }
 
     fn set_rich_presence(&mut self, key: &str, value: Option<&str>) -> bool {
-        self.client.friends().set_rich_presence(key, value)
+        self.api.set_rich_presence(key, value)
     }
 
     fn clear_rich_presence(&mut self) {
-        self.client.friends().clear_rich_presence();
+        self.api.clear_rich_presence();
     }
 
     fn achievement(&mut self, name: &str) -> Option<bool> {
-        self.client.user_stats().achievement(name).get().ok()
+        self.api.achievement(name)
     }
 
     fn set_achievement(&mut self, name: &str, unlocked: bool) -> bool {
-        let stats = self.client.user_stats();
-        let a = stats.achievement(name);
-        if unlocked { a.set() } else { a.clear() }.is_ok()
+        self.api.set_achievement(name, unlocked)
     }
 
     fn stat(&mut self, name: &str) -> Option<f64> {
-        let stats = self.client.user_stats();
-        // A stat is an int or a float on Steam; try the int first, then the float.
-        stats
-            .get_stat_i32(name)
-            .map(f64::from)
-            .or_else(|_| stats.get_stat_f32(name).map(f64::from))
-            .ok()
+        self.api.stat(name)
     }
 
     fn set_stat(&mut self, name: &str, value: f64) -> bool {
-        let stats = self.client.user_stats();
-        // A whole value goes to an int stat when there is one, else to a float stat.
-        if value.fract() == 0.0 && stats.set_stat_i32(name, value as i32).is_ok() {
-            return true;
-        }
-        stats.set_stat_f32(name, value as f32).is_ok()
+        self.api.set_stat(name, value)
     }
 
     fn store_stats(&mut self) -> bool {
-        self.client.user_stats().store_stats().is_ok()
+        self.api.store_stats()
     }
 
     fn create_lobby(&mut self, kind: LobbyKind, max_members: u32) {
@@ -176,39 +215,19 @@ impl Backend for SteamBackend {
             status: LobbyStatus::Creating,
             ..Default::default()
         };
-        let shared = self.shared.clone();
-        self.client
-            .matchmaking()
-            .create_lobby(lobby_type(kind), max_members, move |r| {
-                let mut s = shared.lock().unwrap_or_else(|e| e.into_inner());
-                s.lobby = Some(r.map(|id| id.raw()).map_err(|e| e.to_string()));
-            });
+        let call = self
+            .api
+            .create_lobby(lobby_type(kind), max_members.min(250) as i32);
+        self.pending.push((call, Pending::Create));
     }
 
     fn find_lobbies(&mut self, filters: &[(String, String)]) {
-        let mm = self.client.matchmaking();
-        for (key, value) in filters {
-            // Steam limits a key to 255 bytes; a longer one can't match anything.
-            if let Ok(key) = LobbyKey::try_new(key) {
-                mm.add_request_lobby_list_string_filter(StringFilter(
-                    key,
-                    value,
-                    StringFilterKind::Equal,
-                ));
-            }
-        }
         self.search = SearchState {
             status: SearchStatus::Searching,
             results: Vec::new(),
         };
-        let shared = self.shared.clone();
-        mm.request_lobby_list(move |r| {
-            let mut s = shared.lock().unwrap_or_else(|e| e.into_inner());
-            s.search = Some(
-                r.map(|ids| ids.iter().map(|i| i.raw()).collect())
-                    .map_err(|_| ()),
-            );
-        });
+        let call = self.api.request_lobby_list(filters);
+        self.pending.push((call, Pending::Search));
     }
 
     fn join_lobby(&mut self, id: u64) {
@@ -217,23 +236,13 @@ impl Backend for SteamBackend {
             id,
             ..Default::default()
         };
-        let shared = self.shared.clone();
-        self.client
-            .matchmaking()
-            .join_lobby(LobbyId::from_raw(id), move |r| {
-                let mut s = shared.lock().unwrap_or_else(|e| e.into_inner());
-                s.lobby = Some(
-                    r.map(|id| id.raw())
-                        .map_err(|()| "Steam refused the join (full, closed or gone)".to_string()),
-                );
-            });
+        let call = self.api.join_lobby(id);
+        self.pending.push((call, Pending::Join));
     }
 
     fn leave_lobby(&mut self) {
         if self.lobby.status == LobbyStatus::In {
-            self.client
-                .matchmaking()
-                .leave_lobby(LobbyId::from_raw(self.lobby.id));
+            self.api.leave_lobby(self.lobby.id);
         }
         self.lobby = LobbyState::default();
     }
@@ -242,10 +251,7 @@ impl Backend for SteamBackend {
         if self.lobby.status != LobbyStatus::In {
             return false;
         }
-        let ok =
-            self.client
-                .matchmaking()
-                .set_lobby_data(LobbyId::from_raw(self.lobby.id), key, value);
+        let ok = self.api.set_lobby_data(self.lobby.id, key, value);
         if ok {
             self.lobby.data.insert(key.to_string(), value.to_string());
         }
@@ -253,11 +259,7 @@ impl Backend for SteamBackend {
     }
 
     fn set_lobby_joinable(&mut self, joinable: bool) -> bool {
-        self.lobby.status == LobbyStatus::In
-            && self
-                .client
-                .matchmaking()
-                .set_lobby_joinable(LobbyId::from_raw(self.lobby.id), joinable)
+        self.lobby.status == LobbyStatus::In && self.api.set_joinable(self.lobby.id, joinable)
     }
 
     fn lobby(&self) -> LobbyState {
@@ -269,51 +271,21 @@ impl Backend for SteamBackend {
     }
 
     fn pump(&mut self) {
-        self.client.run_callbacks();
-        let (lobby, search) = {
-            let mut s = self.lock();
-            (s.lobby.take(), s.search.take())
-        };
-        match lobby {
-            Some(Ok(id)) => self.entered(id),
-            Some(Err(error)) => {
-                self.lobby = LobbyState {
-                    status: LobbyStatus::Failed,
-                    error,
-                    ..Default::default()
-                }
+        let mut done = Vec::new();
+        self.api
+            .poll(|call, callback, result| done.push((call, callback, result)));
+        for (call, callback, result) in done {
+            // A call counts only for the kind of result it was started for.
+            if let Some(at) = self
+                .pending
+                .iter()
+                .position(|(c, what)| *c == call && what.callback() == callback)
+            {
+                let (_, what) = self.pending.remove(at);
+                self.finish(what, result);
             }
-            None => self.refresh_lobby(),
         }
-        match search {
-            Some(Ok(ids)) => {
-                let mm = self.client.matchmaking();
-                let results = ids
-                    .into_iter()
-                    .map(|raw| {
-                        let id = LobbyId::from_raw(raw);
-                        LobbyInfo {
-                            id: raw,
-                            owner: mm.lobby_owner(id).raw(),
-                            members: mm.lobby_member_count(id) as u32,
-                            max_members: mm.lobby_member_limit(id).unwrap_or(0) as u32,
-                            data: self.lobby_data(id),
-                        }
-                    })
-                    .collect();
-                self.search = SearchState {
-                    status: SearchStatus::Done,
-                    results,
-                };
-            }
-            Some(Err(())) => {
-                self.search = SearchState {
-                    status: SearchStatus::Failed,
-                    results: Vec::new(),
-                }
-            }
-            None => {}
-        }
+        self.refresh_lobby();
     }
 }
 
@@ -323,17 +295,26 @@ mod tests {
 
     // M8-STM-07
     #[test]
-    fn lobby_kinds_map_to_steams_visibility() {
-        assert_eq!(lobby_type(LobbyKind::Public), LobbyType::Public);
-        assert_eq!(lobby_type(LobbyKind::FriendsOnly), LobbyType::FriendsOnly);
-        assert_eq!(lobby_type(LobbyKind::Private), LobbyType::Private);
-        assert_eq!(lobby_type(LobbyKind::Invisible), LobbyType::Invisible);
+    fn lobby_kinds_map_to_steams_lobby_type_numbers() {
+        assert_eq!(lobby_type(LobbyKind::Private), 0);
+        assert_eq!(lobby_type(LobbyKind::FriendsOnly), 1);
+        assert_eq!(lobby_type(LobbyKind::Public), 2);
+        assert_eq!(lobby_type(LobbyKind::Invisible), 3);
     }
 
-    // M8-STM-08: runs only with the Steam client up and your own app id in `PLATYPUS_STEAM_APP_ID`
+    // M8-STM-12
+    #[test]
+    fn each_pending_call_expects_its_own_result_type() {
+        assert_eq!(Pending::Create.callback(), 513);
+        assert_eq!(Pending::Join.callback(), 504);
+        assert_eq!(Pending::Search.callback(), 510);
+    }
+
+    // M8-STM-08: runs only with the Steam client up, its library beside the test program or on the
+    // loader's path, and your own app id in `PLATYPUS_STEAM_APP_ID`
     // (`cargo test -p platypus_steam -- --ignored`); without the variable it does nothing.
     #[test]
-    #[ignore = "needs the Steam client running and PLATYPUS_STEAM_APP_ID"]
+    #[ignore = "needs the Steam client, its library and PLATYPUS_STEAM_APP_ID"]
     fn connecting_reports_the_app_and_user() {
         let Some(id) = std::env::var("PLATYPUS_STEAM_APP_ID")
             .ok()
@@ -341,7 +322,7 @@ mod tests {
         else {
             return;
         };
-        let b = connect(id).expect("Steam is running");
+        let b = connect(id).expect("Steam is running and its library is found");
         assert_eq!(b.app_id(), id);
         assert_ne!(b.user_id(), 0);
     }
