@@ -1869,8 +1869,9 @@ Design: `docs/research/multiplayer.md` (Fusion / Fish-Net / Lightyear inspired, 
     Windows: exe without the dll starts; with Valve's dll the loader called `SteamAPI_InitFlat` and showed Steam's refusal for a fake
     id. Checked for real the same day against Valve's test app 480 (shared by all developers): connect, name and id, rich presence,
     a friends-only lobby created / data set / joined by id / left, an achievement (`ACH_WIN_ONE_GAME`) unlocked and locked
-    again, a stat written back. **Not yet seen:** a search that finds a lobby (a friends-only lobby you are in isn't listed to you;
-    needs a public one or a second player), lobby members beyond yourself. Linux / macOS (`libsteam_api.so` / `.dylib`, packed(4)
+    again, a stat written back, and a public lobby found by a search on its data key (after ~3 s: Steam publishes lobby data to
+    searches with a delay; a friends-only lobby isn't listed to its own owner). **Not yet seen:** lobby members beyond yourself.
+    Linux / macOS (`libsteam_api.so` / `.dylib`, packed(4)
     result structs) are **untested**
   - [ ] `platypus-build package` copies the Steam library beside the exe for games with `steam.appId` (none yet), per platform
     (the library comes from Valve's Steamworks SDK: check its terms first)

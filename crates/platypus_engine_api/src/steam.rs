@@ -318,7 +318,8 @@ pub mod steam_api {
         with(|b| lobby_json(&b.lobby())).unwrap_or_else(|| lobby_json(&Default::default()))
     }
 
-    /// Sets a lobby data key (the owner only); searches filter on these.
+    /// Sets a lobby data key (the owner only); searches filter on these. Steam takes a few seconds
+    /// to publish a change to searches (seen: not found after 0.3 s, found after 3 s).
     pub fn set_lobby_data(key: &str, value: &str) -> bool {
         with(|b| b.set_lobby_data(key, value)).unwrap_or(false)
     }
