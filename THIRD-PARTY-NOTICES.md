@@ -323,13 +323,13 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
 # Rust crates
 
-The host is built from 470 third-party Rust crates from crates.io: the normal and build dependencies of `platypus_app` for `x86_64-pc-windows-msvc`, as Cargo.lock pins them. Each is listed under its licence with the copyright lines of its licence file (or, where the published crate has no licence file, the authors in its Cargo.toml), and the licence text follows once. A crate offered under a choice of licences (`MIT OR Apache-2.0`) is listed under the one Platypus uses: the first of MIT, Apache-2.0, Apache-2.0 WITH LLVM-exception, BSD-3-Clause, BSD-2-Clause, ISC, Zlib, Unicode-3.0, BSL-1.0, 0BSD, Unlicense, CC0-1.0, MPL-2.0 that it ships a licence file for. A crate under several licences at once (`AND`) is listed under each. Crates that word a licence differently from its usual text have their own text after it.
+The host is built from 473 third-party Rust crates from crates.io: the normal and build dependencies of `platypus_app` for `x86_64-pc-windows-msvc`, as Cargo.lock pins them. Each is listed under its licence with the copyright lines of its licence file (or, where the published crate has no licence file, the authors in its Cargo.toml), and the licence text follows once. A crate offered under a choice of licences (`MIT OR Apache-2.0`) is listed under the one Platypus uses: the first of MIT, Apache-2.0, Apache-2.0 WITH LLVM-exception, BSD-3-Clause, BSD-2-Clause, ISC, Zlib, Unicode-3.0, BSL-1.0, 0BSD, Unlicense, CC0-1.0, MPL-2.0 that it ships a licence file for. A crate under several licences at once (`AND`) is listed under each. Crates that word a licence differently from its usual text have their own text after it.
 
-Licences: MIT (347), Apache-2.0 (20), Apache-2.0 WITH LLVM-exception (21), BSD-3-Clause (10), BSD-2-Clause (1), ISC (4), Zlib (3), Unicode-3.0 (48), BSL-1.0 (2), CC0-1.0 (1), MPL-2.0 (17).
+Licences: MIT (350), Apache-2.0 (20), Apache-2.0 WITH LLVM-exception (21), BSD-3-Clause (10), BSD-2-Clause (1), ISC (4), Zlib (3), Unicode-3.0 (48), BSL-1.0 (2), CC0-1.0 (1), MPL-2.0 (17).
 
 ## MIT
 
-347 crates.
+350 crates.
 
 - `adler2` 2.0.1: <https://github.com/oyvindln/adler2>
   - Authors: Jonas Schievink, oyvindln
@@ -394,6 +394,8 @@ Licences: MIT (347), Apache-2.0 (20), Apache-2.0 WITH LLVM-exception (21), BSD-3
 - `chacha20` 0.10.2: <https://github.com/RustCrypto/stream-ciphers>
   - Copyright (c) 2019-2026 The RustCrypto Project Developers
 - `color` 0.3.3: <https://github.com/linebender/color>
+- `color_quant` 1.1.0: <https://github.com/image-rs/color_quant.git>
+  - Copyright (c) 2016 PistonDevelopers
 - `compact_str` 0.10.0: <https://github.com/ParkMyCar/compact_str>
   - Copyright (c) 2021 Parker Timmerman
 - `core_maths` 0.1.1: <https://github.com/robertbastian/core_maths>
@@ -495,6 +497,8 @@ Licences: MIT (347), Apache-2.0 (20), Apache-2.0 WITH LLVM-exception (21), BSD-3
 - `getrandom` 0.4.3: <https://github.com/rust-random/getrandom>
   - Copyright (c) 2018-2026 The rust-random Project Developers
   - Copyright (c) 2014 The Rust Project Developers
+- `gif` 0.14.2: <https://github.com/image-rs/image-gif>
+  - Copyright (c) 2015 nwin
 - `gilrs` 0.11.2: <https://gitlab.com/gilrs-project/gilrs>
   - Published without a licence file; authors: Arvamer
 - `gilrs-core` 0.6.8: <https://gitlab.com/gilrs-project/gilrs>
@@ -971,6 +975,8 @@ Licences: MIT (347), Apache-2.0 (20), Apache-2.0 WITH LLVM-exception (21), BSD-3
   - Copyright (c) 2017-2018 Sergio Benitez
 - `walkdir` 2.5.0: <https://github.com/BurntSushi/walkdir>
   - Copyright (c) 2015 Andrew Gallant
+- `weezl` 0.1.12: <https://github.com/image-rs/weezl>
+  - Copyright (c) HeroicKatora 2020
 - `wgpu` 30.0.1: <https://github.com/gfx-rs/wgpu>
   - Copyright (c) 2025 The gfx-rs developers
 - `wgpu-core` 30.0.1: <https://github.com/gfx-rs/wgpu>

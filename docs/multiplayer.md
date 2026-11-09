@@ -91,6 +91,10 @@ session travels inside `DATA`.
   (`ProtocolMismatch`, `SchemaMismatch`, `VersionMismatch { server }`, `ServerFull`, `Malformed`) and the
   connection is closed. A connection that never says hello is dropped after `handshake_timeout`;
   packets that do not parse are counted in `bad_packets` and ignored.
+- **Roles.** `PROTOCOL_VERSION` is 2: the hello carries a role flag. A client with
+  `SessionConfig::spectator` joins as a spectator: it gets the world but its RPCs are refused. Spectators
+  have their own limit, `max_spectators` (server, default 16), apart from `max_players`;
+  `SessionEvent::PlayerJoined { spectator }` and `Session::is_spectator(player)` tell them apart.
 - **Players and tokens.** A new player gets the next id and a random 128-bit token. When a connection
   is lost the player is `PlayerDropped` and the slot is held for `grace` (30 s by default); a client
   that says hello with that token inside the grace gets the same id (`resumed`). After the grace, or
@@ -103,6 +107,10 @@ session travels inside `DATA`.
 `SessionEvent`s: `Connected`, `Rejected`, `Disconnected` (client); `PlayerJoined`, `PlayerDropped`,
 `PlayerLeft` (server); `Message` (both).
 
+Replication is by acknowledged-baseline deltas only: there is no per-field reliable mode, on purpose.
+Every field converges because each state is a delta against what the client has acknowledged; a change
+that must arrive every time and in order is an RPC.
+
 ## Schema and wire format
 
 [schema.rs](../crates/platypus_net/src/schema.rs): a `Schema` is the classes of networked objects
@@ -114,7 +122,10 @@ what the handshake compares. `check()` refuses duplicates and too many fields.
 Field types: `bool`, `i32`, `f32`, `vec3`, `quat`, `str`, `ref` (another object's id, 0 is none). A
 field can be quantised (`q=0.01`: floats go on the wire as whole multiples of the step, which also
 decides when a change is big enough to send; the server stores the quantised value, so what it holds is
-what clients see), owner-written (`owner`) or interpolated (`lerp`).
+what clients see; `FieldDef::normalize` applies the same rounding), owner-written (`owner`) or
+interpolated (`lerp`). A `quat` with `q=` is sent smallest-three (`pack_quat` / `unpack_quat`): the
+three smaller parts at 10 bits each plus the index of the largest in one `u32`, 4 bytes, within 0.2
+degrees; without `q=` it stays exact (16 bytes).
 
 RPC definitions: a name, a target (`server`: a client calls it; `owner`: the server calls it on the
 object's owner; `all`: the server calls it on every client that knows the object), `require_owner`
@@ -177,7 +188,10 @@ session, the replica half and the RPC checks, so the engine makes one call a fra
 reads `NetEvent`s. A server steps replication at `tick_rate` (30 a second by default; at most five
 catch-up steps per call, then it resynchronises); a client acknowledges states and sends its
 owner-written fields. A returning player (`PlayerJoined` with `resumed`) is re-added to the replica
-and gets every spawn again, still owning its objects.
+and gets every spawn again, still owning its objects. `NetEvent::PlayerJoined` carries `spectator`.
+
+**Network time.** `tick_rate()`, `tick()` and `time()` give the server's tick clock: on the server its
+own, on a client an estimate of the server's present (-1 before the first tick arrives).
 
 **RPC checks** happen on the receiving side, against the schema:
 
@@ -189,6 +203,7 @@ and gets every spawn again, still owning its objects.
 - An RPC has at most 16 arguments; malformed packets (unknown id, absurd count, bad value tag) are
   dropped and counted, never delivered.
 - `all` goes only to players that `knows` the object; a player that dropped is skipped.
+- A spectator's RPCs are refused and counted in `dropped_rpcs`.
 
 ## The script API
 
@@ -210,9 +225,17 @@ it. The order decides the numbers on the wire, and `Network.className(n)` maps t
 `spawned` event back to a name.
 
 **Starting.** `Network.startServer(port, maxPlayers?, tickRate?)` (defaults 16 and 30),
-`Network.connect(address, name)`, `Network.disconnect()`. These queue a request; the app serves it on the
-next frame, because the app owns the sockets. `isServer`, `isClient`, `isConnected`, `localPlayer`
-(-1 before connecting), `rtt(player?)` (ms, -1 unknown), `players()` and `playerName(p)` read the state.
+`Network.connect(address, name)`, `Network.watch(address, name)` (joins as a spectator),
+`Network.disconnect()`. These queue a request (`Request::Connect { spectator }`); the app serves it on the
+next frame, because the app owns the sockets. `isServer`, `isClient`, `isConnected`, `isSpectator(player)`,
+`role()` (`"server"`, `"client"` or `"none"`), `localPlayer` (-1 before connecting, 0 on a server),
+`rtt(player?)` (ms, -1 unknown), `players()` and `playerName(p)` read the state. `Network.tickRate()`,
+`Network.tick()` and `Network.time()` give the network time (the server's tick clock; -1 before the
+first tick).
+
+**Listen server.** Not a separate mode: a server whose script also plays as player 0.
+`localPlayer()` is 0 on a server and `isMine` honours it. `examples/net-arena` does this with `--host`
+(`host`, `hostFrame` and `send` in `src/game.ts`).
 
 **Objects and fields.** Server: `spawn(class, prefab, owner?)` (returns the id, 0 on failure),
 `despawn`, `setOwner`. Both: `owner(id)`, `isMine(id)`. `setNumber`, `setBool`, `setString`, `setVec3`,
@@ -232,7 +255,7 @@ by `\u001f`:
 | `despawned` | id |
 | `owner` | id, owner |
 | `rpc` | id, name, from, then one text-encoded argument each |
-| `joined` | player, name, resumed (0 or 1) |
+| `joined` | player, name, resumed (0 or 1), spectator (0 or 1) |
 | `dropped` | player |
 | `left` | player |
 | `connected` | player, resumed |
@@ -256,11 +279,51 @@ events into lines.
   `host:port` or `host:port#<64 hex digits>`, the second pinning the server's certificate (the
   fingerprint from its `listening` event). **Loopback addresses (`127.0.0.1`, `localhost`, `::1`) need no
   pin** (`Trust::InsecureDev`); any other address without one is refused.
-- `disconnect` drops the host (the transport closes).
+- `disconnect` calls `network::close()` (a server kicks every player, a client leaves) and then drops
+  the host, so the other side sees the goodbye at once instead of timing out. `net_host::shutdown`
+  does the same when the app exits; a headless server also does it on Ctrl+C, Ctrl+Break or the
+  console closing (Windows), SIGINT / SIGTERM elsewhere
+  ([stop_signal.rs](../crates/platypus_app/src/stop_signal.rs) sets a flag, the headless loop ends).
 - Failures reach scripts as `error` events and the log.
 
 With `net-debug` the transport is wrapped in `Conditioned` so the debug calls have a handle; with no
-conditions set the wrapper only passes messages through.
+conditions set the wrapper only passes messages through. A packaged game calls
+`net_host::set_debug_allowed(false)` (in `main.rs`): no fault injector is made there and
+`Network.hasDebug()` is false, so the feature can stay compiled in.
+
+## Decorators (`@sync`, `@rpc`)
+
+[net_decorators.rs](../crates/platypus_components/src/net_decorators.rs) writes the schema where the data
+is, instead of as text passed to `defineClass` / `defineRpc`. A decorator is compile-time metadata, so
+`Platypus::rewrite` (in `compile.rs`) rewrites the program text before it is parsed, as it does for
+`register(..)`. Example: `examples/net-decorators/src/main.ts`.
+
+```ts
+class Player extends NetworkBehaviour {
+  @sync({ quantize: 0.01, interpolate: true }) pos: Vector3 = Vector3.zero;
+  @sync hp: number = 100;
+  @sync({ owner: true }) yaw: number = 0;
+  @rpc("server") fire(aim: number): void { /* runs on the server */ }
+}
+Player.defineNetwork();              // every peer, first: the schema
+const p = Player.spawnNet(owner);    // the server: spawns, sets the initial values
+p.hp = 50;                           // writes the replicated field
+p.fire(1.5);                         // a client sends it; the server runs the body
+p.netDispatch(name, args);           // an `rpc` event for this object: run the body
+```
+
+- `@sync(options)` fields: `number` (`f32`, or `i32` with `int: true`), `boolean`, `string`, `Vector3`,
+  `Quaternion`. Options: `quantize`, `interpolate`, `owner`, `int`.
+- `@rpc(target?, options?)` methods: target `"server"` (default), `"owner"` or `"all"`; options `anyone`,
+  `unreliable`; parameters of the same types; returns `void`.
+- The class must extend `NetworkBehaviour` (in the d.ts, added to the program when a decorator is used).
+  The rewrite turns each `@sync` field into a getter and setter over `Network.get*` / `set*` of `netId`,
+  each `@rpc` method into a wrapper that sends the call (or runs the body where the call lands here)
+  beside the original, and adds `defineNetwork`, `spawnNet`, `netInit` and `netDispatch` to the class.
+  `NetworkBehaviour.setListenServer(true)` makes a listen server also run the `owner` and `all` bodies.
+- Limits: decorator options must be literals; an RPC string argument cannot contain the `0x1f`
+  separator; spawn constructors take no required parameters; a client calling a `server` RPC needs
+  `anyone: true` unless it owns the object.
 
 ## Debugging and testing
 
@@ -288,7 +351,23 @@ cargo run --release -p platypus_app -- examples/net-arena --headless -- --server
 cargo run --release -p platypus_app -- examples/net-arena -- --connect 127.0.0.1:7777
 # a client that walks and shoots by itself
 cargo run --release -p platypus_app -- examples/net-arena -- --connect 127.0.0.1:7777 --bot
+# a listen server: a window that serves and plays as player 0
+cargo run --release -p platypus_app -- examples/net-arena -- --host
+# a spectator
+cargo run --release -p platypus_app -- examples/net-arena -- --watch 127.0.0.1:7777
 ```
+
+**Prediction.** `src/move.ts` is the movement as a pure function at a fixed 30 Hz step, the same code
+on the server and every client (players walk by it, not a CharacterController, so they no longer push
+physics props). The client predicts, keeps its unconfirmed inputs (`pending`) and sends the last 10 each
+step as an unreliable `input` RPC. The server walks each new one in order (`onInput`, with a step budget
+so a client cannot run its clock fast) and writes `pos` (interpolated, for others), `rpos` / `rvy`
+(exact) and `seq` (the last input used). The owner compares its predicted state at `seq` with `rpos`;
+if it is 3 cm or more off, it takes the server's state and replays the unconfirmed inputs (`reconcile`),
+fading the visual pop. `--desync` makes a client mispredict on purpose, for testing. Bots (`src/bot.ts`)
+feed the same input path.
+
+`examples/net-decorators` is the same schema written with `@sync` / `@rpc` (see "Decorators").
 
 A bot (`--bot`) is an ordinary client whose input comes from `src/bot.ts`, built on `platypus_ai`
 ([platypus-api.md](platypus-api.md), "Bot AI"): a `NavGrid` of the town (houses and cars from
@@ -302,11 +381,9 @@ chooses. `--headless` is described in [platform.md](platform.md) ("Headless runs
 
 ## Not done yet
 
-- Client-side prediction and rewind of physics (`multiplayer.md` section 6): clients only interpolate.
-- The `@sync` / `@rpc` decorators; scripts call `defineClass` / `defineRpc` by hand.
-- Host mode (a player who is also the server), Steam transport and relays, matchmaking.
-- `platypus-build package` does not yet refuse a build that includes `net-debug`.
-- Signal handling on headless shutdown (a killed headless server just stops; clients see a timeout).
+- An engine-level prediction / input-buffer helper: the arena's prediction (`move.ts`) is game code.
+- Rewindable physics (`multiplayer.md` section 6) and predicted spawns.
+- Steam transport, relays and matchmaking.
 
 ## Tests
 
@@ -317,9 +394,16 @@ chooses. `--headless` is described in [platform.md](platform.md) ("Headless runs
 | `M8-NET-05..07` | Session handshake, liveness, tokens and grace, robustness | `session.rs` |
 | `M8-NET-08..10` | QUIC channels, pinning and close, a session over QUIC | `platypus_net_quic` |
 | `M8-REP-01..03` | Values, schema hash and checks, `lerp` | `schema.rs` |
+| `M8-REP-13` | Smallest-three quaternions (4 bytes, within 0.2 degrees) | `schema.rs` |
 | `M8-REP-04..12` | Deltas, loss convergence, unknown-object states, interest, owner fields, ownership, chunking, interpolation, garbage input | `replica.rs` |
 | `M8-HOST-01..06` | Join and spawn, RPC rules, rate limit, malformed RPCs, resume, a bad link | `host.rs` |
+| `M8-HOST-07..08` | Network time (`tick_rate` / `tick` / `time`), spectators (RPCs refused) | `host.rs` |
+| `M8-NET-11` | Roles in the handshake, `max_spectators` | `session.rs` |
 | `M8-API-01..05` | `Network` text formats, arguments, a script-driven server and client, requests, debug calls | `network.rs` |
 | `M8-APP-01` | Address parsing and pinning | `net_host.rs` |
+| `M8-APP-02` | Debug gating (`set_debug_allowed`) | `net_host.rs` |
+| `M8-HLS-04` | Stop request ends the headless loop | `stop_signal.rs` |
+| `M8-DEC-01..03` | The `@sync` / `@rpc` rewrite (unit tests) | `net_decorators.rs` |
+| `M8-DEC-04` | Manual: run `examples/net-decorators` | `examples/net-decorators` |
 
 The plan for each is in [TESTS.md](../TESTS.md).

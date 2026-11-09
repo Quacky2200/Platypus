@@ -387,8 +387,9 @@ server: scripts, the scene, physics, timers and `Application.quit` run as in a n
 but no graphics device is made, so `App::frame` skips drawing. Like screenshot and bench runs it is offline: in-memory prefs, no
 file watching, no video-settings prompt. The loop is paced at `--tick-rate` iterations a second (default 60: a sleep, then a spin for
 the last millisecond; a loop that falls behind skips the missed deadlines). Fixed-step physics keeps its own 60 Hz clock.
-`--frames N` stops after N iterations; otherwise it runs until the game quits (or the process is killed: there is no signal handler
-yet, which M8.b's server shutdown will add). Not done yet: `--server` / `--connect` and the network, a metrics line per second.
+`--frames N` stops after N iterations; otherwise it runs until the game quits or a stop request arrives (Ctrl+C, Ctrl+Break or the
+console closing on Windows, SIGINT / SIGTERM elsewhere: [stop_signal.rs](../crates/platypus_app/src/stop_signal.rs) sets a flag, the
+loop ends and `net_host::shutdown` kicks the players, so they see the server go at once; `docs/multiplayer.md`). Not done yet: `--server` / `--connect` and the network, a metrics line per second.
 
 ## Limits
 

@@ -1832,13 +1832,22 @@ Design: `docs/research/multiplayer.md` (Fusion / Fish-Net / Lightyear inspired, 
 - [x] **M8.b** (2026-11-08, `M8-NET-01..10`) `platypus_net`: transport trait, loopback, QUIC (`platypus_net_quic`), session with
   handshake (schema / version hash), reconnect tokens, heartbeats, timeouts, grace. Left: Steam / WebRTC transports
 - [x] **M8.c** (2026-11-08, `M8-REP-01..12`, `M8-HOST-01..06`) Replication: schema, spawn / despawn, chunked state deltas against the
-  acknowledged baseline, interest, owner-written fields, interpolation, `NetHost`. Left: `@sync` from the compiler (the script
-  API takes the same schema as text: `Network.defineClass`), `NetworkTime` as an API, smallest-three quaternions, per-field reliable
+  acknowledged baseline, interest, owner-written fields, interpolation, `NetHost`. Done 2026-11-09: `Network.tick` / `time` /
+  `tickRate` (`M8-HOST-07`), smallest-three quantised rotations (`M8-REP-13`), `@sync` / `@rpc` decorators (see M8.d). Per-field
+  reliable is dropped on purpose: states are deltas against an acknowledged baseline, so every field converges whatever is lost;
+  a change that must arrive in order, each one, is an RPC
 - [x] **M8.d** (2026-11-08, `M8-API-01..05`) RPCs (`server` / `owner` / `all`, ownership and rate checks), ownership transfer,
-  roles server and client, the script `Network` namespace. Left: `@rpc` decorators, host (listen server) and spectator roles,
-  tick-stamped `@input` buffers
-- [ ] **M8.e** Prediction: rewindable rapier spike, reconcile, ~~interpolation~~ (done), ~~lag compensation~~ (done in the arena's
-  script: history rewind of players), predicted spawns. The arena trusts the owner's position (server-validated) for now
+  roles server and client, the script `Network` namespace. Done 2026-11-09: roles (`Network.watch` spectators with their own limit,
+  `Network.role`, a listen server is a server whose script also plays as player 0; `M8-NET-11`, `M8-HOST-08`, `M8-ARENA-02`),
+  `@sync` / `@rpc` decorators on `NetworkBehaviour` classes (`platypus_components/src/net_decorators.rs`, `M8-DEC-01..04`,
+  `examples/net-decorators`). Left: engine-level `@input` buffers (the arena sends `seq`-stamped input RPCs by hand)
+- [x] **M8.e** Prediction (2026-11-09, `M8-ARENA-01`): `examples/net-arena` walks every player on the server from their inputs
+  (`move.ts`, the same pure function on both sides at a fixed step), the client predicts at once, keeps unconfirmed inputs and
+  replays them after a correction. ~~interpolation~~ (done), ~~lag compensation~~ (done in the arena's script: history rewind of
+  players). Left: a prediction helper in the engine instead of the arena's script, rewindable rapier (the arena's players no
+  longer push physics props), predicted spawns
+- [x] M8 shortfall gaps (2026-11-09): a headless server ends cleanly on Ctrl+C / terminate and tells its players (`M8-HLS-04`), a
+  packaged game gets no fault injector (`M8-APP-02`; `hasDebug()` is false there)
 - [ ] **M8.f** Steam (`steamworks`): relay transport and lobbies
 - [ ] **M8.g** Tools: editor network panel, server metrics
 - [x] `examples/net-arena` first version (2026-11-08): a bounded white town (houses, cars, red lasers, invisible walls inside the
