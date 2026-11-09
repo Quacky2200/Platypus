@@ -2792,6 +2792,10 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WUI-PAINT-10 | Unit | Damage maps through transforms (a 10 x 10 box in a `scale(2)` parent: 20 x 20) and takes in a `backdrop-filter` blur over the changed box. |
 | WUI-PACE-01 | Unit | `window::pacing::interval`: full rate (16.7 ms) while busy and focused, and for `BURST` (1 s) after input even unfocused; the burst ends at 1 s. |
 | WUI-PACE-02 | Unit | Idle focused ticks every 33 ms, idle unfocused every 100 ms, animating unfocused at half rate, and minimised / covered once a second whatever else holds. |
+| WUI-PAINT-11 | Unit | A colour change skips the layout pass (`layouts_skipped` moves on); so do box shadows, outlines, an inherited text shadow and opacity, with the rects and in-place ink equal to a full pass (the paint check lays out anyway and compares); a height change is laid out and moves the next row. |
+| WUI-BATCH-01 | Unit | Plan merging: 30 cards with 30 pictures make 61 draws unmerged and 31 merged (one plain batch, a draw per picture); with one shared picture, 2. The instance count is unchanged and every picture draw holds only picture instances. |
+| WUI-BATCH-02 | Unit | A caption box laid over a picture stays after it in the merged plan, and a second picture whose card background is drawn after the first picture doesn't join the first's draw. |
+| WUI-BATCH-03 | Unit | GLES: 48 cards with three pictures in turn, and with one picture, render to the same pixels with merging on and off (each frame's time printed with `--nocapture`). |
 
 ## Bot AI (`crates/platypus_ai`)
 
