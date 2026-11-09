@@ -146,6 +146,17 @@ GameObject shared by its Rigidbody and colliders, joints, rope, per-step sync), 
 `physics2d.rs` (the generated-looking class impls: same members repeated per class), `kinds.rs` (`register_kinds()`
 puts the 18 classes into `platypus_kinds` for scene files and `instantiate`).
 
+### Rewindable physics
+
+`Physics.snapshot()` returns a number for a copy of the world in memory (`crates/platypus_physics/src/rewind.rs`: every body's
+pose, speeds and sleep state, the colliders, joints, contact cache and broad phase). `Physics.restore(snapshot)` puts the world
+back, writes the poses to the objects that follow bodies, and answers `false` for an unknown or freed number;
+`Physics.dropSnapshot(snapshot)` frees one and `Physics.snapshotCount` says how many are held. A snapshot is a copy of memory,
+not for saving. Restoring and stepping on repeats the steps bit for bit (`M8-PHY-01..03`). Bodies created after a snapshot are
+gone after a restore and removed ones are back, so a game that rewinds should not create or destroy bodies in the rewound span
+(`examples/rewind` keeps a pool; see its README). Gravity and the timestep are not part of a snapshot. Cost: a clone of the
+world's arrays. The multiplayer arena's killcam does not use it: it replays what the client recorded.
+
 - **Every property change reaches the rapier world at once.** A collider is remade when its shape changes.
 - **`step()`** (`Physics.step()`): builds pending joints and ropes (`start_pending`), moves bodies to where scripts put their
   objects (pose differs by more than 1e-4 m), remakes colliders whose object was scaled, steps the world, writes the moved
@@ -466,13 +477,13 @@ the script side:
   `setMaxSteps` (a recursive method that never ends is cut off; so is left recursion that keeps growing the list).
   A task that is replanned every frame needs an "already done" method first, as GOAP has its goal check.
   `examples/goap-demo` runs the same villager under GOAP and HTN. Tests `AI-50`..`55` (Rust), `AI-29` (script API).
-- `new FlowField(grid, goals)` and `new Crowd(grid, field, radius = 0.3)` (`flow.rs`): crowd navigation. One
+- `new FlowField(grid, goals)` and `new Swarm(grid, field, radius = 0.3)` (the engine class is `Swarm`; `Crowd` is the Rust type, and stays free for games) (`flow.rs`): crowd navigation. One
   Dijkstra search from the goal cells outward gives every cell of the `NavGrid` its cost to the nearest goal
   (the grid's own connectivity, corner cutting and weights) and a unit direction of steepest descent, blended over
   every lower neighbour. `field.direction(p)` blends the cell directions around a world point (at most length 1,
   shorter right at a goal, zero where there is no way); `field.distance(p)` is `Infinity` behind walls;
   `field.rebuild(goals)` searches again on the grid as it is now (a changed wall or weight shows up).
-  A `Crowd` is a swarm along a field: each agent follows `direction` at its own speed, pushes apart from agents
+  A `Swarm` is a crowd of agents along a field: each agent follows `direction` at its own speed, pushes apart from agents
   within twice `radius` (a spatial hash, so a step is linear in the number of agents), stops within
   `setGoalRadius` of the goal and slides along blocked cells. `add(p, speed)`, `remove(i)` (the last agent takes
   the gap), `step(dt)`, `positions()` (flat x, y, z for all agents in one call), `position(i)`, `velocity(i)`,

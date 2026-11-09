@@ -358,14 +358,32 @@ cargo run --release -p platypus_app -- examples/net-arena -- --watch 127.0.0.1:7
 ```
 
 **Prediction.** `src/move.ts` is the movement as a pure function at a fixed 30 Hz step, the same code
-on the server and every client (players walk by it, not a CharacterController, so they no longer push
-physics props). The client predicts, keeps its unconfirmed inputs (`pending`) and sends the last 10 each
+on the server and every client (players walk by it, not a CharacterController). It knows only the houses
+and parked cars (`SOLIDS`), so the server keeps a kinematic capsule on layer 8 on each player
+(`ServerPlayer.body`, `makePusher`) that shoves the crates and the shovable car; players are not blocked
+by props, and server shot rays skip layer 8 (mask `4294967295 - 256`). The client predicts, keeps its unconfirmed inputs (`pending`) and sends the last 10 each
 step as an unreliable `input` RPC. The server walks each new one in order (`onInput`, with a step budget
 so a client cannot run its clock fast) and writes `pos` (interpolated, for others), `rpos` / `rvy`
 (exact) and `seq` (the last input used). The owner compares its predicted state at `seq` with `rpos`;
 if it is 3 cm or more off, it takes the server's state and replays the unconfirmed inputs (`reconcile`),
 fading the visual pop. `--desync` makes a client mispredict on purpose, for testing. Bots (`src/bot.ts`)
 feed the same input path.
+
+**Predicted beams.** A client draws its own beam at once when it fires (`predictBeam`: scenery by
+`Physics.raycast`, other players as it sees them, the server's cylinder test) and skips the server's copy
+when it arrives (the `predicted` list, expiring after 1 s; the `onRpc` beam branch). It is a predicted
+*effect*; an engine-level predicted spawn of replicated objects (adopting the server's spawn by a
+prediction key) is not built.
+
+**Killcam.** The client records a tape (`src/killcam.ts`, 30 Hz, 6 s: `recordTape`) of every figure's
+pose (`playerFrame`), the props' poses and the beams. When the local player dies (`alive` turns false,
+seen by `watchDeath`; the `killer` field is the killer's net id) `startKillcam` / `playReplay` play the
+last 3.5 s forward over the live scene with the camera behind the killer, then hold until the respawn
+(`RESPAWN_SECONDS` is 5, counted from the death). Live beams and the fall animation are suppressed
+meanwhile (`main.tsx` shows a killcam banner). It costs the network nothing and does not use
+`Physics.snapshot` / `restore`.
+
+Flags: `--desync` (mispredict on purpose), `--host`, `--watch <addr>`, `--verbose`.
 
 `examples/net-decorators` is the same schema written with `@sync` / `@rpc` (see "Decorators").
 
@@ -382,7 +400,9 @@ chooses. `--headless` is described in [platform.md](platform.md) ("Headless runs
 ## Not done yet
 
 - An engine-level prediction / input-buffer helper: the arena's prediction (`move.ts`) is game code.
-- Rewindable physics (`multiplayer.md` section 6) and predicted spawns.
+- Engine-level predicted spawns of replicated objects.
+- Physics-prop rewind is an engine feature now (`Physics.snapshot` / `restore`, [platypus-api.md](platypus-api.md)), but the
+  arena does not rewind props over the network.
 - Steam transport, relays and matchmaking.
 
 ## Tests

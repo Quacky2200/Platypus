@@ -1818,7 +1818,7 @@ Design and API: `docs/spatial-audio.md`. Tests `ACO-*`.
 - [x] HTN planner (primitive / compound tasks, ordered methods, backtracking, step budget), `Htn` script API, shared facts with GOAP; `examples/goap-demo` runs GOAP and HTN side by side, with A* walking round buildings and along roads (`AI-29`, `AI-50`..`55`, `AI-31`)
 - [ ] HTN follow-ups: methods with a cost bias, replanning only when a step fails, numeric facts (shared with GOAP's)
 - [ ] GOAP follow-ups: a goal-priority picker, replanning when an action fails, numeric facts
-- [x] Mass navigation: flow fields for crowds (rats) with separation, `FlowField` / `Crowd` script API, `examples/rats` (`AI-26`, `AI-40`..`47`)
+- [x] Mass navigation: flow fields for crowds (rats) with separation, `FlowField` / `Swarm` script API, `examples/rats` (`AI-26`, `AI-40`..`47`)
 - [ ] Crowd follow-ups: several fields (one per goal group), moving obstacles, instanced rendering for thousands of agents
 - [ ] Small neural nets (tiny feed-forward, evolvable)
 
@@ -1844,8 +1844,14 @@ Design: `docs/research/multiplayer.md` (Fusion / Fish-Net / Lightyear inspired, 
 - [x] **M8.e** Prediction (2026-11-09, `M8-ARENA-01`): `examples/net-arena` walks every player on the server from their inputs
   (`move.ts`, the same pure function on both sides at a fixed step), the client predicts at once, keeps unconfirmed inputs and
   replays them after a correction. ~~interpolation~~ (done), ~~lag compensation~~ (done in the arena's script: history rewind of
-  players). Left: a prediction helper in the engine instead of the arena's script, rewindable rapier (the arena's players no
-  longer push physics props), predicted spawns
+  players). Also done 2026-11-09: rewindable physics in the engine (`Physics.snapshot` / `restore` / `dropSnapshot`, rapier's
+  state cloned, restore then step is bit for bit the same: `M8-PHY-01..03`, `examples/rewind`: a game mechanic, hold R to run a
+  collapsing wall backwards, `M8-PHY-04`), the arena's props pushed again by a kinematic capsule the server keeps on each
+  player, predicted beams (a predicted effect: drawn when you fire, the server's copy skipped) and a killcam (the last 3.5 s
+  replayed from behind your killer, from a tape the client records, `M8-ARENA-03`). Left: a prediction helper in the engine
+  instead of the arena's script, predicted spawns of replicated objects (adopting the server's spawn by a prediction key),
+  rewinding props over the network (lag compensation of props with `Physics.restore` on the server)
+- [x] `Crowd` script class renamed `Swarm` (2026-11-09: it clashed with games' own `Crowd` classes, `examples/crowd`)
 - [x] M8 shortfall gaps (2026-11-09): a headless server ends cleanly on Ctrl+C / terminate and tells its players (`M8-HLS-04`), a
   packaged game gets no fault injector (`M8-APP-02`; `hasDebug()` is false there)
 - [ ] **M8.f** Steam (`steamworks`): relay transport and lobbies
