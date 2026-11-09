@@ -1867,9 +1867,11 @@ Design: `docs/research/multiplayer.md` (Fusion / Fish-Net / Lightyear inspired, 
     manual callback dispatch; the `steamworks` crates are gone, so nothing links to Steam and no Valve file is bundled by us). A
     missing library, a refused init, or a game without `steam.appId` leaves Steam off and the game runs. Checked 2026-11-09 on
     Windows: exe without the dll starts; with Valve's dll the loader called `SteamAPI_InitFlat` and showed Steam's refusal for a fake
-    id. **Not yet run past a successful init** (symbols after init, lobbies, achievements): needs a real app id, Valve's test app 480
-    (shared with all developers) or our own. Linux / macOS (`libsteam_api.so` / `.dylib`, packed(4) result structs) are
-    **untested**
+    id. Checked for real the same day against Valve's test app 480 (shared by all developers): connect, name and id, rich presence,
+    a friends-only lobby created / data set / joined by id / left, an achievement (`ACH_WIN_ONE_GAME`) unlocked and locked
+    again, a stat written back. **Not yet seen:** a search that finds a lobby (a friends-only lobby you are in isn't listed to you;
+    needs a public one or a second player), lobby members beyond yourself. Linux / macOS (`libsteam_api.so` / `.dylib`, packed(4)
+    result structs) are **untested**
   - [ ] `platypus-build package` copies the Steam library beside the exe for games with `steam.appId` (none yet), per platform
     (the library comes from Valve's Steamworks SDK: check its terms first)
   - [ ] A Steam relay `Transport` for `platypus_net` (`steamworks` networking sockets), lobby chat and invites (`connect` rich
