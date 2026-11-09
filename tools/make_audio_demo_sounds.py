@@ -288,6 +288,68 @@ def door():
     return [(b * 3 + math.sin(2 * math.pi * 60 * k / RATE)) * math.exp(-k / (0.07 * RATE)) for k, b in enumerate(body)]
 
 
+def ring(partials, seconds, rng, amp=1.0):
+    """A struck object: decaying sine partials (frequency, decay time in seconds, level)."""
+    n = int(seconds * RATE)
+    out = [0.0] * n
+    for freq, decay, level in partials:
+        f = freq * rng.uniform(0.985, 1.015)
+        phase = rng.uniform(0, 6.28)
+        for k in range(n):
+            out[k] += math.sin(2 * math.pi * f * k / RATE + phase) * math.exp(-k / (decay * RATE)) * level
+    return [x * amp for x in out]
+
+
+def burst(seconds, rng, lo=None, hi=None, decay=0.02):
+    """A noise burst, filtered and decaying: the 'contact' of a strike."""
+    n = int(seconds * RATE)
+    xs = noise(n, rng)
+    if lo:
+        xs = lowpass(xs, lo)
+    if hi:
+        xs = highpass(xs, hi)
+    return [x * math.exp(-k / (decay * RATE)) for k, x in enumerate(xs)]
+
+
+# What the struck surface adds: its body. Variant `i` changes the pitch a little and the noise.
+SURFACES = ["metal", "wood", "stone", "earth", "glass"]
+# What the tool adds: the strike itself.
+TOOLS = ["crowbar", "spanner", "mallet", "flowers"]
+
+
+def surface_hit(name, i):
+    rng = random.Random(100 + i * 7 + SURFACES.index(name))
+    if name == "metal":
+        # A steel plate: inharmonic partials that ring.
+        return mix(ring([(820, 0.30, 1.0), (1370, 0.22, 0.7), (2410, 0.15, 0.5), (3560, 0.10, 0.4)], 0.7, rng), burst(0.05, rng, hi=2500, decay=0.01))
+    if name == "wood":
+        return mix(ring([(220, 0.07, 1.0), (480, 0.05, 0.7), (910, 0.035, 0.4)], 0.35, rng), burst(0.05, rng, lo=2500, decay=0.012))
+    if name == "stone":
+        return mix(ring([(140, 0.06, 1.0), (330, 0.03, 0.5)], 0.3, rng), burst(0.06, rng, lo=3500, hi=500, decay=0.012))
+    if name == "earth":
+        return mix(ring([(90, 0.05, 1.0)], 0.3, rng), [x * 0.8 for x in burst(0.12, rng, lo=500, decay=0.04)])
+    # glass: a bright ring and a tinkle.
+    return mix(ring([(2200, 0.25, 0.8), (3300, 0.18, 0.6), (5100, 0.12, 0.4)], 0.6, rng), burst(0.04, rng, hi=4000, decay=0.008))
+
+
+def tool_hit(name, i):
+    rng = random.Random(500 + i * 11 + TOOLS.index(name))
+    if name == "crowbar":
+        # Heavy steel: a hard click and a low thump.
+        return mix(burst(0.04, rng, hi=1500, decay=0.006), ring([(1500, 0.05, 0.6), (90, 0.06, 0.9)], 0.2, rng))
+    if name == "spanner":
+        # Lighter steel: a short bright clink.
+        return mix(burst(0.03, rng, hi=3000, decay=0.004), ring([(2800, 0.07, 0.8), (4100, 0.04, 0.4)], 0.2, rng))
+    if name == "mallet":
+        # A wooden head: a dull tok.
+        return mix(burst(0.05, rng, lo=1000, decay=0.012), ring([(200, 0.04, 0.9)], 0.2, rng))
+    # flowers: a soft rustle, no impact at all.
+    n = int(0.25 * RATE)
+    xs = highpass(lowpass(noise(n, rng), 6000), 1200)
+    env = envelope(n, 0.03, 0.15)
+    return [x * e * 0.35 for x, e in zip(xs, env)]
+
+
 SOUNDS = {
     "radio_music": radio_music,
     "voice": voice,
@@ -313,7 +375,19 @@ EXAMPLES = {
     "audio-radar": ["footstep", "gunshot", "beep", "explosion", "engine", "voice"],
     "audio-cave": ["voice", "drips", "nature", "waves", "wind", "footstep", "radio_music"],
     "audio-road": ["engine", "horn", "shout", "wind", "radio_music"],
+    "audio-direction": ["radio_music", "voice", "static", "wind"],
+    "audio-surfaces": ["wind"]
+    + [f"hit_{s}_{i}" for s in SURFACES for i in range(3)]
+    + [f"tool_{t}_{i}" for t in TOOLS for i in range(3)],
 }
+
+# The strike sounds: every surface and tool, three variants each.
+for _s in SURFACES:
+    for _i in range(3):
+        SOUNDS[f"hit_{_s}_{_i}"] = lambda s=_s, i=_i: surface_hit(s, i)
+for _t in TOOLS:
+    for _i in range(3):
+        SOUNDS[f"tool_{_t}_{_i}"] = lambda t=_t, i=_i: tool_hit(t, i)
 
 if __name__ == "__main__":
     cache = {}

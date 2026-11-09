@@ -510,6 +510,39 @@ fn a_directional_source_is_loud_in_front_and_quiet_and_dull_behind() {
     assert!(track_gain(&cmds, e_away.0).is_some_and(|g| (g - 0.25).abs() < 0.02));
 }
 
+// ACO-SYS-11
+//
+// A surface tag is a name on an object that scripts look up; it survives a scene-file round trip
+// through its kind and goes away with the object.
+#[test]
+fn a_surface_tag_names_what_an_object_is_made_of() {
+    let mut scene = setup();
+    let _scope = platypus_scene::api::enter(&mut scene);
+    crate::register_kinds();
+    let crate_ = make("crate", 0.0, 0.0, 0.0);
+    assert!(crate::components::surfaces_on(crate_).is_empty());
+    let s = crate::components::attach_surface(crate_);
+    assert_eq!(
+        crate::components::surface(s, |s| s.name.clone()).as_deref(),
+        Some("default")
+    );
+    crate::components::surface(s, |s| s.name = "wood".into());
+    assert_eq!(crate::components::surfaces_on(crate_), vec![s]);
+    // Through the kind: save, load into a fresh tag.
+    let kind = platypus_kinds::get("AudioSurface").expect("registered");
+    let saved = (kind.save)(u64::from(s.0));
+    assert_eq!(saved.get("surface").and_then(|v| v.as_str()), Some("wood"));
+    let other = make("barrel", 1.0, 0.0, 0.0);
+    let t = crate::components::attach_surface(other);
+    assert!((kind.load)(u64::from(t.0), &saved).is_empty());
+    assert_eq!(
+        crate::components::surface(t, |s| s.name.clone()).as_deref(),
+        Some("wood")
+    );
+    crate::object_destroyed(crate_);
+    assert!(crate::components::surfaces_on(crate_).is_empty());
+}
+
 // ACO-SYS-10
 //
 // Air takes the highs off with distance: a source 300 m away is duller than one 10 m away, and a

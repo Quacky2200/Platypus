@@ -3,7 +3,7 @@
 Crates: [platypus_audio](../crates/platypus_audio/src/lib.rs) (the mixer: `fx.rs` effect chains, `live.rs` live input),
 [platypus_acoustics](../crates/platypus_acoustics/src/lib.rs) (the world-aware part), and the API declarations
 `audio.rs` / `audio_components.rs` of `platypus_engine_api`. Examples: `audio-house`, `audio-radar`, `audio-cave`,
-`audio-road` (sounds made by `tools/make_audio_demo_sounds.py`, nothing downloaded). Basics of the mixer are in
+`audio-road`, `audio-direction` (a speaker with polar patterns, air absorption), `audio-surfaces` (tools striking surfaces) (sounds made by `tools/make_audio_demo_sounds.py`, nothing downloaded). Basics of the mixer are in
 [physics-and-audio.md](physics-and-audio.md).
 
 ## Effect chains (mixer)
@@ -78,6 +78,31 @@ straight above or below to 9 kHz, at full strength. Panning cannot tell front fr
 A zone with `affectsSources` also blends its target (by the weight at each source's place, priority order) into the emitters
 of `AudioSource`s: low-pass and volume on any emitter, reverb, echo and high-pass on those made with `effects: true`. This is
 combined with occlusion and the head cue (the lowest cutoff wins, gains multiply) and sent as one change per property.
+
+## Directional sources and air absorption
+
+`AudioSource.directivity` gives a source the polar pattern of a microphone turned round, facing along its object's -z:
+`omni` (default), `cardioid`, `supercardioid`, `hypercardioid`, `figureEight` (front and back, none to the sides) and
+`ultraDirectional` (a narrow beam with side and rear lobes). The first-order ones are `a + (1 - a) cos(angle)` (a = 0.5,
+0.37, 0.25, 0); the ultra-directional is `(0.5 + 0.5 cos)^6` with 18% lobes. `Acoustics.directivityGain(pattern, angle)`
+returns the same curve (the example draws its polar plot from it). Where the pattern is quiet the source is both quieter
+(held at -30 dB, never silent) and duller (towards `coneOuterLowPass`, 5 kHz); `directivityStrength` (0 to 1) blends it
+back to all-round. With `omni`, a cone does the same job: `coneInnerAngle` / `coneOuterAngle` (full angles, 360 is all
+round, as in Web Audio) with `coneOuterGain` outside and a fade between.
+
+Air takes the highs off with distance: `Acoustics.airAbsorption` (0 to 2, default 0.5) and each source's own
+`airAbsorption` (a multiplier) give a cutoff `22000 * exp(-distance * strength / 150)`, held at 2.5 kHz (at strength 1:
+11 kHz at 100 m, 3 kHz at 300 m). The distance is that of the way the sound came (round a portal, the whole path).
+`Acoustics.airCutoff(distance)` answers for scripts. Cone, pattern, air, head cue, occlusion and zones all set one
+low-pass on the emitter (the lowest wins) and one gain (they multiply).
+
+## Surface tags (`AudioSurface`)
+
+An object can carry a name for what it is made of (`go.addComponent(AudioSurface, { surface: "metal" })`). The engine does not
+interpret it: a game lays a ray from a tool, a foot or a thrown thing (`Physics.raycast`), reads
+`hit.collider.gameObject.getComponent(AudioSurface).surface` and plays the sound set it has for that name. `audio-surfaces` layers
+two clips at the hit point, the surface's own body and the tool's strike, with three variants of each picked at random and a
+pitch by the tool's weight.
 
 ## Noises and sensors (`Acoustics`, `SoundSensor`)
 

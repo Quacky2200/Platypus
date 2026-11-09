@@ -150,8 +150,43 @@ pub(crate) fn test_on_hear(x: SoundSensorRef, f: impl Fn(f64) + 'static) {
     });
 }
 
+pub(crate) fn surface<R>(
+    s: crate::state::AudioSurfaceRef,
+    f: impl FnOnce(&mut crate::state::Surface) -> R,
+) -> Option<R> {
+    st(|st| st.surfaces.get_mut(s.0).map(f))
+}
+
+pub(crate) fn attach_surface(object: ObjectId) -> crate::state::AudioSurfaceRef {
+    platypus_kinds::components_changed();
+    crate::state::AudioSurfaceRef(st(|s| {
+        s.surfaces.add(crate::state::Surface {
+            object,
+            name: "default".to_string(),
+        })
+    }))
+}
+
+pub(crate) fn remove_surface(s: crate::state::AudioSurfaceRef) {
+    platypus_kinds::components_changed();
+    st(|st| st.surfaces.remove(s.0));
+}
+
+pub(crate) fn surfaces_on(object: ObjectId) -> Vec<crate::state::AudioSurfaceRef> {
+    st(|s| {
+        s.surfaces
+            .iter()
+            .filter(|(_, x)| x.object == object)
+            .map(|(i, _)| crate::state::AudioSurfaceRef(i))
+            .collect()
+    })
+}
+
 /// Removes the acoustics components of destroyed objects.
 pub fn object_destroyed(object: ObjectId) {
+    for s in surfaces_on(object) {
+        remove_surface(s);
+    }
     for z in zones_on(object) {
         remove_zone(z);
     }
@@ -507,6 +542,51 @@ pub mod audio_portal_api {
 
         pub fn remove(self) {
             super::remove_portal(self);
+        }
+    }
+}
+
+#[ts_api(
+    namespace = "AudioSurface",
+    handles(AudioSurface = AudioSurfaceRef, GameObject = ObjectId)
+)]
+pub mod audio_surface_api {
+    use super::*;
+    use crate::state::AudioSurfaceRef;
+
+    impl AudioSurfaceRef {
+        /// Adds an `AudioSurface` to a GameObject: what it is made of, as a name (`"metal"`,
+        /// `"wood"`, `"stone"`, `"grass"`...). Sounds that strike it look the name up: ray from a
+        /// tool or a foot, read `getComponent(AudioSurface).surface` on what it hits, and play the
+        /// sound set for that name. The name means nothing to the engine; games choose theirs.
+        pub fn attach(object: ObjectId) -> AudioSurfaceRef {
+            super::attach_surface(object)
+        }
+
+        pub fn find_on(object: ObjectId) -> AudioSurfaceRef {
+            super::surfaces_on(object)
+                .first()
+                .copied()
+                .unwrap_or(AudioSurfaceRef(0))
+        }
+
+        #[property]
+        pub fn game_object(self) -> ObjectId {
+            super::surface(self, |s| s.object).unwrap_or_else(super::none_object)
+        }
+
+        /// The surface's name (`"default"` until set).
+        #[property]
+        pub fn surface(self) -> String {
+            super::surface(self, |s| s.name.clone()).unwrap_or_default()
+        }
+
+        pub fn set_surface(self, name: &str) {
+            super::surface(self, |s| s.name = name.to_string());
+        }
+
+        pub fn remove(self) {
+            super::remove_surface(self);
         }
     }
 }

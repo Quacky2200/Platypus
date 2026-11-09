@@ -207,6 +207,49 @@ fn occluder_kind() -> Kind {
     }
 }
 
+fn surface_kind() -> Kind {
+    let get = |h: u64| crate::state::AudioSurfaceRef(h as u32);
+    Kind {
+        name: "AudioSurface".into(),
+        create: Box::new(|o| {
+            Ok(u64::from(
+                crate::components::attach_surface(ObjectId::from_raw(o)).0,
+            ))
+        }),
+        on: Box::new(|o| {
+            crate::components::surfaces_on(ObjectId::from_raw(o))
+                .into_iter()
+                .map(|s| u64::from(s.0))
+                .collect()
+        }),
+        save: Box::new(move |h| {
+            let mut m = Map::new();
+            crate::components::surface(get(h), |s| {
+                m.insert("surface".into(), json!(s.name));
+            });
+            m
+        }),
+        load: Box::new(move |h, props: &Props| {
+            let mut warnings = Vec::new();
+            crate::components::surface(get(h), |s| {
+                for (k, v) in props {
+                    match (k.as_str(), v.as_str()) {
+                        ("surface", Some(name)) => s.name = name.to_string(),
+                        ("surface", None) => {
+                            warnings.push(format!("property `{k}` has a value of the wrong shape"))
+                        }
+                        (other, _) => warn_unknown(other, &mut warnings),
+                    }
+                }
+            });
+            warnings
+        }),
+        awake: Box::new(|_| {}),
+        object: Box::new(move |h| crate::components::surface(get(h), |s| s.object.to_raw())),
+        destroy: Box::new(move |h| crate::components::remove_surface(get(h))),
+    }
+}
+
 fn portal_kind() -> Kind {
     let get = |h: u64| AudioPortalRef(h as u32);
     Kind {
@@ -313,6 +356,16 @@ pub fn register_kinds() {
     register(zone_kind());
     register(occluder_kind());
     register(portal_kind());
+    register(surface_kind());
+    register_fields(
+        "AudioSurface",
+        vec![f(
+            "surface",
+            "string",
+            json!("default"),
+            "What it is made of, as a name the game looks up (metal, wood, stone, grass...).",
+        )],
+    );
     register_fields(
         "AudioPortal",
         vec![

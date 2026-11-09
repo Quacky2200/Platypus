@@ -43,6 +43,10 @@ numbered_handle!(
     AudioPortalRef
 );
 numbered_handle!(
+    /// An `AudioSurface` by number (1-based: 0 is "none").
+    AudioSurfaceRef
+);
+numbered_handle!(
     /// A `SoundSensor` by number (1-based: 0 is "none").
     SoundSensorRef
 );
@@ -166,6 +170,14 @@ impl Occluder {
             low_pass: 900.0,
         }
     }
+}
+
+/// What a thing is made of, for the sounds that strike it: a name scripts look up (`"metal"`,
+/// `"wood"`, `"grass"`...).
+#[derive(Clone)]
+pub struct Surface {
+    pub object: ObjectId,
+    pub name: String,
 }
 
 /// An opening sound can bend through (a doorway, a window, a stairwell): when a wall is in the
@@ -300,6 +312,7 @@ pub(crate) struct State {
     pub zones: Slots<Zone>,
     pub occluders: Slots<Occluder>,
     pub portals: Slots<Portal>,
+    pub surfaces: Slots<Surface>,
     pub sensors: Slots<Sensor>,
     pub events: Vec<Event>,
     pub next_event: u32,

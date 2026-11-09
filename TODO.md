@@ -1801,6 +1801,10 @@ Design and API: `docs/spatial-audio.md`. Tests `ACO-*`.
 - [ ] Listen to the examples on a device and tune the numbers (cutoffs, gains, ripple speed); only `--screenshot` runs were possible while writing them
 - [x] Sound round corners by `AudioPortal`s (heard from the opening), a head cue for front/back and up/down
   (`Acoustics.headShadow`), zones that colour sources (`affectsSources`) (`ACO-MOD-07..08`, `ACO-SYS-06..08`)
+- [x] Directional sources (`AudioSource.directivity`: omni, cardioid, supercardioid, hypercardioid, figure-eight, ultra-directional;
+  cones), air absorption, `AudioSurface` tags; examples `audio-direction` and `audio-surfaces` (`ACO-MOD-09..12`, `ACO-SYS-09..11`)
+- [ ] Surface sound sets as an engine feature (a `SoundSet` asset: variants, volume by speed, surface from a `PhysicsMaterial`, footsteps,
+  collisions) instead of the example's script table; voice limiting and priority; ducking and mixer snapshots
 - [ ] A path search instead of placed portals (two-door routes), real HRTF (per-ear delay, spectral notches), early reflections
 - [ ] `SoundEvent.id`, zone gizmos in the editor's Scene view (the radius, inner core and curve drawn), a gradient curve editor
 - [ ] A remote voice through the mixer (needs web-ui `MediaStream` audio tracks), microphone device choice and input gain

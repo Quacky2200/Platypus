@@ -632,6 +632,7 @@ layout pass):
 | ACO-MOD-11 | Unit | The polar patterns: omni, cardioid, supercardioid, hypercardioid, figure-eight and ultra-directional have their side and rear values and narrow in that order. |
 | ACO-MOD-12 | Unit | A pattern's quiet directions are duller (nulls held at -30 dB), and strength blends the pattern away. |
 | ACO-SYS-09 | Integration | A cardioid (or cone) source is loud for a listener it faces and quiet and dull for one behind it; strength 0 makes it all round. |
+| ACO-SYS-11 | Integration | An `AudioSurface` names what an object is made of, round-trips through its scene-file kind and goes away with the object. |
 | ACO-SYS-10 | Integration | A source 300 m away is duller than one 10 m away, more air is duller still, and a source with `airAbsorption` 0 keeps its highs. |
 | ACO-MOD-08 | Unit | A portal's two legs combine (gains and cutoffs multiply, path adds); the way round wins only when it beats the wall by a tenth; a shut door in a leg or a closed portal loses it. |
 
