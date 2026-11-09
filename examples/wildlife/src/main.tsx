@@ -537,6 +537,7 @@ const FOX_FUR = mat("#d9722f");
 const FOX_DARK = mat("#3a2a22");
 const FOX_PALE = mat("#f1e3cf");
 const RING = mat("#ffffff", 0.3);
+const EYE = mat("#0c0a0a", 0.9);
 
 function shape(
   name: string,
@@ -584,6 +585,10 @@ function buildRabbit(a: Animal): View {
   shape("Ear L", "capsule", v3(-0.06, 0.5, 0.2), v3(0.05, 0.13, 0.035), fur, root, Quaternion.euler(0, 0, 10));
   shape("Ear R", "capsule", v3(0.06, 0.5, 0.2), v3(0.05, 0.13, 0.035), fur, root, Quaternion.euler(0, 0, -10));
   shape("Nose", "sphere", v3(0, 0.29, 0.36), v3(0.05, 0.04, 0.04), PINK, root);
+  for (const sx of [-1, 1]) {
+    shape("Eye", "sphere", v3(sx * 0.085, 0.34, 0.33), v3(0.045, 0.045, 0.04), EYE, root);
+    shape("Glint", "sphere", v3(sx * 0.092, 0.353, 0.352), v3(0.013, 0.013, 0.013), WHITE, root);
+  }
   shape("Tail", "sphere", v3(0, 0.22, -0.25), v3(0.12, 0.12, 0.12), WHITE, root);
   return { id: a.id, species: "rabbit", root, yaw: rng.float(0, 360), phase: rng.float(0, 6.28), stride: 0, legs: [] };
 }
@@ -595,6 +600,10 @@ function buildFox(a: Animal): View {
   shape("Head", "sphere", v3(0, 0.46, 0.45), v3(0.24, 0.22, 0.28), FOX_FUR, root);
   shape("Snout", "cube", v3(0, 0.42, 0.62), v3(0.1, 0.09, 0.14), FOX_PALE, root);
   shape("Nose", "sphere", v3(0, 0.44, 0.7), v3(0.04, 0.04, 0.04), FOX_DARK, root);
+  for (const sx of [-1, 1]) {
+    shape("Eye", "sphere", v3(sx * 0.09, 0.51, 0.57), v3(0.055, 0.055, 0.05), EYE, root);
+    shape("Glint", "sphere", v3(sx * 0.098, 0.527, 0.6), v3(0.016, 0.016, 0.016), WHITE, root);
+  }
   shape("Ear L", "cube", v3(-0.08, 0.62, 0.4), v3(0.06, 0.12, 0.03), FOX_DARK, root, Quaternion.euler(0, 0, 12));
   shape("Ear R", "cube", v3(0.08, 0.62, 0.4), v3(0.06, 0.12, 0.03), FOX_DARK, root, Quaternion.euler(0, 0, -12));
   shape("Tail", "capsule", v3(0, 0.38, -0.55), v3(0.13, 0.3, 0.13), FOX_FUR, root, Quaternion.euler(-70, 0, 0));
