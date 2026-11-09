@@ -5,8 +5,10 @@
 // outward (a flow field over a NavGrid) tells every cell which way to go; each rat just reads the
 // field where it stands, so hundreds of rats cost one search. A `Crowd` moves them with a little
 // separation so they spread through the gaps instead of piling up.
-// Click the floor to move the cheese; B shuts or opens the gate (the field is rebuilt); G shows
-// the flow field; Space adds rats.
+// Click the floor to move the cheese; B cycles the gate (open, half height, shut); G shows the
+// flow field; Space adds rats. The field always routes through the gate, so the rats head for it
+// and press against it when it is closed. A half-height gate can be climbed: with P on, the rats
+// pile up against it and the one on top scrambles over, a few a second.
 
 const COLS = 40;
 const ROWS = 24;
@@ -45,21 +47,43 @@ const v3 = (x: number, y: number, z: number) => new Vector3(x, y, z);
 
 // --- The world and its flow field ------------------------------------------------------------
 
+// What the rats walk on: a half-height or shut gate is solid here.
 const grid = new NavGrid(v3(COLS, 1, ROWS), v3(-HALF_X, 0, -HALF_Z), CELL);
+// What the flow field is built on: the same maze, but the gate never blocks it, so the rats always
+// head for the gate by the shortest way (and pile up at it when it is closed).
+const flowGrid = new NavGrid(v3(COLS, 1, ROWS), v3(-HALF_X, 0, -HALF_Z), CELL);
 
-function setRect(r: number[], blocked: boolean) {
+function setRect(g: NavGrid, r: number[], blocked: boolean) {
   for (let z = r[1]!; z <= r[3]!; z++) {
-    for (let x = r[0]!; x <= r[2]!; x++) grid.setBlocked(v3(x, 0, z), blocked);
+    for (let x = r[0]!; x <= r[2]!; x++) g.setBlocked(v3(x, 0, z), blocked);
   }
 }
-for (const w of WALLS) setRect(w, true);
+for (const w of WALLS) {
+  setRect(grid, w, true);
+  setRect(flowGrid, w, true);
+}
 
 let cheese: Vector3 = v3(cellX(36), 0.25, cellZ(20));
-const field = new FlowField(grid, [cheese]);
+const field = new FlowField(flowGrid, [cheese]);
 const crowd = new Crowd(grid, field, 0.13);
 crowd.setGoalRadius(0.9);
-let gateShut = false;
+/** 0 open, 1 half height (low enough to climb), 2 shut (a full wall). */
+let gateMode = 0;
+const GATE_NAMES = ["open", "half height", "shut"];
+const GATE_HEIGHTS = [0, WALL_HEIGHT / 2, WALL_HEIGHT];
+/** With a half-height gate: rats pile up against it and the top ones climb over. */
+let pileUp = true;
 let showField = false;
+
+// The gate's faces and extent in metres (x across the wall, z along the gap).
+const GATE_FACE_L = cellX(GATE[0]!) - CELL / 2;
+const GATE_FACE_R = cellX(GATE[2]!) + CELL / 2;
+const GATE_Z0 = cellZ(GATE[1]!) - CELL / 2;
+const GATE_Z1 = cellZ(GATE[3]!) + CELL / 2;
+/** Rats that have climbed over the gate (shown in the overlay). */
+let climbed = 0;
+/** How many rats must be pressing on the gate before the top one climbs. */
+const PILE_NEEDED = 5;
 
 function addRats(n: number) {
   for (let i = 0; i < n && crowd.count < MAX_RATS; i++) {
@@ -75,10 +99,9 @@ function moveCheese(p: Vector3) {
   field.rebuild([cheese]);
 }
 
-function toggleGate() {
-  gateShut = !gateShut;
-  setRect(GATE, gateShut);
-  field.rebuild([cheese]);
+function cycleGate() {
+  gateMode = (gateMode + 1) % 3;
+  setRect(grid, GATE, gateMode > 0);
 }
 
 // --- Looks -----------------------------------------------------------------------------------
@@ -115,6 +138,16 @@ interface RatView {
   phase: number;
 }
 
+/** A rat on its way over the gate (drawn by the script; the crowd moves it when it lands). */
+interface Climb {
+  i: number;
+  t: number;
+  from: Vector3;
+  to: Vector3;
+  /** How high the pile had lifted it when it set off. */
+  y0: number;
+}
+
 function buildRat(i: number): RatView {
   const root = new GameObject("Rat " + i);
   const fur = RAT_FUR[i % RAT_FUR.length]!;
@@ -139,6 +172,8 @@ function angleDiff(to: number, from: number): number {
 
 class Maze extends Component {
   private rats: RatView[] = [];
+  private climbs: Climb[] = [];
+  private sinceClimb = 0;
   private cheeseObj: GameObject | null = null;
   private gateObj: GameObject | null = null;
   private yaw = 0;
@@ -179,7 +214,8 @@ class Maze extends Component {
 
     // Controls.
     if (input.getKeyDown("Space")) addRats(50);
-    if (input.getKeyDown("KeyB")) toggleGate();
+    if (input.getKeyDown("KeyB")) cycleGate();
+    if (input.getKeyDown("KeyP")) pileUp = !pileUp;
     if (input.getKeyDown("KeyG")) showField = !showField;
     if (input.getMouseButtonDown(0)) {
       const ray = cam.screenPointToRay(input.mousePosition);
@@ -193,9 +229,93 @@ class Maze extends Component {
 
     // Rats: a view for each new agent; each faces where it is going and scurries.
     for (let i = this.rats.length; i < crowd.count; i++) this.rats.push(buildRat(i));
-    for (let i = 0; i < this.rats.length; i++) {
+    const count = this.rats.length;
+    const flat = crowd.positions();
+
+    // Rats on their way over the gate land, and are put down on the far side.
+    const still: Climb[] = [];
+    const climbOf: (Climb | null)[] = [];
+    for (let i = 0; i < count; i++) climbOf.push(null);
+    for (const c of this.climbs) {
+      c.t += dt / 0.9;
+      if (c.t >= 1) {
+        crowd.setPosition(c.i, c.to);
+        climbed++;
+      } else {
+        still.push(c);
+        climbOf[c.i] = c;
+      }
+    }
+    this.climbs = still;
+
+    // The pile: with a half-height gate, rats pressed against it that would get ahead by crossing
+    // heap up (each lifted by how many are in front of it); the one on top climbs over.
+    const lift: number[] = [];
+    for (let i = 0; i < count; i++) lift.push(0);
+    this.sinceClimb += dt;
+    if (gateMode === 1 && pileUp) {
+      const zone: number[] = [];
+      const zoneD: number[] = [];
+      const zoneLand: Vector3[] = [];
+      for (let i = 0; i < count; i++) {
+        if (climbOf[i] !== null) continue;
+        const x = flat[i * 3]!;
+        const z = flat[i * 3 + 2]!;
+        if (z < GATE_Z0 - 0.3 || z > GATE_Z1 + 0.3) continue;
+        let d = -1;
+        let landX = 0;
+        if (x < GATE_FACE_L && x > GATE_FACE_L - 1.4) {
+          d = GATE_FACE_L - x;
+          landX = GATE_FACE_R + 0.45;
+        } else if (x > GATE_FACE_R && x < GATE_FACE_R + 1.4) {
+          d = x - GATE_FACE_R;
+          landX = GATE_FACE_L - 0.45;
+        }
+        if (d < 0) continue;
+        const land = v3(landX, 0.25, Math.min(GATE_Z1 - 0.15, Math.max(GATE_Z0 + 0.15, z)));
+        // Only rats that cross to a spot nearer the cheese climb (rats past the gate stay put).
+        if (field.distance(land) < field.distance(v3(x, 0.25, z)) - 0.8) {
+          zone.push(i);
+          zoneD.push(d);
+          zoneLand.push(land);
+        }
+      }
+      const heap = Math.min(1, (zone.length - 2) / 4);
+      let top = -1;
+      for (let k = 0; k < zone.length; k++) {
+        if (top < 0 || zoneD[k]! < zoneD[top]!) top = k;
+        if (heap <= 0) continue;
+        // A ramp: the nearer the gate, the higher up the pile.
+        let behind = 0;
+        for (let m = 0; m < zone.length; m++) if (zoneD[m]! > zoneD[k]!) behind++;
+        lift[zone[k]!] = Math.min(0.42, 0.05 * (behind + 1)) * heap;
+      }
+      if (zone.length >= PILE_NEEDED && this.sinceClimb > 0.22 && top >= 0) {
+        const i = zone[top]!;
+        this.climbs.push({ i, t: 0, from: v3(flat[i * 3]!, 0, flat[i * 3 + 2]!), to: zoneLand[top]!, y0: lift[i]! });
+        climbOf[i] = this.climbs[this.climbs.length - 1]!;
+        this.sinceClimb = 0;
+      }
+    }
+
+    for (let i = 0; i < count; i++) {
       const rat = this.rats[i]!;
-      const p = crowd.position(i);
+      const climb = climbOf[i];
+      if (climb !== null && climb !== undefined) {
+        // Scrambling over the gate: along an arc, nose up.
+        const e = climb.t * climb.t * (3 - 2 * climb.t);
+        const x = climb.from.x + (climb.to.x - climb.from.x) * e;
+        const z = climb.from.z + (climb.to.z - climb.from.z) * e;
+        const y = climb.y0 * (1 - climb.t) + (GATE_HEIGHTS[1]! + 0.1) * Math.sin(Math.PI * climb.t);
+        rat.yaw += angleDiff((Math.atan2(climb.to.x - climb.from.x, climb.to.z - climb.from.z) * 180) / Math.PI, rat.yaw) * Math.min(1, dt * 12);
+        rat.phase += dt * 22;
+        rat.root.transform.position = v3(x, y + Math.abs(Math.sin(rat.phase)) * 0.02, z);
+        rat.root.transform.rotation = Quaternion.euler(-28, rat.yaw, 0);
+        rat.root.transform.localScale = v3(1.5, 1.5, 1.5);
+        continue;
+      }
+      const px = flat[i * 3]!;
+      const pz = flat[i * 3 + 2]!;
       const vel = crowd.velocity(i);
       const speed = Math.sqrt(vel.x * vel.x + vel.z * vel.z);
       const moving = speed > 0.15;
@@ -205,12 +325,16 @@ class Maze extends Component {
       if (moving) {
         rat.phase += dt * (10 + speed * 6);
         bob = Math.abs(Math.sin(rat.phase)) * 0.025;
-      } else if (field.distance(p) < 1.5) {
+      } else if (lift[i]! > 0) {
+        // Pressed in the pile, paws up on the rat in front.
+        rat.phase += dt * 9;
+        pitch = -14 + Math.sin(rat.phase + i) * 5;
+      } else if (field.distance(v3(px, 0.25, pz)) < 1.5) {
         // At the cheese: nibbling.
         rat.phase += dt * 14;
         pitch = 18 + Math.sin(rat.phase) * 8;
       }
-      rat.root.transform.position = v3(p.x, bob, p.z);
+      rat.root.transform.position = v3(px, bob + lift[i]!, pz);
       rat.root.transform.rotation = Quaternion.euler(pitch, rat.yaw, 0);
       rat.root.transform.localScale = v3(1.5, 1.5, 1.5);
     }
@@ -220,10 +344,10 @@ class Maze extends Component {
       this.cheeseObj.transform.rotation = Quaternion.euler(0, this.t * 25, 0);
     }
     if (this.gateObj !== null) {
-      const gh = gateShut ? WALL_HEIGHT : 0;
-      this.gateObj.transform.localScale = gateShut
-        ? v3((GATE[2]! - GATE[0]! + 1) * CELL, gh, (GATE[3]! - GATE[1]! + 1) * CELL)
-        : v3(0, 0, 0);
+      // Open: gone. Half height: a low wall the rats can pile up at. Shut: a full wall.
+      const gh = GATE_HEIGHTS[gateMode]!;
+      this.gateObj.transform.position = v3(this.gateObj.transform.position.x, gh / 2, this.gateObj.transform.position.z);
+      this.gateObj.transform.localScale = gateMode > 0 ? v3((GATE[2]! - GATE[0]! + 1) * CELL, gh, (GATE[3]! - GATE[1]! + 1) * CELL) : v3(0, 0, 0);
     }
 
     // The flow field as short arrows, one per cell.
@@ -278,9 +402,11 @@ function Hud() {
         }}
       >
         <text style={{ color: "#e8eefc", fontSize: 16, fontWeight: 700 }}>
-          {crowd.count} rats · gate {gateShut ? "shut" : "open"}
+          {crowd.count} rats · gate {GATE_NAMES[gateMode]}
+          {gateMode === 1 ? (pileUp ? " · piling up and climbing (" + climbed + " over)" : " · queuing") : ""}
         </text>
-        <text style={hint}>Click: move the cheese · B: gate · G: flow field · Space: +50 rats</text>
+        <text style={hint}>Click: move the cheese · B: gate (open, half height, shut) · P: pile up and climb</text>
+        <text style={hint}>G: flow field · Space: +50 rats</text>
         <text style={hint}>A/D orbit · W/S or wheel zoom</text>
       </box>
     </box>

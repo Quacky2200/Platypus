@@ -292,7 +292,21 @@ impl Crowd {
         }
 
         for (i, v) in next_v.into_iter().enumerate() {
-            let p = self.positions[i];
+            let mut p = self.positions[i];
+            // An agent standing in a blocked cell (a gate closed on it, a wall that moved) would be
+            // stuck for good, so it is put on the nearest free cell first.
+            let here = grid.world_to_cell(p);
+            if grid.is_blocked(here)
+                && let Some(free) = grid.nearest_free(here, 4)
+            {
+                let mut c = grid.cell_to_world(free);
+                if free.y == here.y {
+                    c.y = p.y;
+                }
+                p = c;
+                self.positions[i] = p;
+                self.velocities[i] = Vec3::ZERO;
+            }
             let mut np = p + v * dt;
             let mut v = v;
             if grid.is_blocked(grid.world_to_cell(np)) {
@@ -470,6 +484,32 @@ mod tests {
             }
         }
         assert!(closest > 0.15, "two agents ended {closest} apart");
+    }
+
+    // AI-48
+    #[test]
+    fn an_agent_caught_in_a_blocked_cell_is_put_back_on_free_ground() {
+        let mut g = floor(12, 8);
+        let f = FlowField::build(&g, &[IVec3::new(10, 0, 4)]);
+        let mut crowd = Crowd::new(0.2);
+        crowd.add(Vec3::new(5.5, 0.5, 4.5), 2.0);
+        crowd.add(Vec3::new(2.5, 0.5, 2.5), 2.0);
+        // A gate closes on the first agent.
+        g.set_blocked(IVec3::new(5, 0, 4), true);
+        crowd.step(&f, &g, 1.0 / 30.0);
+        for p in &crowd.positions {
+            assert!(!g.is_blocked(g.world_to_cell(*p)), "still stuck at {p:?}");
+        }
+        // It keeps its height and, left alone, goes on to the goal.
+        assert_eq!(crowd.positions[0].y, 0.5);
+        for _ in 0..900 {
+            crowd.step(&f, &g, 1.0 / 30.0);
+        }
+        assert!(
+            f.distance(crowd.positions[0]) < 1.5,
+            "ended at {:?}",
+            crowd.positions[0]
+        );
     }
 
     // AI-47

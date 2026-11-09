@@ -12,12 +12,30 @@ spread through the gaps instead of piling up) and slides them along walls.
 | Key | |
 |---|---|
 | Click the floor | Move the cheese (the field is rebuilt) |
-| B | Shut or open the gate in the middle wall: the field is rebuilt, and the rats take the long way round |
+| B | Cycle the gate in the middle wall: open, half height, shut |
+| P | With a half-height gate: pile up and climb (on) or just queue (off) |
 | G | Show the flow field as arrows (drawn with `Gizmos`) |
 | Space | Add 50 rats (up to 800) |
 | A / D (or arrows) | Orbit; W / S or the wheel zoom |
 
 Rats that reach the cheese stop and nibble.
+
+## The gate
+
+The gate is the only way through the middle wall, so the flow field always routes through it: it is built on a
+second grid where the gate never blocks, while the rats walk on a grid where a half-height or shut gate is solid.
+The rats therefore always head for the gate and press against it when it is closed.
+
+- **Open:** they stream through.
+- **Half height, pile up on (P):** rats pressed against the gate heap into a ramp (each lifted by how many are in
+  front of it). Once five are pressing on it the one on top scrambles over, nose up, about four a second, and
+  carries on to the cheese on the far side. The overlay counts how many have climbed over.
+- **Half height, pile up off:** they queue at the low wall and stay there.
+- **Shut:** a full wall nobody can climb: they pile up against it, flat.
+
+Closing the gate on a rat mid-crossing is safe: `Crowd.step` moves any agent standing in a blocked cell onto the
+nearest free one (`AI-48`), so nothing is left stuck inside the gate. A climbing rat is drawn by the script along an
+arc and put down on the far side with `crowd.setPosition`.
 
 APIs used: `NavGrid`, `FlowField` (`direction`, `distance`, `rebuild`), `Crowd` (`add`, `step`, `position`,
 `velocity`, `count`), `Gizmos`, `GameObject` / `MeshRenderer` / `Light` / `Camera`, and a React overlay.

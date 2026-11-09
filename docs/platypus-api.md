@@ -463,7 +463,9 @@ the script side:
   within twice `radius` (a spatial hash, so a step is linear in the number of agents), stops within
   `setGoalRadius` of the goal and slides along blocked cells. `add(p, speed)`, `remove(i)` (the last agent takes
   the gap), `step(dt)`, `positions()` (flat x, y, z for all agents in one call), `position(i)`, `velocity(i)`,
-  `count`, `setField`, `setSeparation`. `examples/rats` is a maze of 300 to 800 rats. Tests `AI-40`..`47` (Rust),
+  `setPosition(i, p)` (put an agent down somewhere and stop it, e.g. after a climb), `count`, `setField`,
+  `setSeparation`. An agent found standing in a blocked cell (a gate closed on it) is moved to the nearest free
+  cell at the start of the step, so a changing grid never leaves agents stuck. `examples/rats` is a maze of 300 to 800 rats. Tests `AI-40`..`47` (Rust),
   `AI-26` (script API).
 
 ## Fog, light shafts and exposure in native games (2026-10-21)

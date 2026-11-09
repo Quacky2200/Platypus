@@ -541,6 +541,17 @@ pub mod crowd_api {
                 .map_or(V3::ZERO, v3_of)
         }
 
+        /// Puts an agent at a world point and stops it there (carrying it over a barrier it climbed).
+        pub fn set_position(self, index: f64, p: V3) {
+            with_crowd(self, |e| {
+                let i = index as usize;
+                if i < e.crowd.positions.len() {
+                    e.crowd.positions[i] = vec(p);
+                    e.crowd.velocities[i] = Vec3::ZERO;
+                }
+            });
+        }
+
         /// One agent's velocity.
         pub fn velocity(self, index: f64) -> V3 {
             with_crowd(self, |e| e.crowd.velocities.get(index as usize).copied())
@@ -742,6 +753,9 @@ mod tests {
             assert!(!grid.is_blocked(grid.world_to_cell(p)));
             assert!(field.distance(p) < 5.0, "agent {i} stuck at {p:?}");
         }
+        crowd.set_position(1.0, v3(5.5, 0.5, 5.5));
+        assert_eq!(crowd.position(1.0), v3(5.5, 0.5, 5.5));
+        assert_eq!(crowd.velocity(1.0), V3::ZERO);
         crowd.remove(0.0);
         assert_eq!(crowd.count(), 11.0);
         // Moving the goal and rebuilding changes the field.
