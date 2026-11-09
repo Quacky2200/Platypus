@@ -433,7 +433,7 @@ class Villager {
         const [tx, tz] = PLACES[next.slice(3) as Place].stand;
         // A new walk: find the route over the village (round buildings, along the roads).
         if (this.pathTo !== next) {
-          this.path = grid.findPath(v3(this.x, 0.25, this.z), v3(tx, 0.25, tz), false);
+          this.path = grid.findPath(v3(this.x, 0.25, this.z), v3(tx, 0.25, tz), true);
           if (this.path.length === 0) this.path = [v3(tx, 0.25, tz)];
           this.pathIdx = 0;
           this.pathTo = next;

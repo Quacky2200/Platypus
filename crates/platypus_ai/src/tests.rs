@@ -169,3 +169,22 @@ fn an_agent_follows_a_path_around_a_wall_to_the_end() {
     assert!(follower.finished());
     assert!((a.position - to).length() < 0.5);
 }
+
+// AI-56
+#[test]
+fn smoothing_does_not_cut_a_road_across_dear_grass() {
+    // Cells are 1 m; a cheap strip along z=0 and x=9 (an L), grass (weight 4) elsewhere.
+    let mut g = NavGrid::new(IVec3::new(10, 1, 10), Vec3::ZERO, 1.0);
+    for x in 0..10 {
+        for z in 0..10 {
+            if z != 0 && x != 9 {
+                g.set_weight(IVec3::new(x, 0, z), 4.0);
+            }
+        }
+    }
+    let pts = g
+        .find_path(Vec3::new(0.5, 0.5, 0.5), Vec3::new(9.5, 0.5, 9.5), true)
+        .unwrap();
+    // The corner of the L stays a waypoint instead of the diagonal over grass.
+    assert!(pts.iter().any(|p| (p.x - 9.5).abs() < 0.6 && p.z < 1.6));
+}

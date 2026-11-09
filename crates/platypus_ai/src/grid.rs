@@ -257,7 +257,21 @@ impl NavGrid {
         !self.is_blocked(end)
     }
 
-    /// Drops every waypoint the one before it can already see past (string pulling).
+    /// Cost of walking the straight segment a to b, sampling cell weights twice per cell.
+    fn segment_cost(&self, a: Vec3, b: Vec3) -> f32 {
+        let len = a.distance(b);
+        let n = ((len / self.cell_size) * 2.0).ceil().max(1.0) as usize;
+        let mut sum = 0.0;
+        for k in 0..n {
+            let p = a.lerp(b, (k as f32 + 0.5) / n as f32);
+            sum += self.weight(self.world_to_cell(p));
+        }
+        len * sum / n as f32
+    }
+
+    /// Drops every waypoint the one before it can already see past (string pulling), but only
+    /// where the straight line is no dearer than the path it replaces, so a road is not cut
+    /// across grass.
     pub fn smooth(&self, pts: &[Vec3]) -> Vec<Vec3> {
         if pts.len() < 3 {
             return pts.to_vec();
@@ -266,7 +280,11 @@ impl NavGrid {
         let mut anchor = 0;
         let mut i = 2;
         while i < pts.len() {
-            if !self.line_of_sight(pts[anchor], pts[i]) {
+            let along: f32 = (anchor..i)
+                .map(|k| self.segment_cost(pts[k], pts[k + 1]))
+                .sum();
+            let direct = self.segment_cost(pts[anchor], pts[i]);
+            if !self.line_of_sight(pts[anchor], pts[i]) || direct > along * 1.02 {
                 anchor = i - 1;
                 out.push(pts[anchor]);
             }
