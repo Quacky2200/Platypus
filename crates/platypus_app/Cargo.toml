@@ -51,7 +51,7 @@ platypus_pack = { path = "../platypus_pack" }
 platypus_net = { path = "../platypus_net", default-features = false }
 platypus_net_quic = { path = "../platypus_net_quic" }
 # The `Steam` namespace's real backend (app id, rich presence, achievements, lobbies).
-platypus_steam = { path = "../platypus_steam" }
+platypus_steam = { path = "../platypus_steam", optional = true }
 gltf = { version = "1.4.1", default-features = false, features = ["utils", "names", "KHR_materials_unlit", "KHR_materials_emissive_strength"] }
 # FBX models (`models_fbx.rs`): bindings to the ufbx C loader (MIT OR Unlicense), built with `cc`.
 ufbx = "0.11"
@@ -60,7 +60,11 @@ ufbx = "0.11"
 # ANGLE linked into the program (Windows), not loaded from libEGL.dll: see web_ui_render_gles.
 # On by default (it needs libclang to build: `LIBCLANG_PATH`); `--no-default-features` leaves it
 # out. Off Windows it does nothing.
-default = ["static-angle", "net-debug"]
+default = ["static-angle", "net-debug", "steam"]
+# Steam (`project.json` `steam`, the script `Steam` namespace). On Windows its DLL is delay-loaded
+# (build.rs) and probed before use, so a missing `steam_api64.dll` or a game without `steam` leaves
+# Steam off and the game runs; `--no-default-features` leaves Steam out of the exe entirely.
+steam = ["dep:platypus_steam"]
 # Network fault injection for `Network.debugConditions` (debug and tests; see platypus_net).
 net-debug = ["platypus_net/net-debug", "platypus_engine_api/net-debug"]
 static-angle = ["web_ui_render_gles/static-angle"]

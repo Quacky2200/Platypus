@@ -31,6 +31,21 @@ fn main() {
             println!("cargo:rustc-link-arg-bins=-Wl,--stack,16777216");
         }
     }
+    // Steam's DLL is loaded on the first Steam call, not at start-up: a missing steam_api64.dll
+    // then only keeps Steam off (steam_host.rs probes for it) instead of stopping the program.
+    if msvc && std::env::var_os("CARGO_FEATURE_STEAM").is_some() {
+        println!("cargo:rustc-link-arg-bins=delayimp.lib");
+        println!("cargo:rustc-link-arg-bins=/DELAYLOAD:steam_api64.dll");
+    }
+    // Linux and macOS have no delay-load: libsteam_api is a start-up dependency there, looked for
+    // beside the program (a game that uses `steam` ships it next to the exe).
+    if std::env::var_os("CARGO_FEATURE_STEAM").is_some() {
+        match target.as_str() {
+            "linux" => println!("cargo:rustc-link-arg-bins=-Wl,-rpath,$ORIGIN"),
+            "macos" => println!("cargo:rustc-link-arg-bins=-Wl,-rpath,@executable_path"),
+            _ => {}
+        }
+    }
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=../../resources/icon/icon.png");
 

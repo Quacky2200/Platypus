@@ -1862,9 +1862,12 @@ Design: `docs/research/multiplayer.md` (Fusion / Fish-Net / Lightyear inspired, 
   - [x] `examples/steam` (buttons; inert until `project.json` has your own app id). Checked 2026-11-09 against the real client as
     app 400: connect, user, rich presence work; lobby creation was refused ("access denied", not our app)
   - [ ] Needs the owner's own Steam app id: achievements, lobbies (create / search / join) checked for real (`M8-STM-08`)
-  - [ ] **`steam_api64.dll` is a load-time dependency of `platypus-app` now** (found by `cargo run` through cargo's PATH only): a
-    standalone exe, and every packaged game, fails to start without it beside the exe. Decide: a `steam` cargo feature (off by
-    default), shipping the dll, or loading it at run time
+  - [x] The `steam` cargo feature of `platypus_app` (default on; `--no-default-features` leaves it out). Windows delay-loads
+    `steam_api64.dll` (`build.rs`: `/DELAYLOAD`) and `steam_host.rs` probes for it, so a missing dll or a game without
+    `steam.appId` leaves Steam off and the game runs (checked 2026-11-09: exe without the dll starts, a steam-configured game warns
+    once). Linux / macOS can't delay-load: `libsteam_api.so` / `.dylib` is a start-up dependency there (rpath `$ORIGIN` /
+    `@executable_path` set), **untested**; to make them inert when missing, load the library at run time or build without the feature
+  - [ ] `platypus-build package` copies the Steam library beside the exe for games with `steam.appId` (none yet), per platform
   - [ ] A Steam relay `Transport` for `platypus_net` (`steamworks` networking sockets), lobby chat and invites (`connect` rich
     presence), Valve SDK licence for shipping (see `tables.rs`)
 - [ ] **M8.g** Tools: editor network panel, server metrics
