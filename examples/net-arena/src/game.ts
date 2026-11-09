@@ -569,6 +569,18 @@ export class Arena extends Component {
   private endKillcam() {
     if (this.verbose) console.log("[net client] killcam over");
     this.replay = null;
+    // The scene was moved by the tape, not by the network: the live positions are not where the
+    // figures were last frame, and measured as a speed that jump would be a sprint. Start the
+    // speeds over so nobody (the respawned player included) runs on the spot.
+    for (const v of this.views.values()) {
+      v.lastShown = undefined;
+      v.speed = 0;
+      v.animator?.setFloat("speed", 0);
+      // (The replay hid those that were dead then; `updateFalls` hides again whoever is dead now.)
+      if (v.kind === 0) v.go.enabled = true;
+    }
+    this.prevPos = null;
+    this.speedNow = 0;
     hud.killcam = "";
     hud.killcamAt = 0;
   }
@@ -581,9 +593,14 @@ export class Arena extends Component {
   private playReplay(dt: number) {
     const r = this.replay;
     if (!r) return;
-    r.clock += dt;
-    const t = r.from + Math.min(r.clock, r.length);
-    hud.killcamAt = Math.min(1, r.clock / r.length);
+    // Real time to begin with, then slower and slower towards the moment of death, so the last
+    // second is seen in slow motion (and the replay does not run out before it is over).
+    const progress = clamp(r.clock / r.length, 0, 1);
+    const slow = clamp((progress - 0.55) / 0.45, 0, 1);
+    const rate = 1 - 0.85 * slow * slow * (3 - 2 * slow);
+    r.clock = Math.min(r.length, r.clock + dt * rate);
+    const t = r.from + r.clock;
+    hud.killcamAt = r.clock / r.length;
     const at = this.tape.around(t);
     if (!at) return;
     const { a, b, k } = at;
@@ -1122,7 +1139,12 @@ export class Arena extends Component {
       const fwd = new Vector3(Math.sin(r) * Math.cos(p), Math.sin(p), Math.cos(r) * Math.cos(p));
       const across = new Vector3(-Math.cos(r), 0, Math.sin(r));
       v.torch.transform.rotation = Quaternion.angleAxis((p * 180) / Math.PI, across).mul(Quaternion.euler(0, deg, 0)).mul(Quaternion.euler(0, -90, 0));
-      v.torch.transform.position = v.hand.transform.position.add(fwd.scale(0.04)).add(new Vector3(0, -0.02, 0));
+      // The grip is the middle of the palm: a little way from the wrist along the fingers (the hand
+      // bone's x axis, down when the arm hangs), with the torch's handle through it and its head
+      // out in front. At the wrist the torch floated beside the hand.
+      const fingers = v.hand.transform.rotation.rotate(new Vector3(1, 0, 0));
+      const palm = v.hand.transform.position.add(fingers.scale(0.05));
+      v.torch.transform.position = palm.add(fwd.scale(0.02));
       v.lens = v.torch.transform.position.add(fwd.scale(0.22));
     }
   }
@@ -1216,6 +1238,9 @@ export class Arena extends Component {
   private resetPrediction(at: Vector3) {
     this.pred = { x: at.x, y: at.y, z: at.z, vy: 0 };
     this.prevPred = null;
+    // A teleport is not a run: the jump in position must not be measured as a speed.
+    this.prevPos = null;
+    this.speedNow = 0;
     this.pending = [];
     this.errOffset = new Vector3(0, 0, 0);
     this.acc = 0;
