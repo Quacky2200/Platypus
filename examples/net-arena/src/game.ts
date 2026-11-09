@@ -1407,7 +1407,10 @@ export class Arena extends Component {
     // The arm is raised while the trigger is held and a moment after each shot (`--aim` holds it up).
     this.aimPitch = this.holdAim ? this.holdPitch : shot.pitch;
     this.pointing = firing || Time.time - this.fireAt < 0.4 || this.holdAim;
-    if (firing) this.facing = Math.PI - (aim * Math.PI) / 180;
+    // A bot's body faces where its brain looks (not where it steps: it strafes at what it fights,
+    // and could never have turned to fire if it only faced its step); a player's, where it shoots or runs.
+    if (think) this.facing = Math.PI - (think.yaw * Math.PI) / 180;
+    else if (firing) this.facing = Math.PI - (aim * Math.PI) / 180;
     else if (moving) this.facing = Math.atan2(dir.x, dir.z);
     let d = this.facing - ((this.facingDeg * Math.PI) / 180);
     d = Math.atan2(Math.sin(d), Math.cos(d));

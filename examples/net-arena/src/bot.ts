@@ -21,6 +21,14 @@ import { solidReach } from "./move";
 const SIGHT = 13;
 /** A shot this close is heard. */
 const HEARING = 26;
+/** The cone a bot sees in, in degrees across (what is outside it is not seen, until the bot turns). */
+const FOV = 120;
+/** Anyone this close is noticed whichever way the bot faces (it hears the footsteps). */
+const NOTICE = 2.5;
+/** How fast a bot turns, degrees a second: it has to turn to what it heard or what is behind it. */
+const TURN = 260;
+/** A bot fires once its aim is this close to the target (degrees). */
+const FIRE_CONE = 10;
 const REACTION = 0.6;
 const AIM_ERROR = 5;
 /** Seconds a bot remembers where it last saw someone. */
@@ -58,6 +66,11 @@ function onGrid(p: Vector3): Vector3 {
   return new Vector3(p.x, 0.5, p.z);
 }
 
+/** The turn from heading `from` to heading `to`, in degrees, the short way round (-180 to 180). */
+function angleDiff(to: number, from: number): number {
+  return ((((to - from) % 360) + 540) % 360) - 180;
+}
+
 function headingOf(d: Vector3): number {
   return (Math.atan2(d.x, -d.z) * 180) / Math.PI;
 }
@@ -86,6 +99,8 @@ export class BotBrain {
   private jitterAt = 0;
   private blockedUntil = 0;
   private lastYaw = 0;
+  /** Where the bot faces, degrees (0 faces -z): it sees in a cone round this and turns at `TURN`. */
+  private heading = 0;
 
   constructor() {
     this.grid = new NavGrid(new Vector3(CELLS, 1, CELLS), new Vector3(-BOUND, 0, -BOUND), 1);
@@ -169,12 +184,17 @@ export class BotBrain {
 
   /** One frame of thinking for a bot standing at `me` with `hp` health. */
   think(me: Vector3, hp: number, others: Contact[], dt: number, now: number): Think {
-    // Senses: the nearest character inside sight with nothing between.
+    // Senses: the nearest character inside sight, inside the cone it faces (or close enough to
+    // hear), with nothing between.
     let target: Vector3 | null = null;
     let dist = 99;
+    const look = (this.heading * Math.PI) / 180;
+    const cosHalf = Math.cos((FOV / 2) * (Math.PI / 180));
     for (const o of others) {
-      const d = flat(o.pos.sub(me)).magnitude;
-      if (d < SIGHT && d < dist && this.clear(me, o.pos, now)) {
+      const to = flat(o.pos.sub(me));
+      const d = to.magnitude;
+      const seen = d < NOTICE || (d > 0.01 && (to.x * Math.sin(look) - to.z * Math.cos(look)) / d > cosHalf);
+      if (seen && d < SIGHT && d < dist && this.clear(me, o.pos, now)) {
         dist = d;
         target = o.pos;
       }
@@ -206,10 +226,14 @@ export class BotBrain {
 
     let dir = new Vector3(0, 0, 0);
     let run = false;
-    // Standing still keeps looking the way it did.
-    let yaw = this.lastYaw;
+    // Where it wants to look: ahead of where it goes, at its target, or towards where it last
+    // saw or heard someone; the heading turns towards it at `TURN`, so a bot must turn before it
+    // can see or shoot what is beside or behind it.
+    let want = this.heading;
     let fire = false;
     const known = this.known;
+    // Hunting, even without a clear view: look where they were.
+    if (known && hasTarget) want = headingOf(flat(known.sub(me)));
     if (this.mode === "fight" && target) {
       const toT = flat(target.sub(me));
       const dirT = toT.normalized;
@@ -228,12 +252,13 @@ export class BotBrain {
         const spread = AIM_ERROR * (0.5 + dist / SIGHT);
         this.jitter = Random.range(-spread, spread);
       }
-      yaw = headingOf(toT) + this.jitter;
-      fire = this.seenFor > REACTION && Math.sin(now * 2.3) > 0.3;
+      want = headingOf(toT);
+      // It shoots once the turn has brought its aim to the target, and not before it has reacted.
+      const off = Math.abs(angleDiff(want, this.heading));
+      fire = this.seenFor > REACTION && off < FIRE_CONE && Math.sin(now * 2.3) > 0.3;
     } else if (this.mode === "chase" && known) {
       dir = this.walkTo(me, known, now);
       run = true;
-      if (dir.magnitude > 0.01) yaw = headingOf(dir);
     } else if (this.mode === "takeCover" && known) {
       if (!this.cover || now - this.coverAt > 1) {
         this.coverAt = now;
@@ -243,10 +268,10 @@ export class BotBrain {
         dir = this.walkTo(me, this.cover, now);
         run = true;
       }
-      if (dir.magnitude > 0.01) yaw = headingOf(dir);
+      // Running for cover, it looks where it runs (not at the one it flees).
+      if (dir.magnitude > 0.01) want = headingOf(dir);
     } else if (this.mode === "recover" || this.mode === "takeCover") {
-      // Wait it out, turned towards where they will come from (or as it was, with no one in mind).
-      if (known) yaw = headingOf(flat(known.sub(me)));
+      // Wait it out, turned towards where they will come from (as `want` already is).
     } else {
       // Patrol: spot to spot.
       const here = this.patrolTo ? flat(this.patrolTo.sub(me)).magnitude : 0;
@@ -255,7 +280,7 @@ export class BotBrain {
         this.patrolAt = now;
       }
       dir = this.walkTo(me, this.patrolTo, now);
-      if (dir.magnitude > 0.01) yaw = headingOf(dir);
+      if (dir.magnitude > 0.01) want = headingOf(dir);
     }
     // Crowding: step away from anyone within two metres, so bots spread out rather than stack up.
     for (const o of others) {
@@ -263,6 +288,11 @@ export class BotBrain {
       const d = away.magnitude;
       if (d < 2 && d > 0.01) dir = dir.add(away.normalized.scale((2 - d) * 0.75));
     }
+    // Turn, at a limited speed.
+    const turn = Math.max(-TURN * dt, Math.min(TURN * dt, angleDiff(want, this.heading)));
+    this.heading += turn;
+    // What it aims along is where it faces (with its aim error while it fights).
+    const yaw = this.mode === "fight" && target ? this.heading + this.jitter : this.heading;
     this.lastYaw = yaw;
     return { dir, yaw, fire, run, dist };
   }
