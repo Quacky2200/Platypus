@@ -13,7 +13,7 @@
 
 import { BOUND, WHITE, applyLook, buildMap, makeProp, setFog, updateLasers } from "./map";
 import type { Laser, MapInfo } from "./map";
-import { STEP, copyState, decodeInputs, encodeInput, grounded, makeInput, shotHitsPlayer, step } from "./move";
+import { STEP, copyState, decodeInputs, encodeInput, grounded, makeInput, shotHitsPlayer, solidReach, step } from "./move";
 import type { MoveInput, MoveState } from "./move";
 import { Tape, blendAngle } from "./killcam";
 import type { PlayerFrame, PropFrame } from "./killcam";
@@ -864,6 +864,14 @@ export class Arena extends Component {
     // A shot is stopped by the scenery, not by the pushers standing on the players (layer 8).
     const wall = Physics.raycast(origin, dir, 60, 4294967295 - 256);
     let reach = wall ? wall.distance : 60;
+    // The map's own word on houses and cars too (the horizontal part of the shot): a ray that slips
+    // past a collider's edge must not let a beam through a house.
+    const farEnd = origin.add(dir.scale(60));
+    const solid = solidReach(origin, farEnd);
+    if (solid >= 0 && solid / Math.max(level, 0.02) < reach - 0.05) {
+      if (this.verbose) console.log(`[net server] the physics ray missed a solid: wall=${wall ? wall.distance : -1}, solid=${solid / level}`);
+      reach = solid / Math.max(level, 0.02);
+    }
     let victim: ServerPlayer | null = null;
     for (const o of this.players.values()) {
       if (o === shooter || !Network.getBool(o.net, "alive") || Network.getBool(o.net, "shield")) continue;
@@ -1390,7 +1398,9 @@ export class Arena extends Component {
     const moved = this.speedNow < 0.15 ? 0 : this.speedNow;
 
     // Face where it runs, or where it shoots.
-    const firing = alive && (think ? think.fire : input.getMouseButton(0) || input.getKey("KeyF"));
+    // A bot shoots once its body has turned to what it shoots at (not while still facing away).
+    const turned = !think || Math.abs((((180 - think.yaw - this.facingDeg) % 360) + 540) % 360 - 180) < 40;
+    const firing = alive && (think ? think.fire && turned : input.getMouseButton(0) || input.getKey("KeyF"));
     // The mannequin model faces +z, so its body turn is 180 - heading when it aims.
     const shot: Aim = firing && !this.bot ? this.aimAt(after) : { yaw: this.yaw, pitch: 0 };
     const aim = shot.yaw;

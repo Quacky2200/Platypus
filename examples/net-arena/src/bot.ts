@@ -15,6 +15,7 @@
 // well inside the fog) or heard (a shot within BOT_HEARING).
 
 import { BOUND, SOLIDS } from "./map";
+import { solidReach } from "./move";
 
 /** Shoots and notices only this close: the fog hides a bot's target past 22 m, so a player sees a bot first. */
 const SIGHT = 13;
@@ -127,6 +128,8 @@ export class BotBrain {
   /** Whether a bot at `a` sees `b`: nothing solid between them (the server's ray, eye to chest). */
   private clear(a: Vector3, b: Vector3, now: number): boolean {
     if (now < this.blockedUntil) return false;
+    // The map's houses and cars first (a physics ray can slip past a collider's edge).
+    if (solidReach(a, b) >= 0) return false;
     const eye = a.add(new Vector3(0, 1.3, 0));
     const to = b.add(new Vector3(0, 1.1, 0)).sub(eye);
     const dist = to.magnitude;

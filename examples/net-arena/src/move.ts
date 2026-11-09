@@ -131,6 +131,50 @@ export function shotHitsPlayer(origin: Vector3, flat: Vector3, rise: number, fee
   return y < feet.y - 0.05 || y > feet.y + 1.85 ? -1 : d;
 }
 
+/**
+ * How far along the segment from `a` towards `b` (in the ground plane) the first house or parked
+ * car is entered, or -1 when the segment crosses none (a slab test against each footprint). The
+ * map's own check for what the physics rays should have found: walls stop shots and sight, and a
+ * ray that slipped through a collider's edge must not let a bot see or shoot through a house.
+ */
+export function solidReach(a: Vector3, b: Vector3): number {
+  const dx = b.x - a.x;
+  const dz = b.z - a.z;
+  const len = Math.hypot(dx, dz);
+  if (len < 1e-6) return -1;
+  let best = -1;
+  for (const o of SOLIDS) {
+    let t0 = 0;
+    let t1 = 1;
+    let hit = true;
+    // x slab, then z slab: the part of the segment inside both.
+    for (let axis = 0; axis < 2; axis++) {
+      const start = axis === 0 ? a.x : a.z;
+      const delta = axis === 0 ? dx : dz;
+      const lo = (axis === 0 ? o.x - o.hx : o.z - o.hz) - start;
+      const hi = (axis === 0 ? o.x + o.hx : o.z + o.hz) - start;
+      if (Math.abs(delta) < 1e-9) {
+        if (lo > 0 || hi < 0) hit = false;
+      } else {
+        let u0 = lo / delta;
+        let u1 = hi / delta;
+        if (u0 > u1) {
+          const swap = u0;
+          u0 = u1;
+          u1 = swap;
+        }
+        t0 = Math.max(t0, u0);
+        t1 = Math.min(t1, u1);
+      }
+    }
+    if (hit && t0 <= t1) {
+      const d = t0 * len;
+      if (best < 0 || d < best) best = d;
+    }
+  }
+  return best;
+}
+
 /** Whether the state is standing on the ground. */
 export function grounded(s: MoveState): boolean {
   return s.y <= 0.001 && s.vy <= 0;
