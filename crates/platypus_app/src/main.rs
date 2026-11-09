@@ -1730,6 +1730,18 @@ impl App {
         }
     }
 
+    /// Lets the cursor go and shows it: when the window loses focus and when the app closes, so a
+    /// game that locked the cursor never leaves it hidden or confined.
+    fn release_cursor(&mut self) {
+        let Some(window) = self.main_window() else {
+            return;
+        };
+        if let Err(e) = window.set_cursor_grab(platypus_platform::CursorGrabMode::None) {
+            tracing::debug!("cursor release: {e}");
+        }
+        window.set_cursor_visible(true);
+    }
+
     /// Shows the hovered element's cursor: its first image that loads, else its keyword.
     /// Where the UI asks for nothing special, scripts' `Cursor` image is the default.
     fn update_cursor(&mut self) {
@@ -2118,7 +2130,11 @@ impl PlatformApp for App {
     }
 
     fn close_requested(&mut self, key: platypus_platform::WindowKey) -> bool {
-        self.window_close_requested(key)
+        let closing = self.window_close_requested(key);
+        if closing {
+            self.release_cursor();
+        }
+        closing
     }
 
     fn window_closed(&mut self, key: platypus_platform::WindowKey) {
@@ -2127,6 +2143,10 @@ impl PlatformApp for App {
 
     fn events_done(&mut self) {
         self.window_events_done();
+        // Runs just before `should_exit` is asked: a game quitting by itself lets the cursor go too.
+        if self.done {
+            self.release_cursor();
+        }
     }
 
     fn take_windows_to_show(&mut self) -> Vec<platypus_platform::WindowKey> {
@@ -2278,9 +2298,11 @@ impl PlatformApp for App {
         }
         if let InputEvent::Focused(focused) = event {
             self.focused = focused;
-            // Grabs are let go while the window is in the background.
+            // Grabs are let go while the window is in the background, and taken again on return.
             if focused {
                 self.apply_cursor_lock();
+            } else {
+                self.release_cursor();
             }
         }
         if let InputEvent::MouseMotion { .. } = event {

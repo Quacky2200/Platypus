@@ -20,6 +20,14 @@ import {
 
 const SEP = "\u001f";
 /** Network classes by their order in `defineNetwork`. */
+// Bots: they shoot only within BOT_SIGHT metres (the fog hides things past 22 m, so a player
+// sees a bot well before it can hit them), react after BOT_REACTION seconds in view, miss by up to
+// BOT_AIM_ERROR degrees, and keep BOT_KEEP_OFF metres from the player they are fighting.
+const BOT_SIGHT = 13;
+const BOT_REACTION = 0.6;
+const BOT_AIM_ERROR = 5;
+const BOT_KEEP_OFF = 6;
+
 const PLAYER = 0;
 const PROP = 1;
 const MATCH = 2;
@@ -118,6 +126,9 @@ interface View {
   lastPos: Vector3;
   shown: Vector3;
   /** The flashlight's pivot, the hand bone it follows, and where its lens is in the world. */
+  lastShown?: Vector3;
+  speed?: number;
+  fall?: number;
   torch?: GameObject;
   hand?: GameObject;
   lens?: Vector3;
@@ -155,6 +166,10 @@ export class Arena extends Component {
   private yaw = 0;
   private pitch = 8;
   private airTime = 0;
+  private botSeenFor = 0;
+  private botCanFire = false;
+  private botJitter = 0;
+  private botJitterAt = 0;
   private prevPos: Vector3 | null = null;
   private speedNow = 0;
   private pointerLocked = false;
@@ -261,6 +276,7 @@ export class Arena extends Component {
       this.playingFog = playing;
       setFog(!playing);
     }
+    if (this.mode === "client") this.updateFalls(dt);
     this.alignTorches();
     this.updateBeams();
     // A line a second for logs and tests: who is here and how the network is doing.
@@ -617,7 +633,7 @@ export class Arena extends Component {
     for (const e of events()) this.clientEvent(e);
     if (this.mode !== "client") return;
     if (this.localId !== 0) this.moveLocal(dt);
-    this.updateOthers();
+    this.updateOthers(dt);
     this.fillClientHud();
     this.followCamera(dt);
   }
@@ -834,6 +850,44 @@ export class Arena extends Component {
     }
   }
 
+  /**
+   * A bot's senses. It picks the nearest living player and aims at them with some error, but only
+   * shoots when they are inside its sight (well inside the fog, so a player always sees a bot
+   * before it can hit them), nothing solid is between them, and it has had them in view for a
+   * moment (reaction time).
+   */
+  private botThink(view: View, dt: number) {
+    const me = view.go.transform.position;
+    let best = Infinity;
+    let target: Vector3 | null = null;
+    for (const [id, o] of this.views) {
+      if (o.local || o.kind !== 0 || !Network.getBool(id, "alive")) continue;
+      const d = Math.hypot(o.shown.x - me.x, o.shown.z - me.z);
+      if (d < best) {
+        best = d;
+        target = o.shown;
+      }
+    }
+    this.botDist = best;
+    let sees = false;
+    if (target && best < BOT_SIGHT) {
+      const eye = me.add(new Vector3(0, 1.3, 0));
+      const to = target.add(new Vector3(0, 1.1, 0)).sub(eye);
+      const dist = to.magnitude;
+      const dir = to.normalized;
+      // Start past the bot's own collider.
+      const wall = Physics.raycast(eye.add(dir.scale(0.6)), dir, Math.max(0.1, dist - 0.6));
+      sees = !wall;
+    }
+    this.botSeenFor = sees ? this.botSeenFor + dt : 0;
+    this.botCanFire = this.botSeenFor > BOT_REACTION;
+    if (Time.time > this.botJitterAt) {
+      this.botJitterAt = Time.time + 0.5;
+      this.botJitter = Random.range(-BOT_AIM_ERROR, BOT_AIM_ERROR);
+    }
+    if (target) this.yaw = (Math.atan2(target.x - me.x, -(target.z - me.z)) * 180) / Math.PI + this.botJitter;
+  }
+
   private moveLocal(dt: number) {
     const view = this.views.get(this.localId);
     const cc = this.controller;
@@ -858,23 +912,10 @@ export class Arena extends Component {
     const bt = Time.time;
     // (Camera yaw faces the target, so "forward" walks at it; it strafes while it goes.)
     const x = this.bot ? Math.sin(bt * 1.3 + this.me) * 0.6 : (input.getKey("KeyD") || input.getKey("ArrowRight") ? 1 : 0) - (input.getKey("KeyA") || input.getKey("ArrowLeft") ? 1 : 0);
-    const z = this.bot ? (this.botDist > 6 ? 1 : -0.3) : (input.getKey("KeyW") || input.getKey("ArrowUp") ? 1 : 0) - (input.getKey("KeyS") || input.getKey("ArrowDown") ? 1 : 0);
-    if (this.bot) {
-      // Aim at the nearest other player.
-      let best = Infinity;
-      const me = view.go.transform.position;
-      for (const [id, o] of this.views) {
-        if (o.local || o.kind !== 0 || !Network.getBool(id, "alive")) continue;
-        const dx = o.shown.x - me.x;
-        const dz = o.shown.z - me.z;
-        const d = Math.hypot(dx, dz);
-        if (d < best) {
-          best = d;
-          this.yaw = (Math.atan2(dx, -dz) * 180) / Math.PI;
-        }
-      }
-      this.botDist = best;
-    }
+    // Bots close in until a wide ring round the target (BOT_KEEP_OFF, their stand-in for steering
+    // until the AI crate is ready), back off inside it, and strafe in between.
+    const z = this.bot ? (this.botDist > BOT_KEEP_OFF + 4 ? 1 : this.botDist < BOT_KEEP_OFF ? -0.6 : 0) : (input.getKey("KeyW") || input.getKey("ArrowUp") ? 1 : 0) - (input.getKey("KeyS") || input.getKey("ArrowDown") ? 1 : 0);
+    if (this.bot) this.botThink(view, dt);
     let dir = fwd.scale(z).add(right.scale(x));
     const moving = alive && dir.magnitude > 0.01;
     if (moving) dir = dir.normalized;
@@ -896,7 +937,7 @@ export class Arena extends Component {
     const moved = this.speedNow < 0.15 ? 0 : this.speedNow;
 
     // Face where it runs, or where it shoots.
-    const firing = alive && (this.bot ? Math.sin(bt * 2.3) > 0.3 : input.getMouseButton(0) || input.getKey("KeyF"));
+    const firing = alive && (this.bot ? this.botCanFire && Math.sin(bt * 2.3) > 0.3 : input.getMouseButton(0) || input.getKey("KeyF"));
     // The mannequin model faces +z, so its body turn is 180 - heading when it aims.
     const aim = firing && !this.bot ? this.aimYaw(after) : this.yaw;
     if (firing) this.facing = Math.PI - (aim * Math.PI) / 180;
@@ -926,7 +967,7 @@ export class Arena extends Component {
     }
   }
 
-  private updateOthers() {
+  private updateOthers(dt: number) {
     for (const [id, v] of this.views) {
       if (v.local) continue;
       const pos = Network.getVec3(id, "pos");
@@ -938,12 +979,37 @@ export class Arena extends Component {
         const q = Network.getQuat(id, "rot");
         if (q.length === 4) v.go.transform.rotation = new Quaternion(q[0]!, q[1]!, q[2]!, q[3]!);
       } else {
-        v.go.enabled = Network.getBool(id, "alive");
         if (v.body) v.body.transform.localRotation = Quaternion.euler(0, Network.getNumber(id, "yaw"), 0);
-        v.animator?.setFloat("speed", Network.getNumber(id, "speed"));
+        // Their speed is read off how far they moved on this screen, so the run cycle always
+        // matches what is seen (the owner's own figure is measured the same way in `moveLocal`).
+        const last = v.lastShown ?? v.shown;
+        const raw = new Vector3(v.shown.x - last.x, 0, v.shown.z - last.z).magnitude / Math.max(dt, 1e-4);
+        v.lastShown = v.shown;
+        v.speed = (v.speed ?? 0) + (Math.min(raw, SPRINT + 2) - (v.speed ?? 0)) * Math.min(1, 12 * dt);
+        v.animator?.setFloat("speed", v.speed < 0.15 ? 0 : v.speed);
         // Others have no controller to ask: they are in the air when well above the ground.
         v.animator?.setBool("air", v.shown.y > 0.35);
       }
+    }
+  }
+
+  /**
+   * A player who dies falls flat on their face (no clip for it in the mannequin): the animator
+   * freezes on the last pose and the body tips over; it stands again when they respawn.
+   */
+  private updateFalls(dt: number) {
+    for (const [id, v] of this.views) {
+      if (v.kind !== 0 || !v.body) continue;
+      const alive = Network.getBool(id, "alive");
+      const was = v.fall ?? 0;
+      const k = alive ? 0 : Math.min(1, was + dt * 2.2);
+      if (k === 0 && was === 0) continue;
+      v.fall = k;
+      if (v.animator) v.animator.enabled = k === 0;
+      const deg = v.local ? this.facingDeg : Network.getNumber(id, "yaw");
+      const ease = k * k * (3 - 2 * k);
+      v.body.transform.localRotation = Quaternion.euler(0, deg, 0).mul(Quaternion.euler(90 * ease, 0, 0));
+      v.body.transform.localPosition = new Vector3(0, 0.14 * ease, 0);
     }
   }
 

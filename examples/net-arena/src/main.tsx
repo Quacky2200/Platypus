@@ -17,6 +17,33 @@ const TEXT = "#20242c";
 const SOFT = "#5a6270";
 const PANEL = "rgba(255, 255, 255, 0.72)";
 const RED = "#d8262a";
+// Only the join menu is glass: white, blurring and slightly dimming the town behind it.
+const GLASS = "rgba(255, 255, 255, 0.5)";
+const BLUR = "blur(18px) brightness(0.92)";
+
+/** A text field: a clear border while it has focus. */
+function Field(props: { value: string; onChange: (v: string) => void }) {
+  const [focused, setFocused] = useState(false);
+  return (
+    <input
+      value={props.value}
+      onChange={(e) => props.onChange(e.target.value ?? "")}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      style={{
+        padding: "8px 10px",
+        borderRadius: 6,
+        backgroundColor: "#ffffff",
+        color: TEXT,
+        fontSize: 14,
+        width: 260,
+        borderWidth: 2,
+        borderStyle: "solid",
+        borderColor: focused ? RED : "rgba(32, 36, 44, 0.18)",
+      }}
+    />
+  );
+}
 
 function Button(props: { label: string; onClick: () => void; primary?: boolean; small?: boolean }) {
   return (
@@ -38,7 +65,6 @@ function Button(props: { label: string; onClick: () => void; primary?: boolean; 
 function Menu() {
   const [name, setName] = useState(request.name);
   const [address, setAddress] = useState(request.address);
-  const field = { padding: "8px 10px", borderRadius: 6, backgroundColor: "#ffffff", color: TEXT, fontSize: 14, width: 260 };
   const go = (mode: "server" | "client") => {
     request.name = name.trim() || "Player";
     request.address = address.trim() || "127.0.0.1:7777";
@@ -46,13 +72,13 @@ function Menu() {
   };
   return (
     <box style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}>
-      <box style={{ padding: 28, gap: 12, borderRadius: 14, backgroundColor: PANEL, flexDirection: "column", alignItems: "stretch" }}>
+      <box style={{ padding: 28, gap: 12, borderRadius: 14, backgroundColor: GLASS, backdropFilter: BLUR, flexDirection: "column", alignItems: "stretch" }}>
         <text style={{ color: TEXT, fontSize: 26, fontWeight: 700 }}>Net arena</text>
         <text style={{ color: SOFT, fontSize: 13 }}>A white town, red lasers, and a network you can break.</text>
         <text style={{ color: SOFT, fontSize: 12, marginTop: 8 }}>NAME</text>
-        <input value={name} onChange={(e) => setName(e.target.value ?? "")} style={field} />
+        <Field value={name} onChange={setName} />
         <text style={{ color: SOFT, fontSize: 12 }}>SERVER</text>
-        <input value={address} onChange={(e) => setAddress(e.target.value ?? "")} style={field} />
+        <Field value={address} onChange={setAddress} />
         <box style={{ flexDirection: "row", gap: 10, marginTop: 8 }}>
           <Button primary label="Join" onClick={() => go("client")} />
           <Button label="Host a server here" onClick={() => go("server")} />
