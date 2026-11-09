@@ -116,11 +116,14 @@ struct State {
     /// How deep 2D colliders are along z (`Physics2D.depth`).
     depth_2d: f64,
     gravity_2d: [f64; 2],
+    /// `Physics.snapshot()`s by place (the handle is the place plus one); freed ones are `None`.
+    snapshots: Vec<Option<platypus_physics::Snapshot>>,
 }
 
 impl State {
     fn new() -> Self {
         State {
+            snapshots: Vec::new(),
             physics: Physics::new(),
             next_body: 1,
             next_collider: 1,
@@ -355,6 +358,23 @@ fn step_world() {
             .collect();
         (moves, batch.characters, batch.contacts)
     });
+    write_moves(moves);
+    st(|s| {
+        for (id, g) in grounded_now {
+            if g {
+                s.grounded.insert(id);
+            } else {
+                s.grounded.remove(&id);
+            }
+        }
+        s.contacts.extend(contacts);
+    });
+    comp::after_step();
+}
+
+/// Moves each attached object to where its body is (the world's poses of one step, or of a
+/// restored snapshot) and remembers the pose written, so a later move by a script shows.
+fn write_moves(moves: Vec<(u32, ObjectId, [f32; 3], [f32; 4])>) {
     let written = platypus_scene::api::with_scene(|scene| {
         let mut written = Vec::new();
         for (body, o, p, r) in moves {
@@ -370,17 +390,33 @@ fn step_world() {
     })
     .unwrap_or_default();
     st(|s| s.synced.extend(written));
-    st(|s| {
-        for (id, g) in grounded_now {
-            if g {
-                s.grounded.insert(id);
-            } else {
-                s.grounded.remove(&id);
-            }
-        }
-        s.contacts.extend(contacts);
+}
+
+/// Puts the world back to a snapshot and the objects on their bodies with it. False for a
+/// number that is not a snapshot (never made, or dropped).
+fn restore_world(snapshot: f64) -> bool {
+    let moves = st(|s| {
+        let index = (snapshot as usize).checked_sub(1)?;
+        let snap = s.snapshots.get(index)?.as_ref()?;
+        s.physics.restore(snap);
+        s.hits.clear();
+        s.grounded.clear();
+        let batch = s.physics.take_batch();
+        Some(
+            batch
+                .bodies
+                .iter()
+                .filter_map(|b| Some((b.id, *s.attached.get(&b.id)?, b.position, b.rotation)))
+                .collect::<Vec<_>>(),
+        )
     });
-    comp::after_step();
+    match moves {
+        Some(moves) => {
+            write_moves(moves);
+            true
+        }
+        None => false,
+    }
 }
 
 /// The contacts since the last call, by collider number.
@@ -586,6 +622,53 @@ pub mod physics_api {
     /// Advances the world one fixed tick (the host does this once per tick).
     pub fn step() {
         super::step();
+    }
+
+    /// Remembers the whole physics world as it is: every body's pose, speed and sleep state, the
+    /// colliders, joints and contacts. The number is for `restore` and `dropSnapshot`. A copy of
+    /// memory, quick to make, and not for saving; free the ones you no longer need.
+    pub fn snapshot() -> f64 {
+        st(|s| {
+            let snap = s.physics.snapshot();
+            // Reuse a freed place before growing the list.
+            let index = match s.snapshots.iter().position(Option::is_none) {
+                Some(i) => {
+                    s.snapshots[i] = Some(snap);
+                    i
+                }
+                None => {
+                    s.snapshots.push(Some(snap));
+                    s.snapshots.len() - 1
+                }
+            };
+            (index + 1) as f64
+        })
+    }
+
+    /// Puts the physics world back as it was at a snapshot, and every object that follows a body
+    /// with it: stepping on from here repeats what stepping on from then did, exactly. Bodies made
+    /// since are gone, bodies removed since are back. The snapshot stays (restore it again). False
+    /// if the number is not a snapshot.
+    pub fn restore(snapshot: f64) -> bool {
+        restore_world(snapshot)
+    }
+
+    /// Frees a snapshot.
+    pub fn drop_snapshot(snapshot: f64) {
+        st(|s| {
+            if let Some(slot) = (snapshot as usize)
+                .checked_sub(1)
+                .and_then(|i| s.snapshots.get_mut(i))
+            {
+                *slot = None;
+            }
+        });
+    }
+
+    /// How many snapshots are being kept.
+    #[property]
+    pub fn snapshot_count() -> f64 {
+        st(|s| s.snapshots.iter().filter(|x| x.is_some()).count() as f64)
     }
 
     /// Calls `f` once, after the next physics step (the next fixed tick), then forgets it: what a

@@ -452,7 +452,7 @@ impl Handle for FlowFieldRef {
     }
 }
 
-/// A `Crowd` by number (1-based: 0 is "none").
+/// A `Swarm` (the script name of a `Crowd`) by number (1-based: 0 is "none").
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct CrowdRef(pub u32);
 
@@ -594,8 +594,8 @@ pub mod flow_field_api {
 }
 
 #[ts_api(
-    namespace = "Crowd", like,
-    handles(Crowd = CrowdRef, NavGrid = NavGridRef, FlowField = FlowFieldRef),
+    namespace = "Swarm", like,
+    handles(Swarm = CrowdRef, NavGrid = NavGridRef, FlowField = FlowFieldRef),
     values(Vector3 = V3 [x: f64, y: f64, z: f64])
 )]
 pub mod crowd_api {
@@ -605,7 +605,7 @@ pub mod crowd_api {
     /// others, and slides along the grid's walls. Agents are numbered from 0; `remove` moves the last
     /// agent into the gap.
     impl CrowdRef {
-        /// `new Crowd(grid, field, radius?)`: agents closer than twice `radius` (default 0.3 m) push apart.
+        /// `new Swarm(grid, field, radius?)`: agents closer than twice `radius` (default 0.3 m) push apart.
         #[optional(radius = 0.3)]
         pub fn create(grid: NavGridRef, field: FlowFieldRef, radius: f64) -> CrowdRef {
             CROWDS.with(|all| {

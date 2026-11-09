@@ -9,6 +9,9 @@
 //! need back (moved bodies, collision events, query results) as one batch per tick.
 
 pub mod cloth;
+mod rewind;
+
+pub use rewind::Snapshot;
 
 use std::collections::HashMap;
 use std::sync::Mutex;

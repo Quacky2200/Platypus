@@ -67,6 +67,53 @@ fn a_rigidbody_with_a_box_rests_on_the_floor() {
     assert!((y - 1.0).abs() < 0.05, "rests at {y}");
 }
 
+// M8-PHY-03
+//
+// `Physics.snapshot` / `restore`: the objects on bodies go back with the world, a restore can be
+// repeated, stepping on repeats the same steps, and a freed or unknown snapshot is refused.
+#[test]
+fn restoring_a_snapshot_rewinds_the_objects_and_stepping_on_repeats() {
+    let mut scene = setup();
+    let _scope = platypus_scene::api::enter(&mut scene);
+    floor();
+    let boxes: Vec<ObjectId> = (0..4)
+        .map(|i| {
+            let o = make("box");
+            place(o, 0.2 * i as f32, 1.0 + 1.1 * i as f32, 0.0);
+            comp::rb_attach(o, false);
+            comp::col_attach(o, unit_box());
+            o
+        })
+        .collect();
+    let at = |boxes: &[ObjectId]| boxes.iter().map(|&o| pos(o)).collect::<Vec<_>>();
+    run(20);
+    let snap = crate::physics_api::snapshot();
+    assert_eq!(snap, 1.0);
+    assert_eq!(crate::physics_api::snapshot_count(), 1.0);
+    let then = at(&boxes);
+    run(100);
+    let later = at(&boxes);
+    assert_ne!(then, later, "the stack moves on");
+
+    assert!(crate::physics_api::restore(snap));
+    assert_eq!(at(&boxes), then, "the objects went back with the bodies");
+    run(100);
+    assert_eq!(at(&boxes), later, "stepping on repeats the same steps");
+    // Again, from the same snapshot.
+    assert!(crate::physics_api::restore(snap));
+    assert_eq!(at(&boxes), then);
+
+    crate::physics_api::drop_snapshot(snap);
+    assert_eq!(crate::physics_api::snapshot_count(), 0.0);
+    assert!(
+        !crate::physics_api::restore(snap),
+        "a freed snapshot is refused"
+    );
+    assert!(!crate::physics_api::restore(0.0) && !crate::physics_api::restore(99.0));
+    // The freed place is used again.
+    assert_eq!(crate::physics_api::snapshot(), 1.0);
+}
+
 // M9-API-201
 //
 // Moving the GameObject of a kinematic body from a script carries the body there.
