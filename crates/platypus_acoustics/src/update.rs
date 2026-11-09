@@ -7,8 +7,8 @@
 
 use crate::model::{
     FxTarget, OccluderSpec, Probe, air_cutoff, average, blend_zones, cone_amount, cone_effect,
-    detour_wins, doppler, head_cue, heard_level, pattern_effect, pattern_gain, scaled, through,
-    through_portal, zone_weight,
+    detour_wins, doppler, head_cue, heard_level, pattern_effect, pattern_gain, rolloff_gain,
+    scaled, through, through_portal, zone_weight,
 };
 use crate::state::{Event, SoundEventRef, Zone, push_event, st};
 use glam::{Quat, Vec3};
@@ -16,7 +16,7 @@ use platypus_engine_api::audio::{
     self, BusRef, PlayOptions, PlaybackRef, play_sound, set_fx, set_track_volume,
 };
 use platypus_engine_api::audio_components::{
-    Directivity, SourceView, set_doppler_factor, set_virtual_position, source_views,
+    Directivity, Rolloff, SourceView, set_doppler_factor, set_virtual_position, source_views,
 };
 use platypus_math::V3;
 use platypus_scene::ObjectId;
@@ -544,7 +544,19 @@ fn update_sources(
                 .min(zone.low_pass)
                 .min(air)
                 .min(cone_low);
-            target.volume = next.occ_gain * zone.volume * cone_gain;
+            // Distance decay beyond the mixer's own (which is moved out of the way for these).
+            let decay = if v.rolloff == Rolloff::Default {
+                1.0
+            } else {
+                rolloff_gain(
+                    v.rolloff,
+                    dist,
+                    v.min_distance,
+                    v.max_distance,
+                    v.rolloff_factor,
+                )
+            };
+            target.volume = next.occ_gain * zone.volume * cone_gain * decay;
             st(|s| send_target(&mut s.sent, emitter.0, &target, true));
         }
         // Doppler: the pitch follows how fast the source closes on the listener.
@@ -831,7 +843,9 @@ pub fn update(dt: f64) {
         )
     });
     let views = source_views();
-    let doppler_used = views.iter().any(|v| v.doppler_level > 0.0);
+    let doppler_used = views
+        .iter()
+        .any(|v| v.doppler_level > 0.0 || v.rolloff != Rolloff::Default);
     if !enabled || !(any || doppler_used || views.iter().any(|v| v.loudness > 0.0)) {
         return;
     }

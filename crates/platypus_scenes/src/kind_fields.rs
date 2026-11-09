@@ -199,6 +199,18 @@ pub fn register() {
                 "Its polar pattern: how it sounds from different directions round it (front is the object's -z).",
             ),
             f(
+                "rolloff",
+                "enum:default|inverse|linear|exponential",
+                json!("default"),
+                "How its volume falls with distance beyond minDistance: the mixer's gentle curve, as in air (inverse), straight to silence at maxDistance, or a power law.",
+            ),
+            f(
+                "rolloffFactor",
+                "f64",
+                json!(1.0),
+                "Scales the fall of inverse and exponential rolloff (2 falls twice as fast).",
+            ),
+            f(
                 "directivityStrength",
                 "f64",
                 json!(1.0),

@@ -5,7 +5,7 @@
 //! loud a sensor hears something, the Doppler pitch. Everything here is a function of numbers,
 //! so the tests need no scene, physics or mixer.
 
-use platypus_engine_api::audio_components::Directivity;
+use platypus_engine_api::audio_components::{Directivity, Rolloff};
 
 /// A zone's volume.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -272,6 +272,29 @@ pub fn pattern_effect(g: f64, low_pass: f64, strength: f64) -> (f64, f64) {
         1.0 + (raw.max(0.03) - 1.0) * s,
         log_lerp(22000.0, cutoff, s),
     )
+}
+
+/// The gain a source's `rolloff` gives at `distance` (full within `min`). `Inverse` is
+/// `min / (min + factor * (d - min))`: at factor 1, exactly `min / d`, 6 dB less for each doubling, as
+/// in air. `Linear` falls straight to 0 at `max`. `Exponential` is `(d / min) ^ -factor`. `Default` is
+/// the mixer's own curve (`(1 - t)^2` across `min` to `max`), which the mixer applies itself:
+/// this is only its shape, for drawing.
+pub fn rolloff_gain(mode: Rolloff, distance: f64, min: f64, max: f64, factor: f64) -> f64 {
+    let min = min.max(0.01);
+    let d = distance.max(0.0);
+    if d <= min {
+        return 1.0;
+    }
+    let f = factor.max(0.0);
+    match mode {
+        Rolloff::Default => {
+            let t = ((d - min) / (max - min).max(0.01)).clamp(0.0, 1.0);
+            (1.0 - t) * (1.0 - t)
+        }
+        Rolloff::Inverse => min / (min + f * (d - min)),
+        Rolloff::Linear => (1.0 - (d - min) / (max - min).max(0.01)).clamp(0.0, 1.0),
+        Rolloff::Exponential => (d / min).powf(-f),
+    }
 }
 
 /// The cutoff (Hz) air leaves of a sound that travelled `distance` metres: the highs fade the
@@ -658,6 +681,50 @@ mod tests {
         assert_eq!(pattern_effect(0.1, 5000.0, 0.0), (1.0, 22000.0));
         let (half, _) = pattern_effect(0.1, 5000.0, 0.5);
         assert!((half - 0.55).abs() < 1e-9);
+    }
+
+    // ACO-MOD-13
+    #[test]
+    fn rolloff_models_fall_with_distance_as_their_laws_say() {
+        let g = |m, d, f| rolloff_gain(m, d, 3.0, 300.0, f);
+        for m in [
+            Rolloff::Default,
+            Rolloff::Inverse,
+            Rolloff::Linear,
+            Rolloff::Exponential,
+        ] {
+            assert_eq!(g(m, 0.0, 1.0), 1.0, "{m:?} is full close up");
+            assert_eq!(g(m, 3.0, 1.0), 1.0, "{m:?} is full at the minimum distance");
+        }
+        // Inverse at factor 1 is min / d: -6 dB for each doubling, and 1% at 300 m.
+        assert!((g(Rolloff::Inverse, 6.0, 1.0) - 0.5).abs() < 1e-9);
+        assert!((g(Rolloff::Inverse, 12.0, 1.0) - 0.25).abs() < 1e-9);
+        assert!((g(Rolloff::Inverse, 300.0, 1.0) - 0.01).abs() < 1e-9);
+        assert!(
+            g(Rolloff::Inverse, 6.0, 2.0) < 0.5 - 0.1,
+            "a bigger factor falls faster"
+        );
+        assert!(
+            g(Rolloff::Inverse, 6.0, 0.0) == 1.0,
+            "factor 0 does not fall at all"
+        );
+        // Linear: half way is half, silent at the maximum and beyond.
+        assert!((g(Rolloff::Linear, 151.5, 1.0) - 0.5).abs() < 1e-9);
+        assert_eq!(g(Rolloff::Linear, 300.0, 1.0), 0.0);
+        assert_eq!(g(Rolloff::Linear, 900.0, 1.0), 0.0);
+        // Exponential: a factor of 2 is the inverse-square law.
+        assert!((g(Rolloff::Exponential, 6.0, 2.0) - 0.25).abs() < 1e-9);
+        // The mixer's own default is gentle: near 60% of full after a third of the way.
+        assert!(g(Rolloff::Default, 100.0, 1.0) > 0.4 && g(Rolloff::Default, 100.0, 1.0) < 0.6);
+        // Each is quieter the further it goes.
+        for m in [
+            Rolloff::Default,
+            Rolloff::Inverse,
+            Rolloff::Linear,
+            Rolloff::Exponential,
+        ] {
+            assert!(g(m, 20.0, 1.0) > g(m, 80.0, 1.0), "{m:?}");
+        }
     }
 
     // ACO-MOD-08

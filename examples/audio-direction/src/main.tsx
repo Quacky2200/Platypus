@@ -11,6 +11,7 @@
 //
 // WASD move (Shift runs) · mouse look (Esc frees the cursor, click locks it) · Y invert look
 // 1-6 pattern · M speaker: spins / aims at you / stays fixed (Z X turn it) · A air: none, light, normal, heavy
+// K distance decay (mixer default, inverse like air, linear, inverse square) · H head cue (dulls what is behind you)
 
 const SOUND = (name: string) => `assets/sounds/${name}.wav`;
 const PATTERNS: { name: Directivity; label: string; key: string }[] = [
@@ -24,10 +25,22 @@ const PATTERNS: { name: Directivity; label: string; key: string }[] = [
 const MODES = ["spins", "aims at you", "stays fixed"];
 const AIR = [0, 0.5, 1, 2];
 const AIR_LABEL = ["none", "light", "normal", "heavy"];
+/** How the speaker's volume falls with distance beyond its 3 m minimum (K cycles them). */
+const ROLLOFF: { name: Rolloff; label: string; factor: number }[] = [
+  { name: "default", label: "Mixer default (gentle)", factor: 1 },
+  { name: "inverse", label: "Inverse, as in air (-6 dB per doubling)", factor: 1 },
+  { name: "linear", label: "Linear to silence at 420 m", factor: 1 },
+  { name: "exponential", label: "Inverse square (-12 dB per doubling)", factor: 2 },
+];
+const MIN_DISTANCE = 3;
+const MAX_DISTANCE = 420;
 
 let patternIndex = 1;
 let mode = 0;
 let airIndex = 1;
+let rolloffIndex = 1;
+/** The head cue dulls sounds behind you, so an omni speaker seems to brighten when you face it: off here. */
+let headCue = false;
 let speaker: Speaker | null = null;
 let player: Player | null = null;
 
@@ -42,6 +55,17 @@ class Speaker extends Component {
     if (input.getKeyDown("KeyA")) {
       airIndex = (airIndex + 1) % AIR.length;
       Acoustics.airAbsorption = AIR[airIndex]!;
+    }
+    if (input.getKeyDown("KeyH")) {
+      headCue = !headCue;
+      Acoustics.headShadow = headCue ? 0.5 : 0;
+    }
+    if (input.getKeyDown("KeyK")) {
+      rolloffIndex = (rolloffIndex + 1) % ROLLOFF.length;
+      this.source.rolloff = ROLLOFF[rolloffIndex]!.name;
+      this.source.rolloffFactor = ROLLOFF[rolloffIndex]!.factor;
+      // The mixer's own falloff is set when the source starts playing: start it again.
+      this.source.play();
     }
     this.source.directivity = PATTERNS[patternIndex]!.name;
     if (mode === 0) this.yaw += 40 * dt;
@@ -133,6 +157,7 @@ class DirectionWorld extends Component {
     const sun = new GameObject("Sun", { rotation: Quaternion.euler(-50, 25, 0) });
     sun.addComponent(Light, { type: "directional", intensity: 0.7, shadows: "soft", shadowStrength: 0.6 });
     Acoustics.airAbsorption = AIR[airIndex]!;
+    Acoustics.headShadow = headCue ? 0.5 : 0;
 
     // A wide plain, with a post every 25 m along the way away from the speaker, to see how far you are.
     box("Ground", new Vector3(0, -0.5, 150), new Vector3(900, 1, 900), "#6f8f5a", true);
@@ -154,9 +179,11 @@ class DirectionWorld extends Component {
       clip: audio.load(SOUND("radio_music")),
       loop: true,
       spatialBlend: 1,
-      minDistance: 3,
-      maxDistance: 420,
+      minDistance: MIN_DISTANCE,
+      maxDistance: MAX_DISTANCE,
       directivity: PATTERNS[patternIndex]!.name,
+      rolloff: ROLLOFF[rolloffIndex]!.name,
+      rolloffFactor: ROLLOFF[rolloffIndex]!.factor,
     });
     spk.source.play();
     speaker = spk;
@@ -219,6 +246,9 @@ function Hud() {
   const dotX = R * gain * Math.sin(rad);
   const dotY = -R * gain * Math.cos(rad);
   const air = Acoustics.airCutoff(distance);
+  const decay = ROLLOFF[rolloffIndex]!;
+  const decayGain = Acoustics.rolloffGain(decay.name, distance, MIN_DISTANCE, MAX_DISTANCE, decay.factor);
+  const decayDb = decayGain > 0.00001 ? 20 * Math.log10(decayGain) : -100;
   return (
     <box style={{ width: "100%", height: "100%", padding: 18, pointerEvents: "none" }}>
       <box style={{ alignSelf: "flex-start", padding: 14, gap: 8, borderRadius: 10, backgroundColor: "rgba(10,14,22,0.74)", flexDirection: "column" }}>
@@ -236,12 +266,14 @@ function Hud() {
             <text style={{ color: "#c8d0e0", fontSize: 12 }}>You are {Math.abs(Math.round(angle))}° off its front</text>
             <text style={{ color: "#c8d0e0", fontSize: 12 }}>Pattern: {Math.round(gain * 100)}% of full</text>
             <text style={{ color: "#c8d0e0", fontSize: 12 }}>Distance: {distance.toFixed(0)} m</text>
+            <text style={{ color: "#c8d0e0", fontSize: 12 }}>Decay: {decay.label}</text>
+            <text style={{ color: "#c8d0e0", fontSize: 12 }}>Volume at this distance: {decayDb.toFixed(0)} dB</text>
             <text style={{ color: "#c8d0e0", fontSize: 12 }}>Air leaves {Math.round(air / 100) / 10} kHz ({AIR_LABEL[airIndex]})</text>
             <text style={{ color: "#8f9bb3", fontSize: 12 }}>Speaker {MODES[mode]}</text>
           </box>
         </box>
         <text style={{ color: "#8f9bb3", fontSize: 12 }}>WASD move · Shift runs · mouse look (Esc frees) · Y invert</text>
-        <text style={{ color: "#8f9bb3", fontSize: 12 }}>1-6 pattern · M speaker mode · Z X turn it · A air</text>
+        <text style={{ color: "#8f9bb3", fontSize: 12 }}>1-6 pattern · M speaker mode · Z X turn it · A air · K decay · H head cue {headCue ? "on" : "off"}</text>
       </box>
     </box>
   );

@@ -510,6 +510,82 @@ fn a_directional_source_is_loud_in_front_and_quiet_and_dull_behind() {
     assert!(track_gain(&cmds, e_away.0).is_some_and(|g| (g - 0.25).abs() < 0.02));
 }
 
+// ACO-SYS-12
+//
+// A source with an inverse rolloff gets quieter with distance by the law (-6 dB per doubling), the
+// mixer's own distance falloff is moved out of its way, and one with the default rolloff is left to
+// the mixer.
+#[test]
+fn a_rolloff_makes_a_source_fall_with_distance_by_its_law() {
+    use platypus_engine_api::audio_components::{Rolloff, with_source};
+    let mut scene = setup();
+    let _scope = platypus_scene::api::enter(&mut scene);
+    // Rolloff alone is enough to bring acoustics in.
+    let near = make("near", 6.0, 0.0, 0.0);
+    let far = make("far", 300.0, 0.0, 0.0);
+    let plain = make("plain", 0.0, 300.0, 0.0);
+    let mut ids = Vec::new();
+    for (object, rolloff) in [
+        (near, Rolloff::Inverse),
+        (far, Rolloff::Inverse),
+        (plain, Rolloff::Default),
+    ] {
+        let src = attach_source(object);
+        with_source(src, |d| {
+            d.spatial_blend = 1.0;
+            d.min_distance = 3.0;
+            d.max_distance = 400.0;
+            d.rolloff = rolloff;
+            d.clip = audio::cached_sound("s.wav");
+            d.play();
+        });
+        ids.push(src);
+    }
+    // The emitters of rolloff sources were made with the mixer's falloff moved far away.
+    let made = audio::take_commands();
+    let distances: Vec<[f64; 2]> = made
+        .iter()
+        .filter_map(|c| match c {
+            AudioCommand::Emitter { distances, .. } => Some(*distances),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(distances.len(), 3);
+    assert!(
+        distances[0][0] > 1.0e5 && distances[1][0] > 1.0e5,
+        "{distances:?}"
+    );
+    assert_eq!(
+        distances[2],
+        [3.0, 400.0],
+        "the default keeps the mixer's curve"
+    );
+    let emitter = |object| {
+        source_views()
+            .iter()
+            .find(|v| v.object == object)
+            .and_then(|v| v.emitter)
+            .unwrap()
+    };
+    audio::set_listener([0.0; 3], [0.0, 0.0, 0.0, 1.0]);
+    update(0.016);
+    let cmds = audio::take_commands();
+    let at_6 = track_gain(&cmds, emitter(near).0).expect("6 m is twice the minimum distance");
+    assert!((at_6 - 0.5).abs() < 0.02, "-6 dB: {at_6}");
+    let at_300 = track_gain(&cmds, emitter(far).0).expect("300 m");
+    assert!((at_300 - 0.01).abs() < 0.002, "-40 dB: {at_300}");
+    assert_eq!(
+        track_gain(&cmds, emitter(plain).0),
+        None,
+        "the mixer decays the default"
+    );
+    // Twice the factor falls faster.
+    with_source(ids[1], |d| d.rolloff_factor = 2.0);
+    update(0.016);
+    let cmds = audio::take_commands();
+    assert!(track_gain(&cmds, emitter(far).0).is_some_and(|g| g < at_300));
+}
+
 // ACO-SYS-11
 //
 // A surface tag is a name on an object that scripts look up; it survives a scene-file round trip

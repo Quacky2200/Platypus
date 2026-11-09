@@ -96,6 +96,27 @@ Air takes the highs off with distance: `Acoustics.airAbsorption` (0 to 2, defaul
 `Acoustics.airCutoff(distance)` answers for scripts. Cone, pattern, air, head cue, occlusion and zones all set one
 low-pass on the emitter (the lowest wins) and one gain (they multiply).
 
+## Distance decay (`rolloff`)
+
+By default a source falls off by the mixer's own gentle curve between `minDistance` and `maxDistance` (silent beyond): with a
+large `maxDistance` that is only a few dB at 100 m. `AudioSource.rolloff` chooses the law instead:
+
+| `rolloff` | Gain at distance d (d beyond `minDistance`) |
+|---|---|
+| `default` | the mixer's own curve, applied by the mixer |
+| `inverse` | `min / (min + factor * (d - min))`: at factor 1 exactly `min / d`, 6 dB less for each doubling, as in air (-40 dB at 100 m with a 1 m minimum) |
+| `linear` | straight from full at `minDistance` to silent at `maxDistance` |
+| `exponential` | `(d / min) ^ -factor`: factor 2 is the inverse-square law |
+
+`rolloffFactor` scales `inverse` and `exponential`. Anything but `default` is applied by acoustics (which it brings into use) from
+the distance of the way the sound came (the whole path round a portal), and the mixer's own falloff is moved out of the way (the
+emitter is made with a distance nothing reaches), so set `rolloff` before the first `play()`, or `play()` again after changing
+it. `Acoustics.rolloffGain(rolloff, distance, min, max, factor)` gives the same curve for plotting.
+
+The head cue (`Acoustics.headShadow`) dulls what is behind the listener, so turning to face a source makes it brighter and seem
+louder even when it is omni-directional: that is the cue working. `audio-direction` turns it off (key H toggles it) so a pattern
+can be heard on its own.
+
 ## Surface tags (`AudioSurface`)
 
 An object can carry a name for what it is made of (`go.addComponent(AudioSurface, { surface: "metal" })`). The engine does not

@@ -85,6 +85,9 @@ pub struct SourceData {
     /// with all-round by `directivity_strength` (1: all of it). With `Omni` the cone angles apply.
     pub directivity: Directivity,
     pub directivity_strength: f64,
+    /// How its volume falls with distance (see [`Rolloff`]) and the factor that scales the fall.
+    pub rolloff: Rolloff,
+    pub rolloff_factor: f64,
     /// The pitch factor acoustics found for the source's speed (1: none): playbacks run at
     /// `pitch * doppler_factor`.
     doppler_factor: f64,
@@ -187,6 +190,8 @@ impl SourceData {
             air_absorption: 1.0,
             directivity: Directivity::Omni,
             directivity_strength: 1.0,
+            rolloff: Rolloff::Default,
+            rolloff_factor: 1.0,
             doppler_factor: 1.0,
             main: None,
             paused: false,
@@ -203,10 +208,16 @@ impl SourceData {
         if self.spatial_blend <= 0.0 {
             return (self.output_bus, None);
         }
+        // A rolloff other than the mixer's own is applied by acoustics (it needs the distance of
+        // the way the sound came), so the mixer's own falloff is moved out of the way: full volume
+        // out to a distance nothing reaches.
+        let (near, far) = if self.rolloff == Rolloff::Default {
+            (self.min_distance, self.max_distance)
+        } else {
+            (1.0e6, 1.0e6 + 1.0)
+        };
         let key = format!(
-            "{},{},{},{}",
-            self.min_distance,
-            self.max_distance,
+            "{near},{far},{},{}",
             self.output_bus.map_or(String::new(), |b| b.0.to_string()),
             self.effects
         );
@@ -219,13 +230,7 @@ impl SourceData {
             self.main = None;
             let p = world_position(self.object);
             self.sent_position = Some(p);
-            self.emitter = Some(create_emitter(
-                p,
-                self.min_distance,
-                self.max_distance,
-                self.output_bus,
-                self.effects,
-            ));
+            self.emitter = Some(create_emitter(p, near, far, self.output_bus, self.effects));
             self.emitter_key = key;
         }
         (None, self.emitter)
@@ -343,6 +348,39 @@ pub fn pre_render() {
     }
 }
 
+/// How a source's volume falls with distance, beyond `minDistance` (full volume within it).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Rolloff {
+    /// The mixer's own gentle curve between `minDistance` and `maxDistance`: silent beyond.
+    #[default]
+    Default,
+    /// As in air (OpenAL's inverse distance): `min / (min + factor * (d - min))`, 6 dB per doubling
+    /// at factor 1 and never quite silent.
+    Inverse,
+    /// A straight fall from full at `minDistance` to silent at `maxDistance`.
+    Linear,
+    /// `(d / min) ^ -factor`: steeper than inverse for factors above 1.
+    Exponential,
+}
+
+fn rolloff_name(r: Rolloff) -> &'static str {
+    match r {
+        Rolloff::Default => "default",
+        Rolloff::Inverse => "inverse",
+        Rolloff::Linear => "linear",
+        Rolloff::Exponential => "exponential",
+    }
+}
+
+fn rolloff_from_name(name: &str) -> Rolloff {
+    match name {
+        "inverse" => Rolloff::Inverse,
+        "linear" => Rolloff::Linear,
+        "exponential" => Rolloff::Exponential,
+        _ => Rolloff::Default,
+    }
+}
+
 /// A source's polar pattern: how it sounds from different directions round it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Directivity {
@@ -407,6 +445,9 @@ pub struct SourceView {
     pub air_absorption: f64,
     pub directivity: Directivity,
     pub directivity_strength: f64,
+    pub rolloff: Rolloff,
+    pub rolloff_factor: f64,
+    pub min_distance: f64,
 }
 
 /// Every `AudioSource` (those on destroyed objects are gone already).
@@ -435,6 +476,9 @@ pub fn source_views() -> Vec<SourceView> {
                     air_absorption: d.air_absorption,
                     directivity: d.directivity,
                     directivity_strength: d.directivity_strength,
+                    rolloff: d.rolloff,
+                    rolloff_factor: d.rolloff_factor,
+                    min_distance: d.min_distance,
                 })
             })
             .collect()
@@ -607,7 +651,11 @@ fn none_object() -> ObjectId {
         /// pattern turned round: `omni` (the same everywhere), `cardioid`, `supercardioid`,
         /// `hypercardioid` (louder in front, with a small lobe behind), `figureEight` (front and
         /// back, none to the sides) and `ultraDirectional` (a narrow beam with side lobes).
-        Directivity = Directivity [Omni, Cardioid, Supercardioid, Hypercardioid, FigureEight, UltraDirectional]
+        Directivity = Directivity [Omni, Cardioid, Supercardioid, Hypercardioid, FigureEight, UltraDirectional],
+        /// How a source gets quieter with distance beyond `minDistance`: `default` (the mixer's own
+        /// curve out to `maxDistance`), `inverse` (as in air: 6 dB for each doubling), `linear` (to
+        /// silence at `maxDistance`) or `exponential` (steeper with `rolloffFactor` above 1).
+        Rolloff = Rolloff [Default, Inverse, Linear, Exponential]
     )
 )]
 pub mod audio_source_api {
@@ -803,6 +851,30 @@ pub mod audio_source_api {
 
         pub fn set_directivity_strength(self, v: f64) {
             super::source(self, |d| d.directivity_strength = v.clamp(0.0, 1.0));
+        }
+
+        /// How its volume falls with distance: `default` is the mixer's gentle curve between
+        /// `minDistance` and `maxDistance`; `inverse` is as in air (6 dB for each doubling beyond
+        /// `minDistance`); `linear` falls straight to silence at `maxDistance`; `exponential` falls
+        /// as `(distance / minDistance) ^ -rolloffFactor`. Anything but `default` is applied by
+        /// `Acoustics` (which then counts as in use) and is set before the first `play()`.
+        #[property]
+        pub fn rolloff(self) -> Rolloff {
+            super::source(self, |d| d.rolloff).unwrap_or(Rolloff::Default)
+        }
+
+        pub fn set_rolloff(self, v: Rolloff) {
+            super::source(self, |d| d.rolloff = v);
+        }
+
+        /// Scales the fall of `inverse` and `exponential` (1; 2 falls twice as fast).
+        #[property]
+        pub fn rolloff_factor(self) -> f64 {
+            super::source(self, |d| d.rolloff_factor).unwrap_or(1.0)
+        }
+
+        pub fn set_rolloff_factor(self, v: f64) {
+            super::source(self, |d| d.rolloff_factor = v.clamp(0.0, 20.0));
         }
 
         /// The inner cone (full angle in degrees, 360 all round, default): within it, in front of
@@ -1127,6 +1199,8 @@ fn source_kind() -> Kind {
                 m.insert("airAbsorption".into(), json!(d.air_absorption));
                 m.insert("directivity".into(), json!(directivity_name(d.directivity)));
                 m.insert("directivityStrength".into(), json!(d.directivity_strength));
+                m.insert("rolloff".into(), json!(rolloff_name(d.rolloff)));
+                m.insert("rolloffFactor".into(), json!(d.rolloff_factor));
             });
             m
         }),
@@ -1158,6 +1232,8 @@ fn source_kind() -> Kind {
                             v.as_str().map(|x| d.directivity = directivity_from_name(x))
                         }
                         "directivityStrength" => number(v).map(|x| d.directivity_strength = x),
+                        "rolloff" => v.as_str().map(|x| d.rolloff = rolloff_from_name(x)),
+                        "rolloffFactor" => number(v).map(|x| d.rolloff_factor = x),
                         other => {
                             warnings.push(format!("no property `{other}` yet; dropped"));
                             continue;

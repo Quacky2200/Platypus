@@ -11,7 +11,7 @@ use crate::state::{
 };
 use crate::update::{events, probe, stop_ambience};
 use platypus_engine_api::audio::{BusRef, SoundRef};
-use platypus_engine_api::audio_components::Directivity;
+use platypus_engine_api::audio_components::{Directivity, Rolloff};
 use platypus_math::V3;
 use platypus_scene::ObjectId;
 use platypus_scene::api::with_scene;
@@ -813,11 +813,16 @@ pub mod sound_event_api {
     namespace = "Acoustics",
     handles(SoundEvent = SoundEventRef, GameObject = ObjectId),
     values(Vector3 = V3 [x: f64, y: f64, z: f64]),
-    enums(extern Directivity = Directivity [Omni, Cardioid, Supercardioid, Hypercardioid, FigureEight, UltraDirectional])
+    enums(
+        extern Directivity = Directivity [Omni, Cardioid, Supercardioid, Hypercardioid, FigureEight, UltraDirectional],
+        extern Rolloff = Rolloff [Default, Inverse, Linear, Exponential]
+    )
 )]
 pub mod acoustics_api {
     use super::*;
-    use platypus_engine_api::audio_components::audio_source_api::directivity_from_index;
+    use platypus_engine_api::audio_components::audio_source_api::{
+        directivity_from_index, rolloff_from_index,
+    };
 
     /// Makes a noise at `position` that sensors within `loudness` metres can hear (`kind`
     /// says what it was; `source` is the object that made it, if any). It stays in
@@ -930,6 +935,19 @@ pub mod acoustics_api {
     /// the curve the mixer uses, for drawing a polar plot.
     pub fn directivity_gain(pattern: Directivity, angle: f64) -> f64 {
         crate::model::pattern_gain(pattern, angle)
+    }
+
+    /// The gain a source's `rolloff` gives at `distance` metres (1 full, towards 0): for plotting how
+    /// a source fades. `inverse` is `min / d` at factor 1 (6 dB less for each doubling); `default`
+    /// is only the shape of the mixer's own curve.
+    pub fn rolloff_gain(
+        rolloff: Rolloff,
+        distance: f64,
+        min_distance: f64,
+        max_distance: f64,
+        factor: f64,
+    ) -> f64 {
+        crate::model::rolloff_gain(rolloff, distance, min_distance, max_distance, factor)
     }
 
     /// Seconds a noise stays in the list (3).
