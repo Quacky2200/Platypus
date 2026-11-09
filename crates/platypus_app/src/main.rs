@@ -1717,6 +1717,11 @@ impl App {
         let Some(window) = self.main_window() else {
             return;
         };
+        // A background window never grabs: the script's request waits for focus (taken again
+        // on `Focused(true)`), or the grab would pin the cursor or eat clicks meant for others.
+        if !self.focused && !self.offline {
+            return;
+        }
         use platypus_platform::CursorGrabMode;
         let result = match self.script_cursor.lock {
             CursorLock::None => window.set_cursor_grab(CursorGrabMode::None),
@@ -2301,6 +2306,9 @@ impl PlatformApp for App {
             // Grabs are let go while the window is in the background, and taken again on return.
             if focused {
                 self.apply_cursor_lock();
+                // `release_cursor` showed the cursor: hide it again if the script locked it.
+                self.cursor.0 = "";
+                self.update_cursor();
             } else {
                 self.release_cursor();
             }
