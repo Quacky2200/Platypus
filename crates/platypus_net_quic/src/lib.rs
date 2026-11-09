@@ -887,4 +887,81 @@ mod tests {
         assert_eq!(client.phase(), Some(ClientPhase::Connected));
         assert!(client.rtt(SERVER).is_some() || start.elapsed() < Duration::from_secs(1));
     }
+
+    /// Connected pair with both ends past the handshake.
+    fn connected_pair() -> (QuicTransport, QuicTransport, PeerId) {
+        let (mut server, mut client, c_peer) = pair(|_| Trust::InsecureDev);
+        wait(&mut client, |e| {
+            e.contains(&TransportEvent::Connected(c_peer))
+        });
+        wait(&mut server, |e| {
+            e.iter().any(|e| matches!(e, TransportEvent::Connected(_)))
+        });
+        (server, client, c_peer)
+    }
+
+    // M8-NET-12
+    #[test]
+    fn a_remote_that_goes_away_ends_the_connection_and_neither_drop_hangs() {
+        let (server, mut client, c_peer) = connected_pair();
+        let started = Instant::now();
+        drop(server);
+        let events = wait(&mut client, |e| {
+            e.iter()
+                .any(|e| matches!(e, TransportEvent::Disconnected(..)))
+        });
+        assert!(
+            events.iter().any(|e| matches!(
+                e,
+                TransportEvent::Disconnected(p, DisconnectReason::Remote | DisconnectReason::TimedOut)
+                    if *p == c_peer
+            )),
+            "{events:?}"
+        );
+        // Sending to the ended connection is an error, not a hang or a panic.
+        let _ = client.send(c_peer, Channel::Reliable, b"anyone?");
+        drop(client);
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "{:?}",
+            started.elapsed()
+        );
+    }
+
+    // M8-NET-12
+    #[test]
+    fn dropping_a_transport_with_peers_connected_is_prompt() {
+        let (server, client, _) = connected_pair();
+        let started = Instant::now();
+        drop(server);
+        assert!(
+            started.elapsed() < Duration::from_secs(2),
+            "{:?}",
+            started.elapsed()
+        );
+        let started = Instant::now();
+        drop(client);
+        assert!(
+            started.elapsed() < Duration::from_secs(2),
+            "{:?}",
+            started.elapsed()
+        );
+    }
+
+    // M8-NET-12
+    #[test]
+    fn a_transport_left_to_a_thread_local_destructor_does_not_panic() {
+        thread_local! {
+            static HELD: std::cell::RefCell<Option<QuicTransport>> =
+                const { std::cell::RefCell::new(None) };
+        }
+        let worker = std::thread::spawn(|| {
+            let (server, client, _) = connected_pair();
+            HELD.with(|h| *h.borrow_mut() = Some(server));
+            drop(client);
+            // The thread ends here: the destructor drops the server with tokio's own
+            // thread-locals possibly gone, as at the end of the program.
+        });
+        assert!(worker.join().is_ok(), "the thread's end panicked");
+    }
 }
