@@ -1873,8 +1873,8 @@ Design: `docs/research/multiplayer.md` (Fusion / Fish-Net / Lightyear inspired, 
     searches with a delay; a friends-only lobby isn't listed to its own owner). **Not yet seen:** lobby members beyond yourself.
     Linux / macOS (`libsteam_api.so` / `.dylib`, packed(4)
     result structs) are **untested**
-  - [ ] `platypus-build package` copies the Steam library beside the exe for games with `steam.appId` (none yet), per platform
-    (the library comes from Valve's Steamworks SDK: check its terms first)
+  - [x] `platypus-build package` copies the Steam library beside the exe for games with `steam.appId`, per platform (from
+    `--steam-library`, `steam/`, the game folder or the host's folder; never fetched: it is Valve's, check its terms) `M8-STM-13..14`
   - [ ] A Steam relay `Transport` for `platypus_net` (`steamworks` networking sockets), lobby chat and invites (`connect` rich
     presence), Valve SDK licence for shipping (see `tables.rs`)
 - [ ] **M8.g** Tools: editor network panel, server metrics

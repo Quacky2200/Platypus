@@ -414,8 +414,15 @@ platypus-build package <game> [--host platypus-app.exe] [--out file] [--no-build
     [--exe name] [--title t] [--company c] [--version v] [--copyright c] [--description d]
     [--icon file.png|.ico] [--sign-cmd "signtool sign /fd sha256 ... {exe}"] [--data-dir name] [--no-data]
     [--packs [--report]] [--video-settings-prompt | --no-video-settings-prompt] [--renderer vulkan|gles|cpu|auto]
-    [--no-notices] [--debug-info]
+    [--no-notices] [--debug-info] [--steam-library steam_api64.dll|libsteam_api.so|libsteam_api.dylib]
 ```
+
+**Steam.** A game with `"steam": { "appId": N }` in `project.json` needs Steam's own library beside its exe (`platypus-app` loads
+it at run time, on every platform; without it the game runs with Steam off). `package` copies the one for the exe's platform
+(`steam_api64.dll`, `libsteam_api.so`, `libsteam_api.dylib`) from `--steam-library <file>`, else the game's `steam/` folder, the game
+folder, or the host's folder, in that order. It never fetches the file: it comes from Valve's Steamworks SDK (`redistributable_bin`)
+under Valve's terms, which are yours to check before shipping. A game with `steam.appId` and no library found is still packaged,
+with a warning; a game without `steam` gets no library.
 
 **Debug info.** `build` writes `build/game.pdebug` beside `game.pbundle`: a hash of the bundled source and where each source file
 starts in it. It is not in the bundle or the exe's payload. `package --debug-info` copies it beside the exe as `<exe>.pdebug`; the

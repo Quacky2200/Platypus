@@ -21,6 +21,7 @@ pub mod init;
 pub mod package;
 pub mod packs;
 pub mod pe;
+pub mod steam;
 pub mod tsconfig;
 
 use std::path::{Path, PathBuf};
