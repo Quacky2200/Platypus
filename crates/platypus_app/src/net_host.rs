@@ -29,6 +29,12 @@ pub(crate) fn pump(now: Duration) {
     network::update(now);
 }
 
+/// Closes the network before the program ends. Left to the thread-local's destructor at exit, the
+/// QUIC transport would shut its runtime down after tokio's own thread-locals are gone (a panic).
+pub(crate) fn shutdown() {
+    network::uninstall();
+}
+
 fn serve(request: Request) -> Result<(), String> {
     match request {
         Request::StartServer {

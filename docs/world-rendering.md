@@ -731,6 +731,16 @@ They have no Rust side.
 - Right-handed, +y up. A camera looks down its **-z**. Projections have depth 0 to 1
   (`glam::camera::rh::proj::directx`), and `Matrix4x4` in `platypus_math` matches, so a camera's matrices
   in TypeScript equal what the renderer uses.
+- **Z against Unity.** Unity is left-handed with **+z forward**; Platypus is right-handed with **-z
+  forward** (`Vector3.forward` is `(0, 0, -1)`, `Vector3.back` is `(0, 0, 1)`; `Vector3.right` is +x in
+  both). Quaternions, Euler angles (degrees, Unity's order) and `lookRotation` behave as in a
+  right-handed system, so a positive turn about +y is counter-clockwise seen from above. Porting Unity
+  code: negate z in positions and directions, and the sign of rotations about x and y; a model that
+  looks along +z (glTF, the net-arena mannequin) needs a 180 degree turn about y to face `forward`.
+  Do not copy `(sin yaw, 0, cos yaw)` from Unity samples: here a heading `yaw` (degrees, 0 faces -z,
+  growing to the right) gives forward `(sin yaw, 0, -cos yaw)` and right `(cos yaw, 0, sin yaw)`;
+  `examples/net-arena` (`game.ts`, `moveLocal` and `onFire`) is the worked case, and the server's
+  shot direction uses the same heading as the client's camera.
 - A quad faces +z. A panel's top-left corner is at (-w/2, +h/2) in its object's space.
 - **Screen points are top-left UI pixels**: the window's pixels divided by the DPI scale and the UI
   scale. These are the units of `Screen.width` and `height` and of pointer event `clientX/Y`.

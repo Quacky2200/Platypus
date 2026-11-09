@@ -359,11 +359,16 @@ impl Drop for QuicTransport {
         {
             let _ = tx.send(ConnCmd::Close);
         }
-        if let Some(e) = &self.endpoint {
+        // Drop a transport on a live thread, not from a thread-local destructor at process exit:
+        // by then tokio's context is gone and `block_on` panics (the app closes it first).
+        if let Some(e) = self.endpoint.take() {
             let rt = self.rt();
             rt.block_on(async {
                 let _ = tokio::time::timeout(Duration::from_millis(500), e.wait_idle()).await;
             });
+            // An endpoint needs a runtime to drop in: it is gone by the time fields drop.
+            let _inside = rt.enter();
+            drop(e);
         }
         if let Some(rt) = self.rt.take() {
             rt.shutdown_background();

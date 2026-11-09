@@ -6,7 +6,7 @@
 // bad on purpose. Run it as a dedicated server (`-- --server`, with `--headless` for none of the
 // graphics) and join from other windows (`-- --connect 127.0.0.1:7777`), or use the menu.
 //
-// Keys: WASD move, Shift sprint, Space jump, left mouse or F fire, right-drag or Q / E turn the
+// Keys: WASD move, Shift sprint, Space jump, left mouse or F fire, the locked mouse (Esc frees it) or Q / E turns the
 // camera, wheel zoom, Tab scoreboard, F1 network panel.
 
 import "./game";

@@ -763,11 +763,13 @@ fn run() -> Result<()> {
     // A headless run makes no window and no graphics device; `--frames N` stops it after N iterations.
     if let Some(headless) = &args.headless {
         let frames = (args.frames_given).then_some(args.frames);
-        return headless::run(app, headless, frames, manifest.window_title());
+        let result = headless::run(app, headless, frames, manifest.window_title());
+        net_host::shutdown();
+        return result;
     }
     // Screenshot runs make no OS windows for secondary windows: they draw offscreen.
     let virtual_windows = app.screenshot.is_some();
-    Platform::new().run(
+    let result = Platform::new().run(
         WindowConfig {
             title: manifest.window_title().to_owned(),
             icon,
@@ -778,7 +780,9 @@ fn run() -> Result<()> {
             center: !virtual_windows,
         },
         app,
-    )?;
+    );
+    net_host::shutdown();
+    result?;
     Ok(())
 }
 

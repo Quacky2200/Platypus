@@ -149,10 +149,13 @@ export class Arena extends Component {
   private matchId = 0;
   private camera!: Camera;
   private yaw = 0;
-  private pitch = 14;
-  private distance = 5;
-  private facing = 0;
-  private facingDeg = 0;
+  private pitch = 8;
+  private pointerLocked = false;
+  private pointerFree = false;
+  private distance = 2.6;
+  // The model faces +z, the game's forward is -z, so a fresh player looks away from the camera.
+  private facing = Math.PI;
+  private facingDeg = 180;
   private vy = 0;
   private controller: CharacterController | null = null;
   private localId = 0;
@@ -162,7 +165,7 @@ export class Arena extends Component {
   private playingFog = true;
   private lastLog = 0;
   private fireAt = 0;
-  private beams: { go: GameObject; until: number }[] = [];
+  private beams: { gos: GameObject[]; lights: { go: GameObject; light: Light; peak: number }[]; start: number; until: number }[] = [];
   private pivot = new Vector3(0, 1.4, 0);
 
   override onStart() {
@@ -227,6 +230,14 @@ export class Arena extends Component {
     updateLasers(this.lasers, Time.time - this.t0);
     hud.showScores = input.getKey("Tab");
     if (input.getKeyDown("F1")) hud.debug = !hud.debug;
+    if (input.getKeyDown("Escape")) this.pointerFree = !this.pointerFree;
+    // Mouse look needs the pointer locked while playing; menus, the debug panel and Esc free it.
+    const lock = this.mode === "client" && this.localId !== 0 && !hud.debug && !this.pointerFree;
+    if (lock !== this.pointerLocked) {
+      this.pointerLocked = lock;
+      Cursor.lockState = lock ? CursorLockMode.Locked : CursorLockMode.None;
+      Cursor.visible = !lock;
+    }
     if (this.mode === "menu" && request.mode !== "menu") {
       const m = request.mode;
       request.mode = "menu";
@@ -274,22 +285,44 @@ export class Arena extends Component {
 
   private updateBeams() {
     this.beams = this.beams.filter((b) => {
-      if (Time.time < b.until) return true;
-      b.go.destroy();
+      if (Time.time < b.until) {
+        // Quick fade: the lights die first, the core lingers a frame or two longer.
+        const k = 1 - (Time.time - b.start) / (b.until - b.start);
+        for (const l of b.lights) l.light.intensity = l.peak * k * k;
+        return true;
+      }
+      for (const g of b.gos) g.destroy();
+      for (const l of b.lights) l.go.destroy();
       return false;
     });
   }
 
+  /**
+   * A shot: a hot white core with a red bloom (emission above 1 blooms), a flash at the muzzle, a
+   * burst where it lands (bigger and bluish-white on a player), and red lights along it that wash
+   * the white town for a moment and fade out.
+   */
   private drawBeam(from: Vector3, to: Vector3, hit: boolean) {
-    const mid = from.add(to).scale(0.5);
-    const w = hit ? 0.06 : 0.035;
-    const go = new GameObject("Beam", {
-      position: mid,
-      rotation: Quaternion.lookRotation(to.sub(from)),
-      scale: new Vector3(w, w, to.sub(from).magnitude),
-    });
-    go.addComponent(MeshRenderer, { mesh: "cube", material: beamMaterial() }).shadowCastingMode = "off";
-    this.beams.push({ go, until: Time.time + 0.12 });
+    const span = to.sub(from);
+    const len = Math.max(0.01, span.magnitude);
+    const rot = Quaternion.lookRotation(span);
+    const root = new GameObject("Beam", { position: from.add(span.scale(0.5)), rotation: rot, scale: new Vector3(0.05, 0.05, len) });
+    root.addComponent(MeshRenderer, { mesh: "cube", material: beamMaterial() }).shadowCastingMode = "off";
+    const lights: { go: GameObject; light: Light; peak: number }[] = [];
+    const addLight = (at: Vector3, color: Color, peak: number, range: number) => {
+      const go = new GameObject("BeamLight", { position: at });
+      const light = go.addComponent(Light, { type: "point", color, intensity: peak, range });
+      lights.push({ go, light, peak });
+    };
+    const red = new Color(1, 0.15, 0.1, 1);
+    addLight(from, new Color(1, 0.55, 0.4, 1), 6, 5);
+    const n = Math.min(4, Math.floor(len / 6));
+    for (let i = 1; i <= n; i++) addLight(from.add(span.scale(i / (n + 1))), red, 1.6, 5);
+    addLight(to, hit ? new Color(1, 0.8, 0.8, 1) : red, hit ? 8 : 3.5, hit ? 6 : 4);
+    const burst = new GameObject("BeamBurst", { position: to, scale: new Vector3(hit ? 0.5 : 0.24, hit ? 0.5 : 0.24, hit ? 0.5 : 0.24) });
+    burst.addComponent(MeshRenderer, { mesh: "sphere", material: beamMaterial() }).shadowCastingMode = "off";
+    const start = Time.time;
+    this.beams.push({ gos: [root, burst], lights, start, until: start + 0.2 });
   }
 
   // ===================================================================================== server
@@ -462,7 +495,8 @@ export class Arena extends Component {
     if (!this.matchRunning() || !Number.isFinite(yawDeg)) return;
     shooter.lastShot = now;
     const yaw = (yawDeg * Math.PI) / 180;
-    const dir = new Vector3(Math.sin(yaw), 0, Math.cos(yaw));
+    // Heading convention (see docs/world-rendering.md "Coordinates"): forward is -z at yaw 0.
+    const dir = new Vector3(Math.sin(yaw), 0, -Math.cos(yaw));
     const origin = shooter.last.add(new Vector3(0, 1.3, 0)).add(dir.scale(0.4));
     const t = now - clamp((Number.isFinite(rewindMs) ? rewindMs : 0) / 1000, 0, MAX_REWIND);
     // Walls and houses stop a beam; players are tested against where they were at time `t`.
@@ -666,17 +700,36 @@ export class Arena extends Component {
       c.wrapMode = "loop";
       return c;
     };
-    const controller = new AnimatorController().addParameter("speed", "float", 0).addState("Locomotion", {
-      blendParameter: "speed",
-      children: [
-        { motion: clip("Idle_Loop"), threshold: 0 },
-        { motion: clip("Walk_Loop"), threshold: 1.5, timeScale: 1.5 / 0.97 },
-        { motion: clip("Jog_Fwd_Loop"), threshold: WALK, timeScale: WALK / 5.36 },
-        { motion: clip("Sprint_Loop"), threshold: SPRINT, timeScale: SPRINT / 8.25 },
-      ],
-    });
+    // Walk, jog and sprint blend on speed; a jump (airborne) plays the jump start then its loop,
+    // and landing plays the landing and returns to locomotion.
+    const once = (name: string) => {
+      const c = clip(name);
+      c.wrapMode = "once";
+      return c;
+    };
+    const controller = new AnimatorController()
+      .addParameter("speed", "float", 0)
+      .addParameter("air", "bool", false)
+      .addState("Locomotion", {
+        blendParameter: "speed",
+        children: [
+          { motion: clip("Idle_Loop"), threshold: 0 },
+          { motion: clip("Walk_Loop"), threshold: 1.5, timeScale: 1.5 / 0.97 },
+          { motion: clip("Jog_Fwd_Loop"), threshold: WALK, timeScale: WALK / 5.36 },
+          { motion: clip("Sprint_Loop"), threshold: SPRINT, timeScale: SPRINT / 8.25 },
+        ],
+      })
+      .addState("JumpStart", once("Jump_Start"))
+      .addState("JumpLoop", clip("Jump_Loop"))
+      .addState("JumpLand", once("Jump_Land"))
+      .addTransition({ from: "Locomotion", to: "JumpStart", conditions: [{ parameter: "air", mode: "if" }], duration: 0.08 })
+      .addTransition({ from: "JumpStart", to: "JumpLoop", hasExitTime: true, exitTime: 0.95, duration: 0.08 })
+      .addTransition({ from: "JumpLoop", to: "JumpLand", conditions: [{ parameter: "air", mode: "ifNot" }], duration: 0.05 })
+      .addTransition({ from: "JumpStart", to: "JumpLand", conditions: [{ parameter: "air", mode: "ifNot" }], duration: 0.05 })
+      .addTransition({ from: "JumpLand", to: "Locomotion", hasExitTime: true, exitTime: 0.7, duration: 0.12 });
     view.animator = body.addComponent(Animator, { controller });
     view.body = body;
+    holdFlashlight(body);
   }
 
   private onRpc(name: string, args: string[]) {
@@ -701,20 +754,21 @@ export class Arena extends Component {
     const cc = this.controller;
     if (!view || !cc) return;
     const alive = Network.getBool(this.localId, "alive");
-    // Camera: right-drag or Q / E turn it, the wheel zooms.
-    if (input.getMouseButton(1)) {
+    // Camera: the locked mouse turns it (Esc or F1 frees the pointer), Q / E too, the wheel zooms.
+    if (this.pointerLocked && !this.bot) {
       const d = input.mouseDelta;
-      this.yaw += d.x * 0.25;
-      this.pitch = clamp(this.pitch - d.y * 0.2, -5, 60);
+      this.yaw += d.x * 0.12;
+      this.pitch = clamp(this.pitch - d.y * 0.1, -5, 60);
     }
     if (input.getKey("KeyQ")) this.yaw -= 90 * dt;
     if (input.getKey("KeyE")) this.yaw += 90 * dt;
     const wheel = input.mouseScrollDelta.y;
-    if (wheel) this.distance = clamp(this.distance - wheel * 0.4, 2.5, 10);
+    if (wheel) this.distance = clamp(this.distance - wheel * 0.3, 1.6, 8);
 
     const yawR = (this.yaw * Math.PI) / 180;
-    const fwd = new Vector3(Math.sin(yawR), 0, Math.cos(yawR));
-    const right = new Vector3(Math.cos(yawR), 0, -Math.sin(yawR));
+    // Platypus is right-handed and looks down -z: yaw 0 faces -z, turning right (yaw up) faces +x.
+    const fwd = new Vector3(Math.sin(yawR), 0, -Math.cos(yawR));
+    const right = new Vector3(Math.cos(yawR), 0, Math.sin(yawR));
     // A bot (`--bot`) walks and shoots by itself, for tests with no one at the keyboard.
     const bt = Time.time;
     // (Camera yaw faces the target, so "forward" walks at it; it strafes while it goes.)
@@ -731,7 +785,7 @@ export class Arena extends Component {
         const d = Math.hypot(dx, dz);
         if (d < best) {
           best = d;
-          this.yaw = (Math.atan2(dx, dz) * 180) / Math.PI;
+          this.yaw = (Math.atan2(dx, -dz) * 180) / Math.PI;
         }
       }
       this.botDist = best;
@@ -752,13 +806,15 @@ export class Arena extends Component {
 
     // Face where it runs, or where it shoots.
     const firing = alive && (this.bot ? Math.sin(bt * 2.3) > 0.3 : input.getMouseButton(0) || input.getKey("KeyF"));
-    if (firing) this.facing = yawR;
+    // The mannequin model faces +z, so its body turn is 180 - heading when it aims.
+    if (firing) this.facing = Math.PI - yawR;
     else if (moving) this.facing = Math.atan2(dir.x, dir.z);
     let d = this.facing - ((this.facingDeg * Math.PI) / 180);
     d = Math.atan2(Math.sin(d), Math.cos(d));
     this.facingDeg += (d * 180) / Math.PI * Math.min(1, 14 * dt);
     if (view.body) view.body.transform.localRotation = Quaternion.euler(0, this.facingDeg, 0);
     view.animator?.setFloat("speed", moved);
+    view.animator?.setBool("air", !cc.isGrounded && this.vy > -2);
 
     // What the others need: where I am, which way, how fast. The server checks the position.
     const wrote = Network.setVec3(this.localId, "pos", after.x, after.y, after.z);
@@ -791,6 +847,8 @@ export class Arena extends Component {
         v.go.enabled = Network.getBool(id, "alive");
         if (v.body) v.body.transform.localRotation = Quaternion.euler(0, Network.getNumber(id, "yaw"), 0);
         v.animator?.setFloat("speed", Network.getNumber(id, "speed"));
+        // Others have no controller to ask: they are in the air when well above the ground.
+        v.animator?.setBool("air", v.shown.y > 0.35);
       }
     }
   }
@@ -830,14 +888,58 @@ export class Arena extends Component {
       this.placeCamera(new Vector3(0, 2, 0), 34, 22, dt);
       return;
     }
-    this.placeCamera(v.go.transform.position.add(new Vector3(0, 1.4, 0)), this.distance, this.pitch, dt);
+    // Over the right shoulder: the player sits left of centre so the crosshair is on the world.
+    const yawR = (this.yaw * Math.PI) / 180;
+    const shoulder = new Vector3(Math.cos(yawR), 0, Math.sin(yawR)).scale(0.75);
+    this.placeCamera(v.go.transform.position.add(new Vector3(0, 1.55, 0)).add(shoulder), this.distance, this.pitch, dt);
   }
 }
 
-let beam: Material | null = null;
+/**
+ * The weapon: a flashlight built from primitives, parented to the right hand bone so the run and
+ * jump animations carry it. (The Unity Asset Store "Flashlight" package cannot be loaded by the
+ * engine: it is a .unitypackage behind a login. Export it as glTF into assets/ and swap this for
+ * `Model.load` + `instantiate({ parent: hand })` to use it.)
+ */
+/** A bone by name anywhere under `go` (`findChild` only looks at direct children). */
+function findDeep(go: GameObject, name: string): GameObject | null {
+  for (const c of go.children) {
+    if (c.name === name) return c;
+    const hit = findDeep(c, name);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+let flashMaterials:{ body: Material; head: Material; lens: Material } | null = null;
+function holdFlashlight(body: GameObject) {
+  const hand = findDeep(body, "hand_r");
+  if (!hand) return;
+  flashMaterials ??= {
+    body: Material.create({ color: new Color(0.12, 0.12, 0.14, 1), metallic: 0.6, smoothness: 0.6 }),
+    head: Material.create({ color: new Color(0.7, 0.7, 0.74, 1), metallic: 0.9, smoothness: 0.8 }),
+    lens: Material.create({ color: Color.black, emission: new Color(10, 2, 1.6, 1), unlit: true }),
+  };
+  const m = flashMaterials;
+  // The hand bone's x axis runs along the fingers: the torch lies along it, lens forward.
+  const pivot = new GameObject("Flashlight", { parent: hand, position: new Vector3(0.05, 0, 0.0) });
+  const part = (mesh: string, mat: Material, x: number, length: number, width: number) => {
+    const go = new GameObject("FlashlightPart", {
+      parent: pivot,
+      position: new Vector3(x, 0, 0),
+      rotation: Quaternion.euler(0, 0, 90),
+      scale: new Vector3(width, length / 2, width),
+    });
+    go.addComponent(MeshRenderer, { mesh, material: mat }).shadowCastingMode = "off";
+  };
+  part("cylinder", m.body, 0.02, 0.2, 0.045);
+  part("cylinder", m.head, 0.15, 0.07, 0.07);
+  part("cylinder", m.lens, 0.19, 0.01, 0.062);
+}
+
+let beamCore: Material | null = null;
 function beamMaterial(): Material {
-  beam ??= Material.create({ color: Color.black, emission: new Color(6, 0.2, 0.15, 1), unlit: true });
-  return beam;
+  return (beamCore ??= Material.create({ color: Color.black, emission: new Color(14, 2.5, 2, 1), unlit: true }));
 }
 
 register({ Arena });
