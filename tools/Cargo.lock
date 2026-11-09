@@ -2013,6 +2013,9 @@ dependencies = [
 name = "platypus_components"
 version = "0.1.0"
 dependencies = [
+ "oxc_allocator",
+ "oxc_parser",
+ "oxc_span",
  "platypus_kinds",
  "platypus_physics_api",
  "serde_json",
