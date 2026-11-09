@@ -2780,6 +2780,9 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WUI-STO-06 | Unit | `persist<S, Saved>(creator, { name, partialize })` writes `{"version":0,"state":{..}}` to `localStorage` after each `set`, and a second run starts from it (what `partialize` left out starts afresh). |
 | WUI-STO-07 | Unit | The generated declarations are Zustand's (`StoreApi<T>`, `StateCreator<T>`, `create`, `createStore`, `useStore`, `useShallow`, `persist`) without the hidden natives. |
 | WUI-RTR-17 | Unit | The generated declarations name React Router's API (`RouteObject`, `createRouter`, `useNavigate`, `useParams`, `Link`, `Outlet`, `matchPath`, `URLSearchParams`) and leave the hidden natives out. |
+| WUI-PAINT-01 | Unit | `UiTree::paint_generation` stays put while nothing changes (a clock tick with no caret or transition, the same size, an empty commit) and the draw list is the same. |
+| WUI-PAINT-02 | Unit | The paint generation moves with a style op, a resize, a `:hover` that restyles, an image's natural size and a drag image. With `set_paint_check(true)` (every `common::Dom` tree) a change that alters the draw list without moving it panics in `draw_list`. |
+| WUI-PAINT-03 | Unit | A focused text field's caret blink moves the paint generation at each 530 ms phase change, not between. |
 
 ## Bot AI (`crates/platypus_ai`)
 
