@@ -171,7 +171,6 @@ export class Arena extends Component {
   private yaw = 0;
   private pitch = 8;
   private airTime = 0;
-  private corpse = false;
   private killLimit = KILL_LIMIT;
   private botBlockedUntil = 0;
   private botSeenFor = 0;
@@ -211,7 +210,6 @@ export class Arena extends Component {
     const args = Application.args;
     this.bot = args.includes("--bot");
     this.verbose = args.includes("--verbose");
-    this.corpse = args.includes("--corpse");
     const at = args.indexOf("--connect");
     // `--kill-limit N` shortens rounds, for testing round changes.
     const kl = args.indexOf("--kill-limit");
@@ -1028,8 +1026,7 @@ export class Arena extends Component {
   private updateFalls(dt: number) {
     for (const [id, v] of this.views) {
       if (v.kind !== 0 || !v.body) continue;
-      // (`--corpse` lays the local figure down for screenshots.)
-      const alive = Network.getBool(id, "alive") && !(this.corpse && v.local);
+      const alive = Network.getBool(id, "alive");
       // Others' bodies vanish a little before the respawn and come back only once the move to
       // the new spot has settled, so nobody can watch where a dead player goes next.
       if (!v.local) {
