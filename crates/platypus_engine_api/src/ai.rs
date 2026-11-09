@@ -7,7 +7,7 @@
 
 use glam::{IVec3, Vec3};
 use platypus_ai::steering::Agent;
-use platypus_ai::{Connectivity, Crowd, FlowField, Goap, NavGrid};
+use platypus_ai::{Connectivity, Crowd, FlowField, Goap, Htn, NavGrid};
 use platypus_math::{V3, v3};
 use std::cell::RefCell;
 use ts_api::{Handle, ts_api};
@@ -33,6 +33,7 @@ thread_local! {
 pub fn reset() {
     GRIDS.with(|g| g.borrow_mut().clear());
     PLANNERS.with(|g| g.borrow_mut().clear());
+    HTNS.with(|g| g.borrow_mut().clear());
     FIELDS.with(|g| g.borrow_mut().clear());
     CROWDS.with(|g| g.borrow_mut().clear());
 }
@@ -271,6 +272,169 @@ pub mod goap_api {
                 .and_then(Result::ok)
                 .flatten()
                 .is_some()
+        }
+    }
+}
+
+/// An `Htn` planner by number (1-based: 0 is "none").
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct HtnRef(pub u32);
+
+impl Handle for HtnRef {
+    fn to_raw(self) -> u64 {
+        u64::from(self.0)
+    }
+    fn from_raw(raw: u64) -> Self {
+        HtnRef(raw as u32)
+    }
+}
+
+struct HtnEntry {
+    htn: Htn,
+    /// The methods the last successful `plan` used.
+    methods: Vec<String>,
+}
+
+thread_local! {
+    static HTNS: RefCell<Vec<Option<HtnEntry>>> = const { RefCell::new(Vec::new()) };
+}
+
+fn with_htn<R>(r: HtnRef, f: impl FnOnce(&mut HtnEntry) -> R) -> Option<R> {
+    HTNS.with(|g| {
+        let mut g = g.borrow_mut();
+        let i = (r.0 as usize).checked_sub(1)?;
+        g.get_mut(i)?.as_mut().map(f)
+    })
+}
+
+#[ts_api(namespace = "Htn", handles(Htn = HtnRef))]
+pub mod htn_api {
+    use super::*;
+
+    /// A hierarchical task network. *Primitive* tasks are the steps of a plan (preconditions, effects, a
+    /// cost: literals as in `Goap`). *Compound* tasks have *methods*, tried in the order they were added;
+    /// a method has conditions and a list of subtasks, compound or primitive, that replace the task. `plan`
+    /// decomposes a root task in order, checking each method's conditions against the world as the earlier
+    /// steps will have left it, and backs up to the next method when a branch fails. The result is the
+    /// first plan the author's order allows (not the cheapest): put the preferred method first and a
+    /// catch-all with no conditions last.
+    impl HtnRef {
+        /// `new Htn()`: a planner with no tasks.
+        pub fn create() -> HtnRef {
+            HTNS.with(|all| {
+                let mut all = all.borrow_mut();
+                all.push(Some(HtnEntry {
+                    htn: Htn::new(),
+                    methods: Vec::new(),
+                }));
+                HtnRef(all.len() as u32)
+            })
+        }
+
+        /// Forgets the planner (a handle is a number, nothing frees it by itself).
+        pub fn destroy(self) {
+            HTNS.with(|all| {
+                let mut all = all.borrow_mut();
+                if let Some(slot) = (self.0 as usize)
+                    .checked_sub(1)
+                    .and_then(|i| all.get_mut(i))
+                {
+                    *slot = None;
+                }
+            });
+        }
+
+        /// Adds a step; false when the name is taken, its literals contradict each other or there are more
+        /// than 64 facts.
+        pub fn add_primitive(
+            self,
+            name: String,
+            cost: f64,
+            preconditions: &[String],
+            effects: &[String],
+        ) -> bool {
+            with_htn(self, |e| {
+                e.htn
+                    .add_primitive(&name, cost as f32, &strs(preconditions), &strs(effects))
+                    .is_ok()
+            })
+            .unwrap_or(false)
+        }
+
+        /// Adds a compound task with no methods yet; false when the name is taken.
+        pub fn add_compound(self, name: String) -> bool {
+            with_htn(self, |e| e.htn.add_compound(&name).is_ok()).unwrap_or(false)
+        }
+
+        /// Adds a method to a compound task, after its earlier ones (lower priority): used when its
+        /// conditions hold, replacing the task with `subtasks` in order. False when `compound` is not a
+        /// compound task or the literals contradict. Subtasks may be defined later; one that never is makes
+        /// the method unusable (`unknownSubtasks` lists them).
+        pub fn add_method(
+            self,
+            compound: String,
+            name: String,
+            preconditions: &[String],
+            subtasks: &[String],
+        ) -> bool {
+            with_htn(self, |e| {
+                e.htn
+                    .add_method(&compound, &name, &strs(preconditions), &strs(subtasks))
+                    .is_ok()
+            })
+            .unwrap_or(false)
+        }
+
+        /// Gives up a plan after this many tasks have been processed (a recursive method that never ends).
+        pub fn set_max_steps(self, count: f64) {
+            with_htn(self, |e| {
+                if count >= 1.0 {
+                    e.htn.max_steps = count as usize;
+                }
+            });
+        }
+
+        /// The names of the steps to run, in order, to do `root` from the facts that are true now. Empty
+        /// when there is nothing to do and also when there is no plan (check `canPlan`). Also records which
+        /// methods were used (`methods`).
+        pub fn plan(self, facts: &[String], root: String) -> Vec<String> {
+            with_htn(self, |e| {
+                let found = e.htn.plan_names(&strs(facts), &root).ok().flatten();
+                match found {
+                    Some(p) => {
+                        e.methods = p.methods.clone();
+                        e.htn.step_names(&p)
+                    }
+                    None => {
+                        e.methods.clear();
+                        Vec::new()
+                    }
+                }
+            })
+            .unwrap_or_default()
+        }
+
+        /// Whether `root` can be done from these facts.
+        pub fn can_plan(self, facts: &[String], root: String) -> bool {
+            with_htn(self, |e| {
+                e.htn
+                    .plan_names(&strs(facts), &root)
+                    .ok()
+                    .flatten()
+                    .is_some()
+            })
+            .unwrap_or(false)
+        }
+
+        /// The methods the last successful `plan` used, in order, as `"Compound: method"`: how the root
+        /// was broken down.
+        pub fn methods(self) -> Vec<String> {
+            with_htn(self, |e| e.methods.clone()).unwrap_or_default()
+        }
+
+        /// Subtask names that no task is defined for.
+        pub fn unknown_subtasks(self) -> Vec<String> {
+            with_htn(self, |e| e.htn.unknown_subtasks()).unwrap_or_default()
         }
     }
 }
@@ -718,6 +882,46 @@ mod tests {
         assert!(!g.can_plan(&[], &s(&["moon"])));
         g.destroy();
         assert!(!g.can_plan(&[], &s(&["wood"])));
+    }
+
+    // AI-29
+    #[test]
+    fn htn_handle_decomposes_in_method_order_and_records_the_methods() {
+        reset();
+        let s = |v: &[&str]| v.iter().map(|x| x.to_string()).collect::<Vec<_>>();
+        let h = HtnRef::create();
+        assert!(h.add_primitive("walk".into(), 2.0, &[], &s(&["there"])));
+        assert!(h.add_primitive("fish".into(), 3.0, &s(&["there", "rod"]), &s(&["food"])));
+        assert!(h.add_primitive("buy".into(), 5.0, &s(&["coin"]), &s(&["food"])));
+        assert!(
+            !h.add_primitive("walk".into(), 1.0, &[], &[]),
+            "names are unique"
+        );
+        assert!(h.add_compound("Eat".into()));
+        assert!(!h.add_compound("Eat".into()));
+        // A coin means buying, even though fishing would be cheaper: the first method wins.
+        assert!(h.add_method("Eat".into(), "buy it".into(), &s(&["coin"]), &s(&["buy"])));
+        assert!(h.add_method(
+            "Eat".into(),
+            "fish".into(),
+            &s(&["rod"]),
+            &s(&["walk", "fish"])
+        ));
+        assert!(
+            !h.add_method("walk".into(), "m".into(), &[], &[]),
+            "only compounds have methods"
+        );
+        assert_eq!(h.plan(&s(&["coin", "rod"]), "Eat".into()), ["buy"]);
+        assert_eq!(h.methods(), ["Eat: buy it"]);
+        assert_eq!(h.plan(&s(&["rod"]), "Eat".into()), ["walk", "fish"]);
+        assert_eq!(h.methods(), ["Eat: fish"]);
+        assert!(!h.can_plan(&[], "Eat".into()));
+        assert!(h.plan(&[], "Eat".into()).is_empty() && h.methods().is_empty());
+        assert!(!h.can_plan(&[], "Missing".into()));
+        assert!(h.add_method("Eat".into(), "ghost".into(), &[], &s(&["Nowhere"])));
+        assert_eq!(h.unknown_subtasks(), ["Nowhere"]);
+        h.destroy();
+        assert!(!h.can_plan(&s(&["coin"]), "Eat".into()));
     }
 
     // AI-26

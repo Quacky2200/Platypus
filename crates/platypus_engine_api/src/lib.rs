@@ -101,6 +101,7 @@ pub fn manifests() -> Vec<String> {
         ai::nav_grid_api::MANIFEST.to_json(),
         ai::steering_api::MANIFEST.to_json(),
         ai::goap_api::MANIFEST.to_json(),
+        ai::htn_api::MANIFEST.to_json(),
         ai::flow_field_api::MANIFEST.to_json(),
         ai::crowd_api::MANIFEST.to_json(),
     ]);
