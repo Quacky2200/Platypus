@@ -30,8 +30,9 @@ pub(crate) fn pump(now: Duration) {
     network::update(now);
 }
 
-/// Closes the network before the program ends. Left to the thread-local's destructor at exit, the
-/// QUIC transport would shut its runtime down after tokio's own thread-locals are gone (a panic).
+/// Closes the network before the program ends, so peers are told while the program is still
+/// running. (The QUIC transport also survives being dropped by a thread-local destructor at exit,
+/// `M8-NET-12`: its `Drop` no longer needs tokio's thread-local context.)
 pub(crate) fn shutdown() {
     network::close();
 }

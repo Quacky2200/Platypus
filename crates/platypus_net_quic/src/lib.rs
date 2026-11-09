@@ -359,16 +359,19 @@ impl Drop for QuicTransport {
         {
             let _ = tx.send(ConnCmd::Close);
         }
-        // Drop a transport on a live thread, not from a thread-local destructor at process exit:
-        // by then tokio's context is gone and `block_on` panics (the app closes it first).
+        // The wait for the close to leave runs as a task and this thread waits on a plain channel:
+        // `block_on` reads tokio's thread-local context, which is already gone when a transport is
+        // dropped from a thread-local destructor at process exit (a panic that aborts). The
+        // endpoint is dropped inside the task: it needs a runtime to drop in, and has none by the
+        // time the struct's fields drop.
         if let Some(e) = self.endpoint.take() {
-            let rt = self.rt();
-            rt.block_on(async {
+            let (done, finished) = std::sync::mpsc::channel();
+            self.rt().spawn(async move {
                 let _ = tokio::time::timeout(Duration::from_millis(500), e.wait_idle()).await;
+                drop(e);
+                let _ = done.send(());
             });
-            // An endpoint needs a runtime to drop in: it is gone by the time fields drop.
-            let _inside = rt.enter();
-            drop(e);
+            let _ = finished.recv_timeout(Duration::from_millis(700));
         }
         if let Some(rt) = self.rt.take() {
             rt.shutdown_background();
