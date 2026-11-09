@@ -2798,6 +2798,13 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WUI-BATCH-03 | Unit | GLES: 48 cards with three pictures in turn, and with one picture, render to the same pixels with merging on and off (each frame's time printed with `--nocapture`). |
 | WUI-BATCH-04 | Unit | A plan with three picture draws is left unmerged (7 draws); with four it merges (5 draws). |
 | WUI-BATCH-05 | Manual | `examples/picture-grid` with `WEB_UI_TRACE=frames`: static mode skips every frame; color mode with 32 pictures draws about 33 calls a frame merged and about 109 with `WEB_UI_BATCH_MERGE=0`, the merged frames drawing in about half the time. |
+| WUI-MEMO-01 | Unit | Compiled program: a parent's re-render skips a `memo` child whose props are the same (its render count stays) while a plain child renders again. |
+| WUI-MEMO-02 | Unit | A `memo` child renders for new props, for its own state alone (the parent doesn't), and when a context it reads changes value; and skips again after. |
+| WUI-MEMO-03 | Unit | A context reader below a `memo` parent that skips renders once when the provider's value changes, and not at all when the provider renders with the same value. |
+| WUI-SCROLL-01 | Unit | After a scroll, most rows of a scrolled list replay their cached commands moved (replayed > walked); fractional steps and scrolling back match a full walk to the rounding; text lands where the scroll puts it. |
+| WUI-SCROLL-02 | Unit | A row whose colour changes in the same frame it scrolls is drawn with the new colour. |
+| WUI-SCROLL-03 | Unit | Rows with a transform (walked: the homography holds the position) and rows with a shadow (ink past the view) draw right through scrolls. |
+| WUI-SCROLL-04 | Unit | A card holding its own scroller, scrolling the inner and outer containers, and a smooth scroll frame by frame, all match a full walk. |
 
 ## Bot AI (`crates/platypus_ai`)
 
