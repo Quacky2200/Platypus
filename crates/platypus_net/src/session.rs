@@ -1139,7 +1139,7 @@ mod tests {
         let (mut player, _) = rig.client(config(), "p", None);
         let (mut watcher, _) = rig.client(watch.clone(), "w", None);
         let (se, ce) = rig.run(300, &mut [&mut player, &mut watcher]);
-        let joined: Vec<_> = se
+        let mut joined: Vec<_> = se
             .iter()
             .filter_map(|e| match e {
                 SessionEvent::PlayerJoined {
@@ -1148,12 +1148,19 @@ mod tests {
                 _ => None,
             })
             .collect();
-        assert_eq!(joined, vec![(1, false), (2, true)]);
+        // Ids go out in the order the handshakes arrive, which varies from run to run: what matters
+        // is one player and one spectator, with the server knowing which is which.
+        joined.sort();
+        let ids: Vec<_> = joined.iter().map(|(id, _)| *id).collect();
+        assert_eq!(ids, vec![1, 2]);
+        assert_eq!(joined.iter().filter(|(_, spectator)| *spectator).count(), 1);
         assert!(ce.iter().all(|c| {
             c.iter()
                 .any(|e| matches!(e, SessionEvent::Connected { .. }))
         }));
-        assert!(!rig.server.is_spectator(1) && rig.server.is_spectator(2));
+        for (id, spectator) in &joined {
+            assert_eq!(rig.server.is_spectator(*id), *spectator);
+        }
         // A second player and a second spectator are each turned away: the limits are separate.
         let (mut p2, _) = rig.client(config(), "p2", None);
         let (mut w2, _) = rig.client(watch, "w2", None);
