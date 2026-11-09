@@ -2783,6 +2783,15 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | WUI-PAINT-01 | Unit | `UiTree::paint_generation` stays put while nothing changes (a clock tick with no caret or transition, the same size, an empty commit) and the draw list is the same. |
 | WUI-PAINT-02 | Unit | The paint generation moves with a style op, a resize, a `:hover` that restyles, an image's natural size and a drag image. With `set_paint_check(true)` (every `common::Dom` tree) a change that alters the draw list without moving it panics in `draw_list`. |
 | WUI-PAINT-03 | Unit | A focused text field's caret blink moves the paint generation at each 530 ms phase change, not between. |
+| WUI-PAINT-04 | Unit | Subtree cache: an unchanged draw list is all replayed (nothing walked); after one row's colour changes only that row and the column above it are walked, the other rows replayed. |
+| WUI-PAINT-05 | Unit | Replays stay right (each list equals a full walk, the paint check) through a text change, a `:hover` restyle, moving and removing rows, a `z-index` reorder, a class change and an inherited `color` change. |
+| WUI-PAINT-06 | Unit | Replays stay right through scrolling an `overflow: auto` container, a word selection and clearing it, and a running `background-color` transition. |
+| WUI-PAINT-07 | Unit | Replays stay right as a focused field takes text and its caret blinks. |
+| WUI-PAINT-08 | Unit | An absolute box that escapes an `overflow: hidden` parent's clip, and its ancestors, are walked, not replayed; colour changes to it and its sibling draw right. |
+| WUI-PAINT-09 | Unit | Damage: none when nothing changed; one row's rect for one row's colour; two rects for two rows apart (under a quarter of the window); `Full` after a resize. With the paint check, every command that differs between two lists lies inside the damage (every `common::Dom` tree). |
+| WUI-PAINT-10 | Unit | Damage maps through transforms (a 10 x 10 box in a `scale(2)` parent: 20 x 20) and takes in a `backdrop-filter` blur over the changed box. |
+| WUI-PACE-01 | Unit | `window::pacing::interval`: full rate (16.7 ms) while busy and focused, and for `BURST` (1 s) after input even unfocused; the burst ends at 1 s. |
+| WUI-PACE-02 | Unit | Idle focused ticks every 33 ms, idle unfocused every 100 ms, animating unfocused at half rate, and minimised / covered once a second whatever else holds. |
 
 ## Bot AI (`crates/platypus_ai`)
 
