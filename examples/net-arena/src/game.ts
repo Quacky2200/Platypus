@@ -230,6 +230,8 @@ export class Arena extends Component {
   /** `--aim`: the arm stays raised (to look at the pose). */
   private holdAim = false;
   private holdPitch = 0;
+  /** `--hand`: the camera looks at the torch in the hand. */
+  private handCam = false;
   /** The length of the last frame (`onPreRender` is not told it). */
   private frameDt = 0.016;
   /** The local player's torch is pointed (trigger held, or just fired) and how high it points. */
@@ -270,6 +272,7 @@ export class Arena extends Component {
     // `--aim [degrees]`: keep the torch raised, as high as given (to look at the pose).
     const ai = args.indexOf("--aim");
     this.holdAim = ai >= 0;
+    this.handCam = args.includes("--hand");
     if (ai >= 0) this.holdPitch = parseFloat(args[ai + 1] ?? "") || 0;
     const at = args.indexOf("--connect");
     // `--kill-limit N` shortens rounds, for testing round changes.
@@ -1139,11 +1142,14 @@ export class Arena extends Component {
       const fwd = new Vector3(Math.sin(r) * Math.cos(p), Math.sin(p), Math.cos(r) * Math.cos(p));
       const across = new Vector3(-Math.cos(r), 0, Math.sin(r));
       v.torch.transform.rotation = Quaternion.angleAxis((p * 180) / Math.PI, across).mul(Quaternion.euler(0, deg, 0)).mul(Quaternion.euler(0, -90, 0));
-      // The grip is the middle of the palm: a little way from the wrist along the fingers (the hand
-      // bone's x axis, down when the arm hangs), with the torch's handle through it and its head
-      // out in front. At the wrist the torch floated beside the hand.
-      const fingers = v.hand.transform.rotation.rotate(new Vector3(1, 0, 0));
-      const palm = v.hand.transform.position.add(fingers.scale(0.05));
+      // The grip is the middle of the fist, with the torch's handle through it and its head out in
+      // front: from the wrist along the fingers (the hand bone's y axis) and into the palm (its minus
+      // x). In the held-out pose the fist hangs under the forearm's line, and a torch on that line
+      // rode on top of the hand; at the wrist it floated beside it.
+      const q = v.hand.transform.rotation;
+      const palm = v.hand.transform.position
+        .add(q.rotate(new Vector3(0, 1, 0)).scale(0.05))
+        .add(q.rotate(new Vector3(-1, 0, 0)).scale(0.04));
       v.torch.transform.position = palm.add(fwd.scale(0.02));
       v.lens = v.torch.transform.position.add(fwd.scale(0.22));
     }
@@ -1544,6 +1550,15 @@ export class Arena extends Component {
     if (!v) {
       this.yaw += 6 * dt;
       this.placeCamera(new Vector3(0, 2, 0), 34, 22, dt);
+      return;
+    }
+    // `--hand`: a close look at the torch in the hand, from the figure's right (for checking the grip).
+    if (this.handCam && v.hand) {
+      const r = (this.facingDeg * Math.PI) / 180;
+      const at = v.hand.transform.position;
+      const from = at.add(new Vector3(-Math.cos(r), 0, Math.sin(r)).scale(0.45)).add(new Vector3(0, 0.05, 0));
+      this.camera.transform.position = from;
+      this.camera.transform.rotation = Quaternion.lookRotation(at.sub(from));
       return;
     }
     // Over the right shoulder: the player sits left of centre so the crosshair is on the world.
