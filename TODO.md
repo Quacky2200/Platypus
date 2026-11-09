@@ -1012,8 +1012,8 @@ for GameObjects and scene serialization (M5.a/b), which it reuses — see "Hot r
     (`M5-SHD-01`, `M5-RND-20`); left: shadows on quads / sprites / particles, transparent
     casters, contact shadows, per-light shadow resolution, skipping casters outside each
     map, cascade blending
-  - [ ] Audio follow-ups: partial `spatialBlend` (kira's spatialization strength), Doppler,
-    a source's playback `time`, `onDisable` pausing sources
+  - [ ] Audio follow-ups: partial `spatialBlend` (kira's spatialization strength),
+    a source's playback `time`, `onDisable` pausing sources (Doppler is done: `AudioSource.dopplerLevel`, `ACO-SYS-*`)
   - [ ] Particle follow-ups: GPU simulation for big systems, collisions, velocity / force
     over lifetime, stretched billboards, sub-emitters, trails, soft particles (fade near
     surfaces), `AnimationCurve` / `Gradient` types for the over-lifetime keys
@@ -2152,6 +2152,8 @@ Design: `docs/research/multiplayer.md` (Fusion / Fish-Net / Lightyear inspired, 
 
 - [ ] OpenXR: Quest VR, PC VR
 - [x] ~~Steam Audio spatial sound~~ dropped: the engine's own spatial / advanced audio (zones, occlusion, portals, directivity; see "Spatial audio") covers it
+- [ ] Surround sound (optional, to review): 5.1 / 7.1 speaker output instead of stereo (device channel layout through kira / cpal,
+  panning spatial emitters across the speakers, an LFE send, a stereo downmix fallback); decide if it is worth it before starting
 - [ ] Ray tracing tier
 - [ ] Video: a `VideoClip` asset and `VideoPlayer` component (to a texture, UI or a plane)
 
