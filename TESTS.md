@@ -2802,6 +2802,14 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | AI-40 | Unit | Flow field distances grow away from the goal (Manhattan on six-connectivity), blocked and out-of-grid cells are infinite (`AI-41`: sealed-off areas have no distance and no direction). |
 | AI-42 | Unit | Following the field from a start goes around a wall through its gap to the goal; the blended direction is smooth and at most length 1 (`AI-43`); weights bend the flow round costly cells (`AI-44`). |
 | AI-45 | Unit | A crowd of 150 reaches a goal round a wall without entering a blocked cell; separation keeps a crowd started in one spot spread out (`AI-46`); `remove` swaps the last agent in (`AI-47`). |
+| AI-29 | Unit | `Htn` handle: methods are tried in the order added and the first that works wins (a coin means buying even though chopping is cheaper), `methods()` records the choice, unknown tasks and duplicate names are refused, `unknownSubtasks` lists missing subtasks, and a destroyed planner plans nothing. |
+| AI-50 | Unit | HTN: methods are tried in order and the first that works wins, even when a later one is cheaper (the author's priority, not the cheapest). |
+| AI-51 | Unit | HTN: method conditions see the world as the earlier steps of the plan leave it (no walking where already standing). |
+| AI-52 | Unit | HTN: a failed branch, whether at once or only deeper down, backs up to the next method. |
+| AI-53 | Unit | HTN: recursion works; a method that only calls itself is cut by the step budget and left recursion that grows the list by the depth limit. |
+| AI-54 | Unit | HTN: an empty plan has cost 0; an unknown root, a taken name, a method on a primitive and contradictory literals are errors; a method naming a task that never exists is skipped and reported. |
+| AI-55 | Unit | HTN: the plan records the methods it used, in order. |
+| AI-31 | Manual | `examples/goap-demo` under both planners (headless, six scenarios): all finish with no villager step inside a blocked cell; with a coin GOAP chops (16.3 s) and the HTN buys (8.4 s); the shed to forest route goes through the crossroads on the roads (checked 2026-11-09). The route line and the overlay switch were checked in a screenshot, not in a live window. |
 | AI-48 | Unit | A crowd agent standing in a cell that becomes blocked is put on the nearest free ground (keeping its height) and goes on to the goal. |
 | AI-28 | Manual | `examples/rats` half-height gate: closing it at 4.5 s on a headless run left no rat inside the gate cells; with pile up on, 149 rats had climbed over by 40 s (about four a second) and 234 of 300 were past the gate, all 300 reached the cheese after a while (checked 2026-11-09). The pile's look and the P / B keys were not checked in a live window. |
 | AI-27 | Manual | `examples/rats` (a maze with a swarm on a flow field) and the 3D `examples/goap-demo` render in `--screenshot` runs. |

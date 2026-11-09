@@ -1,11 +1,20 @@
 // Copyright 2026 The Platypus Authors
 // SPDX-License-Identifier: Apache-2.0
 
-// GOAP (goal-oriented action planning) in a 3D village. A villager is given a goal, `Goap.plan`
-// finds the cheapest list of actions from the facts that are true now, and the villager walks the
-// plan out: to the shed for the axe, to the forest to chop, to the camp to build the fire. Change
-// the goal or the purse and the plan changes: with a coin the villager buys firewood at the market
-// when that is cheaper than fetching an axe and chopping.
+// Two planners in a 3D village, one switch apart. A villager is given a goal and a planner works
+// out the steps; the villager walks them out: to the shed for the axe, to the forest to chop, to
+// the camp to build the fire.
+//
+// - GOAP (`Goap.plan`) searches for the cheapest list of actions from the facts that are true now.
+// - HTN (`Htn.plan`) follows recipes the author wrote: a compound task such as GetWood has methods
+//   tried in order (use what you have, spend a coin, or chop), each breaking it into subtasks. The
+//   result is the first plan the author's order allows, and the overlay shows how it was broken down.
+//
+// The two differ when you start with a coin: GOAP finds chopping a little cheaper (12 against 13),
+// while this HTN's author put "spend a coin" first, so it buys the wood.
+//
+// Walking is A* (`NavGrid`) over the village with the buildings and trees blocked and the dirt roads
+// cheap, so the villager walks round buildings and keeps to the roads where that is not much longer.
 
 type Place = "shed" | "forest" | "market" | "camp" | "home";
 
@@ -34,17 +43,71 @@ for (const p of ORDER) {
 }
 brain.addAction("takeAxe", 1, ["at:shed", "!hasAxe"], ["hasAxe"]);
 brain.addAction("chopWood", 3, ["at:forest", "hasAxe"], ["hasWood"]);
-brain.addAction("buyWood", 5, ["at:market", "hasCoins"], ["hasWood", "!hasCoins"]);
+brain.addAction("buyWood", 7, ["at:market", "hasCoins"], ["hasWood", "!hasCoins"]);
 brain.addAction("sellWood", 1, ["at:market", "hasWood"], ["hasCoins", "!hasWood"]);
 brain.addAction("buildFire", 2, ["at:camp", "hasWood"], ["fire", "!hasWood"]);
 brain.addAction("sleep", 2, ["at:home", "fire"], ["rested"]);
 
-type Goal = { label: string; literals: string[] };
+// The same steps as an HTN: primitive tasks are the actions, compound tasks the author's recipes.
+const htn = new Htn();
+for (const p of ORDER) {
+  htn.addPrimitive("go:" + p, 2, [], ["at:" + p, ...ORDER.filter((o) => o !== p).map((o) => "!at:" + o)]);
+  // At:<place>: nothing to do if already there, else walk.
+  htn.addCompound("At:" + p);
+  htn.addMethod("At:" + p, "already there", ["at:" + p], []);
+  htn.addMethod("At:" + p, "walk", [], ["go:" + p]);
+}
+htn.addPrimitive("takeAxe", 1, ["at:shed"], ["hasAxe"]);
+htn.addPrimitive("chopWood", 3, ["at:forest", "hasAxe"], ["hasWood"]);
+htn.addPrimitive("buyWood", 7, ["at:market", "hasCoins"], ["hasWood", "!hasCoins"]);
+htn.addPrimitive("sellWood", 1, ["at:market", "hasWood"], ["hasCoins", "!hasWood"]);
+htn.addPrimitive("buildFire", 2, ["at:camp", "hasWood"], ["fire", "!hasWood"]);
+htn.addPrimitive("sleep", 2, ["at:home", "fire"], ["rested"]);
+
+htn.addCompound("GetAxe");
+htn.addMethod("GetAxe", "have it", ["hasAxe"], []);
+htn.addMethod("GetAxe", "fetch it", [], ["At:shed", "takeAxe"]);
+
+// Methods in the author's order of preference: wood in hand, else spend a coin, else chop.
+htn.addCompound("GetWood");
+htn.addMethod("GetWood", "have some", ["hasWood"], []);
+htn.addMethod("GetWood", "spend a coin", ["hasCoins"], ["At:market", "buyWood"]);
+htn.addMethod("GetWood", "chop it", [], ["GetAxe", "At:forest", "chopWood"]);
+
+// Every top-level recipe starts with "already done": a task that is replanned each frame must know when it
+// has nothing left to do (GOAP gets that from its goal being met).
+htn.addCompound("LightFire");
+htn.addMethod("LightFire", "already lit", ["fire"], []);
+htn.addMethod("LightFire", "the usual", [], ["GetWood", "At:camp", "buildFire"]);
+
+htn.addCompound("EarnCoins");
+htn.addMethod("EarnCoins", "already has one", ["hasCoins"], []);
+htn.addMethod("EarnCoins", "sell firewood", [], ["GetWood", "At:market", "sellWood"]);
+
+htn.addCompound("Rest");
+htn.addMethod("Rest", "already rested", ["rested"], []);
+htn.addMethod("Rest", "fire is lit", ["fire"], ["At:home", "sleep"]);
+htn.addMethod("Rest", "light one first", [], ["LightFire", "At:home", "sleep"]);
+
+type Goal = { label: string; literals: string[]; root: string };
 const GOALS: Goal[] = [
-  { label: "Light a fire", literals: ["fire"] },
-  { label: "Earn coins", literals: ["hasCoins"] },
-  { label: "Get some rest", literals: ["rested"] },
+  { label: "Light a fire", literals: ["fire"], root: "LightFire" },
+  { label: "Earn coins", literals: ["hasCoins"], root: "EarnCoins" },
+  { label: "Get some rest", literals: ["rested"], root: "Rest" },
 ];
+
+/** Which planner is in charge: GOAP (cheapest) or HTN (the author's recipes). */
+let useHtn = false;
+/** Draw the villager's route on the ground. */
+let showRoute = true;
+
+function currentPlanner(goal: Goal): string[] {
+  return useHtn ? htn.plan(facts, goal.root) : brain.plan(facts, goal.literals);
+}
+
+function canPlanNow(goal: Goal): boolean {
+  return useHtn ? htn.canPlan(facts, goal.root) : brain.canPlan(facts, goal.literals);
+}
 
 const START = ["at:home"];
 
@@ -133,6 +196,43 @@ const IRON = mat("#9aa0a8", 0.5, 0.7);
 const FLAME = Material.create({ color: Color.hex("#ff8a2e"), smoothness: 0.2, metallic: 0, emission: Color.hex("#ff6a10") });
 const PATH = mat("#b9a77e");
 
+// --- Where the villager can walk -------------------------------------------------------------
+
+// Half-metre cells over the 28 x 22 m green. Buildings and trees block cells, grass costs more to
+// cross than the dirt roads, so A* keeps to the roads unless the way over the grass is much shorter.
+const CELL = 0.5;
+const GRID_X0 = -14;
+const GRID_Z0 = -11;
+const COLS = 56;
+const ROWS = 44;
+const GRASS_COST = 2.5;
+const grid = new NavGrid(v3(COLS, 1, ROWS), v3(GRID_X0, 0, GRID_Z0), CELL);
+for (let cz = 0; cz < ROWS; cz++) {
+  for (let cx = 0; cx < COLS; cx++) grid.setWeight(v3(cx, 0, cz), GRASS_COST);
+}
+
+/** Blocks the cells a footprint touches, grown by `margin` metres so the villager clears the corners. */
+function blockRect(x0: number, z0: number, x1: number, z1: number, margin: number) {
+  grid.setBoxBlocked(v3(x0 - margin, 0.1, z0 - margin), v3(x1 + margin, 0.1, z1 + margin), true);
+}
+
+/** Makes the cells within `half` metres of a road segment cheap to walk. */
+function layRoad(ax: number, az: number, bx: number, bz: number, half: number) {
+  const dx = bx - ax;
+  const dz = bz - az;
+  const len2 = dx * dx + dz * dz;
+  for (let cz = 0; cz < ROWS; cz++) {
+    for (let cx = 0; cx < COLS; cx++) {
+      const px = GRID_X0 + (cx + 0.5) * CELL;
+      const pz = GRID_Z0 + (cz + 0.5) * CELL;
+      const t = Math.min(1, Math.max(0, ((px - ax) * dx + (pz - az) * dz) / len2));
+      const ex = ax + dx * t - px;
+      const ez = az + dz * t - pz;
+      if (ex * ex + ez * ez <= half * half) grid.setWeight(v3(cx, 0, cz), 1);
+    }
+  }
+}
+
 function shape(
   name: string,
   mesh: "cube" | "sphere" | "cylinder" | "capsule" | "plane",
@@ -149,6 +249,7 @@ function shape(
 
 /** A tree: trunk and a stack of leaf blobs. */
 function tree(x: number, z: number, height: number) {
+  blockRect(x - 0.3, z - 0.3, x + 0.3, z + 0.3, 0.35);
   shape("Trunk", "cylinder", v3(x, height / 2, z), v3(0.4, height / 2, 0.4), DARK_WOOD);
   shape("Leaves", "sphere", v3(x, height + 0.7, z), v3(2.4, 2.2, 2.4), LEAVES);
   shape("Leaves", "sphere", v3(x, height + 1.9, z), v3(1.7, 1.6, 1.7), LEAVES);
@@ -156,6 +257,7 @@ function tree(x: number, z: number, height: number) {
 
 /** A little house: walls, a two-sided roof, a door. */
 function house(x: number, z: number, w: number, d: number, roof: Material) {
+  blockRect(x - w / 2, z - d / 2, x + w / 2, z + d / 2, 0.35);
   shape("Walls", "cube", v3(x, 1.2, z), v3(w, 2.4, d), PLASTER);
   shape("Roof L", "cube", v3(x - w * 0.27, 2.85, z), v3(w * 0.62, 0.2, d + 0.5), roof, undefined, Quaternion.euler(0, 0, 28));
   shape("Roof R", "cube", v3(x + w * 0.27, 2.85, z), v3(w * 0.62, 0.2, d + 0.5), roof, undefined, Quaternion.euler(0, 0, -28));
@@ -191,6 +293,7 @@ function buildVillage() {
     const len = Math.sqrt((sx - hx) * (sx - hx) + (sz - hz) * (sz - hz));
     const yaw = (Math.atan2(sx - hx, sz - hz) * 180) / Math.PI;
     shape("Path", "cube", v3((sx + hx) / 2, 0.012, (sz + hz) / 2), v3(1.1, 0.02, len), PATH, undefined, Quaternion.euler(0, yaw, 0));
+    layRoad(hx, hz, sx, sz, 0.7);
   }
 
   // Shed.
@@ -212,6 +315,7 @@ function buildVillage() {
   shape("Crate", "cube", v3(mx - 2.4, 0.4, mz + 0.8), v3(0.8, 0.8, 0.8), WOOD);
   shape("Crate", "cube", v3(mx + 2.4, 0.3, mz + 1.0), v3(0.6, 0.6, 0.6), WOOD);
   shape("Coin pile", "cylinder", v3(mx - 0.4, 0.92, mz + 0.2), v3(0.3, 0.04, 0.3), GOLD);
+  blockRect(mx - 2.9, mz - 1.0, mx + 2.9, mz + 1.5, 0.3);
   // Camp: a ring of stones; the fire is lit by the plan.
   const [cx, cz] = PLACES.camp.site;
   for (let i = 0; i < 9; i++) {
@@ -219,6 +323,8 @@ function buildVillage() {
     shape("Stone", "sphere", v3(cx + Math.cos(a) * 0.9, 0.18, cz + Math.sin(a) * 0.9), v3(0.4, 0.3, 0.4), STONE);
   }
   shape("Log seat", "cylinder", v3(cx - 2, 0.3, cz + 0.6), v3(0.3, 0.9, 0.3), DARK_WOOD, undefined, Quaternion.euler(0, 0, 90));
+  blockRect(cx - 1.0, cz - 1.0, cx + 1.0, cz + 1.0, 0.2);
+  blockRect(cx - 2.9, cz + 0.3, cx - 1.1, cz + 0.9, 0.1);
   // Home.
   const [hx, hz] = PLACES.home.site;
   house(hx, hz, 4.2, 3.4, ROOF_BLUE);
@@ -249,6 +355,10 @@ class Villager {
   yaw = 180;
   stride = 0;
   phase = 0;
+  /** The route of the walk in progress: A* waypoints, the next one's index, and the walk it is for. */
+  path: Vector3[] = [];
+  pathIdx = 0;
+  pathTo = "";
 
   constructor() {
     this.root = new GameObject("Villager", { position: v3(this.x, 0, this.z) });
@@ -294,24 +404,51 @@ class Villager {
     go.transform.localScale = on ? scale : v3(0, 0, 0);
   }
 
+  /** The rest of the current route, as a line on the ground. */
+  drawPath() {
+    if (this.pathTo === "" || this.path.length === 0) return;
+    Gizmos.color = Color.hex("#ffffff");
+    let last = v3(this.x, 0.08, this.z);
+    for (let i = this.pathIdx; i < this.path.length; i++) {
+      const p = v3(this.path[i]!.x, 0.08, this.path[i]!.z);
+      Gizmos.drawLine(last, p);
+      last = p;
+    }
+  }
+
   update(dt: number, time: number) {
     if (teleport) {
       this.x = PLACES.home.stand[0];
       this.z = PLACES.home.stand[1];
       this.yaw = 180;
+      this.pathTo = "";
       teleport = false;
     }
-    const plan = brain.plan(facts, currentGoal().literals);
+    const plan = currentPlanner(currentGoal());
     const next = plan[0];
     let walking = false;
     let doing = "";
     if (next !== undefined) {
       if (next.startsWith("go:")) {
         const [tx, tz] = PLACES[next.slice(3) as Place].stand;
-        const dx = tx - this.x;
-        const dz = tz - this.z;
-        const d = Math.sqrt(dx * dx + dz * dz);
-        if (d > 0.15) {
+        // A new walk: find the route over the village (round buildings, along the roads).
+        if (this.pathTo !== next) {
+          this.path = grid.findPath(v3(this.x, 0.25, this.z), v3(tx, 0.25, tz), false);
+          if (this.path.length === 0) this.path = [v3(tx, 0.25, tz)];
+          this.pathIdx = 0;
+          this.pathTo = next;
+        }
+        const dEnd = Math.sqrt((tx - this.x) * (tx - this.x) + (tz - this.z) * (tz - this.z));
+        if (dEnd > 0.15) {
+          // Head for the next waypoint, moving on when close to it.
+          let wp = this.path[this.pathIdx]!;
+          while (this.pathIdx < this.path.length - 1 && Math.abs(wp.x - this.x) + Math.abs(wp.z - this.z) < 0.5) {
+            this.pathIdx++;
+            wp = this.path[this.pathIdx]!;
+          }
+          const dx = wp.x - this.x;
+          const dz = wp.z - this.z;
+          const d = Math.max(1e-6, Math.sqrt(dx * dx + dz * dz));
           const stepLen = Math.min(d, 4.2 * dt);
           this.x += (dx / d) * stepLen;
           this.z += (dz / d) * stepLen;
@@ -319,6 +456,7 @@ class Villager {
           walking = true;
         } else {
           facts = applyAction(facts, next);
+          this.pathTo = "";
         }
       } else {
         doing = next;
@@ -379,10 +517,16 @@ class Village extends Component {
 
   override onUpdate(dt: number) {
     this.t += dt;
-    if (this.villager !== null) this.villager.update(Math.min(dt, 0.1), this.t);
+    if (this.villager !== null) {
+      this.villager.update(Math.min(dt, 0.1), this.t);
+      // Gizmo lines are drawn between `clear` and `present` for a camera.
+      Gizmos.clear();
+      if (showRoute) this.villager.drawPath();
+    }
 
     const cam = Camera.main;
     if (!cam) return;
+    Gizmos.present(cam);
     for (const b of billboards) b.transform.rotation = cam.transform.rotation;
     // Orbit with A / D (or the arrows); W / S or the wheel zoom.
     this.yaw += input.getAxisRaw("Horizontal") * 60 * dt;
@@ -425,8 +569,8 @@ function Hud() {
   }, []);
 
   const goal = currentGoal();
-  const plan = brain.plan(facts, goal.literals);
-  const reachable = brain.canPlan(facts, goal.literals);
+  const plan = currentPlanner(goal);
+  const reachable = canPlanNow(goal);
   const status = plan.length === 0 ? (reachable ? "Done." : "No plan reaches this goal.") : "Plan (" + plan.length + " steps left)";
   return (
     <box style={{ width: "100%", height: "100%", padding: 16, pointerEvents: "none", alignItems: "flex-start" }}>
@@ -441,7 +585,11 @@ function Hud() {
           border: "1px solid rgba(255,255,255,0.15)",
         }}
       >
-        <text style={{ color: "#e8eefc", fontSize: 22, fontWeight: 800 }}>GOAP villager</text>
+        <text style={{ color: "#e8eefc", fontSize: 22, fontWeight: 800 }}>{useHtn ? "HTN villager" : "GOAP villager"}</text>
+        <box style={{ flexDirection: "row", gap: 6 }}>
+          <Button label="GOAP: cheapest" active={!useHtn} onPress={() => (useHtn = false)} />
+          <Button label="HTN: recipes" active={useHtn} onPress={() => (useHtn = true)} />
+        </box>
         <text style={{ color: "#9fb0cc", fontSize: 13 }}>Goal</text>
         {GOALS.map((g, i) => (
           <Button key={g.label} label={g.label} active={i === goalIndex} onPress={() => restart(coins, i)} />
@@ -453,6 +601,17 @@ function Hud() {
             {i + 1}. {describe(a)}
           </text>
         ))}
+        {useHtn && plan.length > 0 && (
+          <box style={{ flexDirection: "column", gap: 2 }}>
+            <text style={{ color: "#9fb0cc", fontSize: 12 }}>How the recipes broke it down:</text>
+            {htn.methods().map((m, i) => (
+              <text key={m + i} style={{ color: "#6b7a99", fontSize: 11 }}>
+                {m}
+              </text>
+            ))}
+          </box>
+        )}
+        <Button label={showRoute ? "Route: shown" : "Route: hidden"} active={showRoute} onPress={() => (showRoute = !showRoute)} />
         <text style={{ color: "#6b7a99", fontSize: 12 }}>Facts: {facts.filter((f) => !f.startsWith("at:")).join(", ") || "none"}</text>
         <text style={{ color: "#6b7a99", fontSize: 12 }}>A/D orbit · W/S or wheel zoom</text>
       </box>

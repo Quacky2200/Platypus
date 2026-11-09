@@ -350,7 +350,8 @@ class Maze extends Component {
       this.gateObj.transform.localScale = gateMode > 0 ? v3((GATE[2]! - GATE[0]! + 1) * CELL, gh, (GATE[3]! - GATE[1]! + 1) * CELL) : v3(0, 0, 0);
     }
 
-    // The flow field as short arrows, one per cell.
+    // The flow field as short arrows, one per cell (gizmo lines are drawn between clear and present).
+    Gizmos.clear();
     if (showField) {
       Gizmos.color = Color.hex("#5ec8ff");
       for (let z = 0; z < ROWS; z++) {
@@ -362,6 +363,8 @@ class Maze extends Component {
         }
       }
     }
+
+    Gizmos.present(cam);
 
     // Orbit with A / D (or the arrows), zoom with W / S or the wheel.
     this.yaw += input.getAxisRaw("Horizontal") * 60 * dt;

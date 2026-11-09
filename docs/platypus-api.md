@@ -446,13 +446,26 @@ the script side:
   that chase a wanted velocity close the gap in about a quarter of a second (`steering::GAIN`, 4 per second);
   `separation` is a plain repulsion that is zero when nobody is close, so it never brakes the others.
   `examples/bot-nav` walks a bot around a wall with them; `examples/goap-demo` and `examples/wildlife` (a 3D
-  ecosystem of GOAP rabbits and foxes) use the rest. Tests `AI-01`..`13` (Rust) and `AI-20`..`22` (the script API).
+  ecosystem of GOAP rabbits and foxes) use the rest. `Gizmos` lines reach the screen only after `Gizmos.clear()`,
+  the drawing, and `Gizmos.present(camera)` each frame (`examples/rats`, `examples/goap-demo`). Tests `AI-01`..`13` (Rust) and `AI-20`..`22` (the script API).
 - `new Goap()` (`goap.rs`): goal-oriented action planning over named boolean facts (at most 64; `"!name"` is
   false, unlisted facts are false). `addAction(name, cost, preconditions, effects)` (false when its literals
   contradict), `plan(facts, goal)` (action names in order; empty when the goal is already met *or* there is
   no plan), `canPlan(facts, goal)`, `setMaxExpansions`, `destroy()`. A* runs over world states
   (`astar::search`, a goal predicate); the estimate is the cheapest action's cost while the goal is unmet.
   Tests `AI-30`..`35` (Rust), `AI-24` (script API).
+- `new Htn()` (`htn.rs`): a hierarchical task network, the authored counterpart of GOAP (same named boolean
+  facts, shared in `facts.rs`). *Primitive* tasks (`addPrimitive(name, cost, preconditions, effects)`) are the steps of
+  a plan; *compound* tasks (`addCompound(name)`) have *methods* (`addMethod(compound, name, preconditions,
+  subtasks)`), tried in the order they were added, each replacing the task with its subtasks (names, compound or
+  primitive, defined in any order). `plan(facts, root)` decomposes the root depth first, checking each method's
+  conditions against the world as the earlier steps will have left it, and backs up to the next method when a branch
+  fails (an explicit choice stack, so a long plan can't overflow the call stack); the result is the *first* plan the
+  order allows, not the cheapest, so put the preferred method first and a catch-all with no conditions last.
+  `methods()` gives the methods the last plan used (`"GetWood: chop it"`), `canPlan`, `unknownSubtasks()`,
+  `setMaxSteps` (a recursive method that never ends is cut off; so is left recursion that keeps growing the list).
+  A task that is replanned every frame needs an "already done" method first, as GOAP has its goal check.
+  `examples/goap-demo` runs the same villager under GOAP and HTN. Tests `AI-50`..`55` (Rust), `AI-29` (script API).
 - `new FlowField(grid, goals)` and `new Crowd(grid, field, radius = 0.3)` (`flow.rs`): crowd navigation. One
   Dijkstra search from the goal cells outward gives every cell of the `NavGrid` its cost to the nearest goal
   (the grid's own connectivity, corner cutting and weights) and a unit direction of steepest descent, blended over

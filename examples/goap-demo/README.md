@@ -1,21 +1,30 @@
 # goap-demo
 
-A villager planned by GOAP (goal-oriented action planning), in a small 3D village. Pick a goal and the `Goap`
-planner finds the cheapest list of actions from the facts that are true now; the villager then walks the plan
-out, place by place.
+A villager in a small 3D village, planned by either of two AI planners, one button apart: **GOAP** and **HTN**.
+Pick a goal and the planner works out the steps; the villager then walks them out, place by place.
 
 - **Goals:** light a fire, earn coins, get some rest (which needs a fire first).
-- **Purse:** with a coin the villager buys firewood at the market when that is cheaper than fetching the axe,
-  chopping and carrying the wood; with an empty purse it takes the axe from the shed and chops.
+- **GOAP** (`Goap.plan`) searches for the *cheapest* list of actions from the facts that are true now.
+- **HTN** (`Htn.plan`) follows *recipes the author wrote*. A compound task such as `GetWood` has methods tried in
+  order (use the wood you have, spend a coin, chop it), each breaking it into subtasks; the first plan the order
+  allows wins, and the overlay shows how the recipes broke the goal down ("How the recipes broke it down").
+- **Where they differ:** start with a coin (the Purse button) and ask for a fire. GOAP finds chopping a little
+  cheaper (abstract cost 12 against 13) and goes to the shed. This HTN's author put "spend a coin" first, so it
+  buys the wood at the market. Neither is wrong: the costs are numbers the author chose, and the recipes are an
+  order the author chose. (In walking time, buying is shorter here, which the cost numbers don't know.)
+- **Walking** is A* (`NavGrid`) over the village: buildings, trees and the stall block cells, grass costs 2.5 to
+  cross and the dirt roads cost 1, so the villager goes round buildings and keeps to the roads unless the grass is
+  much shorter (the shed to the forest goes back through the crossroads). The white line on the ground is the
+  route; the Route button hides it.
 - **What you see:** the villager swings arms and legs to walk, carries the axe, a log on the back or a purse while
   those facts are true, chops, buys and sells with an outstretched arm, lights the fire at the camp (flames and a
-  light) and lies down to sleep at home. The plan in the overlay updates as the facts change; its first step is
-  highlighted.
-- **Controls:** the goal and purse buttons in the overlay; A / D (or the arrows) orbit, W / S or the wheel zoom.
+  light) and lies down to sleep at home.
+- **Controls:** the planner, goal, purse and route buttons in the overlay; A / D (or the arrows) orbit, W / S or
+  the wheel zoom.
 
-APIs used: `new Goap()`, `addAction(name, cost, preconditions, effects)`, `plan(facts, goal)`, `canPlan(...)`
-(`docs/platypus-api.md`, "Bot AI"), `GameObject` / `MeshRenderer` / `Light` / `TextMesh` / `Camera`, and a React
-overlay.
+APIs used: `Goap`, `Htn` (`addPrimitive`, `addCompound`, `addMethod`, `plan`, `canPlan`, `methods`), `NavGrid`
+(`setBoxBlocked`, `setWeight`, `findPath`), `Gizmos`, `GameObject` / `MeshRenderer` / `Light` / `TextMesh` /
+`Camera`, and a React overlay (`docs/platypus-api.md`, "Bot AI").
 
 ## Build and run
 
@@ -29,8 +38,13 @@ cargo run --release -p platypus_app -- examples/goap-demo
 
 ## How it works
 
-Facts are strings (`"hasAxe"`, `"at:forest"`); `"!hasAxe"` means false. Walking is one `go:<place>` action per
-place, costing 2 from anywhere. The villager's facts live in module state; the `Village` component asks
-`brain.plan(facts, goal)` every frame, walks toward the next action's place or spends a beat on the action, and
-applies the action's effects when it is done, which changes the facts and so the plan. The overlay reads the same
-state ten times a second.
+Facts are strings (`"hasAxe"`, `"at:forest"`); `"!hasAxe"` means false. Both planners get the same steps (`go:<place>`
+costing 2, `takeAxe`, `chopWood`, ...). The HTN adds compound tasks: `At:<place>` (nothing if already there, else
+walk), `GetAxe`, `GetWood`, and one per goal (`LightFire`, `EarnCoins`, `Rest`). The villager's facts live in module
+state; each frame the `Village` component asks the chosen planner for a plan, walks toward the next step's place
+along an A* route or spends a beat on the step, and applies the step's effects when it is done, which changes the
+facts and so the plan.
+
+Because the plan is recomputed every frame, each HTN recipe starts with an "already done" method (`LightFire:
+already lit`, `Rest: already rested`): GOAP knows it is finished when its goal is met, but an HTN task with no such
+method would plan the whole job again.
