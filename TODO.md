@@ -1816,7 +1816,8 @@ Design and API: `docs/spatial-audio.md`. Tests `ACO-*`.
 - [ ] Navmesh from scene colliders, dynamic obstacles / replanning
 - [x] Simple GOAP: boolean facts, costed actions, A* planner, `Goap` script API (`AI-24`, `AI-30`..`35`)
 - [ ] GOAP follow-ups: a goal-priority picker, replanning when an action fails, numeric facts
-- [ ] Mass navigation: flow fields for crowds (rats), local avoidance
+- [x] Mass navigation: flow fields for crowds (rats) with separation, `FlowField` / `Crowd` script API, `examples/rats` (`AI-26`, `AI-40`..`47`)
+- [ ] Crowd follow-ups: several fields (one per goal group), moving obstacles, instanced rendering for thousands of agents
 - [ ] Small neural nets (tiny feed-forward, evolvable)
 
 ## M8 — Multiplayer

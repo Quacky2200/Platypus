@@ -2798,6 +2798,11 @@ Run from `tools/`: `cargo test --workspace` (the build script compiles `sim.ts` 
 | AI-24 | Unit | `Goap` handle: plans in order, tells "no plan" (`canPlan`) from "already met", rejects contradictory actions, and a destroyed planner plans nothing. |
 | AI-30 | Unit | GOAP picks the cheapest plan (chopping over buying wood), and costs decide between routes (`AI-31`). |
 | AI-32 | Unit | GOAP: a met goal needs no actions, an impossible one no plan; negative goals and effects work (`AI-33`); bad literals and a 65th fact are errors (`AI-34`); the expansion limit gives up (`AI-35`). |
+| AI-26 | Unit | `FlowField` / `Crowd` handles: distances are finite round a wall and `Infinity` inside it, agents reach the goal without entering a wall, `positions()` is flat x, y, z, `remove` and `rebuild` take effect, and destroyed handles give nothing. |
+| AI-40 | Unit | Flow field distances grow away from the goal (Manhattan on six-connectivity), blocked and out-of-grid cells are infinite (`AI-41`: sealed-off areas have no distance and no direction). |
+| AI-42 | Unit | Following the field from a start goes around a wall through its gap to the goal; the blended direction is smooth and at most length 1 (`AI-43`); weights bend the flow round costly cells (`AI-44`). |
+| AI-45 | Unit | A crowd of 150 reaches a goal round a wall without entering a blocked cell; separation keeps a crowd started in one spot spread out (`AI-46`); `remove` swaps the last agent in (`AI-47`). |
+| AI-27 | Manual | `examples/rats` (a maze with a swarm on a flow field) and the 3D `examples/goap-demo` render in `--screenshot` runs. |
 | AI-25 | Manual | `examples/goap-demo` (a villager walks a GOAP plan) and `examples/wildlife` (a 3D meadow of GOAP rabbits and foxes: hopping, pond, rocks, Tab stats) render in `--screenshot` runs (checked 2026-11-09); `wildlife` runs headless for several minutes with births, kills and deaths logged and both species surviving about five minutes before migration tops them up. Hopping and the keys were not checked in a live window. |
 | AI-23 | Manual | `platypus-build build examples/bot-nav` compiles scripts calling `NavGrid` and `Steering` (checked 2026-11-08; not yet run in the app). |
 

@@ -453,6 +453,18 @@ the script side:
   no plan), `canPlan(facts, goal)`, `setMaxExpansions`, `destroy()`. A* runs over world states
   (`astar::search`, a goal predicate); the estimate is the cheapest action's cost while the goal is unmet.
   Tests `AI-30`..`35` (Rust), `AI-24` (script API).
+- `new FlowField(grid, goals)` and `new Crowd(grid, field, radius = 0.3)` (`flow.rs`): crowd navigation. One
+  Dijkstra search from the goal cells outward gives every cell of the `NavGrid` its cost to the nearest goal
+  (the grid's own connectivity, corner cutting and weights) and a unit direction of steepest descent, blended over
+  every lower neighbour. `field.direction(p)` blends the cell directions around a world point (at most length 1,
+  shorter right at a goal, zero where there is no way); `field.distance(p)` is `Infinity` behind walls;
+  `field.rebuild(goals)` searches again on the grid as it is now (a changed wall or weight shows up).
+  A `Crowd` is a swarm along a field: each agent follows `direction` at its own speed, pushes apart from agents
+  within twice `radius` (a spatial hash, so a step is linear in the number of agents), stops within
+  `setGoalRadius` of the goal and slides along blocked cells. `add(p, speed)`, `remove(i)` (the last agent takes
+  the gap), `step(dt)`, `positions()` (flat x, y, z for all agents in one call), `position(i)`, `velocity(i)`,
+  `count`, `setField`, `setSeparation`. `examples/rats` is a maze of 300 to 800 rats. Tests `AI-40`..`47` (Rust),
+  `AI-26` (script API).
 
 ## Fog, light shafts and exposure in native games (2026-10-21)
 

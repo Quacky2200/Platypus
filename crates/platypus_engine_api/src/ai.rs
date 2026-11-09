@@ -7,7 +7,7 @@
 
 use glam::{IVec3, Vec3};
 use platypus_ai::steering::Agent;
-use platypus_ai::{Connectivity, Goap, NavGrid};
+use platypus_ai::{Connectivity, Crowd, FlowField, Goap, NavGrid};
 use platypus_math::{V3, v3};
 use std::cell::RefCell;
 use ts_api::{Handle, ts_api};
@@ -33,6 +33,8 @@ thread_local! {
 pub fn reset() {
     GRIDS.with(|g| g.borrow_mut().clear());
     PLANNERS.with(|g| g.borrow_mut().clear());
+    FIELDS.with(|g| g.borrow_mut().clear());
+    CROWDS.with(|g| g.borrow_mut().clear());
 }
 
 fn with_grid<R>(r: NavGridRef, f: impl FnOnce(&mut NavGrid) -> R) -> Option<R> {
@@ -273,6 +275,281 @@ pub mod goap_api {
     }
 }
 
+/// A `FlowField` by number (1-based: 0 is "none").
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct FlowFieldRef(pub u32);
+
+impl Handle for FlowFieldRef {
+    fn to_raw(self) -> u64 {
+        u64::from(self.0)
+    }
+    fn from_raw(raw: u64) -> Self {
+        FlowFieldRef(raw as u32)
+    }
+}
+
+/// A `Crowd` by number (1-based: 0 is "none").
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct CrowdRef(pub u32);
+
+impl Handle for CrowdRef {
+    fn to_raw(self) -> u64 {
+        u64::from(self.0)
+    }
+    fn from_raw(raw: u64) -> Self {
+        CrowdRef(raw as u32)
+    }
+}
+
+struct FieldEntry {
+    field: FlowField,
+    /// The grid it was built from (`rebuild` reads it again, so changes to it show).
+    grid: NavGridRef,
+}
+
+struct CrowdEntry {
+    crowd: Crowd,
+    grid: NavGridRef,
+    field: FlowFieldRef,
+}
+
+thread_local! {
+    static FIELDS: RefCell<Vec<Option<FieldEntry>>> = const { RefCell::new(Vec::new()) };
+    static CROWDS: RefCell<Vec<Option<CrowdEntry>>> = const { RefCell::new(Vec::new()) };
+}
+
+/// Runs `f` on a grid without needing it mutable (so it can be borrowed next to other state).
+fn read_grid<R>(r: NavGridRef, f: impl FnOnce(&NavGrid) -> R) -> Option<R> {
+    GRIDS.with(|g| {
+        let g = g.borrow();
+        let i = (r.0 as usize).checked_sub(1)?;
+        g.get(i)?.as_ref().map(f)
+    })
+}
+
+fn build_field(grid: NavGridRef, goals: &[V3]) -> Option<FlowField> {
+    read_grid(grid, |g| {
+        let cells: Vec<IVec3> = goals.iter().map(|&p| g.world_to_cell(vec(p))).collect();
+        FlowField::build(g, &cells)
+    })
+}
+
+fn with_crowd<R>(r: CrowdRef, f: impl FnOnce(&mut CrowdEntry) -> R) -> Option<R> {
+    CROWDS.with(|c| {
+        let mut c = c.borrow_mut();
+        let i = (r.0 as usize).checked_sub(1)?;
+        c.get_mut(i)?.as_mut().map(f)
+    })
+}
+
+#[ts_api(
+    namespace = "FlowField", like,
+    handles(FlowField = FlowFieldRef, NavGrid = NavGridRef),
+    values(Vector3 = V3 [x: f64, y: f64, z: f64])
+)]
+pub mod flow_field_api {
+    use super::*;
+
+    /// Crowd navigation: one search from the goals outward gives every cell of a `NavGrid` its distance
+    /// to the nearest goal and the direction that way. Any number of agents then read the field where
+    /// they stand, so a thousand rats cost one search. `rebuild` after the grid or the goals change.
+    impl FlowFieldRef {
+        /// `new FlowField(grid, goals)`: the field of `grid` towards the world points `goals`
+        /// (goals inside walls are ignored).
+        pub fn create(grid: NavGridRef, goals: &[V3]) -> FlowFieldRef {
+            let Some(field) = build_field(grid, goals) else {
+                return FlowFieldRef(0);
+            };
+            FIELDS.with(|all| {
+                let mut all = all.borrow_mut();
+                all.push(Some(FieldEntry { field, grid }));
+                FlowFieldRef(all.len() as u32)
+            })
+        }
+
+        /// Forgets the field (a handle is a number, nothing frees it by itself).
+        pub fn destroy(self) {
+            FIELDS.with(|all| {
+                let mut all = all.borrow_mut();
+                if let Some(slot) = (self.0 as usize)
+                    .checked_sub(1)
+                    .and_then(|i| all.get_mut(i))
+                {
+                    *slot = None;
+                }
+            });
+        }
+
+        /// Searches again from new goals, on the grid as it is now (walls and weights that changed
+        /// show up).
+        pub fn rebuild(self, goals: &[V3]) {
+            let grid = FIELDS.with(|all| {
+                let all = all.borrow();
+                (self.0 as usize)
+                    .checked_sub(1)
+                    .and_then(|i| all.get(i)?.as_ref().map(|e| e.grid))
+            });
+            let Some(grid) = grid else { return };
+            if let Some(field) = build_field(grid, goals) {
+                FIELDS.with(|all| {
+                    let mut all = all.borrow_mut();
+                    if let Some(Some(e)) = (self.0 as usize)
+                        .checked_sub(1)
+                        .and_then(|i| all.get_mut(i))
+                    {
+                        e.field = field;
+                    }
+                });
+            }
+        }
+
+        /// Which way to go from a world point: at most length 1, smooth between cells, shorter near a
+        /// goal, zero where there is no way (a wall, or cut off from every goal).
+        pub fn direction(self, p: V3) -> V3 {
+            FIELDS
+                .with(|all| {
+                    let all = all.borrow();
+                    let i = (self.0 as usize).checked_sub(1)?;
+                    all.get(i)?.as_ref().map(|e| e.field.direction(vec(p)))
+                })
+                .map_or(V3::ZERO, v3_of)
+        }
+
+        /// The cost of the cheapest way from a world point to a goal in metres (weights counted);
+        /// `Infinity` where there is none.
+        pub fn distance(self, p: V3) -> f64 {
+            FIELDS
+                .with(|all| {
+                    let all = all.borrow();
+                    let i = (self.0 as usize).checked_sub(1)?;
+                    all.get(i)?.as_ref().map(|e| e.field.distance(vec(p)))
+                })
+                .map_or(f64::INFINITY, f64::from)
+        }
+    }
+}
+
+#[ts_api(
+    namespace = "Crowd", like,
+    handles(Crowd = CrowdRef, NavGrid = NavGridRef, FlowField = FlowFieldRef),
+    values(Vector3 = V3 [x: f64, y: f64, z: f64])
+)]
+pub mod crowd_api {
+    use super::*;
+
+    /// A swarm walking a `FlowField`: each agent follows the field with a little separation from the
+    /// others, and slides along the grid's walls. Agents are numbered from 0; `remove` moves the last
+    /// agent into the gap.
+    impl CrowdRef {
+        /// `new Crowd(grid, field, radius?)`: agents closer than twice `radius` (default 0.3 m) push apart.
+        #[optional(radius = 0.3)]
+        pub fn create(grid: NavGridRef, field: FlowFieldRef, radius: f64) -> CrowdRef {
+            CROWDS.with(|all| {
+                let mut all = all.borrow_mut();
+                all.push(Some(CrowdEntry {
+                    crowd: Crowd::new(radius as f32),
+                    grid,
+                    field,
+                }));
+                CrowdRef(all.len() as u32)
+            })
+        }
+
+        /// Forgets the crowd (a handle is a number, nothing frees it by itself).
+        pub fn destroy(self) {
+            CROWDS.with(|all| {
+                let mut all = all.borrow_mut();
+                if let Some(slot) = (self.0 as usize)
+                    .checked_sub(1)
+                    .and_then(|i| all.get_mut(i))
+                {
+                    *slot = None;
+                }
+            });
+        }
+
+        /// Adds an agent at a world point with a top speed (metres per second); its number.
+        pub fn add(self, p: V3, speed: f64) -> f64 {
+            with_crowd(self, |e| e.crowd.add(vec(p), speed as f32) as f64).unwrap_or(-1.0)
+        }
+
+        /// Removes an agent; the last agent takes its number.
+        pub fn remove(self, index: f64) {
+            with_crowd(self, |e| e.crowd.remove(index as usize));
+        }
+
+        /// How many agents there are.
+        #[property]
+        pub fn count(self) -> f64 {
+            with_crowd(self, |e| e.crowd.len() as f64).unwrap_or(0.0)
+        }
+
+        /// Follow a different field (a new goal, a rebuilt map).
+        pub fn set_field(self, field: FlowFieldRef) {
+            with_crowd(self, |e| e.field = field);
+        }
+
+        /// Agents this close to a goal (field distance, metres) stop; 0 means they only stop on it.
+        pub fn set_goal_radius(self, radius: f64) {
+            with_crowd(self, |e| e.crowd.goal_radius = radius as f32);
+        }
+
+        /// How hard agents push apart, as a fraction of their speed (default 1).
+        pub fn set_separation(self, strength: f64) {
+            with_crowd(self, |e| e.crowd.separation = strength as f32);
+        }
+
+        /// Moves every agent `dt` seconds.
+        pub fn step(self, dt: f64) {
+            CROWDS.with(|all| {
+                let mut all = all.borrow_mut();
+                let Some(Some(e)) = (self.0 as usize)
+                    .checked_sub(1)
+                    .and_then(|i| all.get_mut(i))
+                else {
+                    return;
+                };
+                FIELDS.with(|fields| {
+                    let fields = fields.borrow();
+                    let Some(Some(f)) = (e.field.0 as usize)
+                        .checked_sub(1)
+                        .and_then(|i| fields.get(i))
+                    else {
+                        return;
+                    };
+                    read_grid(e.grid, |g| e.crowd.step(&f.field, g, dt as f32));
+                });
+            });
+        }
+
+        /// Every agent's position, flat: x0, y0, z0, x1, y1, z1, ... (one call instead of one per agent).
+        pub fn positions(self) -> Vec<f64> {
+            with_crowd(self, |e| {
+                e.crowd
+                    .positions
+                    .iter()
+                    .flat_map(|p| [f64::from(p.x), f64::from(p.y), f64::from(p.z)])
+                    .collect()
+            })
+            .unwrap_or_default()
+        }
+
+        /// One agent's position.
+        pub fn position(self, index: f64) -> V3 {
+            with_crowd(self, |e| e.crowd.positions.get(index as usize).copied())
+                .flatten()
+                .map_or(V3::ZERO, v3_of)
+        }
+
+        /// One agent's velocity.
+        pub fn velocity(self, index: f64) -> V3 {
+            with_crowd(self, |e| e.crowd.velocities.get(index as usize).copied())
+                .flatten()
+                .map_or(V3::ZERO, v3_of)
+        }
+    }
+}
+
 fn agent(position: V3, velocity: V3, max_speed: f64, max_force: f64) -> Agent {
     let mut a = Agent::new(vec(position), max_speed as f32, max_force as f32);
     a.velocity = vec(velocity);
@@ -430,6 +707,51 @@ mod tests {
         assert!(!g.can_plan(&[], &s(&["moon"])));
         g.destroy();
         assert!(!g.can_plan(&[], &s(&["wood"])));
+    }
+
+    // AI-26
+    #[test]
+    fn crowd_handle_walks_agents_around_a_wall_to_the_goal() {
+        reset();
+        let grid = NavGridRef::create(v3(20.0, 1.0, 12.0), V3::ZERO, 1.0);
+        grid.set_box_blocked(v3(9.0, 0.0, 0.0), v3(10.5, 0.9, 8.5), true);
+        let goal = v3(17.5, 0.5, 2.5);
+        let field = FlowFieldRef::create(grid, &[goal]);
+        assert!(field.distance(v3(2.5, 0.5, 2.5)).is_finite());
+        assert!(field.distance(v3(9.5, 0.5, 2.5)).is_infinite());
+        assert!(field.direction(v3(9.5, 0.5, 2.5)) == V3::ZERO);
+        let crowd = CrowdRef::create(grid, field, 0.3);
+        crowd.set_goal_radius(2.5);
+        for i in 0..12 {
+            assert_eq!(
+                crowd.add(
+                    v3(2.0 + (i % 4) as f64 * 0.5, 0.5, 2.0 + (i / 4) as f64 * 0.5),
+                    3.0
+                ),
+                i as f64
+            );
+        }
+        assert_eq!(crowd.count(), 12.0);
+        for _ in 0..900 {
+            crowd.step(1.0 / 30.0);
+        }
+        let flat = crowd.positions();
+        assert_eq!(flat.len(), 36);
+        for i in 0..12 {
+            let p = crowd.position(i as f64);
+            assert!(!grid.is_blocked(grid.world_to_cell(p)));
+            assert!(field.distance(p) < 5.0, "agent {i} stuck at {p:?}");
+        }
+        crowd.remove(0.0);
+        assert_eq!(crowd.count(), 11.0);
+        // Moving the goal and rebuilding changes the field.
+        let before = field.distance(v3(2.5, 0.5, 2.5));
+        field.rebuild(&[v3(2.5, 0.5, 10.5)]);
+        assert!(field.distance(v3(2.5, 0.5, 2.5)) != before);
+        crowd.destroy();
+        field.destroy();
+        assert_eq!(crowd.count(), 0.0);
+        assert!(field.distance(v3(2.5, 0.5, 2.5)).is_infinite());
     }
 
     // AI-22
